@@ -10,12 +10,6 @@
     <!-- App favicon -->
     <link rel="shortcut icon" href="<?php echo base_url(); ?>assets/images/favicon.ico">
 
-    <!-- App css -->
-    <link href="<?php echo base_url(); ?>assets/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
-    <link href="<?php echo base_url(); ?>assets/css/jquery-ui.min.css" rel="stylesheet">
-    <link href="<?php echo base_url(); ?>assets/css/icons.min.css" rel="stylesheet" type="text/css" />
-    <link href="<?php echo base_url(); ?>assets/css/metisMenu.min.css" rel="stylesheet" type="text/css" />
-    <link href="<?php echo base_url(); ?>assets/css/app.min.css" rel="stylesheet" type="text/css" />
 
    
     <script src="<?= base_url("/js/general.js") ?>"></script>
@@ -26,24 +20,83 @@
     <?php endforeach;
     endif; ?>
 
-    <style>
-    /* Asegúrate de que el cuerpo de la página cubra toda la pantalla */
-    body {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        background-size: cover;
-        background-position: center;
-        transition: background-image 1s ease-in-out;
-    }
-
-    #particles-js {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-    }
-    </style>
 </head>
+
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: #FEDCC8;
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.parallax {
+  perspective: 100px;
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  right: 0;
+  bottom: 0;
+  margin-left: -1500px;
+}
+
+.parallax__layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.parallax__layer img {
+  display: block;
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  left: 0;
+}
+
+.parallax__cover {
+  background: #2D112B;
+  display: block;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 2000px;
+  z-index: 2;
+}
+
+.parallax__layer__0 {
+  transform: translateZ(-300px) scale(4);
+}
+.parallax__layer__1 {
+  transform: translateZ(-250px) scale(3.5);
+}
+.parallax__layer__2 {
+  transform: translateZ(-200px) scale(3);
+}
+.parallax__layer__3 {
+  transform: translateZ(-150px) scale(2.5);
+}
+.parallax__layer__4 {
+  transform: translateZ(-100px) scale(2);
+}
+.parallax__layer__5 {
+  transform: translateZ(-50px) scale(1.5);
+}
+.parallax__layer__6 {
+  transform: translateZ(0px) scale(1);
+}
+</style>
 
 <body class="account-body accountbg">
     <script>
