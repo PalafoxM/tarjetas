@@ -48,36 +48,35 @@ class Login extends BaseController {
         $this->_renderView($data);        
     }
     public function validar_usuario(){
+        $response = new \stdClass();
+        $response->error = true;
+        $response->respuesta = "Error al validar usuario";
         $session = \Config\Services::session();
         $catalogos = new Mglobal;
         
         $usuario = $this->request->getPost('usuario');
         $contrasenia = $this->request->getPost('contrasenia');
-       
+   
         $data = array();
-        $dataDB = array('tabla' => 'usuario', 'where' =>[ "usuario" => $usuario, "contrasenia"  => md5($contrasenia), "visible" => 1]);  
-        //$dataDB = array('tabla' => 'usuario', 'where' => 'usuario ="'.$usuario.'" and contrasenia like "'.md5($contrasenia).'" and visible = 1');  
+        $dataDB = array('tabla' => 'usuario', 'where' =>[ "usuario" => $usuario, "contrasenia"  => md5($contrasenia), "visible" => 1]);
         
         if($usuario && $contrasenia){
-            $response = $catalogos->getTabla($dataDB);
-            //var_dump($response);
-            //die();
-            if(sizeof($response->data) >= 1){
+            $result = $catalogos->getTabla($dataDB);
+            if(!$result->error){
                 $session->set('logueado', 1);
-                $session->set('id_usuario',$response->data[0]->id_usuario);
-                $session->set('usuario',$response->data[0]->usuario);
-                $session->set('nombre_completo',$response->data[0]->nombre." ".$response->data[0]->primer_apellido." ".$response->data[0]->segundo_apellido);
-                $session->set('id_perfil',$response->data[0]->id_perfil);
-                $session->set('id_padre',$response->data[0]->id_padre);
-                $session->set('id_dependencia',$response->data[0]->id_dependencia);
-                die("correcto");
-            }else{
-                die("error");
-            }            
+                $session->set('id_usuario',$result->data[0]->id_usuario);
+                $session->set('usuario',$result->data[0]->usuario);
+                $session->set('nombre_completo',$result->data[0]->nombre." ".$result->data[0]->primer_apellido." ".$result->data[0]->segundo_apellido);
+                $session->set('id_perfil',$result->data[0]->id_perfil);
+                $session->set('id_padre',$result->data[0]->id_padre);
+                $session->set('id_dependencia',$result->data[0]->id_dependencia);
+                $session->set('cambio_pass',$result->data[0]->cambio_pass);
+                $session->set('fec_nac',$result->data[0]->fec_nac);
+                $response->error     = $result->error;
+                $response->respuesta = $result->respuesta;
+            }     
         }        
-      
-        die("error");
-
+        return $this->respond($response);
     }
     public function cerrar() {
         $session = \Config\Services::session();  

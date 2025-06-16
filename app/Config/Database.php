@@ -58,7 +58,7 @@ class Database extends Config
         //'password'     => 'PalafoxMarin1989',
         'database'    => 'bitacora',
         'DBDriver'    => 'MySQLi',
-        'DBPrefix'    => '',  // Needed to ensure we're working correctly with prefixes live. DO NOT REMOVE FOR CI DEVS
+        'DBPrefix'    => '',   // Needed to ensure we're working correctly with prefixes live. DO NOT REMOVE FOR CI DEVS
         'pConnect'    => false,
         'DBDebug'     => true,
         'charset'     => 'utf8',

@@ -1,6 +1,6 @@
 <?php
-	     //echo view('plantilla/base/lytBaseHead');	
+	     echo view('plantilla/base/lytErrorHead');	
     	 echo view($contentView);
-    	 //echo view('plantilla/base/lytBaseFoot');
+    	 echo view('plantilla/base/lytErrorFoot');
 
 ?>

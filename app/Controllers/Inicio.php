@@ -28,7 +28,34 @@ class Inicio extends BaseController {
         }
     }
 
-    private function _renderView($data = array()) {     
+    private function _renderView($data = array()) { 
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal;   
+        $misCursos = $Mglobal->getTabla(['tabla' => 'estudiante_curso', 'where' => ['visible' => 1, 'id_usuario' => $session->id_usuario ]]);
+        $data["dscCursos"] = []; // Inicializamos como un arreglo vacío
+
+        if (isset($misCursos->data) && !empty($misCursos->data)) {
+            foreach ($misCursos->data as $c) {
+                // Obtener la información del curso
+                $miCurso = $Mglobal->getTabla([
+                    'tabla' => 'cursos_sac', 
+                    'where' => [
+                        'visible' => 1, 
+                        'id_cursos_sac' => $c->id_curso 
+                    ]
+                ]);
+                if (isset($miCurso->data) && !empty($miCurso->data)) {
+                    // Agregar los datos del curso al arreglo
+                    $data["dscCursos"][] = [
+                        'dsc_curso' => $miCurso->data[0]->dsc_curso,
+                        'img' => $miCurso->data[0]->img_ruta,
+                        'id' => $miCurso->data[0]->id_cursos_sac,
+                        'periodo'   => $c->id_periodo
+                    ];
+                }
+            }
+        }  
+        //die(var_dump($data["dscCursos"]));
         $data = array_merge($this->defaultData, $data);
         echo view($data['layout'], $data); 
                       
@@ -37,51 +64,283 @@ class Inicio extends BaseController {
     public function index()
     {        
         $session = \Config\Services::session();
-        $principal = new Mglobal;   
-
-        if($session->get('id_perfil') >= 5){
-            header('Location:'.base_url().'index.php/Principal/Matricular');            
+        $data        = array();
+        if($session->cambio_pass == 0){ 
+            $data['scripts'] = array('inicio');
+            $data['contentView'] = 'secciones/vCambioPass';
+            $data['layout'] = 'plantilla/lytVacio';
+            $this->_renderView($data);
             die();
         }
-        $data = array();
-        
-        $cat_nivel                = $principal->getTabla(['tabla' => 'cat_nivel', 'where' => ['visible' => 1]]); 
-        $cat_perfil               = $principal->getTabla(['tabla' => 'cat_perfil', 'where' => ['visible' => 1]]); 
-        $dependenciaDB            = array('tabla' => 'cat_dependencia', 'where' => ['visible' => 1]);
-        $cat_dependencia          = $principal->getTabla($dependenciaDB);
-        $cat_municipio            = $principal->getTabla(['tabla' => 'cat_municipio', 'where' => ['visible' => 1]]);
-        $data['cat_nivel']        = $cat_nivel->data;
-        $data['cat_perfil']       = $cat_perfil->data;
-        $data['cat_dependencia']  = $cat_dependencia->data;
-        $data['cat_municipio']    = $cat_municipio->data;
-        $data['scripts']          = array('principal','inicio');
-        $data['edita']            = 0;
-        $data['nombre_completo']  = $session->nombre_completo; 
-        $data['contentView']      = 'secciones/vInicio';                
+        if($session->id_perfil == 8){
+            header('Location:'.base_url().'index.php/Agregar/ProgramarCurso');            
+            die();
+        }  
+   
+        $data['scripts'] = array('principal','inicio');
+        $data['edita'] = 0;
+        $data['nombre_completo'] = $session->nombre_completo; 
+        $data['contentView'] = 'secciones/vInicio';                
         $this->_renderView($data);
         
     }
+    public function Preinscritos()
+    {        
+        $session = \Config\Services::session();   
+        $data = array();
+        
+      
+        $globas              = new Mglobal;
+        if($session->id_perfil == 1){
+            $detenidos           = $globas->getTabla(['tabla' => 'detenidos', 'where' => ['visible' => 1]]);
+            $participantes         = $globas->getTabla(['tabla' => 'participantes', 'where' => ['visible' => 1]]);
+        }else{
+            $detenidos           = $globas->getTabla(['tabla' => 'detenidos', 'where' => ['visible' => 1, 'id_dependencia' => $session->id_dependencia]]);
+            $participantes         = $globas->getTabla(['tabla' => 'participantes', 'where' => ['visible' => 1, 'id_dependencia' => $session->id_dependencia]]);
+        }
+
+        $dataDB           = array('tabla' => 'cat_nivel', 'where' => ['visible' => 1]);
+        $dependenciaDB    = array('tabla' => 'cat_dependencia', 'where' => ['visible' => 1]);
+        $perfilDB         = array('tabla' => 'cat_perfil', 'where' => ['visible' => 1]);
+        $cat_nivel        = $globas->getTabla($dataDB);
+        $cat_dependencia  = $globas->getTabla($dependenciaDB);
+        $cat_perfil       = $globas->getTabla($perfilDB);
+        $cat_municipio    = $globas->getTabla(['tabla' => 'cat_municipio', 'where' => ['visible' => 1]]);
+
+        $data['cat_nivel']       =$cat_nivel->data;
+        $data['cat_dependencia'] =$cat_dependencia->data;
+        $data['cat_perfil']      =$cat_perfil->data;
+        $data['cat_municipio']   =$cat_municipio->data;
+        $data['detenidos']   = (isset($detenidos) && !empty($detenidos))?$detenidos->data:[];
+        $data['participantes'] = (isset($participantes) && !empty($participantes))?$participantes->data:[];
+        $data['scripts'] = array('agregar','inicio');
+        $data['contentView'] = 'secciones/vPreinscritos';                
+        $this->_renderView($data);
+        
+    }
+    public function categorias()
+    {
+        $session = \Config\Services::session();
+        $principal = new Mglobal;
+        if($session->id_perfil == 6){
+            $data['contentView'] = 'secciones/vError500';
+            $data['layout'] = 'plantilla/lytLogin';
+            $this->_renderView($data);
+            die();
+        }
+        // Obtener categorías desde la base de datos
+        $dataDB = ['tabla' => 'categoria', 'where' => ['visible' => 1]];
+        $cat  = $principal->getTabla(['tabla' => 'categorias_padre', 'where' => ['visible' =>1]]); 
+        $response = $principal->getTabla($dataDB);
+        $data['categoria']   = (isset($cat->data) && !empty($cat->data))?$cat->data:[];
+        $data['scripts']     = ['principal', 'inicio'];
+        $data['contentView'] = 'secciones/vCategorias';
+        $this->_renderView($data);
+    }
+    public function altaUsuario()
+    {
+        $session = \Config\Services::session();
+        $principal = new Mglobal;
+        if($session->id_perfil == 8){
+            header('Location:'.base_url().'index.php/');            
+            die();
+        }
+        $usuario  = $principal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' =>1]]); 
+        $dataDB           = array('tabla' => 'cat_nivel', 'where' => ['visible' => 1]);
+        $dependenciaDB    = array('tabla' => 'cat_dependencia', 'where' => ['visible' => 1]);
+        $perfilDB         = array('tabla' => 'cat_perfil', 'where' => ['visible' => 1]);
+        $cat_nivel        = $principal->getTabla($dataDB);
+        $cat_dependencia  = $principal->getTabla($dependenciaDB);
+        $cat_perfil       = $principal->getTabla($perfilDB);
+        
+        $data['cat_nivel'] =$cat_nivel->data;
+        $data['cat_dependencia'] =$cat_dependencia->data;
+        $data['cat_perfil'] =$cat_perfil->data;
+        $data['editar'] = 0;
+        $data['usuario']   = (isset($usuario->data) && !empty($usuario->data))?$usuario->data:[];
+        $data['scripts']     = ['principal', 'agregar'];
+        $data['contentView'] = 'secciones/vAltaUsuario';
+        $this->_renderView($data);
+    }
+    public function usuarios()
+    {
+        $session = \Config\Services::session();
+        $principal = new Mglobal;
+    
+        // Redirección si el perfil es 8
+        if ($session->id_perfil == 8) {
+            $data['layout'] = 'plantilla/lytLogin';
+            $data['contentView'] = 'secciones/vError500';                
+            $this->_renderView($data);  
+            die();
+        }
+    
+        // Mapeo de casos para obtener usuarios según el perfil
+        $usuarioQuery = [
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1]
+        ];
+    
+        switch ($session->id_perfil) {
+            case 1:
+                break; // No se necesita condición adicional
+            case 4:
+                $usuarioQuery['where']['id_padre'] = $session->id_perfil;
+                break;
+            case 6:
+            default:
+                $usuarioQuery['where']['id_dependencia'] = $session->id_dependencia;
+                $usuarioQuery['where']['id_perfil'] = 8;
+                break;
+        }
+    
+        // Obtener usuarios
+        $usuario = $principal->getTabla($usuarioQuery);
+    
+        // Configuración común para las consultas
+        $commonQuery = ['where' => ['visible' => 1]];
+        $tables = [
+            'cat_nivel' => 'cat_nivel',
+            'cat_dependencia' => 'cat_dependencia',
+            'cat_perfil' => 'cat_perfil',
+            'cat_sexo' => 'cat_sexo'
+        ];
+    
+        // Obtener datos de las tablas
+        $data = [];
+        foreach ($tables as $key => $table) {
+            $query = array_merge(['tabla' => $table], $commonQuery);
+            $data[$key] = $principal->getTabla($query)->data;
+        }
+    
+        // Asignar datos adicionales
+        $data['usuario'] = isset($usuario->data) && !empty($usuario->data) ? $usuario->data : [];
+        $data['scripts'] = ['principal', 'inicio'];
+        $data['contentView'] = 'secciones/vUsuarios';
+    
+        // Renderizar la vista
+        $this->_renderView($data);
+    }
+    public function adminCategorias()
+    {
+        $session = \Config\Services::session();
+        $principal          = new Mglobal;
+        $periodo_sac        = $principal->getTabla(['tabla' => 'periodo_sac', 'where'=>['visible' => 1]]); 
+        $categoria_sac      = $principal->getTabla(['tabla' => 'categoria_sac', 'where'=>['visible' => 1]]); 
+        $cursos_sac  = $principal->getTabla(['tabla' => 'cursos_sac', 'where'=>['visible' => 1]]); 
+        $cat_curso_sac  = $principal->getTabla(['tabla' => 'vw_curso']); 
+        $cat_mes        = $principal->getTabla(['tabla' => 'cat_mes']); 
+        $data['categoria_sac']     = (isset($categoria_sac->data) && !empty($categoria_sac->data))?$categoria_sac->data:[];
+        $data['cat_curso_sac']     = (isset($cat_curso_sac->data) && !empty($cat_curso_sac->data))?$cat_curso_sac->data:[];
+        $data['periodo_sac']       = (isset($periodo_sac->data) && !empty($periodo_sac->data))?$periodo_sac->data:[];
+        $data['cat_mes']           = (isset($cat_mes->data) && !empty($cat_mes->data))?$cat_mes->data:[];
+        $data['cursos_sac'] = (isset($cursos_sac->data) && !empty($cursos_sac->data))?$cursos_sac->data:[];
+        $data['scripts']     = ['principal', 'inicio'];
+        $data['contentView'] = 'secciones/vAdminCategorias';
+        $this->_renderView($data);   
+    }
+    public function activarCategoria()
+    {
+        $session = \Config\Services::session();
+        $principal = new Mglobal;
+        $response = new \stdClass();
+        if($session->id_usuario != 1) {
+            $response->error =true;
+            $response->respuesta ='Perfil AG';
+            return $this->respond($response);
+        }
+        $response->error =true;
+        $response->respuesta ='Error al guardar';
+        $id_categoria = $this->request->getPost('id_categoria');
+        $id = $this->request->getPost('id');
+        $dataBitacora = ['id_user' => $session->get('id_usuario'), 'script' => 'Agregar.php/guardaCategoriasPadre'];
+        $dataConfig = [
+            "tabla"=>"categorias_padre",
+            "editar"=>true,
+            "idEditar"=>['id_categoria'  => (int)$id_categoria]
+        ]; 
+        if($id == 1){
+            $insert = ['activo' => 1];
+        }else{
+            $insert = ['activo' => 0];
+        }
+       
+        $dataBitacora = ['id_user' => $session->get('id_usuario'), 'script' => 'Agregar.php/guardaCategoriasPadre'];
+        $dataConfig = ["tabla"=>"categorias_padre", "editar"=>true, "idEditar"=>['id_categoria'=> (int)$id_categoria]];
+        $result    = $principal->saveTabla($insert ,$dataConfig, $dataBitacora );
+           if(!$result->error){
+               $response->error= $result->error;
+               $response->respuesta= $result->respuesta;
+           }
+        
+        return $this->respond($response);
+    }
+    // Función para formatear el árbol para jsTree
+    private function formatForJsTree($tree)
+    {
+        // Obtener los IDs de las categorías activas
+        $principal = new Mglobal;
+        $activos = [];
+        $activo = $principal->getTabla(['tabla' => 'categorias_padre', 'where' => ['visible' => 1, 'activo' => 1]]);
+        
+        if (isset($activo->data) && !empty($activo->data)) {
+            foreach ($activo->data as $d) {
+                $activos[] = $d->id_categoria;
+            }
+        }
+    
+        // Formatear el árbol para jsTree
+        $formattedTree = [];
+        foreach ($tree as $node) {
+            // Verificar si el nodo debe estar deshabilitado
+            $disabled = in_array($node->id, $activos);
+    
+            // Crear el nodo formateado
+            $formattedNode = [
+                'id' => $node->id,
+                'text' => $node->name,
+                'state' => [
+                    'disabled' => false, // Deshabilitar el nodo si está en $activos
+                    'opened' =>  false,    // Abrir el nodo si es necesario
+                    'selected' => $disabled, // Seleccionar el nodo si es necesario
+                ],
+                'children' => !empty($node->children) ? $this->formatForJsTree($node->children) : [],
+            ];
+    
+            // Agregar el nodo formateado al árbol
+            $formattedTree[] = $formattedNode;
+        }
+    
+        return $formattedTree;
+    }
+
+    // Función para generar el HTML del árbol
+    private function generateTreeHtml($tree)
+    {
+        $html = '<ul>';
+        foreach ($tree as $node) {
+            $html .= '<li data-jstree=\'{"icon":"fa fa-folder text-warning font-18"}\'>' . $node['text'];
+            if (!empty($node['children'])) {
+                $html .= $this->generateTreeHtml($node['children']);
+            }
+            $html .= '</li>';
+        }
+        $html .= '</ul>';
+        return $html;
+    }
+    
+
     public function getPrincipal()
     {
         $session = \Config\Services::session();
         $principal = new Mglobal;
        
-        //$dataDB = array('tabla' => 'vw_usuario', 'where' => 'visible = 1 ORDER BY fec_reg DESC');  
-        if($session->get('id_perfil') == 4){
-            $dataDB = array('tabla' => 'vw_usuario', 'where' => ['visible ' => 1, 'id_padre' => $session->get('id_perfil')]);
-        }
-        if($session->get('id_perfil') == 3){
-            $dataDB = array('tabla' => 'vw_usuario', 'where' => ['visible ' => 1, 'id_padre' => $session->get('id_perfil')]);
-        }
-        if($session->get('id_perfil') == 1){
-            $dataDB = array('tabla' => 'vw_usuario', 'where' => ['visible ' => 1]);
-        }
+        $dataDB = array('tabla' => 'turno', 'where' => 'visible = 1 ORDER BY fecha_registro DESC');  
         $response = $principal->getTabla($dataDB); 
+      
          return $this->respond($response->data);
     }
-     // Función para recorrer el árbol y generar las rutas jerárquicas
-  
-        public function getCurso()
+    public function getCurso()
     {
         $session = \Config\Services::session();
         $principal = new Mglobal;
@@ -106,7 +365,7 @@ class Inicio extends BaseController {
                 }
             }
         }
-  
+       // insertamos las categorias padre 
        if($session->get('id_perfil') == 1){
         if (!empty($result->data)) {
             foreach ($result->data as $category) {
@@ -146,6 +405,7 @@ class Inicio extends BaseController {
                     $cursos[] = $categoria->dsc_categoria; // Agregar cada categoría activa
                 }
             } else {
+
                 $cursos[] = 'CURSO 2025'; // Valor por defecto si no hay activas
             }
             
@@ -158,10 +418,6 @@ class Inicio extends BaseController {
        
         return $this->respond($formattedTree);
     }
-
-    /**
-     * Filtrar nodos del árbol que coincidan con un nombre específico.
-     */
     private function filterTree($tree, $cursos) {
         $filteredTree = [];
         
@@ -180,53 +436,6 @@ class Inicio extends BaseController {
         
         return $filteredTree;
     }
-    
- /*    private function filterTree($tree, $targetName)
-    {
-        $filteredTree = [];
-        foreach ($tree as $node) {
-            // Filtrar si el nombre coincide o si sus hijos tienen coincidencias
-            if ($node->name === $targetName) {
-                $filteredTree[] = $node;
-            } elseif (!empty($node->children)) {
-                $node->children = $this->filterTree($node->children, $targetName);
-                if (!empty($node->children)) {
-                    $filteredTree[] = $node;
-                }
-            }
-        }
-        return $filteredTree;
-    } */
-
-
-
-     
-     // Método privado para formatear el árbol en la estructura requerida por jstree
-     private function formatForJsTree($categories) {
-         $formatted = [];
-         foreach ($categories as $category) {
-             $formatted[] = [
-                 'id' => $category->id,
-                 'parent' => $category->parent == 0 ? "#" : $category->parent,
-                 'text' => $category->name,
-             ];
-     
-             if (!empty($category->children)) {
-                 $formatted = array_merge($formatted, $this->formatForJsTree($category->children));
-             }
-         }
-         return $formatted;
-     }
-     
-
-
-   
-
-// Uso de la funció
-
-
-
-
 
     public function pdfTurno(){
         // $session = \Config\Services::session();

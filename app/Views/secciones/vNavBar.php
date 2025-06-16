@@ -37,7 +37,7 @@
         
         <li class="dropdown notification-list d-lg-none">
             <div id="titulo">
-                <h3 >SAC - SISTEMA DE ADMINITRACION DE CAPACITACION 3.0   </h3>
+                <h3 >SISTEMA DE TURNOS 2.0</h3>
             </div>
         </li>
 
@@ -55,10 +55,10 @@
             <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated topbar-dropdown-menu profile-dropdown">
                 
                 <!-- item-->
-                 <a onClick="saeg.general.cambiar_foto_perfil();" class="dropdown-item notify-item">
+                <!-- <a href="#" onClick="saeg.general.cambiar_foto_perfil();" class="dropdown-item notify-item">
                     <i class="mdi mdi-account-circle me-1"></i>
                     <span>Subir foto de perfil</span>
-                </a> 
+                </a> -->
                 <!-- item-->
                 <a href="<?php echo base_url()?>index.php/Login/cerrar" class="dropdown-item notify-item">
                     <i class="mdi mdi-logout me-1"></i>
@@ -76,13 +76,13 @@
 
         <div id="titulo">
             <!-- <h4 class="neon">SISTEMA DE TURNOS 2.0</h4> -->
-            <h4>SAC - SISTEMA DE ADMINITRACION DE CAPACITACION 3.0 </h4>
+            <h4>SISTEMA DE TURNOS 2.0</h4>
         </div>
         
     </div>
 </div>
 <!-- end Topbar - -->
- <div id="mdl_subir_foto_perfil" class="modal fade"  aria-hidden="true">
+<!-- <div id="mdl_subir_foto_perfil" class="modal fade"  aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
         <form action="javascript:;" id="frmDocumentoSustituir" method="post" enctype="multipart/form-data">
@@ -112,7 +112,7 @@
         </form>
         </div>
     </div>
-</div> 
+</div> -->
 
 <script>        
     $("#input_doc_foto").fileinput({

@@ -79,8 +79,7 @@ defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest au
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
 //Para detectar automaticamente la URL
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https://'.$_SERVER['HTTP_HOST'] : 'http://'.$_SERVER['HTTP_HOST'];
-//$urlServer = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'http://salud1.guanajuato.gob.mx:8080' : 'http://salud1.guanajuato.gob.mx:8080';   //Server Atlas
-defined('BASE') || define('BASE',$protocol.'/sac');
+defined('BASE') || define('BASE', $protocol.'/sac2');
 /**
  * @deprecated Use \CodeIgniter\Events\Events::PRIORITY_LOW instead.
  */

@@ -91,8 +91,7 @@ class Globals {
             'form_params' => [
                 'dataInsert' => $dataInsert,
                 'dataConfig' => $dataConfig,
-                //'dataBitacora' => ['id_user' => $session->get('id_usuario'), 'script' => $dataBitacora['script']]
-                'dataBitacora' => ['id_user' =>1, 'script' => $dataBitacora['script']]
+                'dataBitacora' => ['id_user' => $session->get('id_usuario'), 'script' => $dataBitacora['script']]
             ],
         ]);
         $request = json_decode($request->getBody());

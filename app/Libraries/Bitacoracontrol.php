@@ -25,7 +25,7 @@ class Bitacoracontrol {
             // 'tabla' => 'bitacora_control'
         );
         
-        $inserted = $Mbitacora->insertTabla($bitacora,'bitacora');      
+        $inserted = $Mbitacora->insertTabla($bitacora,'bitacora_turnos');      
         if ($inserted == -1)
             return $this->respond(false);      
         return $inserted;

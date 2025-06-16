@@ -76,13 +76,14 @@
         data-url="<?=base_url("/index.php/Reportes/getPrincipal")?>">
         <thead>
             <tr>
-                <th data-field="id" data-width="20" data-sortable="true" class="text-center">ID</th>
-                <th data-field="clave_ramo" data-width="20" data-sortable="true" >CLAVE DEL RAMO</th>
-                <th data-field="nombre_ramo" data-width="100" data-sortable="true">NOMBRE DEL RAMO</th>
-                <th data-field="abreviatura_ramo" data-width="50" data-sortable="true">ABREVIATURA DEL RAMO</th>
-                <th data-field="enlace" data-width="100" data-sortable="true" ata-tooltip="true">ENLACE GENERAL</th>
-                <th data-field="fec_registro" data-width="100" data-sortable="true" data-tooltip="true">FECHA REGISTRO</th>
-                <th data-field="fec_registro" data-width="100" data-sortable="true" data-formatter="ini.reportes.formattAcciones" data-tooltip="true">ACCIONES</th>
+                <th data-field="id_turno" data-width="20" data-sortable="true" class="text-center">FOLIO</th>
+                <th data-field="fecha_recepcion" data-width="20" data-sortable="true" data-formatter="ini.reportes.formattFechaRecepcion">FECHA RECEPCION</th>
+                <th data-field="solicitante_nombre" data-width="100" data-sortable="true">REMITENTE</th>
+                <th data-field="solicitante_razon_social" data-width="50" data-sortable="true">RAZON SOCIAL</th>
+                <th data-field="resumen" data-width="100" data-sortable="true"  data-formatter="ini.reportes.formatterTruncaTexto" data-tooltip="true">SINTESIS ASUNTO</th>
+                <th data-field="resultado_turno" data-width="100" data-sortable="true" data-formatter="ini.reportes.formatterTruncaTexto" data-tooltip="true">RESULTADO TURNO</th>
+                <th data-field="id_resultado_turno" data-width="100" data-sortable="true" data-formatter="ini.reportes.formatteStatusResultadoTurno" >ESTATUS RESULTADO TURNO</th>
+                <th data-field="id_estatus" data-width="20" data-sortable="true" data-formatter="ini.reportes.formatteStatus" class="text-center" >ESTATUS</th>
             </tr>
         </thead>
     </table>  

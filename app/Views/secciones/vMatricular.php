@@ -1,182 +1,107 @@
+<!-- Page Content-->
 <?php $session = \Config\Services::session(); ?>
-<div class="container mt-5">
-    <h2 class="mb-4">INSCRIBIR PARTICIPANTES  </h2>
+<div class="page-content-tab">
 
-    <table id="table" data-locale="es-MX" data-toolbar="#toolbar" data-toggle="table" data-search="true"
-        data-search-highlight="true" data-pagination="true" data-page-list="[10, 25, 50, 100, all]" data-sortable="true"
-        data-show-refresh="true" data-header-style="headerStyle" data-show-export="true" data-export-types="['excel']">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>NOMBRE</th>
-                <th>FECHA INICIO</th>
-                <th>FECHA FIN</th>
-                <th>ACCION</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($cursos as $curso): ?>
-            <tr>
-                <td><?= htmlspecialchars($curso['id']) ?></td>
-                <td><?= htmlspecialchars($curso['fullname']) ?></td>
-                <td><?= htmlspecialchars($curso['startdate']) ?></td>
-                <td><?= htmlspecialchars($curso['enddate']) ?></td>
-                <td>
-                <?php if ($session->get('id_perfil') !== 3 && $session->get('id_perfil') !== 4): ?>
-                    <button type="button" class="btn btn-secondary rounded-pill"
-                        onclick="matricular(<?= $curso['id'] ?>)">Preinscribir</button>
-                <?php endif; ?>
-  
-                    <a href="<?= base_url('index.php/Principal/Preinscritos/'.$curso['id']) ?>" type="button"
-                        class="btn btn-light  rounded-pill">Preinscritos</a>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="container-fluid">
+        <!-- Page-Title -->
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="page-title-box">
+                    <div class="float-right">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="javascript:void(0);">Metrica</a></li>
+                            <li class="breadcrumb-item"><a href="javascript:void(0);">Analytics</a></li>
+                            <li class="breadcrumb-item active">Cursos listos</li>
+                        </ol>
+                    </div>
+                    <h4 class="page-title">Cursos listo para Inscripción</h4>
 
-
-
-    <!-- Modal para Matricular -->
-    <div id="modalMatricular" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="fullWidthModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-full-width">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title" id="fullWidthModalLabel">PREINSCRIBIR</h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true"></button>
                 </div>
-                <form id="formMatricular" method="post"
-                    action="<?= base_url('/index.php/Principal/Preinscribir') ?>">
-                    <div class="modal-body">
-                        <input type="hidden" id="id_curso" name="id_curso">
-                      <table id="getParticipantes" data-locale="es-MX" data-toolbar="#toolbar" data-toggle="table"
-                            data-search="true" data-search-highlight="true" data-pagination="false"
-                            data-page-list="[10, 25, 50, 100, all]" data-sortable="true" data-show-refresh="true"
-                            data-header-style="headerStyle">
-                        <!-- <table id="getParticipantes" class="table table-centered mb-0" data-search="true" > -->
-                            <thead>
-                                <tr>
-                                    <th>
-                                        <input type="checkbox" id="select-all" class="form-check-input">
-                                    </th>
-                                    <th>CURP</th>
-                                    <th>NOMBRE</th>
-                                    <th>CORREO</th>
-                                    <th>RFC</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if(!empty($participantes)): ?>
-                                <?php foreach ($participantes as $participante): ?>
-                                <tr>
-                                    <td>
-                                        <input type="checkbox" class="select-participant form-check-input"
-                                            name="participantes[]" value="<?= $participante->id_participante; ?>">
-                                    </td>
-                                    <td><?= htmlspecialchars($participante->curp) ?></td>
-                                    <td><?= htmlspecialchars($participante->nombre_completo) ?></td>
-                                    <td><?= htmlspecialchars($participante->correo) ?></td>
-                                    <td><?= htmlspecialchars($participante->rfc) ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                                <?php endif ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="modal-footer" id="btn_save">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
-                        <button type="submit" class="btn btn-primary" id="matricularButton">Guardar</button>
-                    </div>
-                    <div class="modal-footer" id="btn_load" style="display:none;">
-                        <button class="btn btn-primary" type="button" disabled>
-                            <span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span>
-                             Guardando ...
-                        </button>
-                    </div>
-                </form>
+                <!--end page-title-box-->
             </div>
+            <!--end col-->
         </div>
-    </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+
+                        <h4 class="header-title mt-0">Cursos listos</h4>
+                        <?php $fec_ini = (isset($fec_inicio))?date("Y-m-d", strtotime($fec_inicio)):''; ?>
+
+                        <div class="table-responsive dash-social">
+
+                            <table class="table table-centered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>NOMBRE</th>
+                                        <th>FECHA INICIO</th>
+                                        <th>FECHA FIN</th>
+                                        <th>ACCION</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($cursos as $curso): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($curso['id']) ?></td>
+                                        <td><?= htmlspecialchars($curso['fullname']) ?></td>
+                                        <td><?= htmlspecialchars($curso['startdate']) ?></td>
+                                        <td><?= htmlspecialchars($curso['enddate']) ?></td>
+                                        <td>
+                                            <?php if ($session->id_perfil !== 3 && $session->id_perfil !== 4): ?>
+                                            <button type="button" class="btn btn-secondary rounded-pill"
+                                                onclick="matricular(<?= $curso['id'] ?>)">Preinscribir</button>
+                                            <?php endif; ?>
+
+                                            <a href="<?= base_url('index.php/Principal/Preinscritos/'.$curso['id']) ?>"
+                                                type="button" class="btn btn-light  rounded-pill">Preinscritos</a>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+
+
+                            </table>
+
+                        </div>
+
+                    </div>
+                    <!--end card-body-->
+                </div>
+                <!--end card-->
+            </div>
+            <!--end col-->
+        </div>
+        <!--end row-->
+
+    </div><!-- container -->
+
+
 </div>
 
-<script>
-$(document).ready(function() {
-    // Selección masiva
-    let selectedParticipants = {};
-    $('#select-all').on('click', function() {
-        // Para almacenar el estado de selección
-        const checked = this.checked;
-        $('.select-participant').each(function() {
-            $(this).prop('checked', checked);
-            selectedParticipants[$(this).val()] = checked; // Almacena el estado en el objeto
-        });
-        // $('.select-participant').prop('checked', this.checked);
-    });
+<link href="<?php echo base_url(); ?>plugins/datatables/dataTables.bootstrap4.min.css" rel="stylesheet"
+        type="text/css" />
 
-    $(document).on('change', '.select-participant', function() {
-        const participantId = $(this).val();
-        selectedParticipants[participantId] = this.checked; // Actualiza el estado en el objeto
-    });
+    <!-- App css -->
+    <link href="<?php echo base_url(); ?>assets/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="<?php echo base_url(); ?>assets/css/jquery-ui.min.css" rel="stylesheet">
+    <link href="<?php echo base_url(); ?>assets/css/metisMenu.min.css" rel="stylesheet" type="text/css" />
+    <link href="<?php echo base_url(); ?>assets/css/app.min.css" rel="stylesheet" type="text/css" />
 
-    // Al cambiar de página, sincroniza la selección visual
-    $('#getParticipantes').on('page-change.bs.table', function() {
-        // Vuelve a seleccionar los participantes seleccionados en la nueva página
-        $('.select-participant').each(function() {
-            const participantId = $(this).val();
-            $(this).prop('checked', selectedParticipants[participantId] ||
-            false); // Verifica el estado en el objeto
-        });
-    });
 
-    // Enviar IDs seleccionados al formulario
-    $('#formMatricular').on('submit', function(e) {
-        e.preventDefault();
 
-        let id_curso = $('#id_curso').val();
-        const selectedIds = $('.select-participant:checked').map(function() {
-            return $(this).val();
-        }).get();
+    <!-- jQuery  -->
+    <script src="<?php echo base_url(); ?>assets/js/jquery.min.js"></script>
+    <script src="<?php echo base_url(); ?>assets/js/jquery-ui.min.js"></script>
+    <script src="<?php echo base_url(); ?>assets/js/bootstrap.bundle.min.js"></script>
 
-        if (selectedIds.length === 0) {
-            Swal.fire("Advertencia", "Debe seleccionar al menos un participante.", "warning");
-            return;
-        }
-        $("#btn_load").show();
-        $("#btn_save").hide();
+    <script src="<?php echo base_url(); ?>assets/js/jquery.slimscroll.min.js"></script>
+    <script src="<?php echo base_url(); ?>plugins/apexcharts/apexcharts.min.js"></script>
 
-        // Enviar el formulario con los IDs seleccionados
-        $.ajax({
-            url: $(this).attr('action'),
-            type: 'POST',
-            data: {
-                participantes: selectedIds,
-                id_curso: id_curso
-            },
-            success: function(response) {
-                console.log(response)
-                if (!response.error) {
-                    Swal.fire("Éxito", "Participantes matriculados con éxito.", "success");
-                    $('#modalMatricular').modal('hide');
-                    $("#btn_load").hide();
-                    $("#btn_save").show();
-                   //window.location.href = base_url + "index.php/Principal/cursoMatriculados/" + id_curso;
-                   window.location.href = base_url + "index.php/Principal/Preinscritos/" + id_curso;
-                }
+    <!-- Required datatable js -->
+    <script src="<?php echo base_url(); ?>plugins/datatables/jquery.dataTables.min.js"></script>
+    <script src="<?php echo base_url(); ?>plugins/datatables/dataTables.bootstrap4.min.js"></script>
 
-                // Actualizar la tabla principal si es necesario
-                //$('#table').bootstrapTable('refresh');
-            },
-            error: function(xhr, status, error) {
-                Swal.fire("Error", "Hubo un problema al matricular los participantes.",
-                    "error");
-            }
-        });
-    });
-});
-
-function matricular(id) {
-    $('#modalMatricular').modal('show');
-    $('#id_curso').val(id);
-}
-</script>
+    <script src="<?php echo base_url(); ?>assets/pages/jquery.analytics_customers.init.js"></script>

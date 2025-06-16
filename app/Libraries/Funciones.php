@@ -5,10 +5,8 @@ date_default_timezone_set('America/Mexico_City');// Zona horaria de Mexico
 use DateTime;
 use stdClass;
 
-
-class Funciones { 
-    private $secretKey;   
-
+class Funciones {    
+    private $secretKey;
     public function __construct()
     {
         $this->globals = new Globals();
@@ -43,46 +41,6 @@ class Funciones {
             }
         }
         return $returnValue;
-    }
-
-    public function generateToken($userData)
-    {
-        $header = json_encode(['alg' => 'HS256', 'typ' => 'JWT']);
-        $payload = json_encode($userData);
-
-        // Codificar a Base64 el header y el payload
-        $base64UrlHeader = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
-        $base64UrlPayload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
-
-        // Crear la firma usando HMAC-SHA256
-        $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $this->secretKey, true);
-        $base64UrlSignature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
-
-        // Retornar el JWT completo (header.payload.signature)
-        return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
-    }
-
-    // Verificación del token manual
-    public function verifyToken($jwt)
-    {
-        // Dividimos el token en sus partes (header, payload, signature)
-        $tokenParts = explode('.', $jwt);
-        $header = base64_decode($tokenParts[0]);
-        $payload = base64_decode($tokenParts[1]);
-        $signatureProvided = $tokenParts[2];
-
-        // Verificamos la firma
-        $base64UrlHeader = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
-        $base64UrlPayload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
-        $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $this->secretKey, true);
-        $base64UrlSignature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
-
-        // Comparamos la firma generada con la proporcionada
-        if ($base64UrlSignature === $signatureProvided) {
-            return json_decode($payload); // El token es válido, devolver los datos
-        } else {
-            return false; // El token es inválido
-        }
     }
 
     
@@ -158,7 +116,46 @@ class Funciones {
         return $response;
         
     }
-    
+    public function generateToken($userData)
+    {
+        $header = json_encode(['alg' => 'HS256', 'typ' => 'JWT']);
+        $payload = json_encode($userData);
+
+        // Codificar a Base64 el header y el payload
+        $base64UrlHeader = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
+        $base64UrlPayload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
+
+        // Crear la firma usando HMAC-SHA256
+        $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $this->secretKey, true);
+        $base64UrlSignature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
+
+        // Retornar el JWT completo (header.payload.signature)
+        return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+    }
+
+    // Verificación del token manual
+    public function verifyToken($jwt)
+    {
+        // Dividimos el token en sus partes (header, payload, signature)
+        $tokenParts = explode('.', $jwt);
+        $header = base64_decode($tokenParts[0]);
+        $payload = base64_decode($tokenParts[1]);
+        $signatureProvided = $tokenParts[2];
+
+        // Verificamos la firma
+        $base64UrlHeader = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
+        $base64UrlPayload = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
+        $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $this->secretKey, true);
+        $base64UrlSignature = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
+
+        // Comparamos la firma generada con la proporcionada
+        if ($base64UrlSignature === $signatureProvided) {
+            return json_decode($payload); // El token es válido, devolver los datos
+        } else {
+            return false; // El token es inválido
+        }
+    }
+ 
     public function getTiempoTranscurrido($fechaInicial = false, $fechaFinal = false)
     {
         $fechaFinal = (!$fechaFinal)? date("Y-m-d H:i:s"): $fechaFinal;

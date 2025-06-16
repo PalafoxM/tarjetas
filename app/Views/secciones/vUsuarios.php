@@ -1,183 +1,572 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turnos 2.0</title>
-</head>
-<style>
-      .contenedor {
-            display: grid;
-            grid-auto-flow: column;
-            gap: 10px; /* Espacio entre los botones */
-        }
-        .boton {
-            padding: 1px 1px;
-            background-color: #4CAF50;
-            color: white;
-            text-align: center;
-            border-radius: 50px;
-        }
-</style>
-<body>
-    <div class="row mt-3">
-        <div class="col text-end">
-            <button  class="btn btn-primary" data-bs-toggle='modal' data-bs-target='#staticBackdrop' onclick='ini.inicio.limpiaModal();'>Agregar Usuario</button>
+<!-- Top Bar End -->
+<?php  $session = \Config\Services::session();    ?>
+<div class="page-wrapper">
+
+    <!-- Page Content-->
+    <div class="page-content-tab">
+
+        <div class="container-fluid">
+            <!-- Page-Title -->
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="page-title-box">
+                        <div class="float-right">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="javascript:void(0);">Metrica</a></li>
+                                <li class="breadcrumb-item"><a href="javascript:void(0);">Analytics</a></li>
+                                <li class="breadcrumb-item active">Usuarios</li>
+                            </ol>
+                        </div>
+                        <h4 class="page-title">Usuario</h4>
+
+                    </div>
+                    <!--end page-title-box-->
+                </div>
+                <!--end col-->
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <a href="<?php echo base_url(); ?>index.php/Inicio/altaUsuario"
+                                class="btn btn-gradient-danger px-4 float-right mt-0 mb-3"><i
+                                    class="mdi mdi-account-plus-outline mr-2"></i>Agregar</a>
+                                    <?php if($session->id_perfil == 6):?>
+                            <button onclick="ini.inicio.cargaCsv()"
+                                class="btn btn-gradient-primary px-4 float-right mt-0 mb-3"><i
+                                    class="mdi mdi-plus-circle-outline mr-2"></i>Subir y Procesar</button>
+                                    <?php endif; ?>
+                            <h4 class="header-title mt-0">Lista de Usuarios</h4>
+                            <div class="table-responsive dash-social">
+                                <table id="usuariosTable" class="table">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th class="text-center">NOMBRE</th>
+                                            <th class="text-center">CURP</th>
+                                            <th class="text-center">PERFIL</th>
+                                            <th class="text-center">SEXO</th>
+                                            <th class="text-center">ACCIONES</th>
+                                        </tr>
+                                        <!--end tr-->
+                                    </thead>
+
+                                    <tbody>
+                                        <?php foreach($usuario as $u): ?>
+                                        <tr>
+                                            <td class="text-center"><?= $u->nombre_completo?></td>
+                                            <td class="text-center"><?= $u->curp?></td>
+                                            <td class="text-center"><?= $u->dsc_perfil?></td>
+                                            <td class="text-center"><?= $u->dsc_sexo?></td>
+                                            <td class="text-center">
+                                                <a href="javascript:void(0);" data-toggle="modal"
+                                                    data-animation="bounce" data-target=".bs-example"
+                                                    onclick="ini.inicio.getUsuario(<?=$u->id_usuario?>)"><i
+                                                        class="mdi mdi-pencil text-success font-18"></i></a>
+                                                <?php if($session->id_usuario != $u->id_usuario):?>
+                                                <a href="javascript:void(0);"
+                                                    onclick="ini.inicio.deleteUsuario(<?=$u->id_usuario?>)"><i
+                                                        class="mdi mdi-trash-can text-danger font-18"></i></a>
+                                                <?php endif; ?>
+
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <table
-        id="table"
-        data-locale="es-MX"
-        data-toolbar="#toolbar"
-        data-toggle="table"
-        data-search="true"
-        data-search-highlight="true"
-        data-pagination="true"
-        data-page-list="[10, 25, 50, 100, all]"
-        data-sortable="true"
-        data-show-refresh="true"
-        data-header-style="headerStyle"
-        data-url="<?=base_url("/index.php/Usuario/getUsuarios")?>">
-        <thead>
-            <tr>
-                <th data-field="usuario" data-width="20" data-sortable="true">Usuario</th>
-                <th data-field="descripcion_perfil" data-width="100" data-sortable="true">Perfil</th>
-                <th data-field="nombre" data-width="50" data-sortable="true">Nombre</th>
-                <th data-field="primer_apellido" data-width="100" data-sortable="true" >Primer apellido</th>
-                <th data-field="segundo_apellido" data-width="100" data-sortable="true" data-tooltip="true">Segundo apellido</th>
-                <th data-field="dsc_sexo" data-width="20" data-sortable="true"  class="text-center" >Sexo</th>
-                <th data-field="NOMBRE_UNIDAD" data-width="20"  data-sortable="true">Unidad</th>
-                <th data-field="correo" data-width="20"  data-sortable="true">Correo</th>
-                <th data-field="id_usuario" data-width="20" data-sortable="true" data-formatter="ini.inicio.formattAcciones" class="text-center">Acciones</th>
-            </tr>
-        </thead>
-    </table>  
-  
-<!-- Modal -->
-<div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="staticBackdropLabel"></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true"></button>
-            </div> <!-- end modal header -->
-            <div class="modal-body">
-                <form id="formUsuario">
-                    <div class="mb-3 ">
-                        <input type="hidden" class="form-control" id="id_usuario" name="id_usuario" >
-                        <input type="hidden" class="form-control" id="editar" name="editar" >
-                    </div>
-                    <div class="row g-2">
-                        <div class="mb-3 col-md-6">
-                            <label for="usuario" class="form-label">Usuario</label>
-                            <input type="text" class="form-control" id="usuario" name="usuario" placeholder="Usuario">
+
+    <!-- Modal -->
+
+    <div id="agregarUsuario" class="modal fade bs-example" tabindex="-1" role="dialog"
+        aria-labelledby="myLargeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Usuario</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="detalleCurso" style="max-height: 70vh; overflow-y: auto;">
+                    <form id="formAgregarUsuarioTsi" name="formAgregarUsuarioTsi">
+                        <div class="row">
+                            <input type="hidden" value="0" name="id_usuario" id="id_usuario">
+                            <input type="hidden" value="0" name="editar" id="editar">
+                            <!-- seccion izquierdo incio -->
+                            <div class="col-md-12 ">
+                                <div class="card">
+                                    <!--init card -->
+                                    <div class="card-body">
+
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <label for="curp" class="form-label">CURP</label>
+                                                <div class="input-group flex-nowrap">
+                                                    <span class="input-group-text" id="basic-addon1"><i id="icono"
+                                                            class="dripicons-search"></i>
+                                                        <div style="display:none;" id="spinner" class="spinner-border"
+                                                            role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                    </span>
+                                                    <input type="text" class="form-control" placeholder="CURP"
+                                                        aria-label="Username" id="curp" name="curp"
+                                                        aria-describedby="basic-addon1" autocomplete="off">
+                                                </div>
+
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="nombre"
+                                                        class="form-label campoObligatorio">NOMBRE</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="nombre" name="nombre" placeholder="NOMBRE">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="primer_apellido"
+                                                        class="form-label campoObligatorio">PRIMER
+                                                        APELLIDO</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="primer_apellido" name="primer_apellido"
+                                                        placeholder="PRIMER APELLIDO">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="segundo_apellido"
+                                                        class="form-label campoObligatorio">SEGUNDO
+                                                        APELLIDO</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="segundo_apellido" name="segundo_apellido"
+                                                        placeholder="SEGUNDO APELLIDO">
+                                                </div>
+                                            </div>
+
+
+                                        </div>
+                                        <div class="row">
+
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="fec_nac" class="form-label campoObligatorio">FECHA
+                                                        NACIMIENTO</label>
+                                                    <input type="date" autocomplete="off" class="form-control"
+                                                        id="fec_nac" name="fec_nac" placeholder="FEC. NACIMIENTO">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="rfc" class="form-label campoObligatorio">RFC</label>
+                                                    <input type="text" autocomplete="off" class="form-control" id="rfc"
+                                                        name="rfc" placeholder="NOMBRE COMPLETO">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="correo"
+                                                        class="form-label campoObligatorio">CORREO</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="correo" name="correo" placeholder="CORREO ELECTRONICO">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="id_sexo" class="form-label">SEXO</label>
+                                                    <select class="form-control" id="id_sexo" name="id_sexo"
+                                                        data-placeholder="seleccione" style="z-index:100;">
+                                                        <option value="0">seleccione</option>
+                                                        <option value="1">HOMBRE</option>
+                                                        <option value="2">MUJER</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-6 position-relative" id="">
+                                                    <label for="id_nivel" class="form-label">NIVEL TABULAR</label>
+                                                    <select class="form-control select2" data-toggle="select2"
+                                                        id="id_nivel" name="id_nivel" data-placeholder="Seleccione"
+                                                        style="z-index:100;">
+                                                        <option value="0">Seleccione</option>
+                                                        <?php foreach ($cat_nivel as $g): ?>
+                                                        <option value="<?php echo $g->id_nivel; ?>">
+                                                            <?php echo $g->dsc_nivel.' '.$g->denominacion_tabular; ?>
+                                                        </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-md-6">
+                                                <div class="mb-6 position-relative" id="">
+                                                    <label for="c" class="form-label">DEPENDENCIA</label>
+                                                    <select class="form-control select2" data-toggle="select2"
+                                                        id="id_dependencia" name="id_dependencia"
+                                                        data-placeholder="Seleccione" style="z-index:100;" readonly>
+                                                        <option value="0">Seleccione</option>
+                                                        <?php foreach ($cat_dependencia as $dep): ?>
+                                                        <option value="<?php echo $dep->id_dependencia; ?>"
+                                                            <?php if ($session->id_dependencia == $dep->id_dependencia) echo 'selected'; ?>>
+                                                            <?php echo $dep->dsc_dependencia ?>
+                                                        </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="denominacion_funcional"
+                                                        class="form-label campoObligatorio">FUNCION</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="denominacion_funcional" name="denominacion_funcional"
+                                                        placeholder="DENOMINACION FUNCIONAL"
+                                                        oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="area" class="form-label campoObligatorio">AREA
+                                                        PERSONAL</label>
+                                                    <input type="text" autocomplete="off" class="form-control" id="area"
+                                                        name="area" placeholder="GRUPO"
+                                                        oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-6 position-relative" id="">
+                                                    <label for="jefe_inmediato"
+                                                        class="form-label campoObligatorio">FEJE/A
+                                                        INMEDIATO</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="jefe_inmediato" name="jefe_inmediato"
+                                                        placeholder="SUPERVISOR"
+                                                        oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="id_perfil" class="form-label">PERFIL</label>
+                                                    <select class="form-control select2" data-toggle="select2"
+                                                        id="id_perfil" name="id_perfil" data-placeholder="Seleccione"
+                                                        style="z-index:100;">
+                                                        <option value="0">Seleccione</option>
+                                                        <?php foreach ($cat_perfil as $p): ?>
+                                                        <option value="<?php echo htmlspecialchars($p->id_perfil); ?>">
+                                                            <?php echo htmlspecialchars($p->dsc_perfil); ?>
+                                                        </option>
+                                                        <?php endforeach; ?>
+
+
+
+                                                    </select>
+
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="usuario"
+                                                        class="form-label campoObligatorio">USUARIO</label>
+                                                    <input type="text" autocomplete="off" class="form-control"
+                                                        id="usuario" name="usuario" placeholder="USUARIO"
+                                                        oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="contrasenia"
+                                                        class="form-label campoObligatorio">CONTRASEÑA</label>
+                                                    <input type="password" autocomplete="off" class="form-control"
+                                                        id="contrasenia" name="contrasenia" placeholder="CONTRASEÑA"
+                                                        oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="mb-3 position-relative" id="">
+                                                    <label for="confirmar_contrasenia"
+                                                        class="form-label campoObligatorio">CONFIRMAR
+                                                        CONTRASEÑA</label>
+                                                    <input type="password" autocomplete="off" class="form-control"
+                                                        id="confirmar_contrasenia" name="confirmar_contrasenia"
+                                                        placeholder="CONFIRMAR"
+                                                        oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!--end card -->
+                            </div>
+                            <!-- seccion izquierdo fin-->
+                            <!-- seccion derecha incio -->
                         </div>
-                        <div class="mb-3 col-md-6">
-                            <label for="contrasenia" class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" id="contrasenia" readonly name="contrasenia" placeholder="Contraseña">
+
+
+                        <div class="row mb-5" id="btn_save">
+                            <div class="col-md-12 text-center ">
+                                <button class="btn btn-info" type="submit"><i class="mdi mdi-content-save"></i> Guardar
+                                </button>
+                                <button class="btn btn-warning" type="button" data-dismiss="modal"><i
+                                        class="mdi mdi-content-save-off-outline" id="cancelarTurno"></i> Cancelar
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="row g-2">
-                        <div class="mb-3 col-md-6">
-                            <label for="correo" class="form-label">Correo</label>
-                            <input type="email" class="form-control" id="correo" name="correo" placeholder="Correo">
+                        <div class="row mb-5" id="btn_load" style="display:none;">
+                            <div class="col-md-12 text-center ">
+                                <button class="btn btn-info" type="button" disabled>
+                                    <span class="spinner-grow spinner-grow-sm me-1" role="status"
+                                        aria-hidden="true"></span>
+                                    Guardando...
+                                </button>
+                            </div>
                         </div>
-                        <div class="mb-3 col-md-3">
-                                <label for="perfil" class="form-label">Perfil</label>
-                                <select id="perfil" name="perfil" class="form-select">
-                                <option value="">Seleccione</option>
-                                <?php foreach ($perfiles->data as $perfil): ?>
-                                    <option value="<?php echo $perfil->id_perfil; ?>"><?php echo $perfil->nombre_perfil; ?></option>
-                                <?php endforeach; ?>
-                                </select>
-                        </div>  
-                        <div class="mb-3 col-md-3">
-                                <label for="sexo" class="form-label">Sexo</label>
-                                <select id="sexo" name="sexo" class="form-select">
-                                <option value="">Seleccione</option>
-                                <?php foreach ($cat_sexo->data as $sexo): ?>
-                                    <option value="<?php echo $sexo->id_sexo; ?>"><?php echo $sexo->dsc_sexo; ?></option>
-                                <?php endforeach; ?>
-                                </select>
-                        </div>
-                    </div>
-                    <div class="row g-2">
-                        <div class="mb-3 col-md-4">
-                            <label for="nombre" class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="nombre" name="nombre" placeholder="Nombre">
-                        </div>
-                        <div class="mb-3 col-md-4">
-                            <label for="primer_apellido" class="form-label">Primer Apellido</label>
-                            <input type="text" class="form-control" id="primer_apellido" name="primer_apellido" placeholder="Primer Apellido">
-                        </div>
-                        <div class="mb-3 col-md-4">
-                            <label for="segundo_apellido" class="form-label">Segundo Apellido</label>
-                            <input type="text" class="form-control" id="segundo_apellido" name="segundo_apellido" placeholder="Segundo Apellido">
-                        </div>
-                    </div>            
-                        <div class="mb-3 ">
-                            <label for="id_clues" class="form-label">Unidad</label>
-                            
-                            <select class="form-control select2" data-toggle="select2" id="id_clues" name="id_clues" style="z-index:100;">
-                                <option value="">Seleccione..</option>
-                                <?php foreach ($unidad->data as $item):?>
-                                    <option value="<?=$item->id_clues?>"><?=$item->NOMBRE_UNIDAD?></option>
-                                <?php endforeach?>
-                            </select>
-                           
-                        </div>
-                   
-                    <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar</button>
-                </form>
+
+                    </form>
+
+
+
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Cerrar</button>
-            </div> <!-- end modal footer -->
-        </div> <!-- end modal content-->
-    </div> <!-- end modal dialog-->
-</div> <!-- end modal-->
+        </div>
+    </div>
+
+    <!-- modal -->
+    <div id="standard-modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="standard-modalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="standard-modalLabel">Subir Archivo</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="uploadCSVParticipantes" name="uploadCSVParticipantes" enctype="multipart/form-data">
+
+                        <div class="form-group">
+                            <label for="fileParticipantes">Seleccionar Archivo CSV:</label>
+                            <input type="file" name="fileParticipantes" id="fileParticipantes" accept=".csv" required
+                                class="form-control">
+                        </div>
+
+
+                    </form>
+                </div>
+                <div class="modal-footer" id="btn_csv">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-primary" onclick="ini.inicio.subirCsv()">Procesar
+                        csv</button>
+                </div>
+                <div class="modal-footer" id="load_csv" style="display:none">
+                    <button class="btn btn-primary mt-3" >
+                        <div class="spinner-grow" role="status">
+                            <span class="visually-hidden">.</span>
+                        </div>
+                    </button>
+                </div>
+            </div><!-- /.modal-content -->
+        </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+    <!-- modal -->
+
+    <link href="<?php echo base_url(); ?>plugins/datatables/dataTables.bootstrap4.min.css" rel="stylesheet"
+        type="text/css" />
+
+    <!-- App css -->
+    <link href="<?php echo base_url(); ?>assets/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="<?php echo base_url(); ?>assets/css/jquery-ui.min.css" rel="stylesheet">
+    <link href="<?php echo base_url(); ?>assets/css/metisMenu.min.css" rel="stylesheet" type="text/css" />
+    <link href="<?php echo base_url(); ?>assets/css/app.min.css" rel="stylesheet" type="text/css" />
 
 
 
+    <!-- jQuery  -->
+    <script src="<?php echo base_url(); ?>assets/js/jquery.min.js"></script>
+    <script src="<?php echo base_url(); ?>assets/js/jquery-ui.min.js"></script>
+    <script src="<?php echo base_url(); ?>assets/js/bootstrap.bundle.min.js"></script>
+
+    <script src="<?php echo base_url(); ?>assets/js/jquery.slimscroll.min.js"></script>
+    <script src="<?php echo base_url(); ?>plugins/apexcharts/apexcharts.min.js"></script>
+
+    <!-- Required datatable js -->
+    <script src="<?php echo base_url(); ?>plugins/datatables/jquery.dataTables.min.js"></script>
+    <script src="<?php echo base_url(); ?>plugins/datatables/dataTables.bootstrap4.min.js"></script>
+
+    <script src="<?php echo base_url(); ?>assets/pages/jquery.analytics_customers.init.js"></script>
 
 
-<link href="<?php echo (base_url('/assets/bootstrap-table-master/dist_/bootstrap-table.min.css'));?>" rel="stylesheet">
-<script src="<?php echo base_url('/assets/bootstrap-table-master/dist_/bootstrap-table.min.js');?>"></script>
-<script src="<?php echo base_url('/assets/bootstrap-table-master/dist_/tableExport.min.js');?>"></script>
-<script src="<?php echo base_url('/assets/bootstrap-table-master/dist_/bootstrap-table-locale-all.min.js');?>"></script>
-<script src="<?php echo base_url('/assets/bootstrap-table-master/dist_/extensions/export/bootstrap-table-export.min.js');?>"></script>
-<script>
-    $(document).ready(function() {
-        ini.inicio.updateUsuario();
-        
 
-        
-        $('#id_clues').select2({
-            language: {
-                noResults: function() {return "No hay resultado";},
-                searching: function() {return "Buscando..";}
-            },
-            dropdownParent: $("#staticBackdrop"),
-            // ajax: {
-            //     url: <?=base_url("/index.php/Usuario/getUnidades")?>,
-            //     dataType: 'json'
-            //     // Additional AJAX parameters go here; see the end of this chapter for the full code of this example
-            // }
-        });
-        function headerStyle() {
-        return {
-            css: {
-            background: '#000099', // Fondo del encabezado
-            color: '#FFFFFF'        // Color del texto del encabezado
-            }
-        };
-        }
-        $('#staticBackdrop').on('hidden.bs.modal', function (e) {
-            
-            $('#formUsuario')[0].reset();
-        });
-
+    <script>
+    ini.inicio.agregarUsuario();
+    $('#usuariosTable').DataTable({
+        language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json' // Ruta al archivo de localización
+        },
+        destroy: true,
+        searching: true,
     });
-</script>
-</body>
-</html>
+
+    function fechas() {
+        let fec_inicio = $('#fecha_inicio').val();
+        let fec_fin = $('#fecha_fin').val();
+
+        console.log("Fecha inicio:", fec_inicio, "Fecha fin:", fec_fin);
+
+        $('tbody tr').each(function(index) {
+            $(this).find(`input[name="timeopen${index}"]`).val(fec_inicio);
+            $(this).find(`input[name="timeclose${index}"]`).val(fec_fin);
+        });
+
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-right',
+            showConfirmButton: false,
+            timer: 2500
+        });
+
+        Toast.fire({
+            type: 'success',
+            title: 'Copia de fechas exitosa',
+            icon: 'success'
+        });
+    }
+
+    function pintarTabla(data) {
+        var tbody = $('#quizzTable tbody');
+        tbody.empty();
+
+        data.forEach(function(q, i) {
+            var row = `
+            <tr>
+                <td>${q.name}</td>
+                <td>
+                    <input type="date" autocomplete="off" class="form-control" id="timeopen${i}"
+                        name="timeopen${i}" value="${formatDate(q.timeopen)}">
+                    <input type="hidden" name="id_curso${i}" id="id_curso${i}" value="${q.id}">
+                </td>
+                <td>
+                    <input type="date" autocomplete="off" class="form-control" id="timeclose${i}"
+                        name="timeclose${i}" value="${formatDate(q.timeclose)}">
+                </td>
+                <td>${formatTime(q.timelimit)}</td>
+                <td>
+                    <div>
+                        <input type="checkbox" id="switch_${i}" data-switch="success"
+                            onclick="activar_fecha(${i})" />
+                        <label for="switch_${i}" data-on-label="Sí" data-off-label="No"
+                            class="mb-0 d-block"></label>
+                    </div>
+                </td>
+            </tr>
+        `;
+            tbody.append(row);
+        });
+    }
+
+    function cargaCsv() {
+        Swal.fire({
+            title: "<strong>Subir CSV</strong>",
+            icon: "info",
+            html: `<input type='file' id="fileinput" class="form-control" accept=".csv" >`,
+            showCloseButton: true,
+            showCancelButton: true,
+            focusConfirm: false,
+            confirmButtonText: "Guardar",
+            cancelButtonText: "Cancelar"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                let formData = new FormData();
+                let fileinput = $('#fileinput')[0].files[0];
+                formData.append('fileinput', $('#fileinput')[0].files[0]);
+                formData.append('id_categoria', $('#id_categoria').val());
+                if (!fileinput) {
+                    Swal.fire("Error", "Es requerido el archivo CSV", "error");
+                    return;
+                }
+
+                Swal.fire({
+                    title: "Atención",
+                    text: "Se realizar la carga masiva",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonColor: "#3085d6",
+                    cancelButtonColor: "#d33",
+                    confirmButtonText: "Proceder"
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $("#btn_csv").hide();
+                        $("#load_csv").show();
+                        $.ajax({
+                            url: '<?= base_url('/index.php/Agregar/uploadCSV') ?>',
+                            type: 'POST',
+                            data: formData,
+                            contentType: false,
+                            processData: false,
+                            success: function(response) {
+                                if (!response.error) {
+
+                                    Swal.fire("Éxito",
+                                        "Los datos se guardaron correctamente.",
+                                        "success");
+                                    $('#table').bootstrapTable('refresh');
+                                    //window.location.reload();
+                                } else {
+                                    Swal.fire("Error",
+                                        "Inconsistencia en el archivo, favor de verificar el ID moodle",
+                                        "error");
+                                    console.log("Error: " +
+                                        response); // Error en el procesamiento
+                                }
+                                $("#btn_csv").show();
+                                $("#load_csv").hide();
+                            },
+                            error: function(xhr, status, error) {
+                                console.log(error);
+                                Swal.fire("Error", "Favor de llamar al Administrador",
+                                    "error")
+                                $("#btn_csv").show();
+                                $("#load_csv").hide();
+                                //alert("Error en la solicitud: " + error);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function configuracion(categoryId) {
+        var baseUrl = "<?= base_url('index.php/Agregar/Configuracion?id_curso=') ?>";
+        window.location.href = baseUrl + categoryId;
+
+    }
+
+
+
+    // Función para formatear la fecha en formato YYYY-MM-DD
+    function formatDate(timestamp) {
+        var date = new Date(timestamp * 1000); // Convertir a milisegundos
+        return date.toISOString().split('T')[0];
+    }
+
+    // Función para formatear el tiempo en formato HH:MM:SS
+    function formatTime(seconds) {
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var secs = seconds % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    </script>

@@ -47,18 +47,30 @@ class Magregarturno extends Model
             * @param array:adicionales             Variable utilizada para el caso en que se requiera cambiar parte de la estructura de la función
             */
         // die(var_dump($dataInsert['id_destinatario']));  
-        
-        $dataInsert = [
-            'id'                    => $dataInsert['id'],           
-            'clave_ramo'            => $dataInsert['clave_ramo'],           
-            'nombre_ramo'           => $dataInsert['nombre_ramo'],           
-            'abreviatura_ramo'      => $dataInsert['abreviatura_ramo'],           
-            'enlace'                => $dataInsert['enlace']       
+        $data = [
+            'anio'                          => $dataInsert['anio'],
+            'id_asunto'                     => $dataInsert['id_asunto'],
+            'fecha_peticion'                => $dataInsert['fecha_peticion'],
+            'fecha_recepcion'               => $dataInsert['fecha_recepcion'],
+            'solicitante_titulo'            => $dataInsert['solicitante_titulo'],
+            'solicitante_nombre'            => $dataInsert['solicitante_nombre'],
+            'solicitante_primer_apellido'   => $dataInsert['solicitante_primer_apellido'],
+            'solicitante_segundo_apellido'  => $dataInsert['solicitante_segundo_apellido'],
+            'solicitante_cargo'             => $dataInsert['solicitante_cargo'],
+            'solicitante_razon_social'      => $dataInsert['solicitante_razon_social'],
+            'resumen'                       => $dataInsert['resumen'],
+            'id_estatus'                    => $dataInsert['id_estatus'],
+            'observaciones'                 => $dataInsert['observaciones'],
+            'id_resultado_turno'            => $dataInsert['id_resultado_turno'],
+            'resultado_turno'               => $dataInsert['resultado_turno'],
+            'firma_turno'                   => $dataInsert['firma_turno'],
+            'usuario_registro'              => $dataInsert['usuario_registro'],
+            'fecha_registro'                => $dataInsert['fecha_registro'],
         ];
         
         // die(var_dump($dataInsert)); 
         $this->db->transBegin();     
-            if(!$this->Mglobal->localSaveTabla($this->db, $response, $data, $dataBitacora, 'centro', $bitacora, 'id_centro', false, false)){
+            if(!$this->Mglobal->localSaveTabla($this->db, $response, $data, $dataBitacora, 'turno', $bitacora, 'id_turno', false, false)){
                 log_message("critical","Respuesta: ".json_encode($response));
                 log_message('critical','statusDB signosVitales: '.json_encode($this->db->transStatus()));
                 return $response;
