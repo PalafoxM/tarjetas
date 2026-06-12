@@ -1,0 +1,466 @@
+.module-shell {
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    background: #1f2937;
+}
+
+.module-body {
+    background: #1f2937;
+    padding: 1.5rem;
+    color: #f9fafb;
+}
+
+.module-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.cajero-app .module-actions .btn-fic-back,
+.cajero-app .module-actions a.btn-fic-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 1rem !important;
+    border-radius: 0.375rem !important;
+    font-weight: 700 !important;
+    text-decoration: none !important;
+    color: #ecfeff !important;
+    border: 1px solid rgba(34, 211, 238, 0.32) !important;
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.88)) !important;
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.22) !important;
+}
+
+.cajero-app .module-actions .btn-fic-back:hover,
+.cajero-app .module-actions .btn-fic-back:focus,
+.cajero-app .module-actions a.btn-fic-back:hover,
+.cajero-app .module-actions a.btn-fic-back:focus {
+    color: #ffffff !important;
+    border-color: rgba(125, 211, 252, 0.58) !important;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 1), rgba(37, 99, 235, 0.94)) !important;
+    box-shadow: 0 18px 34px rgba(14, 165, 233, 0.26) !important;
+}
+
+.cajero-app .module-shell {
+    margin-bottom: 1.5rem;
+}
+
+.cajero-app {
+    max-width: 1720px;
+    margin: 0 auto;
+}
+
+.cajero-app .row {
+    justify-content: center;
+}
+
+.cajero-app .col-12 {
+    max-width: 100%;
+}
+
+.cajero-app .module-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.cajero-app .cajero-panel {
+    padding: 1.25rem;
+    border-radius: 20px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(125, 138, 159, 0.2);
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
+}
+
+.cajero-app .cajero-subcard {
+    margin-bottom: 0;
+    border: 1px solid #374151;
+    background: rgba(15, 23, 42, 0.78);
+    box-shadow: none;
+}
+
+.cajero-app .cajero-subcard-body {
+    background: rgba(15, 23, 42, 0.78);
+}
+
+.cajero-app .cajero-table-shell,
+.cajero-app .cajero-profile-shell {
+    padding: 1.1rem;
+    border-radius: 16px;
+    background: rgba(17, 24, 39, 0.82);
+    border: 1px solid #374151;
+    box-shadow: none;
+}
+
+.cajero-app .cajero-table-shell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: auto;
+}
+
+.cajero-app .cajero-table-shell > * {
+    width: 100%;
+}
+
+.cajero-app .cajero-table-shell .fixed-table-container {
+    border: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.cajero-app .cajero-table-shell .bootstrap-table,
+.cajero-app .cajero-table-shell .fixed-table-container,
+.cajero-app .cajero-table-shell .fixed-table-body {
+    width: 100% !important;
+}
+
+.cajero-app .cajero-table-shell .bootstrap-table {
+    margin: 0 auto;
+}
+
+.cajero-app .cajero-table-shell .fixed-table-body {
+    margin: 0 auto;
+}
+
+.cajero-app .bootstrap-table .fixed-table-toolbar,
+.cajero-app .bootstrap-table .fixed-table-pagination {
+    width: 100%;
+}
+
+.cajero-app .bootstrap-table .fixed-table-toolbar {
+    display: flex;
+    justify-content: center;
+}
+
+.cajero-app .bootstrap-table .fixed-table-toolbar .search {
+    float: none !important;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cajero-app .cajero-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.cajero-app .cajero-tab-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 116px;
+    padding: 0.7rem 1rem;
+    border-radius: 999px;
+    border: 1px solid #374151;
+    background: #111827;
+    color: #dbe4f0;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.cajero-app .cajero-tab-link:hover {
+    background: #1f2937;
+    color: #ffffff;
+    border-color: #4b5563;
+}
+
+.cajero-app .cajero-tab-link.is-active {
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.88));
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.22);
+}
+
+.cajero-app .cajero-activity-intro,
+.cajero-app .cajero-empty-state {
+    padding: 1.15rem 1.25rem;
+    border-radius: 18px;
+    background: rgba(17, 24, 39, 0.9);
+    border: 1px solid #374151;
+}
+
+.cajero-app .cajero-activity-intro {
+    margin-bottom: 1rem;
+}
+
+.cajero-app .cajero-section-title {
+    margin: 0;
+    color: #f9fafb;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.cajero-app .cajero-section-copy {
+    margin: 0.4rem 0 0;
+    color: #cbd5e1;
+}
+
+.cajero-app .cliente-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: 1.5rem;
+}
+
+.cajero-app .cliente-grid-full {
+    grid-column: 1 / -1;
+}
+
+.cajero-app .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 84px;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.cajero-app .status-pending {
+    background: rgba(178, 58, 72, 0.16);
+    color: #f3c8ce;
+    border: 1px solid rgba(178, 58, 72, 0.35);
+}
+
+.cajero-app .status-resolved {
+    background: rgba(38, 59, 128, 0.22);
+    color: #dfe7ff;
+    border: 1px solid rgba(118, 149, 255, 0.35);
+}
+
+.cajero-app .status-muted {
+    background: rgba(107, 117, 128, 0.14);
+    color: #cbd5e1;
+    border: 1px solid rgba(107, 117, 128, 0.24);
+}
+
+.cajero-app .bootstrap-table .fixed-table-toolbar .search input {
+    border-radius: 12px;
+    border: 1px solid #4b5563;
+    background: #111827;
+    color: #f9fafb;
+}
+
+.cajero-app .bootstrap-table .table {
+    background: #1f2937;
+    color: #f9fafb;
+    border-collapse: collapse;
+    border-spacing: 0;
+    table-layout: auto;
+    width: 100%;
+    min-width: 100%;
+    margin-top: 0.5rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cajero-app .bootstrap-table .table thead th {
+    background: #111827;
+    color: #f9fafb;
+    border-color: #374151 !important;
+    text-align: left;
+    vertical-align: middle;
+    padding: 1rem 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cajero-app .bootstrap-table .table td {
+    border-color: #374151;
+    vertical-align: middle;
+    text-align: left;
+    padding: 1rem 1rem;
+    line-height: 1.35;
+}
+
+.cajero-app .bootstrap-table .table tbody tr:nth-child(odd) td {
+    background: #435061;
+}
+
+.cajero-app .bootstrap-table .table tbody tr:nth-child(even) td {
+    background: #253244;
+}
+
+.cajero-app .bootstrap-table .table tbody tr:hover td {
+    background: #334155;
+}
+
+.cajero-app .bootstrap-table .table tbody td:nth-child(2),
+.cajero-app .bootstrap-table .table tbody td:nth-child(3) {
+    color: #f9fafb;
+    font-weight: 600;
+}
+
+.cajero-app .bootstrap-table .table tbody td:nth-child(2),
+.cajero-app .bootstrap-table .table tbody td:nth-child(3),
+.cajero-app .bootstrap-table .table tbody td:nth-child(4),
+.cajero-app .bootstrap-table .table tbody td:nth-child(5) {
+    white-space: nowrap;
+}
+
+.cajero-app .bootstrap-table .table tbody td:nth-child(3) {
+    min-width: 280px;
+}
+
+.cajero-app .bootstrap-table .table tbody td:nth-child(4) {
+    min-width: 110px;
+}
+
+.cajero-app .bootstrap-table .table tbody td:nth-child(5) {
+    min-width: 210px;
+}
+
+.cajero-app .bootstrap-table .table thead th:nth-child(1),
+.cajero-app .bootstrap-table .table tbody td:nth-child(1) {
+    min-width: 76px;
+}
+
+.cajero-app .bootstrap-table .table thead th:nth-child(2),
+.cajero-app .bootstrap-table .table tbody td:nth-child(2) {
+    min-width: 110px;
+}
+
+.cajero-app .bootstrap-table .table thead th:nth-child(3),
+.cajero-app .bootstrap-table .table tbody td:nth-child(3) {
+    min-width: 310px;
+}
+
+.cajero-app .bootstrap-table .table thead th:nth-child(4),
+.cajero-app .bootstrap-table .table tbody td:nth-child(4) {
+    min-width: 120px;
+}
+
+.cajero-app .bootstrap-table .table thead th:nth-child(5),
+.cajero-app .bootstrap-table .table tbody td:nth-child(5) {
+    min-width: 230px;
+}
+
+.cajero-app .bootstrap-table .table thead th:nth-child(6),
+.cajero-app .bootstrap-table .table tbody td:nth-child(6),
+.cajero-app .bootstrap-table .table thead th:nth-child(7),
+.cajero-app .bootstrap-table .table tbody td:nth-child(7),
+.cajero-app .bootstrap-table .table thead th:nth-child(8),
+.cajero-app .bootstrap-table .table tbody td:nth-child(8) {
+    min-width: 110px;
+}
+
+.cajero-app .bootstrap-table .table tbody td:last-child {
+    min-width: 220px;
+    text-align: center;
+}
+
+.cajero-app .cajero-credenciales-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    color: #dbe4f0;
+    margin-top: 0.5rem;
+}
+
+.cajero-app .cajero-credenciales-table thead th {
+    background: #111827;
+    color: #f9fafb;
+    border: 0;
+    padding: 1rem 1rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.cajero-app .cajero-credenciales-table tbody td {
+    border: 0;
+    padding: 1rem 1rem;
+    text-align: left;
+    vertical-align: middle;
+    line-height: 1.35;
+}
+
+.cajero-app .cajero-credenciales-table tbody tr:nth-child(odd) td {
+    background: #435061;
+}
+
+.cajero-app .cajero-credenciales-table tbody tr:nth-child(even) td {
+    background: #253244;
+}
+
+.cajero-app .cajero-credenciales-table tbody tr:hover td {
+    background: #334155;
+}
+
+.cajero-app .cajero-credenciales-table tbody td:nth-child(2),
+.cajero-app .cajero-credenciales-table tbody td:nth-child(3) {
+    color: #f9fafb;
+    font-weight: 600;
+}
+
+.cajero-app .cajero-credenciales-table tbody td:last-child {
+    text-align: center;
+}
+
+.cajero-app .cajero-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(75, 85, 99, 0.6);
+    color: #dbe4f0;
+}
+
+.cajero-app .cajero-pagination-summary,
+.cajero-app .cajero-pagination-state {
+    color: #dbe4f0;
+    font-weight: 600;
+}
+
+.cajero-app .cajero-pagination-links {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.cajero-app .table-actions {
+    display: flex;
+    justify-content: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.cajero-app .table-actions .btn {
+    min-width: 92px;
+}
+
+.cajero-app .text-muted {
+    color: #cbd5e1 !important;
+}
+
+.cajero-app .fixed-table-pagination,
+.cajero-app .pagination-detail {
+    color: #d1d5db !important;
+}
+
+.cajero-app .page-link {
+    background: #111827;
+    border-color: #374151;
+    color: #f9fafb;
+}
+
+.cajero-app .page-item.active .page-link {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+@media (max-width: 991px) {
+    .cajero-app .cliente-grid {
+        grid-template-columns: 1fr;
+    }
+}

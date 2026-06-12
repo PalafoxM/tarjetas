@@ -1,0 +1,114 @@
+.module-shell {
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    background: #1f2937;
+}
+
+.module-body {
+    background: #1f2937;
+    padding: 1.5rem;
+    color: #f9fafb;
+}
+
+.module-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.btn-fic-back {
+    color: #ecfeff;
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.88));
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.22);
+}
+
+.btn-fic-back:hover,
+.btn-fic-back:focus {
+    color: #ffffff;
+    border-color: rgba(125, 211, 252, 0.58);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 1), rgba(37, 99, 235, 0.94));
+    box-shadow: 0 18px 34px rgba(14, 165, 233, 0.26);
+}
+
+.reportes-filtros {
+    margin: 1rem 0 1.5rem;
+    padding: 1rem;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid #374151;
+}
+
+.reportes-filtros .form-label {
+    color: #e5e7eb;
+    font-weight: 600;
+}
+
+.reportes-filtros .form-control,
+.reportes-filtros .form-select {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+
+.bootstrap-table .fixed-table-toolbar .search input {
+    border-radius: 12px;
+    border: 1px solid #4b5563;
+    background: #111827;
+    color: #f9fafb;
+}
+
+.bootstrap-table .table {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.bootstrap-table .table thead th {
+    background: #111827;
+    color: #f9fafb;
+    border-color: #374151 !important;
+}
+
+.bootstrap-table .table td {
+    border-color: #374151;
+    vertical-align: middle;
+}
+
+.fixed-table-pagination,
+.pagination-detail {
+    color: #d1d5db !important;
+}
+
+.page-link {
+    background: #111827;
+    border-color: #374151;
+    color: #f9fafb;
+}
+
+.page-item.active .page-link {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.table-actions {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.table-actions .btn {
+    min-width: 92px;
+}
+
+.status-badge.status-review {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-badge.status-rejected {
+    background: #fee2e2;
+    color: #b91c1c;
+}

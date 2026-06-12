@@ -1,0 +1,211 @@
+.module-shell {
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    background: #1f2937;
+}
+
+.module-body {
+    background: #1f2937;
+    padding: 1.5rem;
+    color: #f9fafb;
+}
+
+.module-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.module-note {
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+
+.bootstrap-table .fixed-table-toolbar .search input {
+    border-radius: 12px;
+    border: 1px solid #4b5563;
+    background: #111827;
+    color: #f9fafb;
+}
+
+.bootstrap-table .table {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.bootstrap-table .table thead th {
+    background: #111827;
+    color: #f9fafb;
+    border-color: #374151 !important;
+}
+
+.bootstrap-table .table td {
+    border-color: #374151;
+    vertical-align: middle;
+}
+
+.fixed-table-pagination,
+.pagination-detail {
+    color: #d1d5db !important;
+}
+
+.page-link {
+    background: #111827;
+    border-color: #374151;
+    color: #f9fafb;
+}
+
+.page-item.active .page-link {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.form-control,
+.form-select {
+    background: #111827;
+    color: #f9fafb;
+    border-color: #4b5563;
+}
+
+.text-uppercase-live {
+    text-transform: uppercase;
+}
+
+.text-lowercase-live {
+    text-transform: lowercase;
+}
+
+.table-actions {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.table-actions .btn {
+    min-width: 92px;
+}
+
+.btn-fic-back {
+    color: #ecfeff;
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.88));
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.22);
+}
+
+.btn-fic-back:hover,
+.btn-fic-back:focus {
+    color: #ffffff;
+    border-color: rgba(125, 211, 252, 0.58);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 1), rgba(37, 99, 235, 0.94));
+    box-shadow: 0 18px 34px rgba(14, 165, 233, 0.26);
+}
+
+.select2-container {
+    width: 100% !important;
+}
+
+.select2-container--default .select2-selection--single {
+    height: 38px;
+    background: #111827;
+    border: 1px solid #4b5563;
+    border-radius: .375rem;
+    color: #f9fafb;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #f9fafb;
+    line-height: 36px;
+    padding-left: .75rem;
+    padding-right: 2rem;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #9ca3af;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+    right: 6px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: #cbd5e1 transparent transparent transparent;
+}
+
+.select2-dropdown {
+    background: #0f172a;
+    border: 1px solid #4b5563;
+}
+
+.select2-search--dropdown .select2-search__field {
+    background: #111827;
+    border: 1px solid #4b5563;
+    color: #f9fafb;
+}
+
+.select2-results__option {
+    color: #e5e7eb;
+}
+
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background: #2563eb;
+    color: #fff;
+}
+
+.select2-container--default .select2-results__option--selected {
+    background: rgba(37, 99, 235, 0.18);
+    color: #f9fafb;
+}
+
+.editor-panel {
+    display: none;
+    margin-bottom: 1rem;
+    padding: 1.25rem;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid #374151;
+}
+
+.editor-panel.is-open {
+    display: block;
+}
+
+.editor-panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.editor-panel-title h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #f9fafb;
+}
+
+.provider-establecimientos-preview {
+    display: grid;
+    gap: .85rem;
+}
+
+.provider-establecimientos-empty {
+    padding: 1rem;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px dashed #475569;
+    color: #cbd5e1;
+}
+
+.provider-establecimientos-summary {
+    color: #93c5fd;
+    font-size: .92rem;
+    font-weight: 600;
+}
+
+.d-none-force {
+    display: none !important;
+}

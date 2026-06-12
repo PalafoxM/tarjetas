@@ -1,0 +1,269 @@
+:root {
+    --fic-blue: #263B80;
+    --fic-blue-deep: #1e3068;
+    --fic-red: #B23A48;
+    --fic-text: #1f2937;
+    --fic-text-soft: #5f6b7c;
+    --fic-text-muted: #7a8699;
+    --fic-white: #ffffff;
+    --fic-surface-soft: #f7f8fc;
+    --fic-border: #d7deed;
+    --fic-border-strong: #bec9e3;
+    --fic-shadow-md: 0 18px 40px rgba(38, 59, 128, 0.12);
+}
+
+.fic-login-body {
+    min-height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    background: var(--fic-surface-soft) var(--fic-login-main-bg, none) center center / cover no-repeat fixed;
+}
+
+.fic-login-body,
+.fic-login-body * {
+    box-sizing: border-box;
+}
+
+.login-stage {
+    min-height: 100vh;
+    position: relative;
+}
+
+.scene,
+.scene .layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.scene {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    list-style: none;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.scene .layer {
+    display: block;
+}
+
+.scene .background {
+    position: absolute;
+    inset: 0;
+    background: transparent !important;
+}
+
+.login-loading-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.84), rgba(241, 244, 251, 0.92)),
+        var(--fic-login-loading-bg, none) center center / cover no-repeat;
+    transition: opacity .45s ease, visibility .45s ease;
+}
+
+.login-loading-screen.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.login-loading-emblem {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    border: 3px solid rgba(38, 59, 128, 0.18);
+    border-top-color: var(--fic-blue);
+    border-right-color: rgba(178, 58, 72, 0.58);
+    box-shadow: 0 0 18px rgba(38, 59, 128, 0.12);
+    animation: loginSpin 1s linear infinite;
+}
+
+.login-loading-title {
+    color: var(--fic-blue);
+    font-family: 'MedievalSharp', cursive;
+    font-size: 1.7rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    text-shadow: none;
+}
+
+.login-loading-copy {
+    color: var(--fic-text-soft);
+    font-family: 'MedievalSharp', cursive;
+    font-size: 1rem;
+    text-align: center;
+    text-shadow: none;
+}
+
+@keyframes loginSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.login-overlay {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem 1.25rem 5.5rem;
+    font-family: 'MedievalSharp', cursive;
+    position: relative;
+    z-index: 2;
+    opacity: 1 !important;
+    visibility: visible !important;
+    background: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
+}
+
+.login-card {
+    position: relative;
+    display: block;
+    width: min(420px, 92vw);
+    margin: 0;
+    z-index: 3;
+}
+
+.login-card__panel {
+    display: block;
+    background-color: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--fic-border);
+    border-radius: 18px;
+    box-shadow: var(--fic-shadow-md);
+    width: min(420px, 92vw);
+    color: var(--fic-text);
+    padding: 25px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.login-card__header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-bottom: 1px solid var(--fic-border);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.login-card__title {
+    font-size: 28px;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--fic-blue);
+    text-shadow: none;
+}
+
+.login-card__body {
+    display: block;
+}
+
+.login-overlay .form-group {
+    margin-bottom: 20px;
+}
+
+.login-overlay label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 18px;
+    letter-spacing: 1px;
+    color: var(--fic-text);
+    text-shadow: none;
+}
+
+.login-overlay .form-control {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--fic-white);
+    border: 1px solid var(--fic-border-strong);
+    color: var(--fic-text);
+    font-family: 'MedievalSharp', cursive;
+    font-size: 16px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.login-overlay .form-control:focus {
+    outline: none;
+    box-shadow: 0 0 0 .18rem rgba(38, 59, 128, 0.12);
+    border-color: var(--fic-blue);
+    background-color: var(--fic-white);
+}
+
+.login-overlay .form-control::placeholder {
+    color: var(--fic-text-muted);
+}
+
+.login-overlay .btn-primary {
+    background: var(--fic-blue);
+    border: 1px solid var(--fic-blue);
+    color: var(--fic-white);
+    padding: 12px 20px;
+    font-size: 20px;
+    font-family: 'MedievalSharp', cursive;
+    cursor: pointer;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    box-shadow: none;
+    transition: all 0.3s ease;
+    width: 100%;
+    margin-top: 15px;
+}
+
+.login-overlay .btn-primary:hover {
+    background: var(--fic-blue-deep);
+    border-color: var(--fic-blue-deep);
+    box-shadow: none;
+    color: var(--fic-white);
+}
+
+.login-password-wrap {
+    position: relative;
+}
+
+.login-password-input {
+    padding-right: 44px !important;
+}
+
+.login-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    color: var(--fic-blue);
+    cursor: pointer;
+}
+
+
+
+@media (max-width: 640px) {
+    .login-overlay {
+        padding-bottom: 7rem;
+    }
+
+    .login-card__title {
+        font-size: 22px;
+    }
+
+    .login-brand-logos img {
+        max-height: 44px;
+    }
+}

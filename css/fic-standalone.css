@@ -1,0 +1,243 @@
+html, body {
+    min-height: 100%;
+}
+
+body.fic-blur-layout {
+    margin: 0;
+    min-height: 100vh;
+    position: relative;
+    background: #050816;
+    overflow-x: hidden;
+}
+
+body.fic-blur-layout::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+        linear-gradient(rgba(5, 8, 22, 0.45), rgba(5, 8, 22, 0.72)),
+        var(--fic-standalone-bg, none) center center / cover no-repeat;
+    filter: blur(10px);
+    transform: scale(1.08);
+    z-index: 0;
+}
+
+body.fic-blur-layout::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at top, rgba(31, 41, 55, 0.24), rgba(11, 17, 32, 0.82));
+    z-index: 1;
+    pointer-events: none;
+}
+
+.fic-standalone-content {
+    position: relative;
+    z-index: 2;
+    padding: 24px;
+}
+
+.fic-global-topbar {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 0 auto 1rem;
+    padding: .95rem 1.1rem;
+    border-radius: 18px;
+    background: var(--fic-blue);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: var(--fic-shadow-md);
+}
+
+.fic-global-brand,
+.fic-global-name {
+    color: var(--fic-white);
+}
+
+.fic-global-brand {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+.fic-global-user {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+}
+
+.fic-global-usertext {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+}
+
+.fic-global-name {
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.fic-global-role {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: .84rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.fic-standalone-content .hub-shell,
+.fic-standalone-content .module-shell,
+.fic-standalone-content .consumos-card,
+.fic-standalone-content .modal-content {
+    background: var(--fic-white) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--fic-border) !important;
+    box-shadow: var(--fic-shadow-md);
+}
+
+.fic-standalone-content .bootstrap-table .table,
+.fic-standalone-content .bootstrap-table .table tbody tr,
+.fic-standalone-content .table {
+    background-color: var(--fic-white) !important;
+}
+
+.fic-standalone-content .bootstrap-table .table thead th,
+.fic-standalone-content .table thead th {
+    background: var(--fic-blue-soft) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.fic-standalone-content .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.34);
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--fic-white);
+}
+
+.fic-standalone-content .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.48);
+    color: var(--fic-white);
+}
+
+.fic-reload-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 !important;
+    color: #c7f9ff !important;
+    border-color: rgba(45, 212, 191, 0.38) !important;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(240, 253, 250, 0.18), transparent 30%),
+        linear-gradient(135deg, rgba(13, 148, 136, 0.50), rgba(8, 47, 73, 0.34)) !important;
+    box-shadow: 0 12px 26px rgba(20, 184, 166, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.fic-reload-btn i {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.fic-reload-btn:hover,
+.fic-reload-btn:focus {
+    color: #ecfeff !important;
+    border-color: rgba(103, 232, 249, 0.58) !important;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(240, 253, 250, 0.24), transparent 32%),
+        linear-gradient(135deg, rgba(20, 184, 166, 0.62), rgba(14, 116, 144, 0.42)) !important;
+    box-shadow: 0 16px 34px rgba(20, 184, 166, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+}
+
+.fic-logout-btn {
+    color: var(--fic-white) !important;
+    border-color: rgba(178, 58, 72, 0.52) !important;
+    background: var(--fic-red) !important;
+    box-shadow: none;
+}
+
+.fic-logout-btn:hover,
+.fic-logout-btn:focus {
+    color: var(--fic-white) !important;
+    border-color: var(--fic-red-deep) !important;
+    background: var(--fic-red-deep) !important;
+    box-shadow: none;
+}
+
+.fic-loading-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1085;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(38, 59, 128, 0.12);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.fic-loading-modal.is-active {
+    display: flex;
+}
+
+.fic-loading-card {
+    min-width: min(92vw, 320px);
+    padding: 1.25rem 1.5rem;
+    border-radius: 18px;
+    background: var(--fic-white);
+    border: 1px solid var(--fic-border);
+    box-shadow: var(--fic-shadow-md);
+    text-align: center;
+    color: var(--fic-text);
+}
+
+.fic-loading-spinner {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto .9rem;
+    border-radius: 50%;
+    border: 4px solid rgba(38, 59, 128, 0.16);
+    border-top-color: var(--fic-blue);
+    animation: fic-loading-spin .85s linear infinite;
+}
+
+.fic-loading-text {
+    font-size: .98rem;
+    font-weight: 700;
+    letter-spacing: .01em;
+}
+
+@keyframes fic-loading-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 768px) {
+    .fic-standalone-content {
+        padding: 16px;
+    }
+
+    .fic-global-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .fic-global-user {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .fic-global-usertext {
+        text-align: left;
+    }
+}

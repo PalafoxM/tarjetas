@@ -1,0 +1,52 @@
+.fic-required {
+    color: #dc2626;
+}
+
+.fic-select-elevated {
+    z-index: 100;
+}
+
+.fic-hidden {
+    display: none !important;
+}
+
+.fic-max-width-sm {
+    max-width: 320px;
+}
+
+.fic-max-width-30ch {
+    max-width: 30ch;
+}
+
+.legacy-neon {
+    display: inline-block;
+    box-sizing: border-box;
+    padding: 10px;
+    border: none;
+    font: normal 20px/normal "Warnes", Helvetica, sans-serif;
+    color: rgba(255, 255, 255, 1);
+    text-decoration: normal;
+    text-align: center;
+    text-overflow: clip;
+    white-space: pre;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 1), 0 0 20px rgba(255, 255, 255, 1), 0 0 30px rgba(255, 255, 255, 1), 0 0 40px #ff00de, 0 0 70px #ff00de, 0 0 80px #ff00de, 0 0 100px #ff00de;
+    transition: all 200ms cubic-bezier(0.42, 0, 0.58, 1);
+}
+
+.legacy-neon:hover {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 1), 0 0 20px rgba(255, 255, 255, 1), 0 0 30px rgba(255, 255, 255, 1), 0 0 40px #00ffff, 0 0 70px #00ffff, 0 0 80px #00ffff, 0 0 100px #00ffff;
+}
+
+.legacy-action-grid {
+    display: grid;
+    grid-auto-flow: column;
+    gap: 10px;
+}
+
+.legacy-action-pill {
+    padding: 1px;
+    background-color: #4caf50;
+    color: #fff;
+    text-align: center;
+    border-radius: 50px;
+}

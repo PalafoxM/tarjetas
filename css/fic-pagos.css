@@ -1,0 +1,331 @@
+.navbar-custom .topnav-logo,
+.navbar-custom .app-search,
+.topnav {
+    display: none !important;
+}
+
+.navbar-custom {
+    background: #111827;
+    border-bottom: 1px solid #374151;
+}
+
+.navbar-custom .container-fluid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.topbar-menu .nav-user {
+    background: transparent !important;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+}
+
+.st-header-brand {
+    color: #f9fafb;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    display: flex;
+    align-items: center;
+    min-height: 70px;
+    white-space: nowrap;
+}
+
+.st-navbar-left {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+}
+
+.content-page {
+    background: #111827;
+}
+
+.consumos-card {
+    border: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    background: #1f2937;
+}
+
+.consumos-body {
+    background: #1f2937;
+    padding: 1.5rem;
+}
+
+.table-actions {
+    display: flex;
+    gap: .5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.table-actions .btn {
+    min-width: 124px;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: .3rem .7rem;
+    font-size: .78rem;
+    font-weight: 700;
+}
+
+.status-uploaded {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-pending {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.toolbar-note {
+    font-size: .92rem;
+    color: #cbd5e1;
+}
+
+.corte-global-panel,
+.ventas-corte-card {
+    margin-bottom: 1rem;
+    padding: 1.25rem;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid #374151;
+}
+
+.ventas-corte-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ventas-corte-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.ventas-corte-card__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #93c5fd;
+}
+
+.ventas-corte-card__amount {
+    margin: .35rem 0 0;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    line-height: 1;
+    color: #f8fafc;
+}
+
+.ventas-corte-card__meta {
+    display: grid;
+    gap: .35rem;
+    justify-items: end;
+}
+
+.ventas-corte-card__count,
+.ventas-corte-card__window {
+    color: #cbd5e1;
+    font-size: .92rem;
+}
+
+.ventas-corte-card__status {
+    display: block;
+    color: #f8fafc;
+    font-size: 1rem;
+    margin-bottom: .35rem;
+}
+
+.ventas-corte-card__message {
+    margin: 0;
+    color: #cbd5e1;
+}
+
+.establecimiento-tabs {
+    display: flex;
+    gap: .65rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.establecimiento-tab {
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.68);
+    color: #e2e8f0;
+    border-radius: 999px;
+    padding: .6rem 1rem;
+    font-weight: 600;
+    transition: all .2s ease;
+}
+
+.establecimiento-tab:hover,
+.establecimiento-tab:focus {
+    color: #fff;
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(30, 41, 59, 0.92);
+}
+
+.establecimiento-tab.is-active {
+    color: #fff;
+    border-color: rgba(56, 189, 248, 0.55);
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.9));
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.18);
+}
+
+.btn-fic-back {
+    color: #ecfeff;
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    background: linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.88));
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.22);
+}
+
+.btn-fic-back:hover,
+.btn-fic-back:focus {
+    color: #ffffff;
+    border-color: rgba(125, 211, 252, 0.58);
+    background: linear-gradient(135deg, rgba(14, 165, 233, 1), rgba(37, 99, 235, 0.94));
+    box-shadow: 0 18px 34px rgba(14, 165, 233, 0.26);
+}
+
+.btn-fic-finalizados {
+    color: #eff6ff;
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    background: linear-gradient(135deg, rgba(30, 64, 175, 0.9), rgba(37, 99, 235, 0.78));
+    box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
+}
+
+.btn-fic-finalizados:hover,
+.btn-fic-finalizados:focus {
+    color: #ffffff;
+    border-color: rgba(147, 197, 253, 0.5);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.98), rgba(59, 130, 246, 0.86));
+    box-shadow: 0 18px 34px rgba(37, 99, 235, 0.24);
+}
+
+.btn-fic-excel {
+    color: #ecfdf5;
+    border: 1px solid rgba(74, 222, 128, 0.28);
+    background: linear-gradient(135deg, rgba(21, 128, 61, 0.9), rgba(22, 163, 74, 0.76));
+    box-shadow: 0 14px 28px rgba(21, 128, 61, 0.18);
+}
+
+.btn-fic-excel:hover,
+.btn-fic-excel:focus {
+    color: #ffffff;
+    border-color: rgba(134, 239, 172, 0.48);
+    background: linear-gradient(135deg, rgba(22, 163, 74, 0.98), rgba(34, 197, 94, 0.82));
+    box-shadow: 0 18px 34px rgba(22, 163, 74, 0.24);
+}
+
+.bootstrap-table .fixed-table-toolbar .search input {
+    border-radius: 12px;
+    border: 1px solid #4b5563;
+    background: #111827;
+    color: #f9fafb;
+}
+
+.bootstrap-table .fixed-table-pagination {
+    margin-top: 1rem;
+}
+
+.bootstrap-table .table {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.bootstrap-table .table thead th {
+    background: #111827;
+    color: #f9fafb;
+    border-color: #374151 !important;
+}
+
+.bootstrap-table .table td {
+    border-color: #374151;
+}
+
+.fixed-table-pagination,
+.pagination-detail {
+    color: #d1d5db !important;
+}
+
+.page-link {
+    background: #111827;
+    border-color: #374151;
+    color: #f9fafb;
+}
+
+.page-item.active .page-link {
+    background: #2563eb;
+    border-color: #2563eb;
+}
+
+.modal-content {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.modal-header,
+.modal-footer {
+    border-color: #374151;
+}
+
+.form-control {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+
+.form-control:disabled {
+    background: #0f172a;
+    color: #cbd5e1;
+}
+
+.archivo-panel {
+    display: none;
+    margin-bottom: 1rem;
+    padding: 1.25rem;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.78);
+    border: 1px solid #374151;
+}
+
+.archivo-panel.is-open {
+    display: block;
+}
+
+.archivo-panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.archivo-panel-title h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: #f9fafb;
+}
+
+@media (max-width: 767px) {
+    .ventas-corte-card__meta {
+        justify-items: start;
+    }
+}
