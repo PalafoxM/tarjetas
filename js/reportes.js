@@ -28,13 +28,7 @@ ini.reportes = (function () {
             }
         },
         
-        formatterAccionesTurno: function(value,row){
-            let accion = ``;
-            accion += `<button type="button" onclick="ini.inicio.abrirVentanaPdf(${row.id_turno})" class="btn btn-warning" title="Mostrar"><i class="mdi mdi-file-pdf"></i> </button>`
-            accion += `<button type="button"  class="btn btn-secondary" title="Modificar" style="margin-left:5px"><i class="mdi mdi-lead-pencil"></i> </button>`
-                // return `<button type="button" onclick="ini.inicio.abrirVentanaPdf(${row.id_turno})" class="btn btn-info"><i class="mdi mdi-file-pdf"></i> </button>`;
-            return accion;
-        },
+       
         formatterTruncaTexto:function(value, row) {
             if(value === null) return "";
             var maxLength = 30;

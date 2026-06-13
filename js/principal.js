@@ -34,6 +34,22 @@ saeg.principal = (function () {
                 event.stopImmediatePropagation();
             });
         },
+
+         alimentos: function(value,row){
+            let accion = ``;
+            if(row.tiene_alimentos == 1){
+              accion += `<span class="badge bg-success">Sí</span>`;
+            }
+            if(row.tiene_alimentos == 0){
+              accion += `<span class="badge bg-danger">No</span>`;
+            }
+            if(row.tiene_alimentos == ''){
+              accion += `<span class="badge bg-danger">Pendiente</span>`;
+            }
+        
+            // return `<button type="button" onclick="ini.inicio.abrirVentanaPdf(${row.id_turno})" class="btn btn-info"><i class="mdi mdi-file-pdf"></i> </button>`;
+            return accion;
+        },
     
         login: function(){
             let usuario = $('#usuario').val();              

@@ -66,7 +66,7 @@ class Inicio extends BaseController {
             $data['allUser'] = $Mglobal->getTabla(['tabla'=>'vw_usuario', 'where'=>['visible'=> 1]])->data;
             $vista= 'secciones/vCajero';
         }
-        
+        $data['scripts'] = array('principal','agregar');
         $data['contentView'] = $vista;                
         $this->_renderView($data);
         
