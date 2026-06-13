@@ -1,5 +1,6 @@
 <!-- Topbar Start -->
 <?php $session = \Config\Services::session(); ?>
+<?php $nombreCompleto = trim((string) $session->get('nombre_completo')) ?: 'Usuario'; ?>
 <link async href="https://fonts.googleapis.com/css?family=Warnes" data-generated="http://enjoycss.com" rel="stylesheet" type="text/css"/>
 
 <style>
@@ -37,7 +38,7 @@
         
         <li class="dropdown notification-list d-lg-none">
             <div id="titulo">
-                <h3 >SISTEMA DE TURNOS 2.0</h3>
+                <h3><?= esc($nombreCompleto) ?></h3>
             </div>
         </li>
 
@@ -48,7 +49,7 @@
                     <img src="<?php echo base_url();?>/assets/images/user.png"  class="rounded-circle">
                 </span>
                 <span>
-                    <span class="account-user-name"><?php echo $session->get('nombre_completo');?></span>
+                    <span class="account-user-name"><?= esc($nombreCompleto) ?></span>
                     <!-- <span class="account-position"><?php //echo $session->get('dsc_perfil');?></span> -->
                 </span>
             </a>
@@ -76,7 +77,7 @@
 
         <div id="titulo">
             <!-- <h4 class="neon">SISTEMA DE TURNOS 2.0</h4> -->
-            <h4>SISTEMA DE TURNOS 2.0</h4>
+            <h4>Comisión de Alimentos y Hospedajes  </h4>
         </div>
         
     </div>

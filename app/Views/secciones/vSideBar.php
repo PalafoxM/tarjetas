@@ -25,8 +25,8 @@
     <div class="h-100" id="leftside-menu-container" data-simplebar>
 
         <!--- Sidemenu -->
-        <ul class="side-nav mt-5">
-                <li class="side-nav-title side-nav-item">MENÚ DEL SISTEMA</li>
+        <ul class="side-nav mt-3">
+                <li class="side-nav-title side-nav-item">MENÚ</li>
 <!--                
                 <?php //if((int)$session->id_perfil == -1): ?>
                     <li class="side-nav-item">

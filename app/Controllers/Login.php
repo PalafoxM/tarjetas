@@ -72,28 +72,23 @@ class Login extends BaseController {
             ]);
     
             $result = json_decode($apiResponse->getBody());
-      
-            if (isset($result->error) && $result->error === false) {
+
+            if (isset($result->error) && $result->error === false && isset($result->data[0]) && is_object($result->data[0])) {
+                $usuarioSesion = get_object_vars($result->data[0]);
+                unset($usuarioSesion['contrasenia'], $usuarioSesion['password'], $usuarioSesion['token']);
+
+                $usuarioSesion['logueado'] = 1;
+                $usuarioSesion['nombre_completo'] = trim(implode(' ', array_filter([
+                    $usuarioSesion['nombre'] ?? '',
+                    $usuarioSesion['primer_apellido'] ?? '',
+                    $usuarioSesion['segundo_apellido'] ?? '',
+                ])));
+
+                $session->regenerate();
+                $session->set($usuarioSesion);
+
                 $response->error = false;
                 $response->respuesta = $result->respuesta ?? 'Operación exitosa';
-                $response->data = $result->data ?? [];
-                $session->set('logueado', 1);
-                $session->set('id_usuario',$result->data[0]->id_usuario);
-                $session->set('id_sexo',$result->data[0]->id_sexo);
-                $session->set('usuario',$result->data[0]->usuario);
-                $session->set('nombre_completo',$result->data[0]->nombre." ".$result->data[0]->primer_apellido." ".$result->data[0]->segundo_apellido);
-                $session->set('id_perfil',$result->data[0]->id_perfil);
-                $session->set('fec_nac',$result->data[0]->fec_nac);
-                $session->set('correo',$result->data[0]->correo);
-                $session->set('foto',$result->data[0]->ruta_foto_relativa);
-                $session->set('id_tipo_empleado',$result->data[0]->id_tipo_empleado);
-                $session->set('no_empleado',$result->data[0]->no_empleado);
-                $this->activarActividad($result->data[0]->id_usuario);
-                $subordinados = $catalogos->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_jefe_inmediato' => $result->data[0]->id_usuario]])->data;
-                $esJefe = (!empty($subordinados))?true:false;
-                $session->set('esJefe', $esJefe);
-                $response->error     = $result->error;
-                $response->respuesta = $result->respuesta;
             } else {
                 $response->respuesta = $result->respuesta ?? 'Error desconocido en la respuesta';
             }
@@ -107,7 +102,6 @@ class Login extends BaseController {
     public function cerrar() {
         $session = \Config\Services::session();  
         $session->destroy();
-        $session->set('logueado', 0);        
         header('Location:'.base_url());
         die();
     }
