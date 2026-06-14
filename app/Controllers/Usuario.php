@@ -218,4 +218,31 @@ class Usuario extends BaseController
         $mpdf->Output('orden-hospedaje-' . (int) $id_usuario . '.pdf', 'I');
         exit;
     }
+      public function generarPdfAlimentos($id_usuario)
+    {
+        $session = \Config\Services::session();
+      
+
+        $response = $this->globals->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
+        ]);    
+            $pdfData = $response->data[0];
+
+    
+            $html = view('pdfs/vpdfOrdenAlimentos', (array)$pdfData);
+            $mpdf = new \Mpdf\Mpdf([
+                'format' => 'Letter',
+                'margin_top' => 18,
+                'margin_bottom' => 18,
+                'margin_left' => 16,
+                'margin_right' => 16,
+                'default_font' => 'dejavusans',
+               'tempDir' => WRITEPATH . 'cache',
+            ]);
+            $mpdf->SetTitle('Orden de alimentos');
+            $mpdf->WriteHTML($html);
+            $mpdf->Output('orden-alimentos-' . (int) $id_usuario . '.pdf', 'I');
+            exit;
+        }
 }

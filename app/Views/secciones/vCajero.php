@@ -134,10 +134,10 @@ window.cajeros = {
                 <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${row.id_usuario})">
                     <i class="mdi mdi-account-edit"></i>
                 </button>
-                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="cajeros.verPdf(${row.id_usuario})">
+                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${row.id_usuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
-                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" disabled>
+                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${row.id_usuario})">
                     <i class="mdi mdi-file-pdf"></i>
                 </button>`;
 

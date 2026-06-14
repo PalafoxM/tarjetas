@@ -51,6 +51,9 @@ st.agregar = (function () {
         verPdf: function(id_usuario) {
          window.open(base_url + "index.php/Usuario/generarPdfHospedaje/" + id_usuario, '_blank');
         },
+        verPdfAlimentos: function(id_usuario) {
+         window.open(base_url + "index.php/Usuario/generarPdfAlimentos/" + id_usuario, '_blank');
+        }
         
     }
 })();
