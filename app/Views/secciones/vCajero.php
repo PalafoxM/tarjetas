@@ -18,13 +18,11 @@
                    class="table table-dark table-hover align-middle"
                    data-search="true"
                    data-pagination="true"
-                   data-page-size="10"
+                   data-page-size="50"
                    data-page-list="[5,10,25,50,100]"
                    data-show-columns="true"
                    data-show-refresh="true"
-                   data-locale="es-MX"
-                   url="<?php echo base_url(); ?>index.php/Usuario/getUsuarios"
-                   >
+                   data-locale="es-MX">
                 <thead>
                     <tr>
                         <th data-field="id_usuario" data-sortable="true">ID</th>
@@ -32,8 +30,8 @@
                         <th data-field="nombre_completo" data-sortable="true">Nombre Completo</th>
                         <th data-field="folio" data-sortable="true">Folio</th>
                         <th data-field="dsc_perfil" data-sortable="true">Perfil</th>
-                        <th data-field="tiene_hospedaje" data-formatter="st.agregar.estado" data-align="center" >Hospedaje</th>
-                        <th data-field="tiene_alimentos" data-formatter="st.agregar.estado" data-align="center" >Alimentos</th>
+                        <th data-field="tiene_hospedaje" data-formatter="cajeros.estado" data-align="center">Hospedaje</th>
+                        <th data-field="tiene_alimentos" data-formatter="cajeros.estado" data-align="center">Alimentos</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center">Acciones</th>
                     </tr>
                 </thead>
@@ -90,16 +88,33 @@
 </div>
 
 <script>
-let id_perfil = <?php echo $session->get('id_perfil') ?? 'null'; ?>;
- window.cajeros = {
+const id_perfil = <?= json_encode($session->get('id_perfil')) ?>;
+window.cajeros = {
     modal: null,
 
     iniciar() {
-        this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
+        if (typeof $.fn.bootstrapTable !== 'function') {
+            console.error('Bootstrap Table no está disponible.');
+            Swal.fire('Error', 'No fue posible cargar el componente de la tabla.', 'error');
+            return;
+        }
+
         $('#cajerosTable').bootstrapTable({
             url: base_url + 'index.php/Usuario/getUsuarios',
-            responseHandler: (response) => Array.isArray(response) ? response : []
+            responseHandler: (response) => {
+                if (Array.isArray(response)) return response;
+                console.error('Respuesta inválida al cargar cajeros:', response);
+                return [];
+            },
+            onLoadError: (status, request) => {
+                console.error('Error al cargar cajeros:', status, request.responseText);
+                Swal.fire('Error', 'No fue posible consultar los cajeros.', 'error');
+            }
         });
+
+        if (window.bootstrap && bootstrap.Modal) {
+            this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
+        }
 
         $('#cajeroForm').on('submit', (event) => {
             event.preventDefault();
@@ -107,27 +122,37 @@ let id_perfil = <?php echo $session->get('id_perfil') ?? 'null'; ?>;
         });
     },
 
+    estado(value) {
+        if (Number(value) === 1) return '<span class="badge bg-success">Sí</span>';
+        if (Number(value) === 2 || Number(value) === 0) return '<span class="badge bg-danger">No</span>';
+        return '<span class="badge bg-secondary">Pendiente</span>';
+    },
+
     acciones(value, row) {
-        return `
+        let botones = `
             <div class="btn-group btn-group-sm">
                 <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${row.id_usuario})">
                     <i class="mdi mdi-account-edit"></i>
                 </button>
-                <button class="btn btn-primary" type="button" title="Ver PDF" onclick="cajeros.verPdf(${row.id_usuario})">
+                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="cajeros.verPdf(${row.id_usuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
-                <button class="btn btn-secondary" type="button" title="Descargar PDF" onclick="cajeros.descargarPdf(${row.id_usuario})">
+                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" disabled>
                     <i class="mdi mdi-file-pdf"></i>
-                </button>
-       <?php if ($session->get('id_perfil') == 1): ?>
+                </button>`;
+
+        if (Number(id_perfil) === 1) {
+            botones += `
                 <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${row.id_usuario})">
                     <i class="mdi mdi-account-remove"></i>
-                </button>
-        <?php endif; ?>
-            </div>`;
+                </button>`;
+        }
+
+        return botones + '</div>';
     },
 
     nuevo() {
+        if (!this.modal) return;
         document.getElementById('cajeroForm').reset();
         $('#id_usuario').val('');
         $('#contrasenia').prop('required', true);
@@ -145,8 +170,12 @@ let id_perfil = <?php echo $session->get('id_perfil') ?? 'null'; ?>;
             $('#usuario').val(data.usuario);
             $('#contrasenia').val('').prop('required', false);
             $('#cajeroModalTitle').text('Editar cajero');
-            this.modal.show();
+            if (this.modal) this.modal.show();
         }, 'json').fail(() => Swal.fire('Error', 'No fue posible obtener el cajero.', 'error'));
+    },
+
+    verPdf(idUsuario) {
+        window.open(base_url + 'index.php/Usuario/generarPdfHospedaje/' + idUsuario, '_blank');
     },
 
     guardar() {
@@ -161,7 +190,7 @@ let id_perfil = <?php echo $session->get('id_perfil') ?? 'null'; ?>;
                 Swal.fire('Atención', response.respuesta, 'warning');
                 return;
             }
-            this.modal.hide();
+            if (this.modal) this.modal.hide();
             $('#cajerosTable').bootstrapTable('refresh');
             Swal.fire('Correcto', 'Cajero guardado correctamente.', 'success');
         }).fail(() => Swal.fire('Error', 'No fue posible guardar el cajero.', 'error'))

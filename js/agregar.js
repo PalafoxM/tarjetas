@@ -23,6 +23,34 @@ st.agregar = (function () {
            }
             return accion;
        },
+        acciones: function(value, row) {
+            var botones = `
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${row.id_usuario})">
+                    <i class="mdi mdi-account-edit"></i>
+                </button>
+                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${row.id_usuario})">
+                    <i class="mdi mdi-file-pdf-box"></i>
+                </button>
+                <button class="btn btn-secondary" type="button" title="Orden de Alimentos" onclick="cajeros.descargarPdf(${row.id_usuario})">
+                    <i class="mdi mdi-file-pdf"></i>
+                </button>`;
+
+            if (id_perfil == 1) {
+                botones += `
+                <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${row.id_usuario})">
+                    <i class="mdi mdi-account-remove"></i>
+                </button>`;
+            }
+
+            botones += `
+            </div>`;
+
+            return botones;
+        },
+        verPdf: function(id_usuario) {
+         window.open(base_url + "index.php/Usuario/generarPdfHospedaje/" + id_usuario, '_blank');
+        },
         
     }
 })();

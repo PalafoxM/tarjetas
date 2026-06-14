@@ -62,13 +62,19 @@ class Usuario extends BaseController
         
     }
 
-   
     public function getUsuarios()
     {
         $response = $this->globals->getTabla([
             "tabla" => "vw_usuario_qr",
             "where" => ["visible" => 1],
         ]);
+
+        if ($response->error) {
+            $response = $this->globals->getTabla([
+                "tabla" => "vw_usuario",
+                "where" => ["visible" => 1],
+            ]);
+        }
 
         if ($response->error) {
             return $this->response
@@ -186,6 +192,30 @@ class Usuario extends BaseController
 
         return $this->respond($response);
     }
-    
-    
+    public function generarPdfHospedaje($id_usuario)
+    {
+        $response = $this->globals->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
+        ]);
+
+        if ($response->error || empty($response->data)) {
+            return $this->failNotFound('Cajero no encontrado');
+        }
+
+        $html = view('pdfs/vpdfOrdenHospedaje', (array) $response->data[0]);
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'Letter',
+            'margin_top' => 18,
+            'margin_bottom' => 18,
+            'margin_left' => 16,
+            'margin_right' => 16,
+            'default_font' => 'dejavusans',
+            'tempDir' => WRITEPATH . 'cache',
+        ]);
+        $mpdf->SetTitle('Orden de hospedaje');
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('orden-hospedaje-' . (int) $id_usuario . '.pdf', 'I');
+        exit;
+    }
 }

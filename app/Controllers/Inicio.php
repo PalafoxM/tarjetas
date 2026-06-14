@@ -47,8 +47,8 @@ class Inicio extends BaseController {
         $data['nombre_completo'] = $session->get('nombre_completo');
         $vista = null;
         $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-        $data['datosUsuario'] = $datos->data[0];
-        $data['allUser'] = ""; 
+        $data['datosUsuario'] = $datos->data[0] ?? null;
+        $data['allUser'] = [];
         if($session->id_perfil == 1){
             $vista= 'secciones/vInicio';
             
@@ -63,8 +63,10 @@ class Inicio extends BaseController {
             $vista= 'secciones/vInicio';
         }
         if($session->id_perfil == 6){
-            $data['allUser'] = $Mglobal->getTabla(['tabla'=>'vw_usuario', 'where'=>['visible'=> 1]])->data;
             $vista= 'secciones/vCajero';
+        }
+        if ($vista === null) {
+            $vista = 'secciones/vInicio';
         }
         $data['scripts'] = array('principal','agregar');
         $data['contentView'] = $vista;                
