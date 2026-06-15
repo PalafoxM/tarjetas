@@ -73,6 +73,16 @@ class Inicio extends BaseController {
         $this->_renderView($data);
         
     }
+
+    public function Usuarios()
+    {        
+        $session = \Config\Services::session();   
+        $data = array();
+        $data['scripts'] = array('principal','agregar');
+        $data['contentView'] = 'secciones/vUsuario';                
+        $this->_renderView($data);
+        
+    }
   
 
    

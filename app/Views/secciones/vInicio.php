@@ -24,7 +24,7 @@
                 <h2>Usuarios</h2>
                 <p>Accede al catálogo de usuarios del sistema.</p>
             </div>
-            <a class="fic-access-card__button" href="javascript:void(0);">
+            <a class="fic-access-card__button" href="<?php echo base_url('index.php/Inicio/Usuarios'); ?>">
                 Usuarios
             </a>
         </article>
@@ -73,6 +73,87 @@
             </a>
         </article>
     </section>
+
+    <section class="fic-reference-section" aria-labelledby="fic-reference-title">
+        <header class="fic-reference-header">
+            <h2 id="fic-reference-title">Accesos de interfaz</h2>
+            <p>Accesos de referencia visibles solo para TI para revisar cómo se presentan las distintas interfaces del sistema.</p>
+        </header>
+
+        <div class="fic-access-grid" aria-label="Accesos de referencia">
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil GESTOR</h2>
+                    <p>Dashboard compartido de gestión presupuestal y catálogos.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil PROVEEDOR</h2>
+                    <p>Interfaz operativa de pagos y movimientos con enfoque comercial.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil RECEPCIÓN</h2>
+                    <p>Vista de hospedaje con alcance global para todos los hoteles.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil CAJERO</h2>
+                    <p>Consulta de expedientes, QR y beneficios en modo referencia TI.</p>
+                </div>
+                <a class="fic-access-card__button" href="<?php echo base_url('index.php/Agregar/vistaCajero'); ?>">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil CLIENTE</h2>
+                    <p>Consulta de QR, saldo y consumos de un cliente de referencia.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil SECUL</h2>
+                    <p>Dashboard institucional restringido para SECUL.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil FIC</h2>
+                    <p>Dashboard institucional restringido para usuarios FIC.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+
+            <article class="fic-access-card fic-access-card--reference">
+                <div>
+                    <span class="fic-access-card__category">Vista de referencia</span>
+                    <h2>Ver perfil UG</h2>
+                    <p>Dashboard institucional restringido para UG.</p>
+                </div>
+                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+            </article>
+        </div>
+    </section>
 </div>
 
 <style>
@@ -88,6 +169,27 @@
     .fic-access-header {
         max-width: 900px;
         margin-bottom: 28px;
+    }
+
+    .fic-reference-section {
+        margin-top: 42px;
+    }
+
+    .fic-reference-header {
+        margin-bottom: 26px;
+    }
+
+    .fic-reference-header h2 {
+        margin: 0 0 5px;
+        color: #fff;
+        font-size: 1.55rem;
+        font-weight: 700;
+    }
+
+    .fic-reference-header p {
+        margin: 0;
+        color: #c9d4e5;
+        font-size: .9rem;
     }
 
     .fic-access-eyebrow,
@@ -177,15 +279,18 @@
     .fic-access-card--purple { --card-accent: #7377f4; }
     .fic-access-card--green { --card-accent: #10cba1; }
     .fic-access-card--outline { --card-accent: #7c83ff; }
+    .fic-access-card--reference { --card-accent: #f8fafc; }
 
-    .fic-access-card--outline .fic-access-card__button {
+    .fic-access-card--outline .fic-access-card__button,
+    .fic-access-card--reference .fic-access-card__button {
         background: transparent;
         color: var(--card-accent);
     }
 
-    .fic-access-card--outline .fic-access-card__button:hover {
+    .fic-access-card--outline .fic-access-card__button:hover,
+    .fic-access-card--reference .fic-access-card__button:hover {
         background: var(--card-accent);
-        color: #fff;
+        color: #111827;
     }
 
     @media (max-width: 1199.98px) {

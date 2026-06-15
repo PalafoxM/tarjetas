@@ -88,6 +88,18 @@ class Usuario extends BaseController
 
         return $this->respond($response->data ?? []);
     }
+    public function getVistaUsuario()
+    {
+     
+         $session = \Config\Services::session();
+            $response = $this->globals->getTabla([
+                "tabla" => "vw_usuario",
+                "where" => ["visible" => 1],
+            ]);
+        
+
+        return $this->respond($response->data ?? []);
+    }
 
     public function getUsuario()
     {
