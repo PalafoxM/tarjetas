@@ -105,7 +105,7 @@
                     <h2>Ver perfil RECEPCIÓN</h2>
                     <p>Vista de hospedaje con alcance global para todos los hoteles.</p>
                 </div>
-                <a class="fic-access-card__button" href="javascript:void(0);">Abrir interfaz</a>
+                <a class="fic-access-card__button" href="<?php echo base_url('index.php/Inicio/Establecimiento'); ?>">Abrir interfaz</a>
             </article>
 
             <article class="fic-access-card fic-access-card--reference">

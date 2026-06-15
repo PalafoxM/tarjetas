@@ -11,6 +11,9 @@
         </button>
         <?php endif; ?>
     </div>
+     <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
+        <i class="mdi mdi-arrow-left me-1"></i> Atrás
+    </a>
 
     <div class="card">
         <div class="card-body">

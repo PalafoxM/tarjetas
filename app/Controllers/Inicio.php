@@ -71,13 +71,43 @@ class Inicio extends BaseController {
         }
         if($session->id_perfil == 7){
 
-            $vista= 'secciones/vCajero';
+            $vista= 'secciones/vHospedaje';
         }
         if ($vista === null) {
             $vista = 'secciones/vInicio';
         }
         $data['scripts'] = array('principal','agregar');
         $data['contentView'] = $vista;                
+        $this->_renderView($data);
+        
+    }
+
+      public function Establecimiento()
+    {        
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal; 
+        $data        = array();
+   
+            $establecimiento = $Mglobal->getTabla(['tabla' => "establecimiento", "where"=> ['visible' => 1, "no_proveedor" => $session->get('id_usuario')]]);
+            if(!empty($establecimiento->data)){
+                $data['datosEstablecimiento'] = $establecimiento->data ?? null;
+            }
+           
+            $vista= 'secciones/vEstablecimiento';
+        
+    
+        $data['scripts'] = array('principal','agregar');
+        $data['contentView'] = $vista;                
+        $this->_renderView($data);
+        
+    }
+      public function EstablecimientosFic()
+    {        
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal; 
+        $data        = array();
+        $data['scripts'] = array('principal','agregar');
+        $data['contentView'] = "secciones/vEstablecimientoFic";                
         $this->_renderView($data);
         
     }
@@ -89,6 +119,30 @@ class Inicio extends BaseController {
         $data['scripts'] = array('principal','agregar');
         $data['contentView'] = 'secciones/vUsuario';                
         $this->_renderView($data);
+        
+    }
+
+    public function ObtenerHospedaje()
+    {        
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal;
+
+        $idUsuario = $Mglobal->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ]);
+  
+        $response = $Mglobal->getTabla([
+            'tabla' => 'vw_usuario_hospedaje',
+            'where' => ['visible' => 1, 'id_establecimiento_hotel' => $idUsuario->data[0]->id_establecimiento]
+        ]);
+      
+        $data = array();
+        if (!empty($response->data)) {
+            $data = $response->data;
+        }
+
+        return $this->respond($data);
         
     }
   
