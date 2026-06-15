@@ -256,5 +256,72 @@ class Usuario extends BaseController
             $mpdf->WriteHTML($html);
             $mpdf->Output('orden-alimentos-' . (int) $id_usuario . '.pdf', 'I');
             exit;
+    }
+
+    public function getRecepcion()
+    {
+        $session = \Config\Services::session();
+        $idEstablecimiento = (int) $this->request->getGet('id_establecimiento');
+
+        if ($idEstablecimiento <= 0) {
+            return $this->respond([]);
         }
+
+        $establecimiento = $this->globals->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => [
+                'visible' => 1,
+                'id_establecimiento' => $idEstablecimiento,
+                'no_proveedor' => (int) $session->get('id_usuario'),
+            ],
+        ]);
+
+
+        if ($establecimiento->error || empty($establecimiento->data)) {
+            return $this->respond([]);
+        }
+
+        $response = $this->globals->getTabla([
+            'tabla' => 'vw_usuario_hospedaje',
+            'where' => ['visible' => 1, 'id_establecimiento_hotel' => $idEstablecimiento],
+        ]);
+
+     
+     
+
+        return $this->respond($response->data ?? []);
+    }
+
+    function checkInHospedaje()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) $this->request->getPost('id_usuario');
+        $observaciones = trim((string) $this->request->getPost('observaciones', FILTER_SANITIZE_STRING));
+
+        if ($idUsuario <= 0) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Identificador de usuario no válido',
+            ]);
+        }
+
+        $response = $this->globals->saveTabla(
+            [
+                'estatus_hospedaje' => 'check_in',
+                'observaciones' => $observaciones
+            ],
+            [
+                'tabla' => 'usuario_hospedaje',
+                'editar' => true,
+                'idEditar' => ['id_usuario' => $idUsuario, 'visible' => 1],
+            ],
+            [
+                'id_user' => (int) $session->get('id_usuario'),
+                'script' => 'Usuario.checkInHospedaje',
+            ]
+        );
+
+        return $this->respond($response);
+        }
+
 }

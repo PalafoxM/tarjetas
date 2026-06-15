@@ -50,11 +50,15 @@ class Inicio extends BaseController {
         $data['datosUsuario'] = $datos->data[0] ?? null;
         $data['allUser'] = [];
         if($session->id_perfil == 1){
-            $vista= 'secciones/vInicio';
-            
+            $vista= 'secciones/vInicio'; 
         }
         if($session->id_perfil == 2){
-            $vista= 'secciones/vInicio';
+            $establecimiento = $Mglobal->getTabla(['tabla' => "establecimiento", "where"=> ['visible' => 1, "no_proveedor" => $session->get('id_usuario')]]);
+            if(!empty($establecimiento->data)){
+                $data['datosEstablecimiento'] = $establecimiento->data ?? null;
+            }
+           
+            $vista= 'secciones/vEstablecimiento';
         }
         if($session->id_perfil == 3){
             $vista= 'secciones/vInicio';
@@ -63,6 +67,10 @@ class Inicio extends BaseController {
             $vista= 'secciones/vInicio';
         }
         if($session->id_perfil == 6){
+            $vista= 'secciones/vCajero';
+        }
+        if($session->id_perfil == 7){
+
             $vista= 'secciones/vCajero';
         }
         if ($vista === null) {
