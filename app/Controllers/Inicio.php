@@ -61,7 +61,18 @@ class Inicio extends BaseController {
             $vista= 'secciones/vEstablecimiento';
         }
         if($session->id_perfil == 3){
-            $vista= 'secciones/vInicio';
+            $clientes = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
+            $solicitud_pago = $Mglobal->getTabla(['tabla' => "solicitud_pago", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
+          
+            if(!empty($clientes->data)){
+                $data['datosCliente'] = $clientes->data[0] ?? null;
+            }
+            if(!empty($solicitud_pago->data)){
+                $data['saldo'] = $solicitud_pago->data[0] ?? 0;
+            }
+         //  die( var_dump($data['datosCliente']));
+
+            $vista= 'secciones/vCliente';
         }
         if($session->id_perfil == 4){
             $vista= 'secciones/vInicio';
