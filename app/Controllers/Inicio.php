@@ -168,6 +168,11 @@ class Inicio extends BaseController {
         }
 
         $data = array();
+        $Mglobal = new Mglobal;
+        $hotelOptions = $Mglobal->getTabla(['tabla' => 'establecimiento', 'where' => ['visible' => 1, 'id_tipo' => 2]]);
+        $catTipoHabitacion = $Mglobal->getTabla(['tabla' => 'cat_tipo_habitacion', 'where' => ['visible' => 1]]);
+        $data['hotelOptions'] = $hotelOptions->data ?? [];
+        $data['catTipoHabitacion'] = $catTipoHabitacion->data ?? [];
         $data['scripts'] = array('principal','agregar');
         $data['contextoUsuario'] = $contextoUsuario;
         $data['catalogRoleOptions'] = $resolver->getAllowedRoleOptions($contextoUsuario);

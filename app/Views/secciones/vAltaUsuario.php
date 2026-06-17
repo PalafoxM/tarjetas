@@ -141,7 +141,12 @@ $esNuevo = $idUsuarioEditar <= 0;
                     </div>
                     <div class="col-md-3 hospedaje-field">
                         <label class="form-label" for="id_establecimiento_hotel">Hotel</label>
-                        <input type="number" class="form-control" name="id_establecimiento_hotel" id="id_establecimiento_hotel">
+                        <select class="form-control js-select2-catalog" name="id_establecimiento_hotel" id="id_establecimiento_hotel" data-placeholder="Buscar hotel">
+                            <option value="">Seleccione</option>
+                            <?php foreach ($hotelOptions as $hotel): ?>
+                            <option value="<?= esc($hotel->id_establecimiento, 'attr') ?>"><?= esc($hotel->dsc_establecimiento, 'html') ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="usuario">Usuario</label>
@@ -184,7 +189,12 @@ $esNuevo = $idUsuarioEditar <= 0;
                     </div>
                     <div class="col-md-3 hospedaje-field">
                         <label class="form-label" for="id_tipo_habitacion">Tipo habitacion</label>
-                        <input type="number" class="form-control" name="id_tipo_habitacion" id="id_tipo_habitacion">
+                        <select class="form-control js-select2-catalog" name="id_tipo_habitacion" id="id_tipo_habitacion" data-placeholder="Buscar tipo de habitacion">
+                            <option value="">Seleccione</option>
+                            <?php foreach ($catTipoHabitacion as $tipo): ?>
+                            <option value="<?= esc($tipo->id_tipo_habitacion, 'attr') ?>"><?= esc($tipo->dsc_tipo_habitacion, 'html') ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="col-md-3 hospedaje-field">
                         <label class="form-label" for="fec_vigencia_desde">Vigencia desde</label>
