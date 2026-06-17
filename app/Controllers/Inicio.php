@@ -92,6 +92,24 @@ class Inicio extends BaseController {
         $this->_renderView($data);
         
     }
+    public function Claves()
+    {
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal; 
+        $data        = array();
+        $data['scripts'] = array('principal','agregar');
+        $data['contentView'] = 'secciones/vClaves';                
+        $this->_renderView($data);
+    }
+    public function CatFic()
+    {
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal; 
+        $data        = array();
+        $data['scripts'] = array('principal','agregar');
+        $data['contentView'] = 'secciones/vCatFic';                
+        $this->_renderView($data);
+    }
 
       public function Establecimiento()
     {        

@@ -45,7 +45,7 @@
                     </li> 
                 <?php //endif?>  -->
                 
-                <?php if((int)$session->id_perfil == -1): ?>
+                <?php if((int)$session->id_perfil == 1): ?>
                     <li class="side-nav-item">
                         <a data-bs-toggle="collapse" href="#gestion" aria-expanded="false" aria-controls="gestion" class="side-nav-link">
                             <i class="dripicons-user-group"></i>
@@ -55,31 +55,37 @@
                         <div class="collapse" id="gestion">
                             <ul class="side-nav-second-level">
                                 <li>
-                                    <a href="<?= base_url("/index.php/Usuario")?>"><i class="dripicons-user"></i> Usuarios </a>
+                                    <a href="<?= base_url("/index.php/Usuario/listaUsuario")?>"><i class="dripicons-user"></i> Usuarios </a>
                                 </li>
                             </ul>
                         </div>
                     </li> 
                 <?php endif?> 
                 <li class="side-nav-item">
-                    <a data-bs-toggle="collapse" href="#turnos" aria-expanded="false" aria-controls="gestion" class="side-nav-link">
-                        <i class="dripicons-clock"></i>
-                        <span> Turnos </span>
+                    <a data-bs-toggle="collapse" href="#catalogos" aria-expanded="false" aria-controls="gestion" class="side-nav-link">
+                        <i class="dripicons-archive"></i>
+                        <span> Catálogos </span>
                         <span class="menu-arrow"></span>
                     </a>
-                    <div class="collapse" id="turnos">
+                    <div class="collapse" id="catalogos">
                         <ul class="side-nav-second-level">
                             <li>
-                                <a href="<?= base_url("/index.php/Agregar")?>"><i class="dripicons-plus"></i>  Agregar</a>
+                                <a href="<?= base_url("/index.php/Inicio/Claves")?>"><i class="dripicons-keys"></i> Claves</a>
                             </li>
                             <li>
-                                <a href="<?= base_url("/index.php/Inicio")?>"><i class="dripicons-search"></i>  Buscar</a>
+                                <a href="<?= base_url("/index.php/Inicio/CatFic")?>"><i class="dripicons-home"></i> Fic</a>
                             </li>
                             <li>
-                                <a href="<?= base_url("/index.php/Opciones")?>"><i class="dripicons-gear"></i>  Opciones</a>
+                                <a href="<?= base_url("/index.php/Opciones")?>"><i class="dripicons-gear"></i> Secturi</a>
                             </li>
                             <li>
-                                <a href="<?= base_url("/index.php/Reportes")?>"><i class="dripicons-document"></i>  Reportes</a>
+                                <a href="<?= base_url("/index.php/Reportes")?>"><i class="dripicons-document"></i> Secul</a>
+                            </li>
+                            <li>
+                                <a href="<?= base_url("/index.php/Reportes")?>"><i class="dripicons-briefcase"></i> Partida</a>
+                            </li>
+                            <li>
+                                <a href="<?= base_url("/index.php/Reportes")?>"><i class="dripicons-user-id"></i> Perfil</a>
                             </li>
                         </ul>
                     </div>
@@ -93,16 +99,16 @@
                     <div class="collapse" id="llamadas">
                         <ul class="side-nav-second-level">
                             <li>
-                                <a href="#"><i class="dripicons-plus"></i>  Agregar</a>
+                                <a href="#"><i class="dripicons-plus"></i> Agregar</a>
                             </li>
                             <li>
-                                <a href="#"><i class="dripicons-search"></i>  Buscar</a>
+                                <a href="#"><i class="dripicons-search"></i> Buscar</a>
                             </li>
                             <li>
-                                <a href="#"><i class="dripicons-gear"></i>  Opciones</a>
+                                <a href="#"><i class="dripicons-gear"></i> Opciones</a>
                             </li>
                             <li>
-                                <a href="#"><i class="dripicons-document"></i>  Reportes</a>
+                                <a href="#"><i class="dripicons-document"></i> Reportes</a>
                             </li>
                         </ul>
                     </div>

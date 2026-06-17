@@ -322,6 +322,30 @@ class Usuario extends BaseController
         );
 
         return $this->respond($response);
-        }
+    }
+
+    public function listaUsuario()
+    {
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal;
+       
+        $data['scripts'] = array('principal','agregar');
+        $data['edita'] = 0;
+        $data['nombre_completo'] = $session->nombre_completo; 
+        $data['contentView'] = 'secciones/vUsuario';                
+        $this->_renderView($data);
+    }
+    public function ObtenerUsuarios()
+    {        
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal;
+
+        $idUsuario = $Mglobal->getTabla([
+            'tabla' => 'usuario',
+            'where' => ['visible' => 1]
+        ]);
+
+        return $this->respond($idUsuario->data ?? []);
+    }
 
 }
