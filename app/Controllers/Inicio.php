@@ -158,6 +158,25 @@ class Inicio extends BaseController {
         
     }
 
+    public function AltaUsuario($idUsuario = null)
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        if (!$contextoUsuario['can_access_user_catalog']) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = array();
+        $data['scripts'] = array('principal','agregar');
+        $data['contextoUsuario'] = $contextoUsuario;
+        $data['catalogRoleOptions'] = $resolver->getAllowedRoleOptions($contextoUsuario);
+        $data['providerTypeOptions'] = $resolver->getProviderTypes();
+        $data['idUsuarioEditar'] = (int) ($idUsuario ?? 0);
+        $data['contentView'] = 'secciones/vAltaUsuario';
+        $this->_renderView($data);
+    }
+
     public function ObtenerHospedaje()
     {        
         $session = \Config\Services::session();

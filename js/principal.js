@@ -103,6 +103,9 @@ saeg.principal = (function () {
 window.cajeros = {
     modal: null,
     idPerfil: null,
+    isAltaPage: false,
+    listUrl: '',
+    altaUrl: '',
     contexto: {},
     roleOptions: {},
     catalogos: {
@@ -118,24 +121,44 @@ window.cajeros = {
 
     iniciar: function () {
         var pagina = document.getElementById('usuariosPage');
-        if (!pagina) return;
+        var altaPagina = document.getElementById('altaUsuarioPage');
+        if (!pagina && !altaPagina) return;
 
-        this.idPerfil = Number(pagina.dataset.idPerfil);
-        this.contexto = this.parseJSON(pagina.dataset.catalogContext, {});
-        this.roleOptions = this.parseJSON(pagina.dataset.roleOptions, {});
+        this.isAltaPage = !!altaPagina;
+        var contenedor = altaPagina || pagina;
+
+        this.idPerfil = Number(contenedor.dataset.idPerfil);
+        this.contexto = this.parseJSON(contenedor.dataset.catalogContext, {});
+        this.roleOptions = this.parseJSON(contenedor.dataset.roleOptions, {});
+        this.listUrl = contenedor.dataset.listUrl || (base_url + 'index.php/Inicio/Usuarios');
+        this.altaUrl = contenedor.dataset.altaUrl || (base_url + 'index.php/Inicio/AltaUsuario');
+
+        if (this.isAltaPage) {
+            this.inicializarSelect2();
+            this.cargarCatalogosBase(function () {
+                var idUsuario = Number(altaPagina.dataset.idUsuario || 0);
+                if (idUsuario > 0) {
+                    cajeros.cargarUsuario(idUsuario);
+                } else {
+                    cajeros.prepararNuevoFormulario();
+                }
+            });
+
+            $('#categoria_ui').on('change', this.onCategoriaChange.bind(this));
+            $('#id_perfil_catalogo').on('change', this.onPerfilBaseChange.bind(this));
+            $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
+            $('#cajeroForm').on('submit', function (event) {
+                event.preventDefault();
+                cajeros.guardar();
+            });
+            return;
+        }
 
         if (typeof $.fn.bootstrapTable !== 'function') {
             console.error('Bootstrap Table no está disponible.');
             Swal.fire('Error', 'No fue posible cargar el componente de la tabla.', 'error');
             return;
         }
-
-        if (window.bootstrap && bootstrap.Modal) {
-            this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
-        }
-
-        this.inicializarSelect2();
-        this.cargarCatalogosBase();
 
         $('#cajerosTable').bootstrapTable({
             url: base_url + 'index.php/Usuario/getVistaUsuario',
@@ -150,14 +173,6 @@ window.cajeros = {
             }
         });
 
-        $('#nuevoCajero').on('click', this.nuevo.bind(this));
-        $('#categoria_ui').on('change', this.onCategoriaChange.bind(this));
-        $('#id_perfil_catalogo').on('change', this.onPerfilBaseChange.bind(this));
-        $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
-        $('#cajeroForm').on('submit', function (event) {
-            event.preventDefault();
-            cajeros.guardar();
-        });
     },
 
     parseJSON: function (value, fallback) {
@@ -182,14 +197,14 @@ window.cajeros = {
 
             select.select2({
                 width: '100%',
-                dropdownParent: $('#cajeroModal'),
+                dropdownParent: $('#altaUsuarioPage').length ? $('#altaUsuarioPage') : $(document.body),
                 placeholder: select.data('placeholder') || 'Seleccione',
                 allowClear: true
             });
         });
     },
 
-    cargarCatalogosBase: function () {
+    cargarCatalogosBase: function (callback) {
         $.getJSON(base_url + 'index.php/Usuario/getCatalogosCrud', function (response) {
             var data = response && response.data ? response.data : response;
             cajeros.catalogos = $.extend(true, {}, cajeros.catalogos, data || {});
@@ -207,6 +222,9 @@ window.cajeros = {
             cajeros.poblarSelect('#id_establecimiento', cajeros.catalogos.establecimientos, 'id_establecimiento', 'dsc_establecimiento');
             cajeros.aplicarPerfilPorContexto();
             cajeros.actualizarFlujoBeneficios();
+            if (typeof callback === 'function') {
+                callback();
+            }
         }).fail(function () {
             Swal.fire('Error', 'No fue posible cargar los catálogos del formulario.', 'error');
         });
@@ -373,7 +391,10 @@ window.cajeros = {
     },
 
     nuevo: function () {
-        if (!this.modal) return;
+        window.location.href = this.altaUrl;
+    },
+
+    prepararNuevoFormulario: function () {
         document.getElementById('cajeroForm').reset();
         $('#id_usuario').val('');
         $('#contrasenia').prop('required', true);
@@ -382,52 +403,59 @@ window.cajeros = {
         $('.js-select2-catalog').val('').trigger('change.select2');
         this.aplicarPerfilPorContexto();
         this.actualizarFlujoBeneficios();
-        $('#cajeroModalTitle').text('Nuevo usuario');
+        $('#cajeroPageTitle').text('Nuevo usuario');
         this.aplicarModoFormulario(false);
-        this.modal.show();
     },
 
     editar: function (idUsuario) {
+        window.location.href = this.altaUrl + '/' + encodeURIComponent(idUsuario);
+    },
+
+    cargarUsuario: function (idUsuario) {
         $.post(base_url + 'index.php/Usuario/getUsuario', { id_usuario: idUsuario }, function (data) {
-            $('#id_usuario').val(data.id_usuario);
-            $('#nombre').val(data.nombre);
-            $('#primer_apellido').val(data.primer_apellido);
-            $('#segundo_apellido').val(data.segundo_apellido);
-            $('#correo').val(data.correo);
-            $('#usuario').val(data.usuario);
-            $('#contrasenia').val('').prop('required', false);
-            $('#nip').val(data.nip || '');
-            $('#tiene_alimentos').val(data.tiene_alimentos);
-            $('#tiene_hospedaje').val(data.tiene_hospedaje);
-            $('#id_nivel_cliente').val(data.id_nivel_cliente || '').trigger('change.select2');
-            $('#id_clave').val(data.id_clave || '');
-            $('#clave_ui').val(data.clave || '');
-            $('#categoria_ui').val(data.id_clave || '').trigger('change.select2');
-            $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
-            $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '');
-            $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '');
-            $('#fecha_check_in').val(data.fecha_check_in || '');
-            $('#fecha_check_out').val(data.fecha_check_out || '');
-            $('#fec_vigencia_desde').val(data.fec_vigencia_desde || '');
-            $('#fec_vigencia_hasta').val(data.fec_vigencia_hasta || '');
-            $('#tarifa_noche').val(data.tarifa_noche || '');
-            $('#tarifa_total').val(data.tarifa_total || '');
-            $('#monto_deposito').val(data.monto_deposito || '');
-            $('#noche').val(data.noche || '');
-            $('#id_partida').val(data.id_partida || '').trigger('change.select2');
-            $('#id_pais').val(data.id_pais || '').trigger('change.select2');
-            $('#grupo_usuario').val(data.grupo_usuario || '');
-            $('#id_perfil_catalogo').val(data.id_perfil || '').trigger('change.select2');
-            cajeros.onCategoriaChange();
-            cajeros.onPerfilBaseChange(data.perfil_grupo || '');
-            cajeros.actualizarFlujoBeneficios();
-            var soloConsulta = Number(data.permiso_editar || 0) !== 1;
-            cajeros.aplicarModoFormulario(soloConsulta);
-            $('#cajeroModalTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
-            if (cajeros.modal) cajeros.modal.show();
+            cajeros.llenarFormulario(data);
         }, 'json').fail(function () {
             Swal.fire('Error', 'No fue posible obtener el usuario.', 'error');
         });
+    },
+
+    llenarFormulario: function (data) {
+        $('#id_usuario').val(data.id_usuario);
+        $('#nombre').val(data.nombre);
+        $('#primer_apellido').val(data.primer_apellido);
+        $('#segundo_apellido').val(data.segundo_apellido);
+        $('#correo').val(data.correo);
+        $('#usuario').val(data.usuario);
+        $('#contrasenia').val('').prop('required', false);
+        $('#nip').val(data.nip || '');
+        $('#tiene_alimentos').val(data.tiene_alimentos);
+        $('#tiene_hospedaje').val(data.tiene_hospedaje);
+        $('#id_nivel_cliente').val(data.id_nivel_cliente || '').trigger('change.select2');
+        $('#id_clave').val(data.id_clave || '');
+        $('#clave_ui').val(data.clave || '');
+        $('#categoria_ui').val(data.id_clave || '').trigger('change.select2');
+        $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
+        $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '');
+        $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '');
+        $('#fecha_check_in').val(data.fecha_check_in || '');
+        $('#fecha_check_out').val(data.fecha_check_out || '');
+        $('#fec_vigencia_desde').val(data.fec_vigencia_desde || '');
+        $('#fec_vigencia_hasta').val(data.fec_vigencia_hasta || '');
+        $('#tarifa_noche').val(data.tarifa_noche || '');
+        $('#tarifa_total').val(data.tarifa_total || '');
+        $('#monto_deposito').val(data.monto_deposito || '');
+        $('#noche').val(data.noche || '');
+        $('#id_partida').val(data.id_partida || '').trigger('change.select2');
+        $('#id_pais').val(data.id_pais || '').trigger('change.select2');
+        $('#grupo_usuario').val(data.grupo_usuario || '');
+        $('#id_perfil_catalogo').val(data.id_perfil || '').trigger('change.select2');
+        this.onCategoriaChange();
+        this.onPerfilBaseChange(data.perfil_grupo || '');
+        this.actualizarFlujoBeneficios();
+
+        var soloConsulta = Number(data.permiso_editar || 0) !== 1;
+        this.aplicarModoFormulario(soloConsulta);
+        $('#cajeroPageTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
     },
 
     aplicarModoFormulario: function (soloConsulta) {
@@ -448,9 +476,9 @@ window.cajeros = {
                 Swal.fire('Atención', response.respuesta, 'warning');
                 return;
             }
-            if (cajeros.modal) cajeros.modal.hide();
-            $('#cajerosTable').bootstrapTable('refresh');
-            Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success');
+            Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success').then(function () {
+                window.location.href = cajeros.listUrl;
+            });
         }).fail(function () {
             Swal.fire('Error', 'No fue posible guardar el usuario.', 'error');
         }).always(function () {
