@@ -4,7 +4,6 @@ saeg.principal = (function () {
     return {
         cargar_documento: function () {
             $("#frmDocumento").submit(function (event) {
-                //disable the default form submission                
                 event.preventDefault();
                 var formData = new FormData(this);
                 $.ajax({
@@ -15,13 +14,11 @@ saeg.principal = (function () {
                     cache: false,
                     contentType: false,
                     processData: false,
-                    //data: $("#frmAsuntoEntradaNuevo").serialize(),
-                    success: function (response, textStatus, jqXHR) {
-                        //console.log(response);
-                        if(response == 'correcto'){
+                    success: function (response) {
+                        if (response == 'correcto') {
                             Swal.fire("", "Se agregó correctamente el logotipo", "success");
                             location.reload();
-                        }else{
+                        } else {
                             Swal.fire("Error", response, "warning");
                         }
                     },
@@ -35,93 +32,97 @@ saeg.principal = (function () {
             });
         },
 
-         alimentos: function(value,row){
-            let accion = ``;
-            if(row.tiene_alimentos == 1){
-              accion += `<span class="badge bg-success">Sí</span>`;
-            }
-            if(row.tiene_alimentos == 0){
-              accion += `<span class="badge bg-danger">No</span>`;
-            }
-            if(row.tiene_alimentos == ''){
-              accion += `<span class="badge bg-danger">Pendiente</span>`;
-            }
-        
-            // return `<button type="button" onclick="ini.inicio.abrirVentanaPdf(${row.id_turno})" class="btn btn-info"><i class="mdi mdi-file-pdf"></i> </button>`;
+        alimentos: function (value, row) {
+            var accion = '';
+            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">Sí</span>';
+            if (row.tiene_alimentos == 0) accion += '<span class="badge bg-danger">No</span>';
+            if (row.tiene_alimentos == '') accion += '<span class="badge bg-danger">Pendiente</span>';
             return accion;
         },
-    
-        login: function(){
-            let usuario = $('#usuario').val();              
-            let contrasenia = $('#contrasenia').val(); 
-        
+
+        login: function () {
+            var usuario = $('#usuario').val();
+            var contrasenia = $('#contrasenia').val();
+
             if (!usuario || !contrasenia) {
-                Swal.fire("¡Atención!", "Es requerido el usuario y contraseña", "error");
+                Swal.fire("Ã‚Â¡Atención!", "Es requerido el usuario y contraseña", "error");
                 return;
-            }  
-            // Corrección de selectores
-            $('#btn_login').hide();           
-            $('#btn_load').show();           
+            }
+
+            $('#btn_login').hide();
+            $('#btn_load').show();
             $.ajax({
                 type: "POST",
                 url: base_url + "index.php/Login/validar_usuario",
-                data: {usuario, contrasenia},
+                data: { usuario: usuario, contrasenia: contrasenia },
                 dataType: "json",
                 success: function (response) {
-                    console.log(response);
-                    if (!response.error) { 
-                       /*  Swal.fire("Bienvenido!", "Ingresando...", "success").then(() => {
-                             
-                        }); */
+                    if (!response.error) {
                         Swal.fire("Bienvenido!", "Ingresando...", "success");
-                        window.location.href = base_url + "index.php/Inicio"; 
+                        window.location.href = base_url + "index.php/Inicio";
                     } else {
-                        Swal.fire("Usuario incorrecto!", "Favor de verificar sus credenciales de acceso", "error");                            
-                    } 
+                        Swal.fire("Usuario incorrecto!", "Favor de verificar sus credenciales de acceso", "error");
+                    }
                 },
-                complete: function(){
-                    $('#btn_login').show();           
-                    $('#btn_load').hide();  
+                complete: function () {
+                    $('#btn_login').show();
+                    $('#btn_load').hide();
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
-                    Swal.fire("Error!", textStatus, "error");  
+                    Swal.fire("Error!", textStatus, "error");
                     console.log('Error:', textStatus, errorThrown);
                 }
             });
         },
-        activo: function(value,row){
-            let boton = ``;
-            if(row.activo == 1){
-              boton = `<span class="badge bg-success">Sí</span>`;
-            }else{
-                boton = `<span class="badge bg-danger">No</span>`;
-            }
-          
 
-            return boton;
+        activo: function (value, row) {
+            var activo = value;
+            if (activo === undefined && row && row.activo_qr !== undefined) {
+                activo = row.activo_qr;
+            }
+            if (Number(activo) === 1) {
+                return '<span class="badge bg-success">Sí</span>';
+            }
+
+            return '<span class="badge bg-danger">No</span>';
         },
-        fecha: function(value,row){
-            if(!value) return '';
-            let fecha = new Date(value);
-            let dia = String(fecha.getDate()).padStart(2, '0');
-            let mes = String(fecha.getMonth() + 1).padStart(2, '0');
-            let anio = fecha.getFullYear();
-            let hora = String(fecha.getHours()).padStart(2, '0');
-            let minuto = String(fecha.getMinutes()).padStart(2, '0');
-            return `${dia}/${mes}/${anio} ${hora}:${minuto}`;
+
+        fecha: function (value) {
+            if (!value) return '';
+            var fecha = new Date(value);
+            var dia = String(fecha.getDate()).padStart(2, '0');
+            var mes = String(fecha.getMonth() + 1).padStart(2, '0');
+            var anio = fecha.getFullYear();
+            var hora = String(fecha.getHours()).padStart(2, '0');
+            var minuto = String(fecha.getMinutes()).padStart(2, '0');
+            return dia + '/' + mes + '/' + anio + ' ' + hora + ':' + minuto;
         }
-    }
+    };
 })();
 
 window.cajeros = {
     modal: null,
     idPerfil: null,
+    contexto: {},
+    roleOptions: {},
+    catalogos: {
+        categorias: [],
+        disciplinas: [],
+        paises: [],
+        perfiles: [],
+        tarifas: [],
+        partidas: [],
+        tipos_habitacion: [],
+        establecimientos: []
+    },
 
     iniciar: function () {
         var pagina = document.getElementById('usuariosPage');
         if (!pagina) return;
 
         this.idPerfil = Number(pagina.dataset.idPerfil);
+        this.contexto = this.parseJSON(pagina.dataset.catalogContext, {});
+        this.roleOptions = this.parseJSON(pagina.dataset.roleOptions, {});
 
         if (typeof $.fn.bootstrapTable !== 'function') {
             console.error('Bootstrap Table no está disponible.');
@@ -129,48 +130,243 @@ window.cajeros = {
             return;
         }
 
-        $('#cajerosTable').bootstrapTable({
-            url: base_url + 'index.php/Usuario/getVistaUsuario',
-            responseHandler: function (response) {
-                if (Array.isArray(response)) return response;
-                console.error('Respuesta inválida al cargar cajeros:', response);
-                return [];
-            },
-            onLoadError: function (status, request) {
-                console.error('Error al cargar cajeros:', status, request.responseText);
-                Swal.fire('Error', 'No fue posible consultar los cajeros.', 'error');
-            }
-        });
-
         if (window.bootstrap && bootstrap.Modal) {
             this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
         }
 
+        this.inicializarSelect2();
+        this.cargarCatalogosBase();
+
+        $('#cajerosTable').bootstrapTable({
+            url: base_url + 'index.php/Usuario/getVistaUsuario',
+            responseHandler: function (response) {
+                if (Array.isArray(response)) return response;
+                console.error('Respuesta inválida al cargar usuarios:', response);
+                return [];
+            },
+            onLoadError: function (status, request) {
+                console.error('Error al cargar usuarios:', status, request.responseText);
+                Swal.fire('Error', 'No fue posible consultar los usuarios.', 'error');
+            }
+        });
+
         $('#nuevoCajero').on('click', this.nuevo.bind(this));
+        $('#categoria_ui').on('change', this.onCategoriaChange.bind(this));
+        $('#id_perfil_catalogo').on('change', this.onPerfilBaseChange.bind(this));
+        $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
         $('#cajeroForm').on('submit', function (event) {
             event.preventDefault();
             cajeros.guardar();
         });
     },
 
-    acciones: function (value, row) {
-        var botones = `
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${row.id_usuario})">
-                    <i class="mdi mdi-account-edit"></i>
-                </button>
-                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${row.id_usuario})">
-                    <i class="mdi mdi-file-pdf-box"></i>
-                </button>
-                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${row.id_usuario})">
-                    <i class="mdi mdi-file-pdf"></i>
-                </button>`;
+    parseJSON: function (value, fallback) {
+        if (!value) return fallback;
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            return fallback;
+        }
+    },
 
-        if (cajeros.idPerfil === 1) {
-            botones += `
-                <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${row.id_usuario})">
-                    <i class="mdi mdi-account-remove"></i>
-                </button>`;
+    inicializarSelect2: function () {
+        if (typeof $.fn.select2 !== 'function') {
+            return;
+        }
+
+        $('.js-select2-catalog').each(function () {
+            var select = $(this);
+            if (select.hasClass('select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
+
+            select.select2({
+                width: '100%',
+                dropdownParent: $('#cajeroModal'),
+                placeholder: select.data('placeholder') || 'Seleccione',
+                allowClear: true
+            });
+        });
+    },
+
+    cargarCatalogosBase: function () {
+        $.getJSON(base_url + 'index.php/Usuario/getCatalogosCrud', function (response) {
+            var data = response && response.data ? response.data : response;
+            cajeros.catalogos = $.extend(true, {}, cajeros.catalogos, data || {});
+            cajeros.poblarSelect('#categoria_ui', cajeros.catalogos.categorias, 'id_clave', 'dsc_clave');
+            cajeros.poblarSelect('#disciplina_ui', cajeros.catalogos.disciplinas, 'id_diciplina', 'des_diciplina', function (item) {
+                return $.trim(item.des_diciplina || '');
+            });
+            cajeros.poblarSelect('#id_pais', cajeros.catalogos.paises, 'id_pais', 'dsc_pais');
+            cajeros.poblarSelect('#id_perfil_catalogo', cajeros.catalogos.perfiles, 'id_perfil', 'dsc_perfil');
+            cajeros.poblarSelect('#id_nivel_cliente', cajeros.catalogos.tarifas, 'id_nivel_cliente', 'dsc_nivel_cliente');
+            cajeros.poblarSelect('#id_partida', cajeros.catalogos.partidas, 'id_partida', 'partida', function (item) {
+                var descripcion = item.des_partida ? ' - ' + item.des_partida : '';
+                return (item.partida || '') + descripcion;
+            });
+            cajeros.poblarSelect('#id_establecimiento', cajeros.catalogos.establecimientos, 'id_establecimiento', 'dsc_establecimiento');
+            cajeros.aplicarPerfilPorContexto();
+            cajeros.actualizarFlujoBeneficios();
+        }).fail(function () {
+            Swal.fire('Error', 'No fue posible cargar los catálogos del formulario.', 'error');
+        });
+    },
+
+    poblarSelect: function (selector, items, valueKey, labelKey, formatter) {
+        var select = $(selector);
+        if (!select.length) return;
+
+        var valorActual = select.val();
+        select.empty();
+        select.append(new Option('Seleccione', '', false, false));
+
+        (items || []).forEach(function (item) {
+            var label = typeof formatter === 'function'
+                ? formatter(item)
+                : (item[labelKey] || item.descripcion || item.nombre || item[valueKey] || '');
+            select.append(new Option(label, item[valueKey], false, false));
+        });
+
+        if (valorActual !== undefined && valorActual !== null && valorActual !== '') {
+            select.val(String(valorActual));
+        }
+        select.trigger('change.select2');
+    },
+
+    aplicarPerfilPorContexto: function () {
+        if (this.contexto.is_ti_master) {
+            this.onPerfilBaseChange();
+            return;
+        }
+
+        var perfilPorGrupo = {
+            fic: 9,
+            secul: 8,
+            ug: 10,
+            secturi: 4
+        };
+        var perfilBase = perfilPorGrupo[this.contexto.active_group] || '';
+        if (perfilBase) {
+            $('#id_perfil_catalogo').val(String(perfilBase)).trigger('change.select2');
+        }
+        this.onPerfilBaseChange();
+    },
+
+    mapPerfil: function (idPerfil) {
+        idPerfil = Number(idPerfil || 0);
+        var defaultMap = { group: '', allowVisibleRole: false };
+        var mapping = {
+            1: { group: 'secturi', allowVisibleRole: true },
+            3: { group: '', allowVisibleRole: false },
+            4: { group: 'secturi', allowVisibleRole: true },
+            6: { group: 'secturi', allowVisibleRole: true },
+            8: { group: 'secul', allowVisibleRole: true },
+            9: { group: 'fic', allowVisibleRole: true },
+            10: { group: 'ug', allowVisibleRole: true }
+        };
+        return mapping[idPerfil] || defaultMap;
+    },
+
+    onCategoriaChange: function () {
+        var categoria = this.buscarPorId(this.catalogos.categorias, 'id_clave', $('#categoria_ui').val());
+        $('#id_clave').val(categoria ? (categoria.id_clave || '') : '');
+        $('#clave_ui').val(categoria ? (categoria.clave || '') : '');
+    },
+
+    onPerfilBaseChange: function (perfilVisibleSeleccionado) {
+        var selectedProfile = $('#id_perfil_catalogo').val();
+        var mapping = this.mapPerfil(selectedProfile);
+        var perfilVisible = $('#perfil_grupo');
+
+        $('#grupo_usuario').val(mapping.group || '');
+
+        perfilVisible.empty();
+        perfilVisible.append(new Option('Seleccione', '', false, false));
+
+        if (mapping.allowVisibleRole && mapping.group && this.roleOptions[mapping.group]) {
+            Object.keys(this.roleOptions[mapping.group].roles).forEach(function (roleId) {
+                perfilVisible.append(new Option(cajeros.roleOptions[mapping.group].roles[roleId], roleId, false, false));
+            });
+            perfilVisible.prop('disabled', false);
+        } else {
+            perfilVisible.prop('disabled', true).val('');
+        }
+
+        if (perfilVisibleSeleccionado !== undefined && perfilVisibleSeleccionado !== null && perfilVisibleSeleccionado !== '') {
+            perfilVisible.val(String(perfilVisibleSeleccionado));
+        }
+        perfilVisible.trigger('change.select2');
+        this.actualizarFlujoBeneficios();
+    },
+
+    buscarPorId: function (items, key, value) {
+        var match = null;
+        (items || []).some(function (item) {
+            if (String(item[key]) === String(value)) {
+                match = item;
+                return true;
+            }
+            return false;
+        });
+        return match;
+    },
+
+    obtenerGrupoInstitucional: function () {
+        var selectedProfile = $('#id_perfil_catalogo').val();
+        var mapping = this.mapPerfil(selectedProfile);
+        return mapping.group || this.contexto.active_group || '';
+    },
+
+    actualizarFlujoBeneficios: function () {
+        var tieneAlimentos = $('#tiene_alimentos').val() === '1';
+        var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+        var grupo = this.obtenerGrupoInstitucional();
+        var partida = '';
+
+        if (tieneHospedaje) {
+            partida = '3';
+        } else if (tieneAlimentos) {
+            if (grupo === 'fic') {
+                partida = '2';
+            } else if (grupo === 'ug' || grupo === 'secul' || grupo === 'secturi') {
+                partida = '1';
+            }
+        }
+
+        $('#partidaWrapper').toggle(tieneAlimentos || tieneHospedaje);
+        $('.hospedaje-field').toggle(tieneHospedaje);
+
+        if (!tieneHospedaje) {
+            $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta, #tarifa_noche, #tarifa_total, #noche').val('');
+        }
+
+        $('#id_partida').val(partida).trigger('change.select2');
+        if (!tieneAlimentos && !tieneHospedaje) {
+            $('#id_partida').val('').trigger('change.select2');
+        }
+    },
+
+    estadoBooleano: function (value) {
+        if (Number(value) === 1) return '<span class="badge bg-success">Sí</span>';
+        if (Number(value) === 0) return '<span class="badge bg-danger">No</span>';
+        return '<span class="badge bg-secondary">Sin definir</span>';
+    },
+
+    moneda: function (value) {
+        return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
+    },
+
+    acciones: function (value, row) {
+        var botones = '<div class="btn-group btn-group-sm">';
+
+        if (Number(row.permiso_editar) === 1) {
+            botones += '<button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(' + row.id_usuario + ')"><i class="mdi mdi-account-edit"></i></button>';
+        } else {
+            botones += '<button class="btn btn-outline-light" type="button" title="Consultar" onclick="cajeros.editar(' + row.id_usuario + ')"><i class="mdi mdi-eye"></i></button>';
+        }
+
+        if (Number(row.permiso_eliminar) === 1) {
+            botones += '<button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(' + row.id_usuario + ')"><i class="mdi mdi-account-remove"></i></button>';
         }
 
         return botones + '</div>';
@@ -181,7 +377,13 @@ window.cajeros = {
         document.getElementById('cajeroForm').reset();
         $('#id_usuario').val('');
         $('#contrasenia').prop('required', true);
-        $('#cajeroModalTitle').text('Nuevo cajero');
+        $('#nip').val('');
+        $('#clave_ui').val('');
+        $('.js-select2-catalog').val('').trigger('change.select2');
+        this.aplicarPerfilPorContexto();
+        this.actualizarFlujoBeneficios();
+        $('#cajeroModalTitle').text('Nuevo usuario');
+        this.aplicarModoFormulario(false);
         this.modal.show();
     },
 
@@ -194,14 +396,47 @@ window.cajeros = {
             $('#correo').val(data.correo);
             $('#usuario').val(data.usuario);
             $('#contrasenia').val('').prop('required', false);
-            $('#cajeroModalTitle').text('Editar cajero');
+            $('#nip').val(data.nip || '');
+            $('#tiene_alimentos').val(data.tiene_alimentos);
+            $('#tiene_hospedaje').val(data.tiene_hospedaje);
+            $('#id_nivel_cliente').val(data.id_nivel_cliente || '').trigger('change.select2');
+            $('#id_clave').val(data.id_clave || '');
+            $('#clave_ui').val(data.clave || '');
+            $('#categoria_ui').val(data.id_clave || '').trigger('change.select2');
+            $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
+            $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '');
+            $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '');
+            $('#fecha_check_in').val(data.fecha_check_in || '');
+            $('#fecha_check_out').val(data.fecha_check_out || '');
+            $('#fec_vigencia_desde').val(data.fec_vigencia_desde || '');
+            $('#fec_vigencia_hasta').val(data.fec_vigencia_hasta || '');
+            $('#tarifa_noche').val(data.tarifa_noche || '');
+            $('#tarifa_total').val(data.tarifa_total || '');
+            $('#monto_deposito').val(data.monto_deposito || '');
+            $('#noche').val(data.noche || '');
+            $('#id_partida').val(data.id_partida || '').trigger('change.select2');
+            $('#id_pais').val(data.id_pais || '').trigger('change.select2');
+            $('#grupo_usuario').val(data.grupo_usuario || '');
+            $('#id_perfil_catalogo').val(data.id_perfil || '').trigger('change.select2');
+            cajeros.onCategoriaChange();
+            cajeros.onPerfilBaseChange(data.perfil_grupo || '');
+            cajeros.actualizarFlujoBeneficios();
+            var soloConsulta = Number(data.permiso_editar || 0) !== 1;
+            cajeros.aplicarModoFormulario(soloConsulta);
+            $('#cajeroModalTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
             if (cajeros.modal) cajeros.modal.show();
         }, 'json').fail(function () {
-            Swal.fire('Error', 'No fue posible obtener el cajero.', 'error');
+            Swal.fire('Error', 'No fue posible obtener el usuario.', 'error');
         });
     },
 
+    aplicarModoFormulario: function (soloConsulta) {
+        $('#cajeroForm').find('input, select').not('#id_usuario, #grupo_usuario, #id_clave').prop('disabled', soloConsulta);
+        $('#guardarCajero').toggle(!soloConsulta);
+    },
+
     guardar: function () {
+        this.actualizarFlujoBeneficios();
         var boton = $('#guardarCajero').prop('disabled', true);
         $.ajax({
             url: base_url + 'index.php/Usuario/saveCajero',
@@ -215,9 +450,9 @@ window.cajeros = {
             }
             if (cajeros.modal) cajeros.modal.hide();
             $('#cajerosTable').bootstrapTable('refresh');
-            Swal.fire('Correcto', 'Cajero guardado correctamente.', 'success');
+            Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success');
         }).fail(function () {
-            Swal.fire('Error', 'No fue posible guardar el cajero.', 'error');
+            Swal.fire('Error', 'No fue posible guardar el usuario.', 'error');
         }).always(function () {
             boton.prop('disabled', false);
         });
@@ -225,7 +460,7 @@ window.cajeros = {
 
     eliminar: function (idUsuario) {
         Swal.fire({
-            title: '¿Eliminar cajero?',
+            title: 'Ã‚Â¿Eliminar usuario?',
             text: 'El registro dejará de mostrarse en la tabla.',
             icon: 'warning',
             showCancelButton: true,
@@ -240,9 +475,9 @@ window.cajeros = {
                     return;
                 }
                 $('#cajerosTable').bootstrapTable('refresh');
-                Swal.fire('Correcto', 'Cajero eliminado correctamente.', 'success');
+                Swal.fire('Correcto', 'Usuario eliminado correctamente.', 'success');
             }, 'json').fail(function () {
-                Swal.fire('Error', 'No fue posible eliminar el cajero.', 'error');
+                Swal.fire('Error', 'No fue posible eliminar el usuario.', 'error');
             });
         });
     }

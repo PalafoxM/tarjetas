@@ -3,6 +3,7 @@ use CodeIgniter\Controller;
 use App\Libraries\Curps;
 use App\Libraries\Fechas;
 use App\Libraries\Funciones;
+use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
 
 use stdClass;
@@ -41,18 +42,18 @@ class Inicio extends BaseController {
     {        
         $session = \Config\Services::session();
         $Mglobal = new Mglobal; 
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
         $data        = array();
         $data['scripts'] = array('principal','inicio');
         $data['edita'] = 0;
         $data['nombre_completo'] = $session->get('nombre_completo');
+        $data['contextoUsuario'] = $contextoUsuario;
         $vista = null;
         $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
         $data['datosUsuario'] = $datos->data[0] ?? null;
         $data['allUser'] = [];
-        if($session->id_perfil == 1){
-            $vista= 'secciones/vInicio'; 
-        }
-        if($session->id_perfil == 2){
+        if($contextoUsuario['is_provider_flow']){
             $establecimiento = $Mglobal->getTabla(['tabla' => "establecimiento", "where"=> ['visible' => 1, "no_proveedor" => $session->get('id_usuario')]]);
             if(!empty($establecimiento->data)){
                 $data['datosEstablecimiento'] = $establecimiento->data ?? null;
@@ -60,7 +61,7 @@ class Inicio extends BaseController {
            
             $vista= 'secciones/vEstablecimiento';
         }
-        if($session->id_perfil == 3){
+        if($contextoUsuario['is_client_like']){
             $clientes = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
             $solicitud_pago = $Mglobal->getTabla(['tabla' => "solicitud_pago", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
           
@@ -74,13 +75,10 @@ class Inicio extends BaseController {
 
             $vista= 'secciones/vCliente';
         }
-        if($session->id_perfil == 4){
-            $vista= 'secciones/vInicio';
-        }
-        if($session->id_perfil == 6){
+        if($contextoUsuario['is_cajero_flow']){
             $vista= 'secciones/vCajero';
         }
-        if($session->id_perfil == 7){
+        if($contextoUsuario['is_recepcion_flow']){
 
             $vista= 'secciones/vHospedaje';
         }
@@ -144,8 +142,17 @@ class Inicio extends BaseController {
     public function Usuarios()
     {        
         $session = \Config\Services::session();   
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        if (!$contextoUsuario['can_access_user_catalog']) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
         $data = array();
         $data['scripts'] = array('principal','agregar');
+        $data['contextoUsuario'] = $contextoUsuario;
+        $data['catalogRoleOptions'] = $resolver->getAllowedRoleOptions($contextoUsuario);
+        $data['providerTypeOptions'] = $resolver->getProviderTypes();
         $data['contentView'] = 'secciones/vUsuario';                
         $this->_renderView($data);
         

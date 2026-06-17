@@ -23,6 +23,7 @@ $saldoDisponible = (float) $clienteValor($saldo ?? null, 'saldo_solicitudo', 0);
 $nombreCompleto = (string) $clienteValor($datosCliente ?? null, 'nombre_completo', 'Sin nombre registrado');
 $correo = (string) $clienteValor($datosCliente ?? null, 'correo', 'Sin correo registrado');
 $folio = (string) $clienteValor($datosCliente ?? null, 'folio', 'Sin folio registrado');
+$nip = (string) $clienteValor($datosCliente ?? null, 'nip', 'Sin NIP registrado');
 $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=' . rawurlencode($codigoQr);
 ?>
 <link rel="stylesheet" href="<?= base_url('css/fic-cliente.css') ?>?filever=<?= time() ?>">
@@ -71,6 +72,10 @@ $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&dat
                 <div class="cliente-list-item">
                     <span class="cliente-list-label">Folio</span>
                     <strong class="cliente-list-value"><?= esc($folio) ?></strong>
+                </div>
+                <div class="cliente-list-item">
+                    <span class="cliente-list-label">NIP</span>
+                    <strong class="cliente-list-value"><?= esc($nip) ?></strong>
                 </div>
             </div>
         </article>
