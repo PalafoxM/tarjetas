@@ -12,19 +12,17 @@ $clienteValor = static function ($origen, string $campo, $default = '') {
 };
 
 $idUsuario = (int) $clienteValor($datosCliente ?? null, 'id_usuario', 0);
-$codigoQr = trim((string) $clienteValor($datosCliente ?? null, 'codigo_qr', ''));
-$codigoQrRegistrado = $codigoQr !== '';
-
-if ($codigoQr === '') {
-    $codigoQr = 'FIC-' . $idUsuario;
-}
-
+$qrPath = trim((string) $clienteValor($datosCliente ?? null, 'qr', ''));
+$qrRegistrado = $qrPath !== '';
+$qrReferencia = $qrRegistrado ? 'QR institucional disponible' : 'FIC-' . $idUsuario;
 $saldoDisponible = (float) $clienteValor($saldo ?? null, 'saldo_solicitudo', 0);
 $nombreCompleto = (string) $clienteValor($datosCliente ?? null, 'nombre_completo', 'Sin nombre registrado');
 $correo = (string) $clienteValor($datosCliente ?? null, 'correo', 'Sin correo registrado');
 $folio = (string) $clienteValor($datosCliente ?? null, 'folio', 'Sin folio registrado');
 $nip = (string) $clienteValor($datosCliente ?? null, 'nip', 'Sin NIP registrado');
-$qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=' . rawurlencode($codigoQr);
+$qrUrl = $qrRegistrado
+    ? base_url(ltrim($qrPath, '/'))
+    : 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=' . rawurlencode($qrReferencia);
 ?>
 <link rel="stylesheet" href="<?= base_url('css/fic-cliente.css') ?>?filever=<?= time() ?>">
 
@@ -48,7 +46,7 @@ $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&dat
             <div class="cliente-qr-frame">
                 <img src="<?= esc($qrUrl, 'attr') ?>" alt="Código QR para cobrar">
             </div>
-            <span class="cliente-token-pill"><?= esc($codigoQr) ?></span>
+            <span class="cliente-token-pill"><?= esc($qrReferencia) ?></span>
             <p class="cliente-subtitle">Este es tu QR para realizar pagos en los establecimientos afiliados a FIC.</p>
         </article>
     </section>
@@ -85,7 +83,7 @@ $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&dat
             <div class="cliente-list">
                 <div class="cliente-list-item">
                     <span class="cliente-list-label">Código QR</span>
-                    <strong class="cliente-list-value"><?= esc($codigoQr) ?></strong>
+                    <strong class="cliente-list-value"><?= esc($qrReferencia) ?></strong>
                 </div>
                 <div class="cliente-list-item">
                     <span class="cliente-list-label">Último movimiento</span>
@@ -96,10 +94,10 @@ $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&dat
                     <strong class="cliente-list-value"></strong>
                 </div>
                 <div class="cliente-callout">
-                    <?php if ($codigoQrRegistrado): ?>
-                        Este QR usa el mismo código que se valida en la app móvil para identificar al cliente en los cobros.
+                    <?php if ($qrRegistrado): ?>
+                        Este QR usa la ruta institucional guardada en el alta del usuario.
                     <?php else: ?>
-                        No se recibió un código QR registrado desde la consulta; se generó un identificador visual de respaldo.
+                        No se encontró una ruta QR registrada; se muestra un identificador visual temporal de respaldo.
                     <?php endif; ?>
                 </div>
             </div>

@@ -4,6 +4,9 @@ namespace App\Controllers;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
 use CodeIgniter\API\ResponseTrait;
+use Endroid\QrCode\Builder\Builder;
+use Endroid\QrCode\Encoding\Encoding;
+use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelMedium;
 
 require_once FCPATH . 'app/Libraries/PHPMailer/Exception.php';
 require_once FCPATH . 'app/Libraries/PHPMailer/PHPMailer.php';
@@ -220,7 +223,6 @@ class Usuario extends BaseController
             $dataInsert['usu_act'] = (int) $session->get('id_usuario');
             unset($dataInsert['activo_qr']);
         }
-
         $response = $this->globals->saveTabla(
             $dataInsert,
             [
@@ -234,9 +236,39 @@ class Usuario extends BaseController
             ]
         );
 
+        if (!$response->error && $idUsuario === 0) {
+            $savedUserId = $this->resolveSavedUserId($response, $idUsuario, (string) $dataInsert['api_token']);
+            if ($savedUserId > 0) {
+                $qrRelativePath = $this->generateInstitutionalQrForUser($savedUserId, (string) $dataInsert['api_token']);
+                if ($qrRelativePath !== null) {
+                    $updateQr = $this->globals->saveTabla(
+                        ['qr' => $qrRelativePath],
+                        [
+                            'tabla' => 'usuario',
+                            'editar' => true,
+                            'idEditar' => ['id_usuario' => $savedUserId],
+                        ],
+                        [
+                            'id_user' => (int) $session->get('id_usuario'),
+                            'script' => 'Usuario.saveCajero.qr',
+                        ]
+                    );
+
+                    if ($updateQr->error) {
+                        $response->respuesta .= ' El usuario se guardó, pero no se pudo persistir la ruta del QR.';
+                    } else {
+                        $response->qr = $qrRelativePath;
+                    }
+                } else {
+                    $response->respuesta .= ' El usuario se guardó, pero no se pudo generar el archivo QR.';
+                }
+            } else {
+                $response->respuesta .= ' El usuario se guardó, pero no fue posible resolver su id para generar el QR.';
+            }
+        }
+
         return $this->respond($response);
     }
-
     public function deleteUsuario()
     {
         $session = \Config\Services::session();
@@ -252,7 +284,7 @@ class Usuario extends BaseController
         if ($idUsuario <= 0) {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'Identificador de usuario no válido',
+                'respuesta' => 'Identificador de usuario no valido',
             ]);
         }
 
@@ -260,7 +292,7 @@ class Usuario extends BaseController
         if (!$usuarioActual) {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'El usuario no existe o ya no está disponible.',
+                'respuesta' => 'El usuario no existe o ya no esta disponible.',
             ]);
         }
 
@@ -588,6 +620,77 @@ class Usuario extends BaseController
     {
         return in_array((int) ($row['id_perfil'] ?? 0), [2, 5, 7], true)
             || (int) ($row['id_tipo_proveedor'] ?? 0) > 0;
+    }
+
+    private function resolveSavedUserId(object $response, int $currentId, string $apiToken): int
+    {
+        if ($currentId > 0) {
+            return $currentId;
+        }
+
+        $responseId = (int) ($response->idRegistro ?? 0);
+        if ($responseId > 0) {
+            return $responseId;
+        }
+
+        return $this->findUserIdByApiToken($apiToken);
+    }
+
+    private function findUserIdByApiToken(string $apiToken): int
+    {
+        if ($apiToken === '') {
+            return 0;
+        }
+
+        $result = $this->globals->getTabla([
+            'tabla' => 'usuario',
+            'where' => ['api_token' => $apiToken, 'visible' => 1],
+        ]);
+
+        if ($result->error || empty($result->data)) {
+            return 0;
+        }
+
+        return (int) ($result->data[0]->id_usuario ?? 0);
+    }
+
+    private function generateInstitutionalQrForUser(int $idUsuario, string $apiToken): ?string
+    {
+        if ($idUsuario <= 0) {
+            return null;
+        }
+
+        $relativeDir = 'uploads/qr';
+        $absoluteDir = rtrim(FCPATH, '\\/') . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativeDir);
+        if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0775, true) && !is_dir($absoluteDir)) {
+            return null;
+        }
+
+        $payloadToken = trim($apiToken) !== '' ? $apiToken : ('USR-' . $idUsuario);
+        $qrPayload = json_encode([
+            'id_usuario' => $idUsuario,
+            'token' => $payloadToken,
+            'tipo' => 'usuario_institucional',
+        ], JSON_UNESCAPED_UNICODE);
+
+        if ($qrPayload === false) {
+            return null;
+        }
+
+        $fileName = 'usuario-' . $idUsuario . '.png';
+        $absolutePath = $absoluteDir . DIRECTORY_SEPARATOR . $fileName;
+
+        $result = Builder::create()
+            ->data($qrPayload)
+            ->encoding(new Encoding('UTF-8'))
+            ->errorCorrectionLevel(new ErrorCorrectionLevelMedium())
+            ->size(420)
+            ->margin(12)
+            ->build();
+
+        $result->saveToFile($absolutePath);
+
+        return $relativeDir . '/' . $fileName;
     }
 
     private function generateUniquePlainToken(string $field, int $length, bool $digitsOnly): string

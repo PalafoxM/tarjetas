@@ -51,7 +51,11 @@ class Inicio extends BaseController {
         $data['contextoUsuario'] = $contextoUsuario;
         $vista = null;
         $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-        $data['datosUsuario'] = $datos->data[0] ?? null;
+        $usuarioBase = $Mglobal->getTabla(['tabla' => "usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
+        $usuarioBaseRow = !empty($usuarioBase->data) ? (array) $usuarioBase->data[0] : [];
+        $data['datosUsuario'] = !empty($datos->data)
+            ? (object) array_merge((array) $datos->data[0], $usuarioBaseRow)
+            : (!empty($usuarioBaseRow) ? (object) $usuarioBaseRow : null);
         $data['allUser'] = [];
         if($contextoUsuario['is_provider_flow']){
             $establecimiento = $Mglobal->getTabla(['tabla' => "establecimiento", "where"=> ['visible' => 1, "no_proveedor" => $session->get('id_usuario')]]);
@@ -66,7 +70,9 @@ class Inicio extends BaseController {
             $solicitud_pago = $Mglobal->getTabla(['tabla' => "solicitud_pago", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
           
             if(!empty($clientes->data)){
-                $data['datosCliente'] = $clientes->data[0] ?? null;
+                $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
+            } elseif (!empty($usuarioBaseRow)) {
+                $data['datosCliente'] = (object) $usuarioBaseRow;
             }
             if(!empty($solicitud_pago->data)){
                 $data['saldo'] = $solicitud_pago->data[0] ?? 0;

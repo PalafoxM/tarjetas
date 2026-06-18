@@ -104,9 +104,10 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
                         <th data-field="grupo_visible" data-sortable="true">Grupo</th>
                         <th data-field="rol_visible" data-sortable="true">Rol visible</th>
                         <th data-field="nip" data-align="center">NIP</th>
-                        <th data-field="activo_qr" data-formatter="saeg.principal.activo" data-align="center">QR activo</th>
+                        <th data-field="activo_qr" data-formatter="cajeros.qrActivo" data-align="center">QR activo</th>
                         <th data-field="tiene_hospedaje" data-formatter="cajeros.estadoBooleano" data-align="center">Hospedaje</th>
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estadoBooleano" data-align="center">Alimentos</th>
+                        <th data-field="fec_vigencia_desde" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia desde</th>
                         <th data-field="fec_vigencia_hasta" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia hasta</th>
                         <th data-field="monto_deposito" data-formatter="cajeros.moneda" data-align="center">Monto</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center" data-width="88" data-width-unit="px">Acciones</th>

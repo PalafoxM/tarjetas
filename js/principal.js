@@ -16,7 +16,7 @@ saeg.principal = (function () {
                     processData: false,
                     success: function (response) {
                         if (response == 'correcto') {
-                            Swal.fire("", "Se agregó correctamente el logotipo", "success");
+                            Swal.fire("", "Se agregÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ correctamente el logotipo", "success");
                             location.reload();
                         } else {
                             Swal.fire("Error", response, "warning");
@@ -34,7 +34,7 @@ saeg.principal = (function () {
 
         alimentos: function (value, row) {
             var accion = '';
-            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">Sí</span>';
+            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­</span>';
             if (row.tiene_alimentos == 0) accion += '<span class="badge bg-danger">No</span>';
             if (row.tiene_alimentos == '') accion += '<span class="badge bg-danger">Pendiente</span>';
             return accion;
@@ -45,7 +45,7 @@ saeg.principal = (function () {
             var contrasenia = $('#contrasenia').val();
 
             if (!usuario || !contrasenia) {
-                Swal.fire("Ã‚Â¡Atención!", "Es requerido el usuario y contraseña", "error");
+                Swal.fire("ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡AtenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n!", "Es requerido el usuario y contraseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±a", "error");
                 return;
             }
 
@@ -81,7 +81,7 @@ saeg.principal = (function () {
                 activo = row.activo_qr;
             }
             if (Number(activo) === 1) {
-                return '<span class="badge bg-success">Sí</span>';
+                return '<span class="badge bg-success">SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­</span>';
             }
 
             return '<span class="badge bg-danger">No</span>';
@@ -161,7 +161,7 @@ window.cajeros = {
         }
 
         if (typeof $.fn.bootstrapTable !== 'function') {
-            console.error('Bootstrap Table no está disponible.');
+            console.error('Bootstrap Table no estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ disponible.');
             Swal.fire('Error', 'No fue posible cargar el componente de la tabla.', 'error');
             return;
         }
@@ -170,7 +170,7 @@ window.cajeros = {
             url: base_url + 'index.php/Usuario/getVistaUsuario',
             responseHandler: function (response) {
                 if (Array.isArray(response)) return response;
-                console.error('Respuesta inválida al cargar usuarios:', response);
+                console.error('Respuesta invÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lida al cargar usuarios:', response);
                 return [];
             },
             onLoadError: function (status, request) {
@@ -200,7 +200,7 @@ window.cajeros = {
         var input = event && event.target ? event.target : null;
         if (!input) return;
         input.value = String(input.value || '')
-            .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, '')
+            .replace(/[^A-Za-zÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±\s]/g, '')
             .toUpperCase();
     },
 
@@ -250,7 +250,7 @@ window.cajeros = {
                 callback();
             }
         }).fail(function () {
-            Swal.fire('Error', 'No fue posible cargar los catálogos del formulario.', 'error');
+            Swal.fire('Error', 'No fue posible cargar los catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logos del formulario.', 'error');
         });
     },
 
@@ -553,6 +553,61 @@ window.cajeros = {
         return '<span class="badge bg-secondary">Sin definir</span>';
     },
 
+    qrActivo: function (value, row) {
+        row = row || {};
+        var badge = saeg.principal.activo(value, row);
+        var idUsuario = Number(row.id_usuario || row.ID_USUARIO || 0);
+        var disabled = idUsuario > 0 ? '' : ' disabled';
+        var button = '<button class="btn btn-outline-info btn-sm ms-2" type="button" title="Previsualizar QR" onclick="cajeros.previewQrById(' + idUsuario + ')"' + disabled + '><i class="mdi mdi-qrcode"></i></button>';
+        return '<div class="d-inline-flex align-items-center justify-content-center gap-1">' + badge + button + '</div>';
+    },
+
+    resolveQrPreview: function (row) {
+        row = row || {};
+        var qrPath = String(row.qr || '').trim();
+        if (qrPath !== '') {
+            return {
+                url: base_url + qrPath.replace(/^\/+/, ''),
+                label: qrPath
+            };
+        }
+
+        var codigo = String(row.codigo_qr || row.api_token || ('FIC-' + String(row.id_usuario || ''))).trim();
+        return {
+            url: 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=12&data=' + encodeURIComponent(codigo),
+            label: codigo
+        };
+    },
+
+    previewQrById: function (idUsuario) {
+        idUsuario = Number(idUsuario || 0);
+        if (!idUsuario) {
+            Swal.fire('Atención', 'No fue posible identificar el usuario del QR.', 'warning');
+            return;
+        }
+
+        var rows = $('#cajerosTable').bootstrapTable('getData', { useCurrentPage: false, includeHiddenRows: true }) || [];
+        var row = rows.find(function (item) {
+            return Number(item.id_usuario || item.ID_USUARIO || 0) === idUsuario;
+        });
+
+        if (!row) {
+            Swal.fire('Atención', 'No fue posible encontrar los datos del QR.', 'warning');
+            return;
+        }
+
+        var preview = this.resolveQrPreview(row);
+        Swal.fire({
+            title: 'Previsualizar QR',
+            text: preview.label,
+            imageUrl: preview.url,
+            imageAlt: 'QR del usuario',
+            imageWidth: 280,
+            imageHeight: 280,
+            confirmButtonText: 'Cerrar'
+        });
+    },
+
     moneda: function (value) {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
     },
@@ -669,7 +724,7 @@ window.cajeros = {
             data: $('#cajeroForm').serialize()
         }).done(function (response) {
             if (response.error) {
-                Swal.fire('Atención', response.respuesta, 'warning');
+                Swal.fire('AtenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n', response.respuesta, 'warning');
                 return;
             }
             Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success').then(function () {
@@ -684,8 +739,8 @@ window.cajeros = {
 
     eliminar: function (idUsuario) {
         Swal.fire({
-            title: 'Ã‚Â¿Eliminar usuario?',
-            text: 'El registro dejará de mostrarse en la tabla.',
+            title: 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿Eliminar usuario?',
+            text: 'El registro dejarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ de mostrarse en la tabla.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Eliminar',
@@ -695,7 +750,7 @@ window.cajeros = {
 
             $.post(base_url + 'index.php/Usuario/deleteUsuario', { id_usuario: idUsuario }, function (response) {
                 if (response.error) {
-                    Swal.fire('Atención', response.respuesta, 'warning');
+                    Swal.fire('AtenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n', response.respuesta, 'warning');
                     return;
                 }
                 $('#cajerosTable').bootstrapTable('refresh');
