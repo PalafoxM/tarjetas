@@ -26,6 +26,7 @@ class Usuario extends BaseController
     );
     private $globals;
     private $resolver;
+    private $lastS3Error = '';
 
     public function __construct()
     {
@@ -105,7 +106,7 @@ class Usuario extends BaseController
 
         $idUsuario = (int) $this->request->getPost('id_usuario');
         if ($idUsuario <= 0) {
-            return $this->fail('Identificador de usuario no válido', 400);
+            return $this->fail('Identificador de usuario no valido', 400);
         }
 
         $row = $this->getBaseUserRow($idUsuario);
@@ -173,7 +174,7 @@ class Usuario extends BaseController
         if ($idUsuario === 0 && trim((string) ($data['contrasenia'] ?? '')) === '') {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'La contraseña es requerida para un usuario nuevo',
+                'respuesta' => 'La contrasena es requerida para un usuario nuevo',
             ]);
         }
 
@@ -227,7 +228,7 @@ class Usuario extends BaseController
             $dataInsert,
             [
                 'tabla' => 'usuario',
-                'editar' => $idUsuario > 0,
+                'editar' => $idUsuario > 0 ? 'true' : 'false',
                 'idEditar' => $idUsuario > 0 ? ['id_usuario' => $idUsuario] : null,
             ],
             [
@@ -236,37 +237,49 @@ class Usuario extends BaseController
             ]
         );
 
-        if (!$response->error && $idUsuario === 0) {
-            $savedUserId = $this->resolveSavedUserId($response, $idUsuario, (string) $dataInsert['api_token']);
-            if ($savedUserId > 0) {
-                $qrRelativePath = $this->generateInstitutionalQrForUser($savedUserId, (string) $dataInsert['api_token']);
-                if ($qrRelativePath !== null) {
-                    $updateQr = $this->globals->saveTabla(
-                        ['qr' => $qrRelativePath],
-                        [
-                            'tabla' => 'usuario',
-                            'editar' => true,
-                            'idEditar' => ['id_usuario' => $savedUserId],
-                        ],
-                        [
-                            'id_user' => (int) $session->get('id_usuario'),
-                            'script' => 'Usuario.saveCajero.qr',
-                        ]
-                    );
+        if (!$response->error) {
+            $targetUserId = $idUsuario;
+            if ($idUsuario === 0) {
+                $targetUserId = $this->resolveSavedUserId($response, $idUsuario, (string) $dataInsert['api_token']);
+                if ($targetUserId <= 0) {
+                    $response->respuesta .= ' El usuario se guardo, pero no fue posible resolver su id para generar el QR.';
+                    return $this->respond($response);
+                }
+            }
 
-                    if ($updateQr->error) {
-                        $response->respuesta .= ' El usuario se guardó, pero no se pudo persistir la ruta del QR.';
-                    } else {
-                        $response->qr = $qrRelativePath;
-                    }
+            $apiTokenToUse = trim((string) ($dataInsert['api_token'] ?? $usuarioActual['api_token'] ?? ''));
+            $personalData = [
+                'usuario' => $dataInsert['usuario'],
+                'nombre' => $dataInsert['nombre'],
+                'primer_apellido' => $dataInsert['primer_apellido'],
+                'segundo_apellido' => $dataInsert['segundo_apellido'],
+                'correo' => $dataInsert['correo'],
+            ];
+
+            $qrPath = $this->generateInstitutionalQrForUser($targetUserId, $apiTokenToUse, $personalData);
+            if ($qrPath !== null) {
+                $updateQr = $this->globals->saveTabla(
+                    ['qr' => $qrPath],
+                    [
+                        'tabla' => 'usuario',
+                        'editar' => 'true',
+                        'idEditar' => ['id_usuario' => $targetUserId],
+                    ],
+                    [
+                        'id_user' => (int) $session->get('id_usuario'),
+                        'script' => 'Usuario.saveCajero.qr',
+                    ]
+                );
+
+                if ($updateQr->error) {
+                    $response->respuesta .= ' El usuario se guardo, pero no se pudo persistir la ruta del QR.';
                 } else {
-                    $response->respuesta .= ' El usuario se guardó, pero no se pudo generar el archivo QR.';
+                    $response->qr = $qrPath;
                 }
             } else {
-                $response->respuesta .= ' El usuario se guardó, pero no fue posible resolver su id para generar el QR.';
+                $response->respuesta .= ' El usuario se guardo, pero no se pudo generar/subir el archivo QR.' . ($this->lastS3Error !== '' ? ' Detalle S3: ' . $this->lastS3Error : '');
             }
         }
-
         return $this->respond($response);
     }
     public function deleteUsuario()
@@ -329,7 +342,7 @@ class Usuario extends BaseController
         if (!$actorContext['can_access_user_catalog']) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
-                'respuesta' => 'No tienes permisos para consultar catálogos.',
+                'respuesta' => 'No tienes permisos para consultar catalogos.',
             ]);
         }
 
@@ -443,7 +456,7 @@ class Usuario extends BaseController
         if ($idUsuario <= 0) {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'Identificador de usuario no válido',
+                'respuesta' => 'Identificador de usuario no valido',
             ]);
         }
 
@@ -654,31 +667,37 @@ class Usuario extends BaseController
         return (int) ($result->data[0]->id_usuario ?? 0);
     }
 
-    private function generateInstitutionalQrForUser(int $idUsuario, string $apiToken): ?string
+    private function generateInstitutionalQrForUser(int $idUsuario, string $apiToken, array $personalData = []): ?string
     {
         if ($idUsuario <= 0) {
             return null;
         }
 
-        $relativeDir = 'uploads/qr';
-        $absoluteDir = rtrim(FCPATH, '\\/') . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativeDir);
-        if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0775, true) && !is_dir($absoluteDir)) {
-            return null;
-        }
-
         $payloadToken = trim($apiToken) !== '' ? $apiToken : ('USR-' . $idUsuario);
-        $qrPayload = json_encode([
+        $qrPayload = json_encode(array_filter([
             'id_usuario' => $idUsuario,
             'token' => $payloadToken,
             'tipo' => 'usuario_institucional',
-        ], JSON_UNESCAPED_UNICODE);
+            'usuario' => trim((string) ($personalData['usuario'] ?? '')),
+            'nombre' => trim((string) ($personalData['nombre'] ?? '')),
+            'primer_apellido' => trim((string) ($personalData['primer_apellido'] ?? '')),
+            'segundo_apellido' => trim((string) ($personalData['segundo_apellido'] ?? '')),
+            'correo' => trim((string) ($personalData['correo'] ?? '')),
+        ]), JSON_UNESCAPED_UNICODE);
 
         if ($qrPayload === false) {
+            log_message('error', 'Usuario.generateInstitutionalQrForUser: json_encode payload failed for user ' . $idUsuario);
             return null;
         }
 
-        $fileName = 'usuario-' . $idUsuario . '.png';
-        $absolutePath = $absoluteDir . DIRECTORY_SEPARATOR . $fileName;
+        $tmpDir = WRITEPATH . 'tmp';
+        if (!is_dir($tmpDir) && !mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+            log_message('error', 'Usuario.generateInstitutionalQrForUser: unable to create tmp dir ' . $tmpDir);
+            return null;
+        }
+
+        $fileName = 'usuario-' . $idUsuario . '-' . time() . '.png';
+        $absolutePath = rtrim($tmpDir, '\/') . DIRECTORY_SEPARATOR . $fileName;
 
         $result = Builder::create()
             ->data($qrPayload)
@@ -688,9 +707,222 @@ class Usuario extends BaseController
             ->margin(12)
             ->build();
 
-        $result->saveToFile($absolutePath);
+        try {
+            $result->saveToFile($absolutePath);
+        } catch (\Throwable $e) {
+            log_message('error', 'Usuario.generateInstitutionalQrForUser: could not save PNG locally: ' . $e->getMessage());
+            return null;
+        }
 
-        return $relativeDir . '/' . $fileName;
+        $keyPrefix = $this->envFirst(['AWS_S3_PREFIX', 'S3_PREFIX', 'AWS_BUCKET_PREFIX'], 'qr_fic');
+        $objectKey = trim($keyPrefix, '/');
+        $objectKey = ($objectKey !== '' ? $objectKey . '/' : '') . $fileName;
+        $qrUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png');
+        @unlink($absolutePath);
+
+        return $qrUrl;
+    }
+
+    private function uploadFileToS3(string $absolutePath, string $objectKey, string $contentType): ?string
+    {
+        $this->lastS3Error = '';
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            $this->lastS3Error = 'No se puede leer el archivo temporal del QR.';
+            log_message('error', 'Usuario.uploadFileToS3: local file is not readable: ' . $absolutePath);
+            return null;
+        }
+
+        $bucket = $this->envFirst(['AWS_BUCKET', 'AWS_S3_BUCKET', 'S3_BUCKET', 'S3_BUCKET_NAME']);
+        $region = $this->envFirst(['AWS_REGION', 'AWS_DEFAULT_REGION', 'S3_REGION'], 'us-east-1');
+        $accessKey = $this->envFirst(['AWS_ACCESS_KEY_ID', 'AWS_ACCESS_KEY', 'S3_ACCESS_KEY', 'S3_KEY']);
+        $secretKey = $this->envFirst(['AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'S3_SECRET_KEY', 'S3_SECRET']);
+        $sessionToken = $this->envFirst(['AWS_SESSION_TOKEN', 'S3_SESSION_TOKEN']);
+        $acl = $this->envFirst(['AWS_S3_ACL', 'S3_ACL']);
+
+        if ($bucket === '' || $accessKey === '' || $secretKey === '') {
+            $this->lastS3Error = 'Faltan variables de S3 en .env: bucket, access key o secret key.';
+            log_message('error', 'Usuario.uploadFileToS3: missing S3 env vars.');
+            return null;
+        }
+
+        $body = file_get_contents($absolutePath);
+        if ($body === false) {
+            $this->lastS3Error = 'No se pudo leer el contenido del QR temporal.';
+            log_message('error', 'Usuario.uploadFileToS3: could not read local file body.');
+            return null;
+        }
+
+        $encodedKey = $this->encodeS3Key($objectKey);
+        $host = $region === 'us-east-1'
+            ? $bucket . '.s3.amazonaws.com'
+            : $bucket . '.s3.' . $region . '.amazonaws.com';
+        $url = 'https://' . $host . '/' . $encodedKey;
+
+        $payloadHash = hash('sha256', $body);
+        $amzDate = gmdate('Ymd\THis\Z');
+        $dateStamp = gmdate('Ymd');
+
+        $headers = [
+            'content-type' => $contentType,
+            'host' => $host,
+            'x-amz-content-sha256' => $payloadHash,
+            'x-amz-date' => $amzDate,
+        ];
+
+        if ($acl !== '') {
+            $headers['x-amz-acl'] = $acl;
+        }
+        if ($sessionToken !== '') {
+            $headers['x-amz-security-token'] = $sessionToken;
+        }
+
+        ksort($headers);
+        $canonicalHeaders = '';
+        foreach ($headers as $name => $value) {
+            $canonicalHeaders .= $name . ':' . trim((string) $value) . "\n";
+        }
+        $signedHeaders = implode(';', array_keys($headers));
+
+        $canonicalRequest = implode("\n", [
+            'PUT',
+            '/' . $encodedKey,
+            '',
+            $canonicalHeaders,
+            $signedHeaders,
+            $payloadHash,
+        ]);
+
+        $credentialScope = $dateStamp . '/' . $region . '/s3/aws4_request';
+        $stringToSign = implode("\n", [
+            'AWS4-HMAC-SHA256',
+            $amzDate,
+            $credentialScope,
+            hash('sha256', $canonicalRequest),
+        ]);
+
+        $signingKey = $this->getAwsSignatureKey($secretKey, $dateStamp, $region, 's3');
+        $signature = hash_hmac('sha256', $stringToSign, $signingKey);
+        $authorization = 'AWS4-HMAC-SHA256 Credential=' . $accessKey . '/' . $credentialScope . ', SignedHeaders=' . $signedHeaders . ', Signature=' . $signature;
+
+        $requestHeaders = [];
+        foreach ($headers as $name => $value) {
+            $requestHeaders[] = $name . ': ' . $value;
+        }
+        $requestHeaders[] = 'Authorization: ' . $authorization;
+        $requestHeaders[] = 'Content-Length: ' . strlen($body);
+
+        if (!function_exists('curl_init')) {
+            $this->lastS3Error = 'La extension cURL de PHP no esta disponible.';
+            log_message('error', 'Usuario.uploadFileToS3: cURL extension is not available.');
+            return null;
+        }
+
+        $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
+        $sslVerify = !in_array($sslVerifyValue, ['0', 'false', 'no'], true);
+        $curlOptions = [
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => $requestHeaders,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+        ];
+
+        $caInfo = $this->resolveCurlCaInfo();
+        if ($sslVerify && $caInfo !== '') {
+            $curlOptions[CURLOPT_CAINFO] = $caInfo;
+        }
+
+        $curl = curl_init($url);
+        curl_setopt_array($curl, $curlOptions);
+
+        $rawResponse = curl_exec($curl);
+        $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($curl);
+        curl_close($curl);
+
+        if ($rawResponse === false || $httpCode < 200 || $httpCode >= 300) {
+            $this->lastS3Error = trim('HTTP ' . $httpCode . ' ' . $curlError . ' ' . $this->extractS3ErrorMessage((string) $rawResponse));
+            log_message('error', 'Usuario.uploadFileToS3: upload failed. HTTP ' . $httpCode . ' ' . $curlError . ' Response: ' . substr((string) $rawResponse, 0, 500));
+            return null;
+        }
+
+        $publicBaseUrl = rtrim($this->envFirst(['AWS_S3_PUBLIC_URL', 'S3_PUBLIC_URL']), '/');
+        if ($publicBaseUrl !== '') {
+            return $publicBaseUrl . '/' . $encodedKey;
+        }
+
+        return $url;
+    }
+
+    private function extractS3ErrorMessage(string $rawResponse): string
+    {
+        if ($rawResponse === '') {
+            return '';
+        }
+
+        if (preg_match('/<Code>([^<]+)<\/Code>.*<Message>([^<]+)<\/Message>/s', $rawResponse, $matches)) {
+            return trim($matches[1] . ': ' . html_entity_decode($matches[2], ENT_QUOTES | ENT_XML1, 'UTF-8'));
+        }
+
+        return '';
+    }
+
+    private function resolveCurlCaInfo(): string
+    {
+        $configured = $this->envFirst(['AWS_CA_BUNDLE', 'CURL_CA_BUNDLE', 'SSL_CERT_FILE']);
+        if ($configured !== '' && is_file($configured)) {
+            return $configured;
+        }
+
+        $iniCandidates = [ini_get('curl.cainfo'), ini_get('openssl.cafile')];
+        foreach ($iniCandidates as $candidate) {
+            if (is_string($candidate) && $candidate !== '' && is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        $fileCandidates = [
+            ROOTPATH . 'cacert.pem',
+            WRITEPATH . 'cacert.pem',
+            'C:\wamp64\apps\phpmyadmin5.2.1\vendor\composer\ca-bundle\res\cacert.pem',
+        ];
+
+        foreach ($fileCandidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+
+    private function envFirst(array $keys, string $default = ''): string
+    {
+        foreach ($keys as $key) {
+            $value = env($key);
+            if ($value !== null && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return $default;
+    }
+
+    private function encodeS3Key(string $key): string
+    {
+        $segments = array_map('rawurlencode', explode('/', str_replace('\\', '/', $key)));
+        return implode('/', $segments);
+    }
+
+    private function getAwsSignatureKey(string $secretKey, string $dateStamp, string $regionName, string $serviceName): string
+    {
+        $kDate = hash_hmac('sha256', $dateStamp, 'AWS4' . $secretKey, true);
+        $kRegion = hash_hmac('sha256', $regionName, $kDate, true);
+        $kService = hash_hmac('sha256', $serviceName, $kRegion, true);
+        return hash_hmac('sha256', 'aws4_request', $kService, true);
     }
 
     private function generateUniquePlainToken(string $field, int $length, bool $digitsOnly): string
