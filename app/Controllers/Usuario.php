@@ -315,6 +315,7 @@ class Usuario extends BaseController
                 'tarifas' => $this->getCatalogData('cat_nivel_cliente', ['visible' => 1], 'id_nivel_cliente ASC'),
                 'partidas' => $this->getCatalogData('cat_partida', ['visible' => 1], 'id_partida ASC'),
                 'tipos_habitacion' => $this->getCatalogData('cat_tipo_habitacion', ['visible' => 1], 'id_tipo_habitacion ASC'),
+                'hotel_tarifas' => $this->getHotelTarifasCatalog(),
                 'establecimientos' => $this->getCatalogData('establecimiento', ['visible' => 1], 'dsc_establecimiento ASC'),
             ],
         ]);
@@ -534,21 +535,43 @@ class Usuario extends BaseController
         }, $response->data ?? []);
     }
 
+    private function getHotelTarifasCatalog(): array
+    {
+        $candidates = [
+            'hotel_tipo_habitacion_tarifa',
+            'id_hotel_tipo_habitacion_tarifa',
+        ];
+
+        foreach ($candidates as $table) {
+            $rows = $this->getCatalogData($table, ['visible' => 1, 'activo' => 1], 'id_establecimiento ASC');
+            if (!empty($rows)) {
+                return array_map(static function (array $row) {
+                    $row['hotel_tarifa_id'] = $row['id_hotel_tipo_habitacion']
+                        ?? $row['id_hotel_tipo_habitacion_tarifa']
+                        ?? null;
+                    return $row;
+                }, $rows);
+            }
+        }
+
+        return [];
+    }
+
     private function filterPerfilesCatalogo(array $perfiles, array $actorContext): array
     {
+        $perfiles = array_values(array_filter($perfiles, static function ($perfil) {
+            return in_array((int) ($perfil['id_perfil'] ?? 0), [4, 8, 9, 10], true);
+        }));
+
         if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
             return $perfiles;
         }
-
-        $perfiles = array_values(array_filter($perfiles, static function ($perfil) {
-            return !in_array((int) ($perfil['id_perfil'] ?? 0), [2, 5, 7], true);
-        }));
 
         $allowedByGroup = [
             'fic' => [9],
             'secul' => [8],
             'ug' => [10],
-            'secturi' => [4, 6],
+            'secturi' => [4],
         ];
 
         $allowed = $allowedByGroup[$actorContext['active_group'] ?? ''] ?? [];

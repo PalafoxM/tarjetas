@@ -115,6 +115,7 @@ window.cajeros = {
         perfiles: [],
         tarifas: [],
         partidas: [],
+        hotel_tarifas: [],
         tipos_habitacion: [],
         establecimientos: []
     },
@@ -146,7 +147,12 @@ window.cajeros = {
 
             $('#categoria_ui').on('change', this.onCategoriaChange.bind(this));
             $('#id_perfil_catalogo').on('change', this.onPerfilBaseChange.bind(this));
+            $('#perfil_grupo').on('change', this.actualizarFlujoBeneficios.bind(this));
             $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
+            $('#id_nivel_cliente, #fecha_check_in, #fecha_check_out').on('change', this.actualizarCalculoAlimentos.bind(this));
+            $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta').on('change', this.actualizarCalculoHospedaje.bind(this));
+            $('#folio_ui').on('input', this.normalizarFolio.bind(this));
+            $('#subf_ui, #anf_gto_ui').on('input', this.normalizarSoloLetrasMayusculas.bind(this));
             $('#cajeroForm').on('submit', function (event) {
                 event.preventDefault();
                 cajeros.guardar();
@@ -184,6 +190,20 @@ window.cajeros = {
         }
     },
 
+    normalizarFolio: function (event) {
+        var input = event && event.target ? event.target : document.getElementById('folio_ui');
+        if (!input) return;
+        input.value = String(input.value || '').replace(/\D+/g, '');
+    },
+
+    normalizarSoloLetrasMayusculas: function (event) {
+        var input = event && event.target ? event.target : null;
+        if (!input) return;
+        input.value = String(input.value || '')
+            .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s]/g, '')
+            .toUpperCase();
+    },
+
     inicializarSelect2: function () {
         if (typeof $.fn.select2 !== 'function') {
             return;
@@ -213,12 +233,16 @@ window.cajeros = {
                 return $.trim(item.des_diciplina || '');
             });
             cajeros.poblarSelect('#id_pais', cajeros.catalogos.paises, 'id_pais', 'dsc_pais');
-            cajeros.poblarSelect('#id_perfil_catalogo', cajeros.catalogos.perfiles, 'id_perfil', 'dsc_perfil');
-            cajeros.poblarSelect('#id_nivel_cliente', cajeros.catalogos.tarifas, 'id_nivel_cliente', 'dsc_nivel_cliente');
-            cajeros.poblarSelect('#id_partida', cajeros.catalogos.partidas, 'id_partida', 'partida', function (item) {
-                var descripcion = item.des_partida ? ' - ' + item.des_partida : '';
-                return (item.partida || '') + descripcion;
+            cajeros.poblarSelect('#id_perfil_catalogo', cajeros.catalogos.perfiles, 'id_perfil', 'dsc_perfil', function (item) {
+                var shortLabels = {
+                    4: 'SECTURI',
+                    8: 'SECUL',
+                    9: 'FIC',
+                    10: 'UG'
+                };
+                return shortLabels[Number(item.id_perfil)] || item.dsc_perfil || '';
             });
+            cajeros.poblarSelect('#id_nivel_cliente', cajeros.catalogos.tarifas, 'id_nivel_cliente', 'dsc_nivel_cliente');
             cajeros.poblarSelect('#id_establecimiento', cajeros.catalogos.establecimientos, 'id_establecimiento', 'dsc_establecimiento');
             cajeros.aplicarPerfilPorContexto();
             cajeros.actualizarFlujoBeneficios();
@@ -270,6 +294,26 @@ window.cajeros = {
         this.onPerfilBaseChange();
     },
 
+    getEstablecimientoPorPerfil: function (perfilId) {
+        var mapping = {
+            4: '85',
+            8: '89',
+            9: '90',
+            10: '91'
+        };
+        return mapping[String(perfilId || '')] || '';
+    },
+
+    getPerfilBasePorGrupo: function (groupKey) {
+        var mapping = {
+            secturi: '4',
+            secul: '8',
+            fic: '9',
+            ug: '10'
+        };
+        return mapping[String(groupKey || '')] || '';
+    },
+
     mapPerfil: function (idPerfil) {
         idPerfil = Number(idPerfil || 0);
         var defaultMap = { group: '', allowVisibleRole: false };
@@ -315,7 +359,7 @@ window.cajeros = {
         }
         perfilVisible.trigger('change.select2');
 
-        this.aplicarEstablecimientoCliente();
+        this.aplicarEstablecimientoPorPerfil(selectedProfile);
         this.actualizarFlujoBeneficios();
     },
 
@@ -328,9 +372,19 @@ window.cajeros = {
         return perfilTexto.trim().toUpperCase() === 'CLIENTE';
     },
 
-    aplicarEstablecimientoCliente: function () {
-        if (this.esPerfilCliente()) {
-            $('#id_establecimiento').val('86').trigger('change.select2');
+    esRolVisibleCliente: function () {
+        var perfilTexto = $('#perfil_grupo option:selected').text() || '';
+        return perfilTexto.trim().toUpperCase() === 'CLIENTE';
+    },
+
+    esProveedorLike: function () {
+        return ($('#grupo_usuario').val() || '') === 'proveedor';
+    },
+
+    aplicarEstablecimientoPorPerfil: function (perfilId) {
+        var idEstablecimiento = this.getEstablecimientoPorPerfil(perfilId || $('#id_perfil_catalogo').val());
+        if (idEstablecimiento) {
+            $('#id_establecimiento').val(String(idEstablecimiento)).trigger('change.select2');
         }
     },
 
@@ -346,38 +400,151 @@ window.cajeros = {
         return match;
     },
 
+    obtenerLabelPartida: function (idPartida) {
+        var partida = this.buscarPorId(this.catalogos.partidas, 'id_partida', idPartida);
+        if (!partida) return '';
+        var descripcion = partida.des_partida ? ' - ' + partida.des_partida : '';
+        return (partida.partida || '') + descripcion;
+    },
+
     obtenerGrupoInstitucional: function () {
         var selectedProfile = $('#id_perfil_catalogo').val();
         var mapping = this.mapPerfil(selectedProfile);
         return mapping.group || this.contexto.active_group || '';
     },
 
-    actualizarFlujoBeneficios: function () {
+    obtenerMontoCatalogo: function (item) {
+        if (!item) return 0;
+
+        var preferredKeys = ['monto_diario', 'tarifa_diaria', 'tarifa', 'precio', 'costo', 'importe', 'monto', 'valor'];
+        for (var i = 0; i < preferredKeys.length; i += 1) {
+            var preferredValue = item[preferredKeys[i]];
+            if (preferredValue !== undefined && preferredValue !== null && preferredValue !== '' && !isNaN(Number(preferredValue))) {
+                return Number(preferredValue);
+            }
+        }
+
+        var keys = Object.keys(item);
+        for (var j = 0; j < keys.length; j += 1) {
+            var key = keys[j];
+            var value = item[key];
+            if (/(monto|tarifa|precio|costo|importe|valor)/i.test(key) && value !== undefined && value !== null && value !== '' && !isNaN(Number(value))) {
+                return Number(value);
+            }
+        }
+
+        return 0;
+    },
+
+    calcularDiasVigencia: function (fechaInicio, fechaFin, inclusive) {
+        if (!fechaInicio || !fechaFin) {
+            return 0;
+        }
+
+        var inicio = new Date(fechaInicio + 'T00:00:00');
+        var fin = new Date(fechaFin + 'T00:00:00');
+        if (isNaN(inicio.getTime()) || isNaN(fin.getTime()) || fin < inicio) {
+            return 0;
+        }
+
+        var diff = Math.round((fin.getTime() - inicio.getTime()) / 86400000);
+        return inclusive ? diff + 1 : diff;
+    },
+
+    actualizarCalculoAlimentos: function () {
         var tieneAlimentos = $('#tiene_alimentos').val() === '1';
         var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+        if (!tieneAlimentos || this.esProveedorLike()) {
+            $('#monto_deposito').val('');
+            $('#monto_total_alimentos_ui').val('');
+            if (!tieneHospedaje) {
+                $('#tarifa_total').val('');
+            }
+            return;
+        }
+
+        var tarifa = this.buscarPorId(this.catalogos.tarifas, 'id_nivel_cliente', $('#id_nivel_cliente').val());
+        var montoDiario = this.obtenerMontoCatalogo(tarifa);
+        var dias = this.calcularDiasVigencia($('#fecha_check_in').val(), $('#fecha_check_out').val(), true);
+        var total = montoDiario * dias;
+
+        $('#monto_deposito').val(montoDiario > 0 ? montoDiario.toFixed(2) : '');
+        $('#monto_total_alimentos_ui').val(total > 0 ? total.toFixed(2) : '');
+        if (!tieneHospedaje) {
+            $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '');
+        }
+    },
+
+    actualizarCalculoHospedaje: function () {
+        var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+        if (!tieneHospedaje || this.esProveedorLike()) {
+            $('#tarifa_noche, #tarifa_total, #noche').val('');
+            return;
+        }
+
+        var hotelId = $('#id_establecimiento_hotel').val();
+        var habitacionId = $('#id_tipo_habitacion').val();
+        var tarifaHotel = (this.catalogos.hotel_tarifas || [])
+            .filter(function (item) {
+                return String(item.id_establecimiento) === String(hotelId)
+                    && String(item.id_tipo_habitacion) === String(habitacionId);
+            })
+            .sort(function (left, right) {
+                return Number(right.hotel_tarifa_id || 0) - Number(left.hotel_tarifa_id || 0);
+            })[0] || null;
+        var habitacionOption = $('#id_tipo_habitacion option:selected');
+        var tarifaNoche = Number((tarifaHotel && tarifaHotel.tarifa_noche) || habitacionOption.data('tarifa') || 0);
+        var noches = this.calcularDiasVigencia($('#fec_vigencia_desde').val(), $('#fec_vigencia_hasta').val(), false);
+        var total = tarifaNoche * noches;
+
+        $('#tarifa_noche').val(tarifaNoche > 0 ? tarifaNoche.toFixed(2) : '').prop('readonly', true);
+        $('#noche').val(noches > 0 ? noches : '');
+        $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '').prop('readonly', true);
+    },
+
+    actualizarFlujoBeneficios: function () {
+        var esProveedor = this.esProveedorLike();
+        var tieneAlimentos = !esProveedor && $('#tiene_alimentos').val() === '1';
+        var tieneHospedaje = !esProveedor && $('#tiene_hospedaje').val() === '1';
         var grupo = this.obtenerGrupoInstitucional();
         var partida = '';
 
         if (tieneHospedaje) {
-            partida = '3';
+            partida = '2';
         } else if (tieneAlimentos) {
-            if (grupo === 'fic') {
-                partida = '2';
-            } else if (grupo === 'ug' || grupo === 'secul' || grupo === 'secturi') {
+            if (grupo === 'fic' || grupo === 'ug' || this.esRolVisibleCliente() || this.esPerfilCliente()) {
+                partida = '3';
+            } else {
                 partida = '1';
             }
         }
 
-        $('#partidaWrapper').show();
+        $('.alimentos-field').toggle(tieneAlimentos);
         $('.hospedaje-field').toggle(tieneHospedaje);
+        $('#partidaAlimentosWrapper').toggle(tieneAlimentos);
+        $('#partidaHospedajeWrapper').toggle(tieneHospedaje);
 
         if (!tieneHospedaje) {
             $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta, #tarifa_noche, #tarifa_total, #noche').val('');
         }
-
-        if (partida) {
-            $('#id_partida').val(partida).trigger('change.select2');
+        if (!tieneAlimentos) {
+            $('#fecha_check_in, #fecha_check_out').val('');
+            $('#id_nivel_cliente').val('').trigger('change.select2');
+            $('#monto_deposito').val('');
+            $('#monto_total_alimentos_ui').val('');
         }
+
+        if (esProveedor) {
+            $('#tiene_alimentos, #tiene_hospedaje').val('0');
+            partida = '';
+        }
+
+        var partidaLabel = this.obtenerLabelPartida(partida);
+        $('#id_partida').val(partida);
+        $('#id_partida_alimentos_ui').val(partidaLabel);
+        $('#id_partida_hospedaje_ui').val(partidaLabel);
+        this.actualizarCalculoHospedaje();
+        this.actualizarCalculoAlimentos();
     },
 
     estadoBooleano: function (value) {
@@ -459,8 +626,8 @@ window.cajeros = {
         $('#clave_ui').val(data.clave || '');
         $('#categoria_ui').val(data.id_clave || '').trigger('change.select2');
         $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
-        $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '');
-        $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '');
+        $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '').trigger('change.select2');
+        $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '').trigger('change.select2');
         $('#fecha_check_in').val(data.fecha_check_in || '');
         $('#fecha_check_out').val(data.fecha_check_out || '');
         $('#fec_vigencia_desde').val(data.fec_vigencia_desde || '');
@@ -469,13 +636,14 @@ window.cajeros = {
         $('#tarifa_total').val(data.tarifa_total || '');
         $('#monto_deposito').val(data.monto_deposito || '');
         $('#noche').val(data.noche || '');
-        $('#id_partida').val(data.id_partida || '').trigger('change.select2');
+        $('#id_partida').val(data.id_partida || '');
+        $('#id_partida_alimentos_ui').val(this.obtenerLabelPartida(data.id_partida || ''));
+        $('#id_partida_hospedaje_ui').val(this.obtenerLabelPartida(data.id_partida || ''));
         $('#id_pais').val(data.id_pais || '').trigger('change.select2');
         $('#grupo_usuario').val(data.grupo_usuario || '');
-        $('#id_perfil_catalogo').val(data.id_perfil || '').trigger('change.select2');
+        $('#id_perfil_catalogo').val(this.getPerfilBasePorGrupo(data.grupo_usuario) || data.id_perfil || '').trigger('change.select2');
         this.onCategoriaChange();
         this.onPerfilBaseChange(data.perfil_grupo || '');
-        this.aplicarEstablecimientoCliente();
         this.actualizarFlujoBeneficios();
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
