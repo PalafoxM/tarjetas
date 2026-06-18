@@ -314,7 +314,24 @@ window.cajeros = {
             perfilVisible.val(String(perfilVisibleSeleccionado));
         }
         perfilVisible.trigger('change.select2');
+
+        this.aplicarEstablecimientoCliente();
         this.actualizarFlujoBeneficios();
+    },
+
+    esPerfilCliente: function (idPerfil) {
+        var perfilId = Number(idPerfil || $('#id_perfil_catalogo').val() || 0);
+        if (perfilId === 3) {
+            return true;
+        }
+        var perfilTexto = $('#id_perfil_catalogo option:selected').text() || '';
+        return perfilTexto.trim().toUpperCase() === 'CLIENTE';
+    },
+
+    aplicarEstablecimientoCliente: function () {
+        if (this.esPerfilCliente()) {
+            $('#id_establecimiento').val('86').trigger('change.select2');
+        }
     },
 
     buscarPorId: function (items, key, value) {
@@ -351,16 +368,15 @@ window.cajeros = {
             }
         }
 
-        $('#partidaWrapper').toggle(tieneAlimentos || tieneHospedaje);
+        $('#partidaWrapper').show();
         $('.hospedaje-field').toggle(tieneHospedaje);
 
         if (!tieneHospedaje) {
             $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta, #tarifa_noche, #tarifa_total, #noche').val('');
         }
 
-        $('#id_partida').val(partida).trigger('change.select2');
-        if (!tieneAlimentos && !tieneHospedaje) {
-            $('#id_partida').val('').trigger('change.select2');
+        if (partida) {
+            $('#id_partida').val(partida).trigger('change.select2');
         }
     },
 
@@ -451,6 +467,7 @@ window.cajeros = {
         $('#id_perfil_catalogo').val(data.id_perfil || '').trigger('change.select2');
         this.onCategoriaChange();
         this.onPerfilBaseChange(data.perfil_grupo || '');
+        this.aplicarEstablecimientoCliente();
         this.actualizarFlujoBeneficios();
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
@@ -464,8 +481,11 @@ window.cajeros = {
     },
 
     guardar: function () {
-        this.actualizarFlujoBeneficios();
-        var boton = $('#guardarCajero').prop('disabled', true);
+        var boton = $('#guardarCajero');
+        var textoOriginal = boton.html();
+        
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
+        
         $.ajax({
             url: base_url + 'index.php/Usuario/saveCajero',
             type: 'POST',
@@ -482,7 +502,7 @@ window.cajeros = {
         }).fail(function () {
             Swal.fire('Error', 'No fue posible guardar el usuario.', 'error');
         }).always(function () {
-            boton.prop('disabled', false);
+            boton.prop('disabled', false).html(textoOriginal);
         });
     },
 

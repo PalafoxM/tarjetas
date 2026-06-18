@@ -199,11 +199,11 @@ class Usuario extends BaseController
         $dataInsert = array_merge($dataInsert, $assignment);
 
         if (!empty($data['contrasenia'])) {
-            $dataInsert['contrasenia'] = md5($data['contrasenia']);
+            $dataInsert['contrasenia'] = password_hash((string) $data['contrasenia'], PASSWORD_BCRYPT);
         }
 
         if ($idUsuario === 0) {
-            $dataInsert['nip'] = $this->generateUniquePlainToken('nip', 6, true);
+            $dataInsert['nip'] = $this->generateUniquePlainToken('nip', 4, true);
             $dataInsert['api_token'] = $this->generateUniquePlainToken('api_token', 32, false);
             $dataInsert['activo_qr'] = 0;
             $dataInsert['visible'] = 1;
@@ -450,7 +450,7 @@ class Usuario extends BaseController
     private function buildCatalogRows(array $actorContext): array
     {
         $baseResponse = $this->globals->getTabla([
-            'tabla' => 'usuario',
+            'tabla' => 'vw_usuario',
             'where' => ['visible' => 1],
         ]);
 
