@@ -9,6 +9,7 @@ require_once FCPATH . 'app/Libraries/PHPMailer/Exception.php';
 require_once FCPATH . 'app/Libraries/PHPMailer/PHPMailer.php';
 require_once FCPATH . 'app/Libraries/PHPMailer/SMTP.php';
 require_once FCPATH . '/mpdf/autoload.php';
+require_once FCPATH . "qr_code/autoload.php";
 
 class Usuario extends BaseController
 {
