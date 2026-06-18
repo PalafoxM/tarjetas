@@ -58,25 +58,33 @@ class Usuario extends BaseController
 
     public function getUsuarios()
     {
-        $actorContext = $this->getActorContext();
-        if (!$actorContext['can_access_user_catalog']) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'error' => true,
-                'respuesta' => 'No tienes permisos para consultar usuarios.',
-                'data' => [],
-            ]);
+        $session = \Config\Services::session();
+        if($session->get('logueado') != 1){
+            $actorContext = $this->getActorContext();
+            if (!$actorContext['can_access_user_catalog']) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'No tienes permisos para consultar usuarios.',
+                    'data' => [],
+                ]);
+            }
+
+            $catalog = $this->buildCatalogRows($actorContext);
+            if ($catalog['error']) {
+                return $this->response->setStatusCode(502)->setJSON([
+                    'error' => true,
+                    'respuesta' => $catalog['respuesta'],
+                    'data' => [],
+                ]);
+            }
+
+            return $this->respond($catalog['data']);
+        }else{
+            $Mglobal = new Mglobal;
+            $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1]]);
+            return $this->respond($datos->data ?? []);
         }
 
-        $catalog = $this->buildCatalogRows($actorContext);
-        if ($catalog['error']) {
-            return $this->response->setStatusCode(502)->setJSON([
-                'error' => true,
-                'respuesta' => $catalog['respuesta'],
-                'data' => [],
-            ]);
-        }
-
-        return $this->respond($catalog['data']);
     }
 
     public function getVistaUsuario()
@@ -106,9 +114,6 @@ class Usuario extends BaseController
         }
 
         $targetContext = $this->resolver->resolve($row);
-        if ($targetContext['id_tipo_proveedor'] > 0 || in_array((int) ($row['id_perfil'] ?? 0), [2, 5, 7], true)) {
-            return $this->failNotFound('Usuario no encontrado');
-        }
         $row['grupo_usuario'] = $targetContext['id_tipo_proveedor'] > 0
             ? 'proveedor'
             : ($targetContext['active_group'] ?? '');
@@ -530,13 +535,13 @@ class Usuario extends BaseController
 
     private function filterPerfilesCatalogo(array $perfiles, array $actorContext): array
     {
+        if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
+            return $perfiles;
+        }
+
         $perfiles = array_values(array_filter($perfiles, static function ($perfil) {
             return !in_array((int) ($perfil['id_perfil'] ?? 0), [2, 5, 7], true);
         }));
-
-        if ($actorContext['is_ti_master']) {
-            return $perfiles;
-        }
 
         $allowedByGroup = [
             'fic' => [9],

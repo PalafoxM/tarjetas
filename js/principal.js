@@ -391,16 +391,24 @@ window.cajeros = {
     },
 
     acciones: function (value, row) {
-        var botones = '<div class="btn-group btn-group-sm">';
+        row = row || {};
+        var idUsuario = Number(row.id_usuario || row.ID_USUARIO || 0);
+        var puedeEditar = Number(row.permiso_editar || 0) === 1 || cajeros.idPerfil === 1;
+        var puedeEliminar = Number(row.permiso_eliminar || 0) === 1 || cajeros.idPerfil === 1;
+        var botones = '<div class="usuario-actions">';
 
-        if (Number(row.permiso_editar) === 1) {
-            botones += '<button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(' + row.id_usuario + ')"><i class="mdi mdi-account-edit"></i></button>';
-        } else {
-            botones += '<button class="btn btn-outline-light" type="button" title="Consultar" onclick="cajeros.editar(' + row.id_usuario + ')"><i class="mdi mdi-eye"></i></button>';
+        if (!idUsuario) {
+            return '<span class="text-muted">Sin acciones</span>';
         }
 
-        if (Number(row.permiso_eliminar) === 1) {
-            botones += '<button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(' + row.id_usuario + ')"><i class="mdi mdi-account-remove"></i></button>';
+        if (puedeEditar) {
+            botones += '<button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(' + idUsuario + ')"><i class="mdi mdi-account-edit"></i></button>';
+        } else {
+            botones += '<button class="btn btn-outline-light" type="button" title="Consultar" onclick="cajeros.editar(' + idUsuario + ')"><i class="mdi mdi-eye"></i></button>';
+        }
+
+        if (puedeEliminar) {
+            botones += '<button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(' + idUsuario + ')"><i class="mdi mdi-account-remove"></i></button>';
         }
 
         return botones + '</div>';

@@ -25,6 +25,30 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
     .select2-container {
         width: 100% !important;
     }
+
+    #usuariosPage .fixed-table-body {
+        overflow-x: auto;
+    }
+
+    #usuariosPage #cajerosTable {
+        min-width: 1280px;
+    }
+
+    #usuariosPage .usuario-actions {
+        display: inline-flex;
+        flex-wrap: nowrap;
+        gap: .25rem;
+        white-space: nowrap;
+    }
+
+    #usuariosPage .usuario-actions .btn {
+        display: inline-flex;
+        width: 32px;
+        height: 30px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
 </style>
 
 <div
@@ -85,7 +109,7 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estadoBooleano" data-align="center">Alimentos</th>
                         <th data-field="fec_vigencia_hasta" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia hasta</th>
                         <th data-field="monto_deposito" data-formatter="cajeros.moneda" data-align="center">Monto</th>
-                        <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center">Acciones</th>
+                        <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center" data-width="88" data-width-unit="px">Acciones</th>
                     </tr>
                 </thead>
             </table>

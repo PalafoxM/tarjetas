@@ -101,7 +101,7 @@ class UsuarioPerfilResolver
             'is_group_capturista' => $isGroupCapturista,
             'is_group_backoffice' => $isGroupAdmin || $isGroupCapturista,
             'is_secturi_cajero' => $isSecturiCajero,
-            'is_ti_master' => $idPerfil === 1 && $activeGroup === null && $providerType === 0,
+            'is_ti_master' => $idPerfil === 1 && $providerType === 0,
             'can_access_user_catalog' => $idPerfil === 1 || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
             'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0) || $isGroupAdmin,
         ];
@@ -119,7 +119,7 @@ class UsuarioPerfilResolver
 
     public function canViewRow(array $actorContext, $row): bool
     {
-        if ($actorContext['is_ti_master']) {
+        if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
             return true;
         }
 
@@ -145,7 +145,7 @@ class UsuarioPerfilResolver
             return false;
         }
 
-        if ($actorContext['is_ti_master']) {
+        if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
             return true;
         }
 
