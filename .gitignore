@@ -1,4 +1,4 @@
 writable/
 writable/*.env
 
-.env*.local
+.env*.local.env
