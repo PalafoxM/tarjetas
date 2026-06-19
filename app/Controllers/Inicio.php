@@ -134,15 +134,221 @@ class Inicio extends BaseController {
         $this->_renderView($data);
         
     }
-      public function EstablecimientosFic()
-    {        
+    public function EstablecimientosFic()
+    {
         $session = \Config\Services::session();
-        $Mglobal = new Mglobal; 
-        $data        = array();
+        $Mglobal = new Mglobal;
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        if (!$contextoUsuario['can_access_user_catalog']) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $establecimientosResponse = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => ['visible' => 1],
+            'order' => 'id_tipo ASC, dsc_establecimiento ASC',
+        ]);
+        $usuariosResponse = $Mglobal->getTabla([
+            'tabla' => 'usuario',
+            'where' => ['visible' => 1],
+        ]);
+
+        $proveedoresIndex = [];
+        foreach (($usuariosResponse->data ?? []) as $usuario) {
+            $usuarioArray = (array) $usuario;
+            $idTipoProveedor = (int) ($usuarioArray['id_tipo_proveedor'] ?? 0);
+            if ($idTipoProveedor <= 0) {
+                continue;
+            }
+
+            $nombreCompleto = trim(implode(' ', array_filter([
+                $usuarioArray['nombre'] ?? '',
+                $usuarioArray['primer_apellido'] ?? '',
+                $usuarioArray['segundo_apellido'] ?? '',
+            ])));
+            $proveedoresIndex[(int) ($usuarioArray['id_usuario'] ?? 0)] = [
+                'nombre' => $nombreCompleto !== '' ? $nombreCompleto : (string) ($usuarioArray['usuario'] ?? 'Proveedor'),
+                'tipo' => $idTipoProveedor,
+            ];
+        }
+
+        $typeLabels = [
+            1 => 'ESTABLECIMIENTO',
+            2 => 'HOTEL',
+            3 => 'INSTITUCIONAL',
+            4 => 'INSTITUCIONAL',
+            5 => 'INSTITUCIONAL',
+            6 => 'INSTITUCIONAL',
+            7 => 'INSTITUCIONAL',
+        ];
+
+        $establecimientos = [];
+        foreach (($establecimientosResponse->data ?? []) as $row) {
+            $item = (array) $row;
+            $noProveedor = (int) ($item['no_proveedor'] ?? 0);
+            $proveedor = $proveedoresIndex[$noProveedor] ?? null;
+            $item['dsc_tipo'] = $typeLabels[(int) ($item['id_tipo'] ?? 0)] ?? ('TIPO ' . (int) ($item['id_tipo'] ?? 0));
+            $item['dsc_proveedor'] = $proveedor['nombre'] ?? ($noProveedor > 0 ? 'PADRON ' . $noProveedor : 'Sin proveedor');
+            $establecimientos[] = (object) $item;
+        }
+
+        $data = array();
         $data['scripts'] = array('principal','agregar');
-        $data['contentView'] = "secciones/vEstablecimientoFic";                
+        $data['contextoUsuario'] = $contextoUsuario;
+        $data['modoEstablecimientosFic'] = true;
+        $data['esAdministradorEstablecimientosFic'] = !empty($contextoUsuario['is_ti_master']);
+        $data['soloConsultaEstablecimientosFic'] = empty($contextoUsuario['is_ti_master']);
+        $data['altaProveedorUrl'] = base_url('index.php/Inicio/AltaUsuario?modo=proveedor');
+        $data['usuariosUrl'] = base_url('index.php/Inicio/Usuarios');
+        $data['datosEstablecimiento'] = $establecimientos;
+        $data['contentView'] = 'secciones/vEstablecimiento';
         $this->_renderView($data);
-        
+    }
+
+    public function buscarProveedoresPadronFic()
+    {
+        $session = \Config\Services::session();
+
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_ti_master'])) {
+            return $this->response->setJSON([
+                'results' => [],
+            ]);
+        }
+
+        $term = trim((string) $this->request->getGet('term'));
+
+        $db = \Config\Database::connect();
+
+        $builder = $db->table('tarjetas.proveedor p')
+            ->select('
+                p.id_proveedor,
+                p.id_tipo_proveedor,
+                p.no_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->where('p.visible', 1)
+            ->orderBy('p.razon_social', 'ASC')
+            ->limit(20);
+
+        if ($term !== '') {
+            $builder->groupStart()
+                ->like('p.no_proveedor', $term)
+                ->orLike('p.razon_social', $term)
+                ->orLike('p.rfc', $term)
+                ->groupEnd();
+        }
+
+        $rows = $builder->get()->getResult();
+
+        $results = [];
+
+        foreach ($rows as $row) {
+            $results[] = [
+                'id' => (string) $row->id_proveedor,
+                'text' => trim(
+                    (string) $row->no_proveedor
+                    . ' - '
+                    . (string) $row->razon_social
+                    . ' - '
+                    . (string) $row->rfc
+                ),
+                'id_proveedor' => (int) $row->id_proveedor,
+                'id_tipo_proveedor' => (int) $row->id_tipo_proveedor,
+                'no_proveedor' => (string) $row->no_proveedor,
+                'razon_social' => (string) $row->razon_social,
+                'rfc' => (string) $row->rfc,
+            ];
+        }
+
+        return $this->response->setJSON([
+            'results' => $results,
+        ]);
+    }
+
+    public function getProveedorPadronFic()
+    {
+        $session = \Config\Services::session();
+
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_ti_master'])) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar proveedores.',
+            ]);
+        }
+
+        $idProveedor = (int) $this->request->getGet('id_proveedor');
+
+        if ($idProveedor <= 0) {
+            return $this->response->setJSON([
+                'ok' => false,
+                'message' => 'Proveedor inválido.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+
+        $proveedor = $db->table('tarjetas.proveedor p')
+            ->select('
+                p.id_proveedor,
+                p.id_tipo_proveedor,
+                p.no_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->where('p.id_proveedor', $idProveedor)
+            ->where('p.visible', 1)
+            ->get()
+            ->getRow();
+
+        if (!$proveedor) {
+            return $this->response->setJSON([
+                'ok' => false,
+                'message' => 'No se encontró el proveedor seleccionado.',
+            ]);
+        }
+
+        $establecimientos = $db->table('tarjetas.establecimiento e')
+            ->select('
+                e.id_establecimiento,
+                e.dsc_establecimiento,
+                e.id_tipo,
+                cte.dsc_tipo,
+                e.no_proveedor
+            ')
+            ->join('tarjetas.cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->where('e.visible', 1)
+            ->where('e.no_proveedor', $proveedor->no_proveedor)
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->get()
+            ->getResult();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'proveedor' => [
+                'id_proveedor' => (int) $proveedor->id_proveedor,
+                'id_tipo_proveedor' => (int) $proveedor->id_tipo_proveedor,
+                'no_proveedor' => (string) $proveedor->no_proveedor,
+                'razon_social' => (string) $proveedor->razon_social,
+                'rfc' => (string) $proveedor->rfc,
+            ],
+            'establecimientos' => array_map(static function ($row) {
+                return [
+                    'id_establecimiento' => (int) $row->id_establecimiento,
+                    'dsc_establecimiento' => (string) $row->dsc_establecimiento,
+                    'id_tipo' => (int) $row->id_tipo,
+                    'dsc_tipo' => (string) ($row->dsc_tipo ?? ''),
+                    'no_proveedor' => (string) $row->no_proveedor,
+                ];
+            }, $establecimientos),
+        ]);
     }
 
     public function Usuarios()
@@ -167,24 +373,62 @@ class Inicio extends BaseController {
     public function AltaUsuario($idUsuario = null)
     {
         $session = \Config\Services::session();
+
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
+
         if (!$contextoUsuario['can_access_user_catalog']) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
-        $data = array();
-        $Mglobal = new Mglobal;
-        $hotelOptions = $Mglobal->getTabla(['tabla' => 'establecimiento', 'where' => ['visible' => 1, 'id_tipo' => 2]]);
-        $catTipoHabitacion = $Mglobal->getTabla(['tabla' => 'cat_tipo_habitacion', 'where' => ['visible' => 1]]);
+        $modoAltaProveedor = $this->request->getGet('modo') === 'proveedor';
+
+        if ($modoAltaProveedor && empty($contextoUsuario['is_ti_master'])) {
+            return redirect()->to(base_url('index.php/Inicio/EstablecimientosFic'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contextoUsuario'] = $contextoUsuario;
+        $data['idUsuarioEditar'] = (int) ($idUsuario ?? 0);
+        $data['modoAltaProveedor'] = $modoAltaProveedor;
+        $data['regresarUrl'] = $modoAltaProveedor
+            ? base_url('index.php/Inicio/EstablecimientosFic')
+            : base_url('index.php/Inicio/Usuarios');
+        $data['contentView'] = 'secciones/vAltaUsuario';
+
+        if ($modoAltaProveedor) {
+            $data['catalogRoleOptions'] = [];
+            $data['providerTypeOptions'] = [];
+            $data['hotelOptions'] = [];
+            $data['catTipoHabitacion'] = [];
+
+            $this->_renderView($data);
+            return;
+        }
+
+        $Mglobal = new Mglobal();
+
+        $hotelOptions = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => [
+                'visible' => 1,
+                'id_tipo' => 2,
+            ],
+        ]);
+
+        $catTipoHabitacion = $Mglobal->getTabla([
+            'tabla' => 'cat_tipo_habitacion',
+            'where' => [
+                'visible' => 1,
+            ],
+        ]);
+
         $data['hotelOptions'] = $hotelOptions->data ?? [];
         $data['catTipoHabitacion'] = $catTipoHabitacion->data ?? [];
-        $data['scripts'] = array('principal','agregar');
-        $data['contextoUsuario'] = $contextoUsuario;
         $data['catalogRoleOptions'] = $resolver->getAllowedRoleOptions($contextoUsuario);
         $data['providerTypeOptions'] = $resolver->getProviderTypes();
-        $data['idUsuarioEditar'] = (int) ($idUsuario ?? 0);
-        $data['contentView'] = 'secciones/vAltaUsuario';
+
         $this->_renderView($data);
     }
 
@@ -232,3 +476,5 @@ class Inicio extends BaseController {
 
     
 }
+
+

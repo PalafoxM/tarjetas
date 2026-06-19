@@ -22,7 +22,7 @@
         weekLabel: "Sem",
         allDayText: "Todo o dia",
         eventLimitText: "mais",
-        noEventsMessage: "Não há eventos para mostrar"
+        noEventsMessage: "Nío há eventos para mostrar"
     };
 
     return pt;

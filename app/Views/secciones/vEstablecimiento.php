@@ -1,6 +1,82 @@
-<?php
+﻿<?php
 $establecimientos = is_array($datosEstablecimiento ?? null) ? $datosEstablecimiento : [];
+$modoEstablecimientosFic = !empty($modoEstablecimientosFic);
+$esAdministradorEstablecimientosFic = !empty($esAdministradorEstablecimientosFic);
+$soloConsultaEstablecimientosFic = !empty($soloConsultaEstablecimientosFic);
+$altaProveedorUrl = $altaProveedorUrl ?? base_url('index.php/Inicio/AltaUsuario?modo=proveedor');
+$usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
 ?>
+<?php if ($modoEstablecimientosFic): ?>
+<div class="container-fluid py-4" id="establecimientos-fic-root">
+    <div class="row mb-3 g-3 align-items-center">
+        <div class="col-lg-8">
+            <h3 class="mb-1 text-white">Establecimientos FIC</h3>
+            <p class="text-muted mb-0">Homologacion institucional para dar de alta proveedores y consultar los establecimientos relacionados dentro de este workspace.</p>
+        </div>
+        <div class="col-lg-4">
+            <div class="d-flex flex-wrap justify-content-lg-end gap-2">
+                <a class="btn btn-outline-secondary" href="<?= base_url('index.php/Inicio') ?>">
+                    <i class="mdi mdi-arrow-left me-1"></i> Volver a inicio
+                </a>
+                <a class="btn btn-outline-info" href="<?= esc($usuariosUrl, 'attr') ?>">
+                    <i class="mdi mdi-account-multiple-outline me-1"></i> Usuarios institucionales
+                </a>
+                <?php if ($esAdministradorEstablecimientosFic): ?>
+                    <a class="btn btn-primary" href="<?= esc($altaProveedorUrl, 'attr') ?>">
+                        <i class="mdi mdi-account-plus-outline me-1"></i> Agregar proveedor
+                    </a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info mb-3" role="alert">
+        Primero se registra el proveedor como usuario y despues se liga o administra su padron de establecimientos desde este modulo.
+    </div>
+
+    <?php if ($soloConsultaEstablecimientosFic): ?>
+        <div class="alert alert-secondary mb-3" role="alert">
+            Tu perfil esta en modo consulta dentro de esta vista. Solo TI puede dar de alta proveedores en este modulo.
+        </div>
+    <?php endif; ?>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Establecimiento</th>
+                            <th>Tipo</th>
+                            <th>Proveedor</th>
+                            <th>Padron</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($establecimientos)): ?>
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No hay establecimientos visibles para mostrar.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($establecimientos as $establecimiento): ?>
+                                <tr>
+                                    <td><?= esc((string) ($establecimiento->id_establecimiento ?? '')) ?></td>
+                                    <td><?= esc((string) ($establecimiento->dsc_establecimiento ?? '')) ?></td>
+                                    <td><?= esc((string) ($establecimiento->dsc_tipo ?? '')) ?></td>
+                                    <td><?= esc((string) ($establecimiento->dsc_proveedor ?? 'Sin proveedor')) ?></td>
+                                    <td><?= esc((string) ($establecimiento->no_proveedor ?? '')) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<?php return; ?>
+<?php endif; ?>
 <link rel="stylesheet" href="<?= base_url('css/fic-hotel.css') ?>?filever=<?= time() ?>">
 
 <div class="container-fluid py-4 hotel-app" id="establecimientoApp">

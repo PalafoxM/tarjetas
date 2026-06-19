@@ -19,7 +19,7 @@
         resizeQuarter: 'Redimensionar um Quarto',
         floatLeft: 'Flutuar para Esquerda',
         floatRight: 'Flutuar para Direira',
-        floatNone: 'Não Flutuar',
+        floatNone: 'Nío Flutuar',
         dragImageHere: 'Arraste uma imagem para cá',
         selectFromFiles: 'Selecione a partir dos arquivos',
         url: 'URL da imagem'
@@ -55,7 +55,7 @@
       style: {
         style: 'Estilo',
         normal: 'Normal',
-        blockquote: 'Citação',
+        blockquote: 'Citaçío',
         pre: 'Código',
         h1: 'Título 1',
         h2: 'Título 2',
@@ -75,8 +75,8 @@
       },
       paragraph: {
         paragraph: 'Parágrafo',
-        outdent: 'Menor tabulação',
-        indent: 'Maior tabulação',
+        outdent: 'Menor tabulaçío',
+        indent: 'Maior tabulaçío',
         left: 'Alinhar à esquerda',
         center: 'Alinhar ao centro',
         right: 'Alinha à direita',
@@ -90,14 +90,14 @@
         transparent: 'Transparente',
         setTransparent: 'Fundo transparente',
         reset: 'Restaurar',
-        resetToDefault: 'Restaurar padrão'
+        resetToDefault: 'Restaurar padrío'
       },
       shortcut: {
         shortcuts: 'Atalhos do teclado',
         close: 'Fechar',
-        textFormatting: 'Formatação de texto',
-        action: 'Ação',
-        paragraphFormatting: 'Formatação de parágrafo',
+        textFormatting: 'Formataçío de texto',
+        action: 'Açío',
+        paragraphFormatting: 'Formataçío de parágrafo',
         documentStyle: 'Estilo de documento'
       },
       history: {
@@ -119,7 +119,7 @@
         'justifyCenter': 'Centralizar',
         'justifyRight': 'Alinhar à esquerda',
         'justifyFull': 'Justificar',
-        'insertUnorderedList': 'Lista não ordenada',
+        'insertUnorderedList': 'Lista nío ordenada',
         'insertOrderedList': 'Lista ordenada',
         'outdent': 'Recuar parágrafo atual',
         'indent': 'Avançar parágrafo atual',

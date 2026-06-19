@@ -16,7 +16,7 @@ saeg.principal = (function () {
                     processData: false,
                     success: function (response) {
                         if (response == 'correcto') {
-                            Swal.fire("", "Se agregÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ correctamente el logotipo", "success");
+                            Swal.fire("", "Se agregó correctamente el logotipo", "success");
                             location.reload();
                         } else {
                             Swal.fire("Error", response, "warning");
@@ -34,7 +34,7 @@ saeg.principal = (function () {
 
         alimentos: function (value, row) {
             var accion = '';
-            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­</span>';
+            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">Sí</span>';
             if (row.tiene_alimentos == 0) accion += '<span class="badge bg-danger">No</span>';
             if (row.tiene_alimentos == '') accion += '<span class="badge bg-danger">Pendiente</span>';
             return accion;
@@ -45,7 +45,7 @@ saeg.principal = (function () {
             var contrasenia = $('#contrasenia').val();
 
             if (!usuario || !contrasenia) {
-                Swal.fire("ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡AtenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n!", "Es requerido el usuario y contraseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±a", "error");
+                Swal.fire("Atención", "Favor de capturar usuario y contraseña.", "error");
                 return;
             }
 
@@ -81,7 +81,7 @@ saeg.principal = (function () {
                 activo = row.activo_qr;
             }
             if (Number(activo) === 1) {
-                return '<span class="badge bg-success">SÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­</span>';
+                return '<span class="badge bg-success">Sí</span>';
             }
 
             return '<span class="badge bg-danger">No</span>';
@@ -104,8 +104,10 @@ window.cajeros = {
     modal: null,
     idPerfil: null,
     isAltaPage: false,
+    isProviderMode: false,
     listUrl: '',
     altaUrl: '',
+    providerSelection: null,
     contexto: {},
     roleOptions: {},
     catalogos: {
@@ -117,7 +119,8 @@ window.cajeros = {
         partidas: [],
         hotel_tarifas: [],
         tipos_habitacion: [],
-        establecimientos: []
+        establecimientos: [],
+        proveedores: []
     },
 
     iniciar: function () {
@@ -133,11 +136,31 @@ window.cajeros = {
         this.roleOptions = this.parseJSON(contenedor.dataset.roleOptions, {});
         this.listUrl = contenedor.dataset.listUrl || (base_url + 'index.php/Inicio/Usuarios');
         this.altaUrl = contenedor.dataset.altaUrl || (base_url + 'index.php/Inicio/AltaUsuario');
+        this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
 
         if (this.isAltaPage) {
             this.inicializarSelect2();
+
+            var idUsuario = Number(altaPagina.dataset.idUsuario || 0);
+
+            if (this.isProviderMode) {
+                this.inicializarFlujoProveedor();
+
+                if (idUsuario > 0) {
+                    this.cargarUsuario(idUsuario);
+                } else {
+                    this.prepararNuevoProveedorFormulario();
+                }
+
+                $('#formAltaProveedorFic').on('submit', function (event) {
+                    event.preventDefault();
+                    cajeros.guardarProveedorFic();
+                });
+
+                return;
+            }
+
             this.cargarCatalogosBase(function () {
-                var idUsuario = Number(altaPagina.dataset.idUsuario || 0);
                 if (idUsuario > 0) {
                     cajeros.cargarUsuario(idUsuario);
                 } else {
@@ -153,16 +176,12 @@ window.cajeros = {
             $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta').on('change', this.actualizarCalculoHospedaje.bind(this));
             $('#folio_ui').on('input', this.normalizarFolio.bind(this));
             $('#subf_ui, #anf_gto_ui').on('input', this.normalizarSoloLetrasMayusculas.bind(this));
+
             $('#cajeroForm').on('submit', function (event) {
                 event.preventDefault();
                 cajeros.guardar();
             });
-            return;
-        }
 
-        if (typeof $.fn.bootstrapTable !== 'function') {
-            console.error('Bootstrap Table no estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ disponible.');
-            Swal.fire('Error', 'No fue posible cargar el componente de la tabla.', 'error');
             return;
         }
 
@@ -170,7 +189,7 @@ window.cajeros = {
             url: base_url + 'index.php/Usuario/getVistaUsuario',
             responseHandler: function (response) {
                 if (Array.isArray(response)) return response;
-                console.error('Respuesta invÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lida al cargar usuarios:', response);
+                console.error('Respuesta inválida al cargar usuarios:', response);
                 return [];
             },
             onLoadError: function (status, request) {
@@ -200,7 +219,7 @@ window.cajeros = {
         var input = event && event.target ? event.target : null;
         if (!input) return;
         input.value = String(input.value || '')
-            .replace(/[^A-Za-zÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚ÂºÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¼ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±\s]/g, '')
+            .replace(/[^\p{L}\s]/gu, '')
             .toUpperCase();
     },
 
@@ -244,16 +263,18 @@ window.cajeros = {
             });
             cajeros.poblarSelect('#id_nivel_cliente', cajeros.catalogos.tarifas, 'id_nivel_cliente', 'dsc_nivel_cliente');
             cajeros.poblarSelect('#id_establecimiento', cajeros.catalogos.establecimientos, 'id_establecimiento', 'dsc_establecimiento');
-            cajeros.aplicarPerfilPorContexto();
-            cajeros.actualizarFlujoBeneficios();
+            cajeros.poblarSelect('#proveedor_catalogo', cajeros.catalogos.proveedores, 'id_proveedor', 'search_label');
+            if (!cajeros.isProviderMode) {
+                cajeros.aplicarPerfilPorContexto();
+                cajeros.actualizarFlujoBeneficios();
+            }
             if (typeof callback === 'function') {
                 callback();
             }
         }).fail(function () {
-            Swal.fire('Error', 'No fue posible cargar los catÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡logos del formulario.', 'error');
+            Swal.fire('Error', 'No fue posible cargar los catálogos del formulario.', 'error');
         });
     },
-
     poblarSelect: function (selector, items, valueKey, labelKey, formatter) {
         var select = $(selector);
         if (!select.length) return;
@@ -273,6 +294,216 @@ window.cajeros = {
             select.val(String(valorActual));
         }
         select.trigger('change.select2');
+    },
+
+    inicializarFlujoProveedor: function () {
+        var select = $('#proveedor_catalogo');
+        var dropdownParent = $('#altaUsuarioPage').length ? $('#altaUsuarioPage') : $(document.body);
+
+        if (typeof $.fn.select2 === 'function') {
+            if (select.hasClass('select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
+
+            select.select2({
+                width: '100%',
+                dropdownParent: dropdownParent,
+                placeholder: select.data('placeholder') || 'Seleccione',
+                allowClear: true,
+                ajax: {
+                    url: base_url + 'index.php/Inicio/buscarProveedoresPadronFic',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            term: $.trim(params.term || '')
+                        };
+                    },
+                    processResults: function (response) {
+                        return response && Array.isArray(response.results)
+                            ? response
+                            : { results: [] };
+                    },
+                    cache: true
+                },
+                minimumInputLength: 0
+            });
+        }
+
+        select
+            .off('select2:select.proveedor select2:clear.proveedor change.proveedor')
+            .on('select2:select.proveedor', this.onProveedorSelected.bind(this))
+            .on('select2:clear.proveedor', this.limpiarProveedorSeleccionado.bind(this))
+            .on('change.proveedor', this.onProveedorChange.bind(this));
+
+        $('#usuario').on('input', this.normalizarMayusculas.bind(this));
+        $('#correo, #contrasenia').on('input', this.normalizarMinusculas.bind(this));
+    },
+
+    normalizarMinusculas: function (event) {
+        var input = event && event.target ? event.target : null;
+        if (!input) return;
+        input.value = String(input.value || '').toLowerCase();
+    },
+
+    normalizarMayusculas: function (event) {
+        var input = event && event.target ? event.target : null;
+        if (!input) return;
+        input.value = String(input.value || '').toUpperCase();
+    },
+
+    prepararNuevoProveedorFormulario: function () {
+        var form = document.getElementById('formAltaProveedorFic');
+        if (form) {
+            form.reset();
+        }
+        this.providerSelection = null;
+        $('#id_usuario').val('');
+        $('#id_proveedor').val('');
+        $('#id_establecimiento').val('');
+        $('#id_tipo_proveedor').val('1');
+        $('#no_proveedor_padron').val('');
+        $('#proveedor_catalogo').val('').trigger('change.select2');
+        $('#nombre, #establecimiento_nombre_ui, #tipo_establecimiento_ui').val('');
+        $('#contrasenia').prop('required', true);
+        this.aplicarModoFormulario(false);
+    },
+
+    onProveedorChange: function () {
+        var selectedId = String($('#proveedor_catalogo').val() || '');
+        if (selectedId === '') {
+            this.limpiarProveedorSeleccionado();
+            return;
+        }
+
+        if (this.providerSelection && String(this.providerSelection.id_proveedor || '') === selectedId) {
+            this.aplicarProveedorSeleccionado(this.providerSelection);
+        }
+    },
+
+    llenarProveedorFormulario: function (data) {
+        $('#id_usuario').val(data.id_usuario);
+        $('#usuario').val(data.usuario || '');
+        $('#correo').val(data.correo || '');
+        $('#contrasenia').val('').prop('required', false);
+        $('#nombre').val(data.nombre || '');
+
+        if (data.id_proveedor) {
+            var optionText = data.proveedor_option_text || data.nombre || '';
+            var option = new Option(optionText, String(data.id_proveedor), true, true);
+            $('#proveedor_catalogo').append(option).trigger('change');
+            this.providerSelection = {
+                id_proveedor: data.id_proveedor,
+                id_tipo_proveedor: data.id_tipo_proveedor || 1,
+                razon_social: data.nombre || '',
+                no_proveedor: data.no_proveedor_padron || '',
+                establecimientos: data.establecimientos_relacionados || [],
+                establecimiento_nombres_ui: data.establecimiento_nombre_ui || '',
+                tipo_establecimiento_ui: data.tipo_establecimiento_ui || '',
+                id_establecimiento_principal: data.id_establecimiento || ''
+            };
+            this.aplicarProveedorSeleccionado(this.providerSelection);
+        } else {
+            $('#id_establecimiento').val(data.id_establecimiento || '');
+            $('#establecimiento_nombre_ui').val(data.establecimiento_nombre_ui || '');
+            $('#tipo_establecimiento_ui').val(data.tipo_establecimiento_ui || '');
+        }
+
+        var soloConsulta = Number(data.permiso_editar || 0) !== 1;
+        this.aplicarModoFormulario(soloConsulta);
+        $('#cajeroPageTitle').text(soloConsulta ? 'Consultar proveedor' : 'Editar proveedor');
+    },
+
+    onProveedorSelected: function (event) {
+        var selected = event && event.params ? event.params.data : null;
+        var idProveedor = Number(selected && selected.id_proveedor ? selected.id_proveedor : (selected ? selected.id : 0));
+        if (idProveedor <= 0) {
+            this.limpiarProveedorSeleccionado();
+            return;
+        }
+
+        var baseData = {
+            id_proveedor: idProveedor,
+            id_tipo_proveedor: selected && selected.id_tipo_proveedor ? selected.id_tipo_proveedor : 1,
+            no_proveedor: selected && selected.no_proveedor ? selected.no_proveedor : '',
+            razon_social: selected && selected.razon_social ? selected.razon_social : '',
+            text: selected && selected.text ? selected.text : ''
+        };
+
+        this.consultarProveedorSeleccionado(baseData);
+    },
+
+    consultarProveedorSeleccionado: function (baseData) {
+        $.ajax({
+            url: base_url + 'index.php/Inicio/getProveedorPadronFic',
+            type: 'GET',
+            dataType: 'json',
+            data: {
+                id_proveedor: baseData.id_proveedor
+            }
+        }).done(function (response) {
+            if (!response || response.ok !== true) {
+                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
+                cajeros.limpiarProveedorSeleccionado();
+                return;
+            }
+
+            var proveedor = response.proveedor || {};
+            cajeros.providerSelection = {
+                id_proveedor: proveedor.id_proveedor || baseData.id_proveedor,
+                id_tipo_proveedor: proveedor.id_tipo_proveedor || baseData.id_tipo_proveedor || 1,
+                no_proveedor: proveedor.no_proveedor || baseData.no_proveedor || '',
+                razon_social: proveedor.razon_social || baseData.razon_social || '',
+                text: baseData.text || '',
+                establecimientos: Array.isArray(response.establecimientos) ? response.establecimientos : []
+            };
+            cajeros.aplicarProveedorSeleccionado(cajeros.providerSelection);
+        }).fail(function () {
+            Swal.fire('Error', 'No fue posible consultar la informacion del proveedor.', 'error');
+            cajeros.limpiarProveedorSeleccionado();
+        });
+    },
+
+    aplicarProveedorSeleccionado: function (selection) {
+        selection = selection || {};
+
+        var establecimientos = Array.isArray(selection.establecimientos) ? selection.establecimientos : [];
+        var principal = establecimientos.length ? establecimientos[0] : null;
+        var nombres = selection.establecimiento_nombres_ui || establecimientos.map(function (item) {
+            return item.dsc_establecimiento || '';
+        }).filter(Boolean).join(', ');
+        var tipos = selection.tipo_establecimiento_ui || this.obtenerTiposProveedorUI(establecimientos);
+
+        $('#id_proveedor').val(selection.id_proveedor || '');
+        $('#id_tipo_proveedor').val(selection.id_tipo_proveedor || '1');
+        $('#no_proveedor_padron').val(selection.no_proveedor || '');
+        $('#id_establecimiento').val(selection.id_establecimiento_principal || (principal ? (principal.id_establecimiento || '') : ''));
+        $('#nombre').val(selection.razon_social || '');
+        $('#establecimiento_nombre_ui').val(nombres);
+        $('#tipo_establecimiento_ui').val(tipos);
+    },
+
+    limpiarProveedorSeleccionado: function () {
+        this.providerSelection = null;
+        $('#id_proveedor').val('');
+        $('#id_tipo_proveedor').val('1');
+        $('#no_proveedor_padron').val('');
+        $('#id_establecimiento').val('');
+        $('#nombre').val('');
+        $('#establecimiento_nombre_ui').val('');
+        $('#tipo_establecimiento_ui').val('');
+    },
+
+    obtenerTiposProveedorUI: function (establecimientos) {
+        var index = {};
+        (establecimientos || []).forEach(function (item) {
+            var key = $.trim(item.dsc_tipo || '');
+            if (key !== '') {
+                index[key] = true;
+            }
+        });
+
+        return Object.keys(index).join(', ');
     },
 
     aplicarPerfilPorContexto: function () {
@@ -659,12 +890,15 @@ window.cajeros = {
 
     cargarUsuario: function (idUsuario) {
         $.post(base_url + 'index.php/Usuario/getUsuario', { id_usuario: idUsuario }, function (data) {
+            if (cajeros.isProviderMode) {
+                cajeros.llenarProveedorFormulario(data);
+                return;
+            }
             cajeros.llenarFormulario(data);
         }, 'json').fail(function () {
             Swal.fire('Error', 'No fue posible obtener el usuario.', 'error');
         });
     },
-
     llenarFormulario: function (data) {
         $('#id_usuario').val(data.id_usuario);
         $('#nombre').val(data.nombre);
@@ -707,8 +941,44 @@ window.cajeros = {
     },
 
     aplicarModoFormulario: function (soloConsulta) {
+        if (this.isProviderMode) {
+            $('#formAltaProveedorFic')
+                .find('input, select')
+                .not('#id_usuario, #grupo_usuario, #id_tipo_proveedor, #id_perfil, #id_establecimiento, #id_proveedor, #no_proveedor_padron')
+                .prop('disabled', soloConsulta);
+            $('#guardarProveedorFic').toggle(!soloConsulta);
+            return;
+        }
+
         $('#cajeroForm').find('input, select').not('#id_usuario, #grupo_usuario, #id_clave').prop('disabled', soloConsulta);
         $('#guardarCajero').toggle(!soloConsulta);
+    },
+
+    guardarProveedorFic: function () {
+        var boton = $('#guardarProveedorFic');
+        var textoOriginal = boton.html();
+
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
+
+        $.ajax({
+            url: base_url + 'index.php/Usuario/saveCajero',
+            type: 'POST',
+            dataType: 'json',
+            data: $('#formAltaProveedorFic').serialize()
+        }).done(function (response) {
+            if (response.error) {
+                Swal.fire('Atención', response.respuesta, 'warning');
+                return;
+            }
+
+            Swal.fire('Correcto', 'Proveedor guardado correctamente.', 'success').then(function () {
+                window.location.href = cajeros.listUrl;
+            });
+        }).fail(function () {
+            Swal.fire('Error', 'No fue posible guardar el proveedor.', 'error');
+        }).always(function () {
+            boton.prop('disabled', false).html(textoOriginal);
+        });
     },
 
     guardar: function () {
@@ -724,7 +994,7 @@ window.cajeros = {
             data: $('#cajeroForm').serialize()
         }).done(function (response) {
             if (response.error) {
-                Swal.fire('AtenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n', response.respuesta, 'warning');
+                Swal.fire('Atención', response.respuesta, 'warning');
                 return;
             }
             Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success').then(function () {
@@ -739,8 +1009,8 @@ window.cajeros = {
 
     eliminar: function (idUsuario) {
         Swal.fire({
-            title: 'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿Eliminar usuario?',
-            text: 'El registro dejarÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ de mostrarse en la tabla.',
+            title: '¿Deseas eliminar este usuario?',
+            text: 'El registro dejará de mostrarse en la tabla.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Eliminar',
@@ -750,7 +1020,7 @@ window.cajeros = {
 
             $.post(base_url + 'index.php/Usuario/deleteUsuario', { id_usuario: idUsuario }, function (response) {
                 if (response.error) {
-                    Swal.fire('AtenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n', response.respuesta, 'warning');
+                    Swal.fire('Atención', response.respuesta, 'warning');
                     return;
                 }
                 $('#cajerosTable').bootstrapTable('refresh');
@@ -765,3 +1035,6 @@ window.cajeros = {
 $(function () {
     cajeros.iniciar();
 });
+
+
+

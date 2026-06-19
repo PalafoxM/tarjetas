@@ -51,7 +51,7 @@
         style: 'Kiểu chữ',
         p: 'Chữ thường',
         blockquote: 'Đoạn trích',
-        pre: 'Mã Code',
+        pre: 'Mí Code',
         h1: 'H1',
         h2: 'H2',
         h3: 'H3',

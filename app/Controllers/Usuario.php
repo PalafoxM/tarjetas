@@ -127,6 +127,10 @@ class Usuario extends BaseController
             : ($targetContext['group_role'] ?? 0);
         $row = $this->resolver->decorateRow($row, $actorContext);
 
+        if ((int) ($row['id_tipo_proveedor'] ?? 0) > 0 || (int) ($row['id_perfil'] ?? 0) === 2) {
+            $row = array_merge($row, $this->getProviderProfileDataForUser($row));
+        }
+
         return $this->respond($row);
     }
 
@@ -162,6 +166,120 @@ class Usuario extends BaseController
             }
         }
 
+        $isProviderUser = (($data['grupo_usuario'] ?? '') === 'proveedor')
+            || (int) ($data['id_tipo_proveedor'] ?? 0) > 0
+            || (int) ($data['id_perfil'] ?? 0) === 2
+            || (int) ($usuarioActual['id_tipo_proveedor'] ?? 0) > 0;
+
+        if ($isProviderUser) {
+            foreach (['usuario', 'nombre'] as $campo) {
+                if (trim((string) ($data[$campo] ?? '')) === '') {
+                    return $this->respond([
+                        'error' => true,
+                        'respuesta' => "El campo {$campo} es requerido",
+                    ]);
+                }
+            }
+
+            $idEstablecimiento = $this->nullableInt($data['id_establecimiento'] ?? null);
+            if ($idEstablecimiento === null || $idEstablecimiento <= 0) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'Debes seleccionar un proveedor valido del catalogo.',
+                ]);
+            }
+
+            if ($idUsuario === 0 && trim((string) ($data['contrasenia'] ?? '')) === '') {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'La contrasena es requerida para un proveedor nuevo',
+                ]);
+            }
+
+            $dataInsert = [
+                'usuario' => strtoupper(trim((string) ($data['usuario'] ?? ''))),
+                'nombre' => trim((string) ($data['nombre'] ?? '')),
+                'primer_apellido' => '',
+                'segundo_apellido' => '',
+                'correo' => $this->nullableString(trim((string) ($data['correo'] ?? ''))),
+                'id_perfil' => 2,
+                'id_tipo_proveedor' => $this->nullableInt($data['id_tipo_proveedor'] ?? 1) ?: 1,
+                'id_establecimiento' => $idEstablecimiento,
+                'id_nivel_cliente' => null,
+                'id_partida' => null,
+                'id_pais' => null,
+                'id_clave' => null,
+                'monto_deposito' => null,
+                'tiene_alimentos' => 0,
+                'tiene_hospedaje' => 0,
+                'id_establecimiento_hotel' => null,
+                'id_tipo_habitacion' => null,
+                'fecha_check_in' => null,
+                'fecha_check_out' => null,
+                'fec_vigencia_desde' => null,
+                'fec_vigencia_hasta' => null,
+                'noche' => null,
+                'tarifa_noche' => null,
+                'tarifa_total' => null,
+                'nip' => null,
+                'qr' => null,
+                'api_token' => null,
+                'activo_qr' => 0,
+                'visible' => 1,
+            ];
+
+            if (!empty($data['contrasenia'])) {
+                $dataInsert['contrasenia'] = password_hash((string) $data['contrasenia'], PASSWORD_BCRYPT);
+            }
+
+            if ($idUsuario === 0) {
+                $dataInsert['fec_reg'] = date('Y-m-d H:i:s');
+                $dataInsert['usu_reg'] = (int) $session->get('id_usuario');
+            } else {
+                $dataInsert['fec_act'] = date('Y-m-d H:i:s');
+                $dataInsert['usu_act'] = (int) $session->get('id_usuario');
+            }
+
+            $response = $this->globals->saveTabla(
+                $dataInsert,
+                [
+                    'tabla' => 'usuario',
+                    'editar' => $idUsuario > 0 ? 'true' : 'false',
+                    'idEditar' => $idUsuario > 0 ? ['id_usuario' => $idUsuario] : null,
+                ],
+                [
+                    'id_user' => (int) $session->get('id_usuario'),
+                    'script' => 'Usuario.saveCajero',
+                ]
+            );
+
+            if (!$response->error) {
+                $targetUserId = $this->resolveSavedProviderUserId(
+                    $response,
+                    $idUsuario,
+                    (string) ($dataInsert['usuario'] ?? '')
+                );
+
+                if ($targetUserId <= 0) {
+                    $response->respuesta .= ' El usuario se guardo, pero no fue posible resolver su identificador para sincronizar establecimientos.';
+                    return $this->respond($response);
+                }
+
+                $syncOk = $this->syncProviderEstablishments(
+                    $targetUserId,
+                    (int) ($data['id_proveedor'] ?? 0),
+                    (int) ($dataInsert['id_tipo_proveedor'] ?? 1),
+                    $idEstablecimiento
+                );
+
+                if (!$syncOk) {
+                    $response->respuesta .= ' El usuario se guardo, pero no fue posible sincronizar la relacion con establecimientos.';
+                }
+            }
+
+            return $this->respond($response);
+        }
+
         foreach (['usuario', 'nombre', 'primer_apellido', 'correo'] as $campo) {
             if (trim((string) ($data[$campo] ?? '')) === '') {
                 return $this->respond([
@@ -182,11 +300,11 @@ class Usuario extends BaseController
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
         $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
         $dataInsert = [
-            'usuario' => trim($data['usuario']),
-            'nombre' => trim($data['nombre']),
-            'primer_apellido' => trim($data['primer_apellido']),
+            'usuario' => trim((string) ($data['usuario'] ?? '')),
+            'nombre' => trim((string) ($data['nombre'] ?? '')),
+            'primer_apellido' => trim((string) ($data['primer_apellido'] ?? '')),
             'segundo_apellido' => trim((string) ($data['segundo_apellido'] ?? '')),
-            'correo' => trim($data['correo']),
+            'correo' => trim((string) ($data['correo'] ?? '')),
             'id_perfil' => $legacyProfile,
             'id_establecimiento' => $this->nullableInt($data['id_establecimiento'] ?? null),
             'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
@@ -224,6 +342,7 @@ class Usuario extends BaseController
             $dataInsert['usu_act'] = (int) $session->get('id_usuario');
             unset($dataInsert['activo_qr']);
         }
+
         $response = $this->globals->saveTabla(
             $dataInsert,
             [
@@ -280,6 +399,7 @@ class Usuario extends BaseController
                 $response->respuesta .= ' El usuario se guardo, pero no se pudo generar/subir el archivo QR.' . ($this->lastS3Error !== '' ? ' Detalle S3: ' . $this->lastS3Error : '');
             }
         }
+
         return $this->respond($response);
     }
     public function deleteUsuario()
@@ -362,6 +482,7 @@ class Usuario extends BaseController
                 'tipos_habitacion' => $this->getCatalogData('cat_tipo_habitacion', ['visible' => 1], 'id_tipo_habitacion ASC'),
                 'hotel_tarifas' => $this->getHotelTarifasCatalog(),
                 'establecimientos' => $this->getCatalogData('establecimiento', ['visible' => 1], 'dsc_establecimiento ASC'),
+                'proveedores' => $this->getProviderCatalog(),
             ],
         ]);
     }
@@ -499,6 +620,192 @@ class Usuario extends BaseController
         return (array) $response->data[0];
     }
 
+    private function getProviderProfileDataForUser(array $row): array
+    {
+        $idUsuario = (int) ($row['id_usuario'] ?? 0);
+        if ($idUsuario <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $relationRows = $db->table('tarjetas.usuario_establecimiento ue')
+            ->select('ue.id_establecimiento, ue.id_tipo_proveedor, e.dsc_establecimiento, e.id_tipo, cte.dsc_tipo, e.no_proveedor, p.id_proveedor, p.razon_social, p.rfc')
+            ->join('tarjetas.establecimiento e', 'e.id_establecimiento = ue.id_establecimiento', 'left')
+            ->join('tarjetas.cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->join('tarjetas.proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('ue.id_usuario', $idUsuario)
+            ->where('ue.visible', 1)
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        if (empty($relationRows) && (int) ($row['id_establecimiento'] ?? 0) > 0) {
+            $relationRows = $db->table('tarjetas.establecimiento e')
+                ->select('e.id_establecimiento, ' . ((int) ($row['id_tipo_proveedor'] ?? 0) > 0 ? (int) ($row['id_tipo_proveedor'] ?? 0) : 1) . ' AS id_tipo_proveedor, e.dsc_establecimiento, e.id_tipo, cte.dsc_tipo, e.no_proveedor, p.id_proveedor, p.razon_social, p.rfc')
+                ->join('tarjetas.cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+                ->join('tarjetas.proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+                ->where('e.id_establecimiento', (int) $row['id_establecimiento'])
+                ->where('e.visible', 1)
+                ->get()
+                ->getResultArray();
+        }
+
+        if (empty($relationRows)) {
+            return [];
+        }
+
+        $first = $relationRows[0];
+        $names = [];
+        $types = [];
+        $related = [];
+
+        foreach ($relationRows as $item) {
+            $name = trim((string) ($item['dsc_establecimiento'] ?? ''));
+            $type = trim((string) ($item['dsc_tipo'] ?? ''));
+            if ($name !== '') {
+                $names[$name] = true;
+            }
+            if ($type !== '') {
+                $types[$type] = true;
+            }
+
+            $related[] = [
+                'id_establecimiento' => (int) ($item['id_establecimiento'] ?? 0),
+                'dsc_establecimiento' => $name,
+                'id_tipo' => (int) ($item['id_tipo'] ?? 0),
+                'dsc_tipo' => $type,
+            ];
+        }
+
+        $noProveedor = trim((string) ($first['no_proveedor'] ?? ''));
+        $razonSocial = trim((string) ($first['razon_social'] ?? ($row['nombre'] ?? '')));
+        $rfc = trim((string) ($first['rfc'] ?? ''));
+
+        return [
+            'id_proveedor' => (int) ($first['id_proveedor'] ?? 0),
+            'id_tipo_proveedor' => (int) ($first['id_tipo_proveedor'] ?? ($row['id_tipo_proveedor'] ?? 1)),
+            'no_proveedor_padron' => $noProveedor,
+            'establecimiento_nombre_ui' => implode(', ', array_keys($names)),
+            'tipo_establecimiento_ui' => implode(', ', array_keys($types)),
+            'establecimientos_relacionados' => $related,
+            'proveedor_option_text' => trim(implode(' - ', array_filter([$noProveedor, $razonSocial, $rfc]))),
+        ];
+    }
+
+    private function resolveSavedProviderUserId(object $response, int $currentId, string $usuario): int
+    {
+        if ($currentId > 0) {
+            return $currentId;
+        }
+
+        $responseId = (int) ($response->idRegistro ?? 0);
+        if ($responseId > 0) {
+            return $responseId;
+        }
+
+        $usuario = trim($usuario);
+        if ($usuario === '') {
+            return 0;
+        }
+
+        $result = $this->globals->getTabla([
+            'tabla' => 'usuario',
+            'where' => [
+                'usuario' => $usuario,
+                'id_perfil' => 2,
+                'visible' => 1,
+            ],
+            'order' => 'id_usuario DESC',
+        ]);
+
+        if ($result->error || empty($result->data)) {
+            return 0;
+        }
+
+        return (int) ($result->data[0]->id_usuario ?? 0);
+    }
+
+    private function syncProviderEstablishments(int $idUsuario, int $idProveedor, int $idTipoProveedor, ?int $fallbackEstablecimientoId = null): bool
+    {
+        if ($idUsuario <= 0) {
+            return false;
+        }
+
+        $db = \Config\Database::connect();
+        $establecimientoIds = [];
+
+        if ($idProveedor > 0) {
+            $proveedor = $db->table('tarjetas.proveedor')
+                ->select('id_proveedor, no_proveedor')
+                ->where('id_proveedor', $idProveedor)
+                ->where('visible', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!empty($proveedor['no_proveedor'])) {
+                $rows = $db->table('tarjetas.establecimiento')
+                    ->select('id_establecimiento')
+                    ->where('visible', 1)
+                    ->where('no_proveedor', $proveedor['no_proveedor'])
+                    ->get()
+                    ->getResultArray();
+
+                foreach ($rows as $item) {
+                    $idEstablecimiento = (int) ($item['id_establecimiento'] ?? 0);
+                    if ($idEstablecimiento > 0) {
+                        $establecimientoIds[$idEstablecimiento] = $idEstablecimiento;
+                    }
+                }
+            }
+        }
+
+        if ($fallbackEstablecimientoId !== null && (int) $fallbackEstablecimientoId > 0) {
+            $establecimientoIds[(int) $fallbackEstablecimientoId] = (int) $fallbackEstablecimientoId;
+        }
+
+        if (empty($establecimientoIds)) {
+            return false;
+        }
+
+        $relationTable = $db->table('tarjetas.usuario_establecimiento');
+        $relationTable->where('id_usuario', $idUsuario)->update(['visible' => 0]);
+
+        $existingRows = $db->table('tarjetas.usuario_establecimiento')
+            ->select('id_usuario_establecimiento, id_establecimiento, id_tipo_proveedor')
+            ->where('id_usuario', $idUsuario)
+            ->get()
+            ->getResultArray();
+
+        $existingIndex = [];
+        foreach ($existingRows as $item) {
+            $key = (int) ($item['id_establecimiento'] ?? 0) . '|' . (int) ($item['id_tipo_proveedor'] ?? 0);
+            $existingIndex[$key] = (int) ($item['id_usuario_establecimiento'] ?? 0);
+        }
+
+        foreach (array_values($establecimientoIds) as $idEstablecimiento) {
+            $key = $idEstablecimiento . '|' . $idTipoProveedor;
+            if (!empty($existingIndex[$key])) {
+                $db->table('tarjetas.usuario_establecimiento')
+                    ->where('id_usuario_establecimiento', $existingIndex[$key])
+                    ->update([
+                        'visible' => 1,
+                        'id_estatus' => null,
+                    ]);
+                continue;
+            }
+
+            $db->table('tarjetas.usuario_establecimiento')->insert([
+                'id_usuario' => $idUsuario,
+                'id_establecimiento' => $idEstablecimiento,
+                'id_tipo_proveedor' => $idTipoProveedor > 0 ? $idTipoProveedor : 1,
+                'id_estatus' => null,
+                'visible' => 1,
+            ]);
+        }
+
+        return true;
+    }
+
     private function buildCatalogRows(array $actorContext): array
     {
         $baseResponse = $this->globals->getTabla([
@@ -600,6 +907,46 @@ class Usuario extends BaseController
         }
 
         return [];
+    }
+
+    private function getProviderCatalog(): array
+    {
+        $proveedores = $this->getCatalogData('proveedor', ['visible' => 1, 'id_tipo_proveedor' => 1], 'razon_social ASC');
+        if (empty($proveedores)) {
+            return [];
+        }
+
+        $establecimientos = $this->getCatalogData('establecimiento', ['visible' => 1], 'dsc_establecimiento ASC');
+        $tipos = $this->getCatalogData('cat_tipo_establecimiento', [], 'dsc_tipo ASC');
+
+        $establecimientosPorProveedor = [];
+        foreach ($establecimientos as $establecimiento) {
+            $establecimientosPorProveedor[(string) ($establecimiento['no_proveedor'] ?? '')] = $establecimiento;
+        }
+
+        $tiposIndex = [];
+        foreach ($tipos as $tipo) {
+            $tiposIndex[(int) ($tipo['id_tipo'] ?? 0)] = $tipo;
+        }
+
+        return array_map(static function (array $proveedor) use ($establecimientosPorProveedor, $tiposIndex) {
+            $noProveedor = (string) ($proveedor['no_proveedor'] ?? '');
+            $establecimiento = $establecimientosPorProveedor[$noProveedor] ?? [];
+            $idTipo = (int) ($establecimiento['id_tipo'] ?? 0);
+            $tipo = $tiposIndex[$idTipo] ?? [];
+
+            $proveedor['id_establecimiento'] = $establecimiento['id_establecimiento'] ?? null;
+            $proveedor['dsc_establecimiento'] = $establecimiento['dsc_establecimiento'] ?? '';
+            $proveedor['id_tipo'] = $idTipo ?: null;
+            $proveedor['dsc_tipo'] = $tipo['dsc_tipo'] ?? '';
+            $proveedor['search_label'] = trim(implode(' - ', array_filter([
+                $proveedor['no_proveedor'] ?? '',
+                $proveedor['razon_social'] ?? '',
+                $proveedor['rfc'] ?? '',
+            ])));
+
+            return $proveedor;
+        }, $proveedores);
     }
 
     private function filterPerfilesCatalogo(array $perfiles, array $actorContext): array
@@ -990,3 +1337,5 @@ class Usuario extends BaseController
         return $value === '' ? null : $value;
     }
 }
+
+

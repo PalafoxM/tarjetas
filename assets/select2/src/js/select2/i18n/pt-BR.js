@@ -2,7 +2,7 @@ define(function () {
   // Brazilian Portuguese
   return {
     errorLoading: function () {
-      return 'Os resultados não puderam ser carregados.';
+      return 'Os resultados nío puderam ser carregados.';
     },
     inputTooLong: function (args) {
       var overChars = args.input.length - args.maximum;

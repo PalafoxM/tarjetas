@@ -4677,7 +4677,7 @@
 	/**
 	 * Bootstrap Table Brazilian Portuguese Translation
 	 * Author: Eduardo Cerqueira<egcerqueira@gmail.com>
-	 * Update: João Mello<jmello@hotmail.com.br>
+	 * Update: Joío Mello<jmello@hotmail.com.br>
 	 * Update: Leandro Felizari<lfelizari@gmail.com>
 	 * Update: Fernando Marcos Souza Silva<fernandomarcosss@gmail.com>
 	 */
@@ -4724,13 +4724,13 @@
 	    return 'Nenhum registro encontrado';
 	  },
 	  formatPaginationSwitch: function formatPaginationSwitch() {
-	    return 'Ocultar/Exibir paginação';
+	    return 'Ocultar/Exibir paginaçío';
 	  },
 	  formatPaginationSwitchDown: function formatPaginationSwitchDown() {
-	    return 'Mostrar Paginação';
+	    return 'Mostrar Paginaçío';
 	  },
 	  formatPaginationSwitchUp: function formatPaginationSwitchUp() {
-	    return 'Esconder Paginação';
+	    return 'Esconder Paginaçío';
 	  },
 	  formatRefresh: function formatRefresh() {
 	    return 'Recarregar';
@@ -4757,7 +4757,7 @@
 	    return 'Tudo';
 	  },
 	  formatAutoRefresh: function formatAutoRefresh() {
-	    return 'Atualização Automática';
+	    return 'Atualizaçío Automática';
 	  },
 	  formatExport: function formatExport() {
 	    return 'Exportar dados';
@@ -4830,7 +4830,7 @@
 	    return 'Nenhum registo encontrado';
 	  },
 	  formatPaginationSwitch: function formatPaginationSwitch() {
-	    return 'Esconder/Mostrar paginação';
+	    return 'Esconder/Mostrar paginaçío';
 	  },
 	  formatPaginationSwitchDown: function formatPaginationSwitchDown() {
 	    return 'Mostrar página';
@@ -4857,13 +4857,13 @@
 	    return 'Activar tudo';
 	  },
 	  formatFullscreen: function formatFullscreen() {
-	    return 'Ecrã completo';
+	    return 'Ecrí completo';
 	  },
 	  formatAllRows: function formatAllRows() {
 	    return 'Tudo';
 	  },
 	  formatAutoRefresh: function formatAutoRefresh() {
-	    return 'Actualização autmática';
+	    return 'Actualizaçío autmática';
 	  },
 	  formatExport: function formatExport() {
 	    return 'Exportar dados';

@@ -95,7 +95,7 @@ class Login extends BaseController {
         
             } catch (\Exception $e) {
             log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
-            $response->respuesta = 'Error|Conexión fallida con Node.js';
+            $response->respuesta = 'Error | Conexión fallida con Node.js';
         }       
         return $this->respond($response);
     }

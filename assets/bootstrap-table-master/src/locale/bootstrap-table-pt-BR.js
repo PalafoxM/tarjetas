@@ -1,7 +1,7 @@
 /**
  * Bootstrap Table Brazilian Portuguese Translation
  * Author: Eduardo Cerqueira<egcerqueira@gmail.com>
- * Update: João Mello<jmello@hotmail.com.br>
+ * Update: Joío Mello<jmello@hotmail.com.br>
  * Update: Leandro Felizari<lfelizari@gmail.com>
  * Update: Fernando Marcos Souza Silva<fernandomarcosss@gmail.com>
  */
@@ -48,13 +48,13 @@ $.fn.bootstrapTable.locales['pt-BR'] = {
     return 'Nenhum registro encontrado'
   },
   formatPaginationSwitch () {
-    return 'Ocultar/Exibir paginação'
+    return 'Ocultar/Exibir paginaçío'
   },
   formatPaginationSwitchDown () {
-    return 'Mostrar Paginação'
+    return 'Mostrar Paginaçío'
   },
   formatPaginationSwitchUp () {
-    return 'Esconder Paginação'
+    return 'Esconder Paginaçío'
   },
   formatRefresh () {
     return 'Recarregar'
@@ -81,7 +81,7 @@ $.fn.bootstrapTable.locales['pt-BR'] = {
     return 'Tudo'
   },
   formatAutoRefresh () {
-    return 'Atualização Automática'
+    return 'Atualizaçío Automática'
   },
   formatExport () {
     return 'Exportar dados'

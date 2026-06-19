@@ -75,7 +75,7 @@ class Globals {
         $config     = config('AuthConfig');
         $response  = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Parametros de configuración';
+        $response->respuesta = 'Error | Parametros de configuración';
 
         if (empty($dataInsert)) 
             return $response;
@@ -124,7 +124,7 @@ class Globals {
         $config     = config('AuthConfig');
         $response  = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Parametros de configuración';
+        $response->respuesta = 'Error | Parametros de configuración';
 
         if (empty($dataInsert)) 
             return $response;
@@ -166,7 +166,7 @@ class Globals {
         $config     = config('AuthConfig');
         $response   = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Globals|Parametros de configuración';
+        $response->respuesta = 'Error | Globals|Parametros de configuración';
 
         if (empty($urlCotroller)) {
             $response->respuesta .= '|Url';
@@ -214,7 +214,7 @@ class Globals {
         $config     = config('AuthConfig');
         $response   = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Globals|Parametros de configuración';
+        $response->respuesta = 'Error | Globals|Parametros de configuración';
 
         if (empty($urlCotroller)) {
             $response->respuesta .= '|Url';
@@ -275,7 +275,7 @@ class Globals {
                 $request->respuesta = 'Sin incersión' ;    
             }
 		} catch (\Throwable $th) {
-			log_message('critical','Error|Registro Bitacor Vista|'.json_encode(['id_usuario'=>$session->get('id_usuario'),'url'=>$_SERVER['REQUEST_URI']]));
+			log_message('critical','Error | Registro Bitacor Vista|'.json_encode(['id_usuario'=>$session->get('id_usuario'),'url'=>$_SERVER['REQUEST_URI']]));
             $request  = new \stdClass();
             $request->error = true;
             $request->respuesta = (string)$th ;

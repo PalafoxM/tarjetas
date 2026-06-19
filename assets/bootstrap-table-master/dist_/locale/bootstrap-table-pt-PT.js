@@ -744,7 +744,7 @@
 	    return 'Nenhum registo encontrado';
 	  },
 	  formatPaginationSwitch: function formatPaginationSwitch() {
-	    return 'Esconder/Mostrar paginação';
+	    return 'Esconder/Mostrar paginaçío';
 	  },
 	  formatPaginationSwitchDown: function formatPaginationSwitchDown() {
 	    return 'Mostrar página';
@@ -771,13 +771,13 @@
 	    return 'Activar tudo';
 	  },
 	  formatFullscreen: function formatFullscreen() {
-	    return 'Ecrã completo';
+	    return 'Ecrí completo';
 	  },
 	  formatAllRows: function formatAllRows() {
 	    return 'Tudo';
 	  },
 	  formatAutoRefresh: function formatAutoRefresh() {
-	    return 'Actualização autmática';
+	    return 'Actualizaçío autmática';
 	  },
 	  formatExport: function formatExport() {
 	    return 'Exportar dados';

@@ -1011,7 +1011,7 @@
         eventLimitText: function (n) {
             return "mais +" + n;
         },
-        noEventsMessage: "Não há eventos para mostrar"
+        noEventsMessage: "Nío há eventos para mostrar"
     };
 
     var _m49 = {
@@ -1032,7 +1032,7 @@
         weekLabel: "Sem",
         allDayText: "Todo o dia",
         eventLimitText: "mais",
-        noEventsMessage: "Não há eventos para mostrar"
+        noEventsMessage: "Nío há eventos para mostrar"
     };
 
     var _m50 = {

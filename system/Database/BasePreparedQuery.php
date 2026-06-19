@@ -123,7 +123,7 @@ abstract class BasePreparedQuery implements PreparedQueryInterface
         try {
             $exception = null;
             $result    = $this->_execute($data);
-        } catch (ArgumentCountError|ErrorException $exception) {
+        } catch (ArgumentCountError | ErrorException $exception) {
             $result = false;
         }
 

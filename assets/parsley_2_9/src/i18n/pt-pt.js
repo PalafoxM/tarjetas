@@ -11,7 +11,7 @@ Parsley.addMessages('pt-pt', {
     digits:       "Este campo deve conter apenas dígitos.",
     alphanum:     "Este campo deve ser alfanumérico."
   },
-  notblank:       "Este campo não pode ficar vazio.",
+  notblank:       "Este campo nío pode ficar vazio.",
   required:       "Este campo é obrigatório.",
   pattern:        "Este campo parece estar inválido.",
   min:            "Este valor deve ser maior ou igual a %s.",

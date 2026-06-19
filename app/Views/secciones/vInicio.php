@@ -35,7 +35,7 @@
                 <h2>Establecimientos FIC</h2>
                 <p>Da de alta proveedores y después registra o administra sus establecimientos relacionados.</p>
             </div>
-            <a class="fic-access-card__button" href="javascript:void(0);">
+            <a class="fic-access-card__button" href="<?php echo base_url('index.php/Inicio/EstablecimientosFic'); ?>">
                 Establecimientos FIC
             </a>
         </article>
@@ -319,3 +319,4 @@
         }
     }
 </style>
+

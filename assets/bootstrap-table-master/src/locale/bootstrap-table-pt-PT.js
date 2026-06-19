@@ -45,7 +45,7 @@ $.fn.bootstrapTable.locales['pt-PT'] = $.fn.bootstrapTable.locales['pt'] = {
     return 'Nenhum registo encontrado'
   },
   formatPaginationSwitch () {
-    return 'Esconder/Mostrar paginação'
+    return 'Esconder/Mostrar paginaçío'
   },
   formatPaginationSwitchDown () {
     return 'Mostrar página'
@@ -72,13 +72,13 @@ $.fn.bootstrapTable.locales['pt-PT'] = $.fn.bootstrapTable.locales['pt'] = {
     return 'Activar tudo'
   },
   formatFullscreen () {
-    return 'Ecrã completo'
+    return 'Ecrí completo'
   },
   formatAllRows () {
     return 'Tudo'
   },
   formatAutoRefresh () {
-    return 'Actualização autmática'
+    return 'Actualizaçío autmática'
   },
   formatExport () {
     return 'Exportar dados'

@@ -46,7 +46,7 @@ class Mglobal extends Model {
         $session = \Config\Services::session();
         $response = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Parámetros de entrada';
+        $response->respuesta = 'Error | Parámetros de entrada';
 
         $jwt = new Funciones();
         $userData = [
@@ -82,7 +82,7 @@ class Mglobal extends Model {
         
             } catch (\Exception $e) {
             log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
-            $response->respuesta = 'Error|Conexión fallida con Node.js';
+            $response->respuesta = 'Error | Conexión fallida con Node.js';
         }
         return $response;
     }
@@ -206,7 +206,7 @@ class Mglobal extends Model {
         $response = new \stdClass();
         $session = \Config\Services::session();
         $response->error = true;
-        $response->respuesta = 'Error|Parámetros de entrada';
+        $response->respuesta = 'Error | Parámetros de entrada';
         $error = false;
 
         if (!isset($config['tabla']) || !isset($config['editar'])) 
@@ -253,12 +253,12 @@ class Mglobal extends Model {
             $response->respuesta = 'Registro guardado correctamente';
             $response->idRegistro = $result->idRegistro;
         } else {
-            $response->respuesta = 'Error|No se pudo guardar el registro';
+            $response->respuesta = 'Error | No se pudo guardar el registro';
         }
 
     } catch (\Exception $e) {
         log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
-        $response->respuesta = 'Error|Conexión fallida con Node.js';
+        $response->respuesta = 'Error | Conexión fallida con Node.js';
     }
 
     return $response;
@@ -283,7 +283,7 @@ class Mglobal extends Model {
     {
         $response = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Parámetros de entrada';
+        $response->respuesta = 'Error | Parámetros de entrada';
 
         if (!isset($config['tabla'])) 
         return $response;
@@ -346,7 +346,7 @@ class Mglobal extends Model {
         $Bitacoracontrol = new Bitacoracontrol();
         $response = new \stdClass();
         $response->error = true;
-        $response->respuesta = 'Error|Parámetros de entrada';
+        $response->respuesta = 'Error | Parámetros de entrada';
         $errorDB = false;
         $bitacora = [];
 
@@ -456,9 +456,9 @@ class Mglobal extends Model {
                 log_message('critical','Bitacora: '.json_encode($item));
                 if(!$Bitacoracontrol->RegistraInsert($item['data'], $dataBitacora['script'], $this->session->id_usuario, $dataConfig['tabla'], $item['id'])){
                     $errorDB = true;
-                    log_message('critical',"Error|{$dataBitacora['script']}|".json_encode($item));
+                    log_message('critical',"Error | {$dataBitacora['script']}|".json_encode($item));
                     $this->db->transRollback();
-                    $response->respuesta = "Error|Registro de bitacora";
+                    $response->respuesta = "Error | Registro de bitacora";
                     return $response;
                 }
             }
@@ -685,7 +685,7 @@ class Mglobal extends Model {
                 log_message('critical','Bitacora: '.json_encode($item));
                 if (!$bitacoraInsert = $Bitacoracontrol->RegistraInsert($item['data'], $dataBitacora['script'], $dataBitacora['id_user'], $item['tabla'], $item['id'])){
                     $errorDB = true;
-                    log_message('critical','Error|Registro de bitacora saveConfiguracionHorario|'.json_encode($item));
+                    log_message('critical','Error | Registro de bitacora saveConfiguracionHorario|'.json_encode($item));
                     $response->respuesta = json_encode($bitacoraInsert);
                     return $errorDB;
                 }

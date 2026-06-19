@@ -33,11 +33,11 @@
       },
       link: {
         link: 'Link',
-        insert: 'Inserir ligação',
-        unlink: 'Remover ligação',
+        insert: 'Inserir ligaçío',
+        unlink: 'Remover ligaçío',
         edit: 'Editar',
         textToDisplay: 'Texto para exibir',
-        url: 'Que endereço esta licação leva?',
+        url: 'Que endereço esta licaçío leva?',
         openInNewWindow: 'Abrir numa nova janela'
       },
       table: {
@@ -49,7 +49,7 @@
       style: {
         style: 'Estilo',
         p: 'p',
-        blockquote: 'Citação',
+        blockquote: 'Citaçío',
         pre: 'Código',
         h1: 'Título 1',
         h2: 'Título 2',
@@ -69,8 +69,8 @@
       },
       paragraph: {
         paragraph: 'Parágrafo',
-        outdent: 'Menor tabulação',
-        indent: 'Maior tabulação',
+        outdent: 'Menor tabulaçío',
+        indent: 'Maior tabulaçío',
         left: 'Alinhar à esquerda',
         center: 'Alinhar ao centro',
         right: 'Alinha à direita',
@@ -84,14 +84,14 @@
         transparent: 'Transparente',
         setTransparent: 'Fundo transparente',
         reset: 'Restaurar',
-        resetToDefault: 'Restaurar padrão'
+        resetToDefault: 'Restaurar padrío'
       },
       shortcut: {
         shortcuts: 'Atalhos do teclado',
         close: 'Fechar',
-        textFormatting: 'Formatação de texto',
-        action: 'Ação',
-        paragraphFormatting: 'Formatação de parágrafo',
+        textFormatting: 'Formataçío de texto',
+        action: 'Açío',
+        paragraphFormatting: 'Formataçío de parágrafo',
         documentStyle: 'Estilo de documento'
       },
       history: {

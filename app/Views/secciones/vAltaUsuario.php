@@ -1,37 +1,177 @@
-<?php
+﻿<?php
 $session = \Config\Services::session();
 $contextoUsuario = $contextoUsuario ?? [];
 $catalogRoleOptions = $catalogRoleOptions ?? [];
 $idUsuarioEditar = (int) ($idUsuarioEditar ?? 0);
 $esNuevo = $idUsuarioEditar <= 0;
-$extractCatalogAmount = static function ($item): string {
-    $values = is_object($item) ? get_object_vars($item) : (array) $item;
-    $preferredKeys = [
-        'monto_diario',
-        'tarifa_diaria',
-        'tarifa',
-        'precio',
-        'costo',
-        'importe',
-        'monto',
-        'valor',
-    ];
-
-    foreach ($preferredKeys as $key) {
-        if (array_key_exists($key, $values) && is_numeric($values[$key])) {
-            return (string) $values[$key];
-        }
-    }
-
-    foreach ($values as $key => $value) {
-        if (preg_match('/(monto|tarifa|precio|costo|importe|valor)/i', (string) $key) && is_numeric($value)) {
-            return (string) $value;
-        }
-    }
-
-    return '';
-};
+$modoAltaProveedor = !empty($modoAltaProveedor);
+$regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
 ?>
+
+<style>
+    .crud-ui-upper {
+        text-transform: uppercase;
+    }
+
+    .crud-ui-lower {
+        text-transform: lowercase;
+    }
+
+    .select2-container {
+        width: 100% !important;
+    }
+</style>
+
+<?php if ($modoAltaProveedor): ?>
+    <div
+        class="container-fluid py-4"
+        id="altaUsuarioPage"
+        data-id-perfil="<?= esc($session->get('id_perfil'), 'attr') ?>"
+        data-id-usuario="<?= esc((string) $idUsuarioEditar, 'attr') ?>"
+        data-list-url="<?= esc($regresarUrl, 'attr') ?>"
+        data-provider-mode="1">
+
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div>
+                <h3 class="mb-1 text-white">
+                    <?= $esNuevo ? 'Nuevo proveedor' : 'Editar proveedor' ?>
+                </h3>
+                <p class="text-muted mb-0">
+                    Alta institucional del proveedor. Este usuario no tendrá beneficios QR, NIP, alimentos ni hospedaje.
+                </p>
+            </div>
+
+            <a href="<?= esc($regresarUrl, 'attr') ?>" class="btn btn-outline-secondary">
+                <i class="mdi mdi-arrow-left me-1"></i> Regresar
+            </a>
+        </div>
+
+        <form id="formAltaProveedorFic" autocomplete="off">
+            <?= csrf_field() ?>
+
+            <div class="card">
+                <div class="card-body">
+                    <input type="hidden" name="id_usuario" id="id_usuario" value="<?= esc((string) $idUsuarioEditar, 'attr') ?>">
+                    <input type="hidden" name="grupo_usuario" id="grupo_usuario" value="proveedor">
+                    <input type="hidden" name="id_perfil" id="id_perfil" value="2">
+                    <input type="hidden" name="id_proveedor" id="id_proveedor" value="">
+                    <input type="hidden" name="id_tipo_proveedor" id="id_tipo_proveedor" value="">
+                    <input type="hidden" name="id_establecimiento" id="id_establecimiento" value="">
+                    <input type="hidden" name="no_proveedor_padron" id="no_proveedor_padron" value="">
+
+                    <div class="alert alert-info" role="alert">
+                        Selecciona primero el proveedor del padrón. El nombre, establecimiento y tipo de establecimiento se llenarán automáticamente.
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="proveedor_catalogo">Proveedor</label>
+                            <select
+                                class="form-control js-select2-catalog"
+                                id="proveedor_catalogo"
+                                data-placeholder="Buscar por número, razón social o RFC"
+                                required>
+                                <option value="">Seleccione</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="nombre">Nombre</label>
+                            <input
+                                type="text"
+                                class="form-control crud-ui-upper"
+                                name="nombre"
+                                id="nombre"
+                                autocomplete="off"
+                                readonly
+                                required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="establecimiento_nombre_ui">Establecimiento</label>
+                            <input
+                                type="text"
+                                class="form-control crud-ui-upper"
+                                id="establecimiento_nombre_ui"
+                                autocomplete="off"
+                                readonly>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label" for="tipo_establecimiento_ui">Tipo establecimiento</label>
+                            <input
+                                type="text"
+                                class="form-control crud-ui-upper"
+                                id="tipo_establecimiento_ui"
+                                autocomplete="off"
+                                readonly>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label" for="usuario">Usuario</label>
+                            <input
+                                type="text"
+                                class="form-control crud-ui-upper"
+                                name="usuario"
+                                id="usuario"
+                                autocomplete="off"
+                                autocapitalize="characters"
+                                spellcheck="false"
+                                required>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label" for="correo">Correo</label>
+                            <input
+                                type="email"
+                                class="form-control crud-ui-lower"
+                                name="correo"
+                                id="correo"
+                                autocomplete="off"
+                                autocapitalize="off"
+                                spellcheck="false">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label" for="contrasenia">Contraseña</label>
+                            <input
+                                type="password"
+                                class="form-control crud-ui-lower"
+                                name="contrasenia"
+                                id="contrasenia"
+                                autocomplete="new-password"
+                                autocapitalize="off"
+                                spellcheck="false"
+                                <?= $esNuevo ? 'required' : '' ?>>
+
+                            <?php if (!$esNuevo): ?>
+                                <small class="text-muted">
+                                    En edición, deja vacía esta casilla para conservar la contraseña actual.
+                                </small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer d-flex justify-content-end gap-2">
+                    <a href="<?= esc($regresarUrl, 'attr') ?>" class="btn btn-outline-secondary">
+                        Cancelar
+                    </a>
+
+                    <button type="submit" class="btn btn-primary" id="guardarProveedorFic">
+                        Guardar proveedor
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        window.modoAltaProveedorFic = true;
+    </script>
+
+    <?php return; ?>
+<?php endif; ?>
 <style>
     .crud-ui-upper {
         text-transform: uppercase;
@@ -61,7 +201,7 @@ $extractCatalogAmount = static function ($item): string {
     id="altaUsuarioPage"
     data-id-perfil="<?= esc($session->get('id_perfil'), 'attr') ?>"
     data-id-usuario="<?= esc((string) $idUsuarioEditar, 'attr') ?>"
-    data-list-url="<?= esc(base_url('index.php/Inicio/Usuarios'), 'attr') ?>"
+    data-list-url="<?= esc($regresarUrl, 'attr') ?>"
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -69,7 +209,7 @@ $extractCatalogAmount = static function ($item): string {
             <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $esNuevo ? 'Nuevo usuario' : 'Editar usuario' ?></h3>
             <p class="text-muted mb-0">Captura la informacion del usuario en una vista completa para trabajar mas comodo.</p>
         </div>
-        <a href="<?= base_url('index.php/Inicio/Usuarios') ?>" class="btn btn-outline-secondary">
+        <a href="<?= esc($regresarUrl, 'attr') ?>" class="btn btn-outline-secondary">
             <i class="mdi mdi-arrow-left me-1"></i> Regresar
         </a>
     </div>
@@ -118,7 +258,7 @@ $extractCatalogAmount = static function ($item): string {
                         <input type="number" class="form-control" id="pax_ui" placeholder="pax">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="anf_gto_ui">Anfitrión Guanajuato</label>
+                        <label class="form-label" for="anf_gto_ui">Anfitri&oacute;n Guanajuato</label>
                         <input type="text" class="form-control crud-ui-upper" id="anf_gto_ui" placeholder="anf gto" inputmode="text" maxlength="80">
                     </div>
 
@@ -167,9 +307,9 @@ $extractCatalogAmount = static function ($item): string {
                         <input type="email" class="form-control crud-ui-lower" name="correo" id="correo" required>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="contrasenia">Contraseña</label>
+                        <label class="form-label" for="contrasenia">Contrase&ntilde;a</label>
                         <input type="password" class="form-control crud-ui-lower" name="contrasenia" id="contrasenia">
-                        <small class="text-muted">En edición, déjala vacía para conservar la actual.</small>
+                        <small class="text-muted">En edici&oacute;n, d&eacute;jala vac&iacute;a para conservar la actual.</small>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="nip">NIP</label>
@@ -179,7 +319,7 @@ $extractCatalogAmount = static function ($item): string {
                         <label class="form-label" for="tiene_alimentos">Tiene alimentos</label>
                         <select class="form-control" name="tiene_alimentos" id="tiene_alimentos">
                             <option value="">Seleccione</option>
-                            <option value="1">Sí</option>
+                            <option value="1">S&iacute;</option>
                             <option value="0">No</option>
                         </select>
                     </div>
@@ -271,3 +411,5 @@ $extractCatalogAmount = static function ($item): string {
         </div>
     </form>
 </div>
+
+
