@@ -250,10 +250,13 @@ class Mglobal extends Model {
       
         if ($result->error === false) {
             $response->error = false;
-            $response->respuesta = 'Registro guardado correctamente';
+            $response->respuesta = $result->respuesta ?? 'Registro guardado correctamente';
             $response->idRegistro = $result->idRegistro;
         } else {
-            $response->respuesta = 'Error | No se pudo guardar el registro';
+            $response->respuesta = $result->respuesta ?? 'Error | No se pudo guardar el registro';
+            if (isset($result->errorDB)) {
+                $response->errorDB = $result->errorDB;
+            }
         }
 
     } catch (\Exception $e) {

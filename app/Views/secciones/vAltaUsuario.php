@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $session = \Config\Services::session();
 $contextoUsuario = $contextoUsuario ?? [];
 $catalogRoleOptions = $catalogRoleOptions ?? [];
@@ -37,7 +37,7 @@ $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
                     <?= $esNuevo ? 'Nuevo proveedor' : 'Editar proveedor' ?>
                 </h3>
                 <p class="text-muted mb-0">
-                    Alta institucional del proveedor. Este usuario no tendrá beneficios QR, NIP, alimentos ni hospedaje.
+                    Alta institucional del proveedor. Este usuario no tendr&aacute; beneficios QR, NIP, alimentos ni hospedaje.
                 </p>
             </div>
 
@@ -60,7 +60,7 @@ $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
                     <input type="hidden" name="no_proveedor_padron" id="no_proveedor_padron" value="">
 
                     <div class="alert alert-info" role="alert">
-                        Selecciona primero el proveedor del padrón. El nombre, establecimiento y tipo de establecimiento se llenarán automáticamente.
+                        Selecciona primero el proveedor del padr&oacute;n. El nombre, establecimiento y tipo de establecimiento se llenar&aacute;n autom&aacute;ticamente.
                     </div>
 
                     <div class="row g-3">
@@ -69,7 +69,7 @@ $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
                             <select
                                 class="form-control js-select2-catalog"
                                 id="proveedor_catalogo"
-                                data-placeholder="Buscar por número, razón social o RFC"
+                                data-placeholder="Buscar por n&uacute;mero, raz&oacute;n social o RFC"
                                 required>
                                 <option value="">Seleccione</option>
                             </select>
@@ -86,36 +86,19 @@ $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
                                 readonly
                                 required>
                         </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label" for="establecimiento_nombre_ui">Establecimiento</label>
-                            <input
-                                type="text"
-                                class="form-control crud-ui-upper"
-                                id="establecimiento_nombre_ui"
-                                autocomplete="off"
-                                readonly>
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label" for="tipo_establecimiento_ui">Tipo establecimiento</label>
-                            <input
-                                type="text"
-                                class="form-control crud-ui-upper"
-                                id="tipo_establecimiento_ui"
-                                autocomplete="off"
-                                readonly>
+                        <div class="col-12">
+                            <div id="proveedorEstablecimientosList" class="row g-3"></div>
                         </div>
 
                         <div class="col-md-4">
                             <label class="form-label" for="usuario">Usuario</label>
                             <input
                                 type="text"
-                                class="form-control crud-ui-upper"
+                                class="form-control crud-ui-lower"
                                 name="usuario"
                                 id="usuario"
                                 autocomplete="off"
-                                autocapitalize="characters"
+                                autocapitalize="off"
                                 spellcheck="false"
                                 required>
                         </div>
@@ -133,7 +116,7 @@ $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
                         </div>
 
                         <div class="col-md-4">
-                            <label class="form-label" for="contrasenia">Contraseña</label>
+                            <label class="form-label" for="contrasenia">Contrase&ntilde;a</label>
                             <input
                                 type="password"
                                 class="form-control crud-ui-lower"
@@ -146,7 +129,7 @@ $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
 
                             <?php if (!$esNuevo): ?>
                                 <small class="text-muted">
-                                    En edición, deja vacía esta casilla para conservar la contraseña actual.
+                                    En edici&oacute;n, deja vac&iacute;a esta casilla para conservar la contrase&ntilde;a actual.
                                 </small>
                             <?php endif; ?>
                         </div>

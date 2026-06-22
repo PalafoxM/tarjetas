@@ -16,7 +16,7 @@ saeg.principal = (function () {
                     processData: false,
                     success: function (response) {
                         if (response == 'correcto') {
-                            Swal.fire("", "Se agregó correctamente el logotipo", "success");
+                            Swal.fire("", "Se agreg\u00f3 correctamente el logotipo", "success");
                             location.reload();
                         } else {
                             Swal.fire("Error", response, "warning");
@@ -34,7 +34,7 @@ saeg.principal = (function () {
 
         alimentos: function (value, row) {
             var accion = '';
-            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">Sí</span>';
+            if (row.tiene_alimentos == 1) accion += '<span class="badge bg-success">S\u00ed</span>';
             if (row.tiene_alimentos == 0) accion += '<span class="badge bg-danger">No</span>';
             if (row.tiene_alimentos == '') accion += '<span class="badge bg-danger">Pendiente</span>';
             return accion;
@@ -45,7 +45,7 @@ saeg.principal = (function () {
             var contrasenia = $('#contrasenia').val();
 
             if (!usuario || !contrasenia) {
-                Swal.fire("Atención", "Favor de capturar usuario y contraseña.", "error");
+                Swal.fire("Atenci\u00f3n", "Favor de capturar usuario y contrase\u00f1a.", "error");
                 return;
             }
 
@@ -81,7 +81,7 @@ saeg.principal = (function () {
                 activo = row.activo_qr;
             }
             if (Number(activo) === 1) {
-                return '<span class="badge bg-success">Sí</span>';
+                return '<span class="badge bg-success">S\u00ed</span>';
             }
 
             return '<span class="badge bg-danger">No</span>';
@@ -189,7 +189,7 @@ window.cajeros = {
             url: base_url + 'index.php/Usuario/getVistaUsuario',
             responseHandler: function (response) {
                 if (Array.isArray(response)) return response;
-                console.error('Respuesta inválida al cargar usuarios:', response);
+                console.error('Respuesta inv\u00e1lida al cargar usuarios:', response);
                 return [];
             },
             onLoadError: function (status, request) {
@@ -272,7 +272,7 @@ window.cajeros = {
                 callback();
             }
         }).fail(function () {
-            Swal.fire('Error', 'No fue posible cargar los catálogos del formulario.', 'error');
+            Swal.fire('Error', 'No fue posible cargar los cat\u00e1logos del formulario.', 'error');
         });
     },
     poblarSelect: function (selector, items, valueKey, labelKey, formatter) {
@@ -335,9 +335,7 @@ window.cajeros = {
             .on('select2:select.proveedor', this.onProveedorSelected.bind(this))
             .on('select2:clear.proveedor', this.limpiarProveedorSeleccionado.bind(this))
             .on('change.proveedor', this.onProveedorChange.bind(this));
-
-        $('#usuario').on('input', this.normalizarMayusculas.bind(this));
-        $('#correo, #contrasenia').on('input', this.normalizarMinusculas.bind(this));
+        $('#usuario, #correo, #contrasenia').on('input', this.normalizarMinusculas.bind(this));
     },
 
     normalizarMinusculas: function (event) {
@@ -364,8 +362,9 @@ window.cajeros = {
         $('#id_tipo_proveedor').val('1');
         $('#no_proveedor_padron').val('');
         $('#proveedor_catalogo').val('').trigger('change.select2');
-        $('#nombre, #establecimiento_nombre_ui, #tipo_establecimiento_ui').val('');
+        $('#nombre').val('');
         $('#contrasenia').prop('required', true);
+        this.renderProviderEstablishments([]);
         this.aplicarModoFormulario(false);
     },
 
@@ -405,8 +404,7 @@ window.cajeros = {
             this.aplicarProveedorSeleccionado(this.providerSelection);
         } else {
             $('#id_establecimiento').val(data.id_establecimiento || '');
-            $('#establecimiento_nombre_ui').val(data.establecimiento_nombre_ui || '');
-            $('#tipo_establecimiento_ui').val(data.tipo_establecimiento_ui || '');
+            this.renderProviderEstablishments(data.establecimientos_relacionados || [], data.establecimiento_nombre_ui || '');
         }
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
@@ -443,7 +441,7 @@ window.cajeros = {
             }
         }).done(function (response) {
             if (!response || response.ok !== true) {
-                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
+                Swal.fire('AtenciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
                 cajeros.limpiarProveedorSeleccionado();
                 return;
             }
@@ -455,7 +453,8 @@ window.cajeros = {
                 no_proveedor: proveedor.no_proveedor || baseData.no_proveedor || '',
                 razon_social: proveedor.razon_social || baseData.razon_social || '',
                 text: baseData.text || '',
-                establecimientos: Array.isArray(response.establecimientos) ? response.establecimientos : []
+                establecimientos: Array.isArray(response.establecimientos) ? response.establecimientos : [],
+                mensaje_establecimientos_vacio: response.message || ''
             };
             cajeros.aplicarProveedorSeleccionado(cajeros.providerSelection);
         }).fail(function () {
@@ -473,14 +472,65 @@ window.cajeros = {
             return item.dsc_establecimiento || '';
         }).filter(Boolean).join(', ');
         var tipos = selection.tipo_establecimiento_ui || this.obtenerTiposProveedorUI(establecimientos);
+        var mensajeVacio = selection.mensaje_establecimientos_vacio || 'No hay establecimientos ligados a este proveedor.';
+
+        if (!nombres) {
+            nombres = mensajeVacio;
+        }
 
         $('#id_proveedor').val(selection.id_proveedor || '');
         $('#id_tipo_proveedor').val(selection.id_tipo_proveedor || '1');
         $('#no_proveedor_padron').val(selection.no_proveedor || '');
         $('#id_establecimiento').val(selection.id_establecimiento_principal || (principal ? (principal.id_establecimiento || '') : ''));
         $('#nombre').val(selection.razon_social || '');
-        $('#establecimiento_nombre_ui').val(nombres);
-        $('#tipo_establecimiento_ui').val(tipos);
+        this.renderProviderEstablishments(establecimientos, nombres, tipos);
+    },
+
+    renderProviderEstablishments: function (establecimientos, fallbackNombres) {
+        var contenedor = $('#proveedorEstablecimientosList');
+        if (!contenedor.length) {
+            return;
+        }
+
+        establecimientos = Array.isArray(establecimientos) ? establecimientos : [];
+        contenedor.empty();
+
+        if (!establecimientos.length) {
+            var mensaje = fallbackNombres || 'No hay establecimientos ligados a este proveedor.';
+            contenedor.append([
+                '<div class="col-12">',
+                '  <label class="form-label">Establecimiento</label>',
+                '  <input type="text" class="form-control crud-ui-upper" readonly value="' + this.escapeHtml(mensaje) + '">',
+                '</div>'
+            ].join(''));
+            return;
+        }
+
+        establecimientos.forEach(function (item, index) {
+            var nombre = $.trim((item && item.dsc_establecimiento) || '');
+            var tipo = $.trim((item && item.dsc_tipo) || '');
+            var sufijo = index === 0 ? '' : ' ' + (index + 1);
+
+            contenedor.append([
+                '<div class="col-md-6">',
+                '  <label class="form-label">Establecimiento' + cajeros.escapeHtml(sufijo) + '</label>',
+                '  <input type="text" class="form-control crud-ui-upper" readonly value="' + cajeros.escapeHtml(nombre) + '">',
+                '</div>',
+                '<div class="col-md-6">',
+                '  <label class="form-label">Tipo establecimiento' + cajeros.escapeHtml(sufijo) + '</label>',
+                '  <input type="text" class="form-control crud-ui-upper" readonly value="' + cajeros.escapeHtml(tipo) + '">',
+                '</div>'
+            ].join(''));
+        });
+    },
+
+    escapeHtml: function (value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     },
 
     limpiarProveedorSeleccionado: function () {
@@ -490,8 +540,7 @@ window.cajeros = {
         $('#no_proveedor_padron').val('');
         $('#id_establecimiento').val('');
         $('#nombre').val('');
-        $('#establecimiento_nombre_ui').val('');
-        $('#tipo_establecimiento_ui').val('');
+        this.renderProviderEstablishments([]);
     },
 
     obtenerTiposProveedorUI: function (establecimientos) {
@@ -779,7 +828,7 @@ window.cajeros = {
     },
 
     estadoBooleano: function (value) {
-        if (Number(value) === 1) return '<span class="badge bg-success">Sí</span>';
+        if (Number(value) === 1) return '<span class="badge bg-success">S\u00ed</span>';
         if (Number(value) === 0) return '<span class="badge bg-danger">No</span>';
         return '<span class="badge bg-secondary">Sin definir</span>';
     },
@@ -813,7 +862,7 @@ window.cajeros = {
     previewQrById: function (idUsuario) {
         idUsuario = Number(idUsuario || 0);
         if (!idUsuario) {
-            Swal.fire('Atención', 'No fue posible identificar el usuario del QR.', 'warning');
+            Swal.fire('Atenci\u00f3n', 'No fue posible identificar el usuario del QR.', 'warning');
             return;
         }
 
@@ -823,7 +872,7 @@ window.cajeros = {
         });
 
         if (!row) {
-            Swal.fire('Atención', 'No fue posible encontrar los datos del QR.', 'warning');
+            Swal.fire('Atenci\u00f3n', 'No fue posible encontrar los datos del QR.', 'warning');
             return;
         }
 
@@ -967,7 +1016,7 @@ window.cajeros = {
             data: $('#formAltaProveedorFic').serialize()
         }).done(function (response) {
             if (response.error) {
-                Swal.fire('Atención', response.respuesta, 'warning');
+                Swal.fire('Atenci\u00f3n', response.respuesta, 'warning');
                 return;
             }
 
@@ -994,7 +1043,7 @@ window.cajeros = {
             data: $('#cajeroForm').serialize()
         }).done(function (response) {
             if (response.error) {
-                Swal.fire('Atención', response.respuesta, 'warning');
+                Swal.fire('Atenci\u00f3n', response.respuesta, 'warning');
                 return;
             }
             Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success').then(function () {
@@ -1009,8 +1058,8 @@ window.cajeros = {
 
     eliminar: function (idUsuario) {
         Swal.fire({
-            title: '¿Deseas eliminar este usuario?',
-            text: 'El registro dejará de mostrarse en la tabla.',
+            title: '\u00bfDeseas eliminar este usuario?',
+            text: 'El registro dejar\u00e1 de mostrarse en la tabla.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Eliminar',
@@ -1020,7 +1069,7 @@ window.cajeros = {
 
             $.post(base_url + 'index.php/Usuario/deleteUsuario', { id_usuario: idUsuario }, function (response) {
                 if (response.error) {
-                    Swal.fire('Atención', response.respuesta, 'warning');
+                    Swal.fire('Atenci\u00f3n', response.respuesta, 'warning');
                     return;
                 }
                 $('#cajerosTable').bootstrapTable('refresh');
@@ -1035,6 +1084,3 @@ window.cajeros = {
 $(function () {
     cajeros.iniciar();
 });
-
-
-

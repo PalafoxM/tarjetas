@@ -181,8 +181,8 @@ class Usuario extends BaseController
                 }
             }
 
-            $idEstablecimiento = $this->nullableInt($data['id_establecimiento'] ?? null);
-            if ($idEstablecimiento === null || $idEstablecimiento <= 0) {
+            $idProveedor = (int) ($data['id_proveedor'] ?? 0);
+            if ($idProveedor <= 0) {
                 return $this->respond([
                     'error' => true,
                     'respuesta' => 'Debes seleccionar un proveedor valido del catalogo.',
@@ -196,17 +196,65 @@ class Usuario extends BaseController
                 ]);
             }
 
-            $dataInsert = [
-                'usuario' => strtoupper(trim((string) ($data['usuario'] ?? ''))),
-                'nombre' => trim((string) ($data['nombre'] ?? '')),
+            $db = \Config\Database::connect();
+            $proveedor = $db->table('proveedor')
+                ->select('id_proveedor, id_tipo_proveedor, no_proveedor, razon_social')
+                ->where('id_proveedor', $idProveedor)
+                ->where('visible', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!$proveedor) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'No se encontro el proveedor seleccionado.',
+                ]);
+            }
+
+            $establecimientoIds = $this->resolveProviderEstablishmentIds($db, $proveedor);
+            $idEstablecimientoSolicitado = $this->nullableInt($data['id_establecimiento'] ?? null);
+            $idEstablecimiento = null;
+
+            if ($idEstablecimientoSolicitado !== null && in_array((int) $idEstablecimientoSolicitado, $establecimientoIds, true)) {
+                $idEstablecimiento = (int) $idEstablecimientoSolicitado;
+            } elseif (!empty($establecimientoIds)) {
+                $idEstablecimiento = (int) $establecimientoIds[0];
+            }
+
+            if ($idEstablecimiento === null || $idEstablecimiento <= 0) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'El proveedor seleccionado no tiene establecimientos visibles ligados.',
+                ]);
+            }
+
+            $usuarioNormalizado = strtolower(trim((string) ($data['usuario'] ?? '')));
+            if ($usuarioNormalizado === '') {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'El campo usuario es requerido',
+                ]);
+            }
+
+            if ($this->usuarioExists($usuarioNormalizado, $idUsuario > 0 ? $idUsuario : null)) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'El usuario ya existe. Elige otro nombre de usuario.',
+                ]);
+            }
+
+            $dataInsert = array(
+                'usuario' => $usuarioNormalizado,
+                'nombre' => trim((string) ($proveedor['razon_social'] ?? ($data['nombre'] ?? ''))),
                 'primer_apellido' => '',
                 'segundo_apellido' => '',
-                'correo' => $this->nullableString(trim((string) ($data['correo'] ?? ''))),
+                'correo' => $this->nullableString(strtolower(trim((string) ($data['correo'] ?? '')))),
                 'id_perfil' => 2,
-                'id_tipo_proveedor' => $this->nullableInt($data['id_tipo_proveedor'] ?? 1) ?: 1,
+                'id_tipo_proveedor' => (int) ($proveedor['id_tipo_proveedor'] ?? 1),
+                'id_proveedor' => (int) ($proveedor['id_proveedor'] ?? 0),
                 'id_establecimiento' => $idEstablecimiento,
                 'id_nivel_cliente' => null,
-                'id_partida' => null,
+                'id_partida' => 0,
                 'id_pais' => null,
                 'id_clave' => null,
                 'monto_deposito' => null,
@@ -226,8 +274,7 @@ class Usuario extends BaseController
                 'api_token' => null,
                 'activo_qr' => 0,
                 'visible' => 1,
-            ];
-
+            );
             if (!empty($data['contrasenia'])) {
                 $dataInsert['contrasenia'] = password_hash((string) $data['contrasenia'], PASSWORD_BCRYPT);
             }
@@ -267,7 +314,7 @@ class Usuario extends BaseController
 
                 $syncOk = $this->syncProviderEstablishments(
                     $targetUserId,
-                    (int) ($data['id_proveedor'] ?? 0),
+                    (int) ($proveedor['id_proveedor'] ?? 0),
                     (int) ($dataInsert['id_tipo_proveedor'] ?? 1),
                     $idEstablecimiento
                 );
@@ -628,11 +675,11 @@ class Usuario extends BaseController
         }
 
         $db = \Config\Database::connect();
-        $relationRows = $db->table('tarjetas.usuario_establecimiento ue')
+        $relationRows = $db->table('usuario_establecimiento ue')
             ->select('ue.id_establecimiento, ue.id_tipo_proveedor, e.dsc_establecimiento, e.id_tipo, cte.dsc_tipo, e.no_proveedor, p.id_proveedor, p.razon_social, p.rfc')
-            ->join('tarjetas.establecimiento e', 'e.id_establecimiento = ue.id_establecimiento', 'left')
-            ->join('tarjetas.cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-            ->join('tarjetas.proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->join('establecimiento e', 'e.id_establecimiento = ue.id_establecimiento', 'left')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
             ->where('ue.id_usuario', $idUsuario)
             ->where('ue.visible', 1)
             ->orderBy('e.dsc_establecimiento', 'ASC')
@@ -640,10 +687,10 @@ class Usuario extends BaseController
             ->getResultArray();
 
         if (empty($relationRows) && (int) ($row['id_establecimiento'] ?? 0) > 0) {
-            $relationRows = $db->table('tarjetas.establecimiento e')
+            $relationRows = $db->table('establecimiento e')
                 ->select('e.id_establecimiento, ' . ((int) ($row['id_tipo_proveedor'] ?? 0) > 0 ? (int) ($row['id_tipo_proveedor'] ?? 0) : 1) . ' AS id_tipo_proveedor, e.dsc_establecimiento, e.id_tipo, cte.dsc_tipo, e.no_proveedor, p.id_proveedor, p.razon_social, p.rfc')
-                ->join('tarjetas.cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-                ->join('tarjetas.proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+                ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+                ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
                 ->where('e.id_establecimiento', (int) $row['id_establecimiento'])
                 ->where('e.visible', 1)
                 ->get()
@@ -692,6 +739,25 @@ class Usuario extends BaseController
         ];
     }
 
+    private function usuarioExists(string $usuario, ?int $excludeIdUsuario = null): bool
+    {
+        $usuario = trim(strtolower($usuario));
+        if ($usuario === '') {
+            return false;
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('usuario')
+            ->select('id_usuario')
+            ->where('usuario', $usuario);
+
+        if ($excludeIdUsuario !== null && $excludeIdUsuario > 0) {
+            $builder->where('id_usuario !=', $excludeIdUsuario);
+        }
+
+        return $builder->countAllResults() > 0;
+    }
+
     private function resolveSavedProviderUserId(object $response, int $currentId, string $usuario): int
     {
         if ($currentId > 0) {
@@ -735,7 +801,7 @@ class Usuario extends BaseController
         $establecimientoIds = [];
 
         if ($idProveedor > 0) {
-            $proveedor = $db->table('tarjetas.proveedor')
+            $proveedor = $db->table('proveedor')
                 ->select('id_proveedor, no_proveedor')
                 ->where('id_proveedor', $idProveedor)
                 ->where('visible', 1)
@@ -743,7 +809,7 @@ class Usuario extends BaseController
                 ->getRowArray();
 
             if (!empty($proveedor['no_proveedor'])) {
-                $rows = $db->table('tarjetas.establecimiento')
+                $rows = $db->table('establecimiento')
                     ->select('id_establecimiento')
                     ->where('visible', 1)
                     ->where('no_proveedor', $proveedor['no_proveedor'])
@@ -767,10 +833,10 @@ class Usuario extends BaseController
             return false;
         }
 
-        $relationTable = $db->table('tarjetas.usuario_establecimiento');
+        $relationTable = $db->table('usuario_establecimiento');
         $relationTable->where('id_usuario', $idUsuario)->update(['visible' => 0]);
 
-        $existingRows = $db->table('tarjetas.usuario_establecimiento')
+        $existingRows = $db->table('usuario_establecimiento')
             ->select('id_usuario_establecimiento, id_establecimiento, id_tipo_proveedor')
             ->where('id_usuario', $idUsuario)
             ->get()
@@ -785,7 +851,7 @@ class Usuario extends BaseController
         foreach (array_values($establecimientoIds) as $idEstablecimiento) {
             $key = $idEstablecimiento . '|' . $idTipoProveedor;
             if (!empty($existingIndex[$key])) {
-                $db->table('tarjetas.usuario_establecimiento')
+                $db->table('usuario_establecimiento')
                     ->where('id_usuario_establecimiento', $existingIndex[$key])
                     ->update([
                         'visible' => 1,
@@ -794,7 +860,7 @@ class Usuario extends BaseController
                 continue;
             }
 
-            $db->table('tarjetas.usuario_establecimiento')->insert([
+            $db->table('usuario_establecimiento')->insert([
                 'id_usuario' => $idUsuario,
                 'id_establecimiento' => $idEstablecimiento,
                 'id_tipo_proveedor' => $idTipoProveedor > 0 ? $idTipoProveedor : 1,
@@ -804,6 +870,31 @@ class Usuario extends BaseController
         }
 
         return true;
+    }
+
+    private function resolveProviderEstablishmentIds($db, array $proveedor): array
+    {
+        $noProveedor = trim((string) ($proveedor['no_proveedor'] ?? ''));
+        if ($noProveedor === '') {
+            return [];
+        }
+
+        $rows = $db->table('establecimiento')
+            ->select('id_establecimiento')
+            ->where('visible', 1)
+            ->where('no_proveedor', $noProveedor)
+            ->get()
+            ->getResultArray();
+
+        $ids = [];
+        foreach ($rows as $item) {
+            $idEstablecimiento = (int) ($item['id_establecimiento'] ?? 0);
+            if ($idEstablecimiento > 0) {
+                $ids[$idEstablecimiento] = $idEstablecimiento;
+            }
+        }
+
+        return array_values($ids);
     }
 
     private function buildCatalogRows(array $actorContext): array
