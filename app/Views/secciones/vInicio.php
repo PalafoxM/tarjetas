@@ -13,7 +13,7 @@
                 <h2>Partidas</h2>
                 <p>Monitorea presupuesto, ejercido, disponible y actividad operativa por partida en una sola vista.</p>
             </div>
-            <a class="fic-access-card__button" href="javascript:void(0);">
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/PartidasFic') ?>">
                 Ver partidas
             </a>
         </article>
@@ -46,7 +46,7 @@
                 <h2>Pagos FIC</h2>
                 <p>Consulta pagos, movimientos y evidencia PDF/XML asociada a cada transacción.</p>
             </div>
-            <a class="fic-access-card__button" href="javascript:void(0);">
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/PagosFic') ?>">
                 Consultar pagos
             </a>
         </article>
@@ -57,7 +57,7 @@
                 <h2>Solicitudes</h2>
                 <p>Aprueba o rechaza solicitudes de QR, altas y órdenes de hospedaje enviadas al sistema.</p>
             </div>
-            <a class="fic-access-card__button" href="javascript:void(0);">
+            <a class="fic-access-card__button" href="<?= base_url('/index.php/Inicio/SolicitudesUsuarioFic') ?>">
                 Ver solicitudes
             </a>
         </article>
@@ -68,7 +68,7 @@
                 <h2>Movimientos de hospedaje</h2>
                 <p>Consulta los movimientos de todos los hoteles con las mismas capacidades operativas del perfil de recepción.</p>
             </div>
-            <a class="fic-access-card__button" href="javascript:void(0);">
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Hospedaje') ?>">
                 Ver hospedajes
             </a>
         </article>
@@ -319,4 +319,6 @@
         }
     }
 </style>
+
+
 

@@ -6,6 +6,25 @@ $idUsuarioEditar = (int) ($idUsuarioEditar ?? 0);
 $esNuevo = $idUsuarioEditar <= 0;
 $modoAltaProveedor = !empty($modoAltaProveedor);
 $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
+$extractCatalogAmount = static function ($item) {
+    $candidates = ['monto_diario', 'tarifa_diaria', 'tarifa_noche', 'tarifa', 'precio', 'costo', 'importe', 'monto', 'valor'];
+
+    if (is_array($item)) {
+        foreach ($candidates as $key) {
+            if (isset($item[$key]) && $item[$key] !== '' && is_numeric($item[$key])) {
+                return (float) $item[$key];
+            }
+        }
+    } elseif (is_object($item)) {
+        foreach ($candidates as $key) {
+            if (isset($item->{$key}) && $item->{$key} !== '' && is_numeric($item->{$key})) {
+                return (float) $item->{$key};
+            }
+        }
+    }
+
+    return 0.0;
+};
 ?>
 
 <style>

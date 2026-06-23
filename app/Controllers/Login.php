@@ -84,6 +84,38 @@ class Login extends BaseController {
                     $usuarioSesion['segundo_apellido'] ?? '',
                 ])));
 
+
+                $usuarioLocal = null;
+                $idUsuarioSesion = (int) ($usuarioSesion['id_usuario'] ?? 0);
+                if ($idUsuarioSesion > 0) {
+                    $usuarioLocalResponse = $catalogos->getTabla([
+                        'tabla' => 'usuario',
+                        'where' => ['visible' => 1, 'id_usuario' => $idUsuarioSesion],
+                    ]);
+                    if (!empty($usuarioLocalResponse->data[0])) {
+                        $usuarioLocal = get_object_vars($usuarioLocalResponse->data[0]);
+                    }
+                }
+
+                if (empty($usuarioLocal) && !empty($usuarioSesion['usuario'])) {
+                    $usuarioLocalResponse = $catalogos->getTabla([
+                        'tabla' => 'usuario',
+                        'where' => ['visible' => 1, 'usuario' => $usuarioSesion['usuario']],
+                    ]);
+                    if (!empty($usuarioLocalResponse->data[0])) {
+                        $usuarioLocal = get_object_vars($usuarioLocalResponse->data[0]);
+                    }
+                }
+
+                if (!empty($usuarioLocal)) {
+                    $usuarioSesion = array_merge($usuarioSesion, $usuarioLocal);
+                    $usuarioSesion['nombre_completo'] = trim(implode(' ', array_filter([
+                        $usuarioSesion['nombre'] ?? '',
+                        $usuarioSesion['primer_apellido'] ?? '',
+                        $usuarioSesion['segundo_apellido'] ?? '',
+                    ])));
+                }
+
                 $session->regenerate();
                 $session->set($usuarioSesion);
 

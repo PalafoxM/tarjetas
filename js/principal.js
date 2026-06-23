@@ -126,9 +126,17 @@ window.cajeros = {
     iniciar: function () {
         var pagina = document.getElementById('usuariosPage');
         var altaPagina = document.getElementById('altaUsuarioPage');
-        if (!pagina && !altaPagina) return;
+        var proveedorPagina = document.getElementById('proveedorPage');
+        if (!pagina && !altaPagina && !proveedorPagina) return;
 
         this.isAltaPage = !!altaPagina;
+        this.isProviderDashboard = !!proveedorPagina;
+
+        if (this.isProviderDashboard) {
+            this.inicializarProveedorDashboard();
+            return;
+        }
+
         var contenedor = altaPagina || pagina;
 
         this.idPerfil = Number(contenedor.dataset.idPerfil);
@@ -189,7 +197,7 @@ window.cajeros = {
             url: base_url + 'index.php/Usuario/getVistaUsuario',
             responseHandler: function (response) {
                 if (Array.isArray(response)) return response;
-                console.error('Respuesta inv\u00e1lida al cargar usuarios:', response);
+                console.error('Respuesta inválida al cargar usuarios:', response);
                 return [];
             },
             onLoadError: function (status, request) {
@@ -200,6 +208,158 @@ window.cajeros = {
 
     },
 
+    inicializarProveedorDashboard: function () {
+        var pagina = $('#proveedorPage');
+        if (!pagina.length) return;
+
+        this.inicializarSelect2();
+        $('.crud-ui-upper').off('input.proveedor').on('input.proveedor', this.normalizarMayusculas.bind(this));
+        $('.crud-ui-lower').off('input.proveedor').on('input.proveedor', this.normalizarMinusculas.bind(this));
+
+        $('#modalSolicitudPersonal')
+            .off('show.bs.modal.proveedor hidden.bs.modal.proveedor')
+            .on('show.bs.modal.proveedor', function () {
+                cajeros.cargarEstablecimientosSolicitudProveedor();
+            })
+            .on('hidden.bs.modal.proveedor', function () {
+                cajeros.limpiarSolicitudProveedor();
+            });
+
+        $('#solicitud_establecimiento')
+            .off('change.proveedor')
+            .on('change.proveedor', this.actualizarTipoSolicitudProveedor.bind(this));
+
+        $('#formSolicitudProveedor')
+            .off('submit.proveedor')
+            .on('submit.proveedor', function (event) {
+                event.preventDefault();
+                cajeros.enviarSolicitudProveedor();
+            });
+
+        this.cargarEstablecimientosSolicitudProveedor();
+    },
+
+    cargarEstablecimientosSolicitudProveedor: function () {
+        var select = $('#solicitud_establecimiento');
+        var tipoInput = $('#solicitud_tipo_usuario');
+        var boton = $('#btnEnviarSolicitudProveedor');
+        var url = $('#proveedorPage').data('establecimientos-url') || '';
+
+        if (!select.length || !url) return;
+
+        select.prop('disabled', true).empty().append(new Option('Cargando establecimientos...', '', false, false));
+        tipoInput.val('');
+        boton.prop('disabled', true);
+
+        $.getJSON(url).done(function (response) {
+            var items = response && Array.isArray(response.establecimientos) ? response.establecimientos : [];
+            select.empty();
+            select.append(new Option('Selecciona un establecimiento', '', false, false));
+
+            if (!response || response.ok !== true || !items.length) {
+                var mensaje = (response && response.message) ? response.message : 'No hay establecimientos ligados a este proveedor.';
+                select.empty().append(new Option(mensaje, '', false, false));
+                tipoInput.val(mensaje);
+                select.prop('disabled', true).trigger('change.select2');
+                boton.prop('disabled', true);
+                return;
+            }
+
+            items.forEach(function (item) {
+                var label = String(item.dsc_establecimiento || '').trim();
+                var tipo = String(item.dsc_tipo || '').trim();
+                var texto = label + (tipo ? ' - ' + tipo : '');
+                var option = new Option(texto, String(item.id_establecimiento || ''), false, false);
+                option.setAttribute('data-id-tipo', String(item.id_tipo || ''));
+                option.setAttribute('data-dsc-tipo', tipo);
+                select.append(option);
+            });
+
+            select.prop('disabled', false).trigger('change.select2');
+        }).fail(function () {
+            var mensaje = 'No fue posible cargar los establecimientos.';
+            select.empty().append(new Option(mensaje, '', false, false));
+            tipoInput.val(mensaje);
+            select.prop('disabled', true).trigger('change.select2');
+            boton.prop('disabled', true);
+        }).always(function () {
+            cajeros.actualizarTipoSolicitudProveedor();
+        });
+    },
+
+    actualizarTipoSolicitudProveedor: function () {
+        var select = $('#solicitud_establecimiento');
+        var tipoInput = $('#solicitud_tipo_usuario');
+        var boton = $('#btnEnviarSolicitudProveedor');
+        var option = select.find('option:selected').get(0);
+        var idTipo = option ? Number(option.getAttribute('data-id-tipo') || 0) : 0;
+        var label = '';
+
+        if (idTipo === 1) {
+            label = 'GERENTE';
+        } else if (idTipo === 2) {
+            label = 'RECEPCIÓN';
+        }
+
+        tipoInput.val(label);
+        boton.prop('disabled', label === '');
+    },
+
+    limpiarSolicitudProveedor: function () {
+        var form = $('#formSolicitudProveedor')[0];
+        if (form) {
+            form.reset();
+        }
+        $('#solicitud_establecimiento').val('').trigger('change.select2');
+        $('#solicitud_tipo_usuario').val('');
+        $('#btnEnviarSolicitudProveedor').prop('disabled', true);
+    },
+
+    enviarSolicitudProveedor: function () {
+        var boton = $('#btnEnviarSolicitudProveedor');
+        var form = $('#formSolicitudProveedor');
+        var textoOriginal = boton.html();
+        var establecimiento = $('#solicitud_establecimiento').find('option:selected').get(0);
+        var idTipo = establecimiento ? Number(establecimiento.getAttribute('data-id-tipo') || 0) : 0;
+
+        if (idTipo !== 1 && idTipo !== 2) {
+            Swal.fire('Atención', 'Selecciona un establecimiento válido.', 'warning');
+            return;
+        }
+
+        $('#solicitud_nombre').val(String($('#solicitud_nombre').val() || '').toUpperCase());
+        $('#solicitud_primer_apellido').val(String($('#solicitud_primer_apellido').val() || '').toUpperCase());
+        $('#solicitud_segundo_apellido').val(String($('#solicitud_segundo_apellido').val() || '').toUpperCase());
+        $('#solicitud_correo').val(String($('#solicitud_correo').val() || '').toLowerCase());
+
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Enviando...');
+
+        $.ajax({
+            url: $('#proveedorPage').data('solicitud-url') || '',
+            type: 'POST',
+            dataType: 'json',
+            data: form.serialize()
+        }).done(function (response) {
+            if (!response || response.ok !== true) {
+                Swal.fire('Atención', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible enviar la solicitud.', 'warning');
+                return;
+            }
+
+            Swal.fire('Correcto', response.message || 'Solicitud enviada correctamente.', 'success').then(function () {
+                $('#modalSolicitudPersonal').modal('hide');
+                cajeros.limpiarSolicitudProveedor();
+            });
+        }).fail(function (jqXHR) {
+            var message = 'No fue posible enviar la solicitud.';
+            if (jqXHR && jqXHR.responseJSON && (jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta)) {
+                message = jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta;
+            }
+            Swal.fire('Error', message, 'error');
+        }).always(function () {
+            boton.prop('disabled', false).html(textoOriginal);
+            cajeros.actualizarTipoSolicitudProveedor();
+        });
+    },
     parseJSON: function (value, fallback) {
         if (!value) return fallback;
         try {
@@ -236,7 +396,7 @@ window.cajeros = {
 
             select.select2({
                 width: '100%',
-                dropdownParent: $('#altaUsuarioPage').length ? $('#altaUsuarioPage') : $(document.body),
+                dropdownParent: select.closest('.modal').length ? select.closest('.modal') : ($('#altaUsuarioPage').length ? $('#altaUsuarioPage') : $(document.body)),
                 placeholder: select.data('placeholder') || 'Seleccione',
                 allowClear: true
             });
@@ -441,7 +601,7 @@ window.cajeros = {
             }
         }).done(function (response) {
             if (!response || response.ok !== true) {
-                Swal.fire('AtenciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
+                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
                 cajeros.limpiarProveedorSeleccionado();
                 return;
             }

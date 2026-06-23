@@ -50,6 +50,11 @@ class Usuario extends BaseController
     public function index()
     {
         $session = \Config\Services::session();
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
         $data = array();
         $data['unidad'] = $this->globals->getTabla(["tabla" => "cat_clues", "select" => "id_clues, NOMBRE_UNIDAD", "where" => ["visible" => 1], 'limit' => 10]);
         $data['perfiles'] = $this->globals->getTabla(["tabla" => "seg_perfiles", "where" => ["visible" => 1]]);
@@ -63,33 +68,25 @@ class Usuario extends BaseController
 
     public function getUsuarios()
     {
-        $session = \Config\Services::session();
-        if($session->get('logueado') != 1){
-            $actorContext = $this->getActorContext();
-            if (!$actorContext['can_access_user_catalog']) {
-                return $this->response->setStatusCode(403)->setJSON([
-                    'error' => true,
-                    'respuesta' => 'No tienes permisos para consultar usuarios.',
-                    'data' => [],
-                ]);
-            }
-
-            $catalog = $this->buildCatalogRows($actorContext);
-            if ($catalog['error']) {
-                return $this->response->setStatusCode(502)->setJSON([
-                    'error' => true,
-                    'respuesta' => $catalog['respuesta'],
-                    'data' => [],
-                ]);
-            }
-
-            return $this->respond($catalog['data']);
-        }else{
-            $Mglobal = new Mglobal;
-            $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1]]);
-            return $this->respond($datos->data ?? []);
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return $this->response->setStatusCode(403)->setJSON([
+                "error" => true,
+                "respuesta" => "No tienes permisos para consultar usuarios.",
+                "data" => [],
+            ]);
         }
 
+        $catalog = $this->buildCatalogRows($actorContext);
+        if ($catalog['error']) {
+            return $this->response->setStatusCode(502)->setJSON([
+                "error" => true,
+                "respuesta" => $catalog['respuesta'],
+                "data" => [],
+            ]);
+        }
+
+        return $this->respond($catalog['data']);
     }
 
     public function getVistaUsuario()

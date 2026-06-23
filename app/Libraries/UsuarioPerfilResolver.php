@@ -61,7 +61,12 @@ class UsuarioPerfilResolver
     {
         $row = is_object($source) ? get_object_vars($source) : (array) $source;
         $idPerfil = $this->intValue($row['id_perfil'] ?? null);
+        $idProveedor = $this->intValue($row['id_proveedor'] ?? null);
         $providerType = $this->intValue($row['id_tipo_proveedor'] ?? null);
+
+        if ($providerType <= 0) {
+            $providerType = $this->resolveProviderTypeFromLocalUser($row);
+        }
 
         $activeGroup = null;
         $groupRole = 0;
@@ -93,7 +98,7 @@ class UsuarioPerfilResolver
             'group_field' => $groupConfig['field'] ?? null,
             'group_role' => $groupRole,
             'group_role_label' => $roleLabel,
-            'is_provider_flow' => in_array($providerType, [1, 2], true) || $idPerfil === 2,
+            'is_provider_flow' => $idProveedor > 0 || in_array($providerType, [1, 2], true) || $idPerfil === 2,
             'is_recepcion_flow' => $providerType === 3 || $idPerfil === 7,
             'is_cajero_flow' => $idPerfil === 6 || $isSecturiCajero,
             'is_client_like' => $isClientLike,
@@ -101,9 +106,9 @@ class UsuarioPerfilResolver
             'is_group_capturista' => $isGroupCapturista,
             'is_group_backoffice' => $isGroupAdmin || $isGroupCapturista,
             'is_secturi_cajero' => $isSecturiCajero,
-            'is_ti_master' => $idPerfil === 1 && $providerType === 0,
-            'can_access_user_catalog' => $idPerfil === 1 || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
-            'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0) || $isGroupAdmin,
+            'is_ti_master' => $idPerfil === 1 && $providerType === 0 && $idProveedor === 0,
+            'can_access_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
+            'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isGroupAdmin,
         ];
     }
 
@@ -287,5 +292,33 @@ class UsuarioPerfilResolver
         }
 
         return (int) $value;
+    }
+
+    private function resolveProviderTypeFromLocalUser(array $row): int
+    {
+        $idUsuario = $this->intValue($row['id_usuario'] ?? null);
+        $usuario = trim((string) ($row['usuario'] ?? ''));
+
+        if ($idUsuario <= 0 && $usuario === '') {
+            return 0;
+        }
+
+        try {
+            $db = \Config\Database::connect();
+            $builder = $db->table('usuario')
+                ->select('id_tipo_proveedor')
+                ->where('visible', 1);
+
+            if ($idUsuario > 0) {
+                $builder->where('id_usuario', $idUsuario);
+            } else {
+                $builder->where('usuario', $usuario);
+            }
+
+            $result = $builder->get()->getRowArray();
+            return $this->intValue($result['id_tipo_proveedor'] ?? null);
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 }

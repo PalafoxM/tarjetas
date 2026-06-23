@@ -45,7 +45,7 @@
                     </li> 
                 <?php //endif?>  -->
                 
-                <?php if((int)$session->id_perfil == 1): ?>
+                <?php if((int)$session->id_perfil == 1 && (int)($session->id_tipo_proveedor ?? 0) === 0): ?>
                     <li class="side-nav-item">
                         <a data-bs-toggle="collapse" href="#gestion" aria-expanded="false" aria-controls="gestion" class="side-nav-link">
                             <i class="dripicons-user-group"></i>
@@ -87,6 +87,11 @@
                             <li>
                                 <a href="<?= base_url("/index.php/Reportes")?>"><i class="dripicons-user-id"></i> Perfil</a>
                             </li>
+                            <?php if((int)$session->id_perfil === 1 && (int)($session->id_tipo_proveedor ?? 0) === 0): ?>
+                            <li>
+                                <a href="<?= base_url("/index.php/Inicio/SolicitudesUsuarioFic")?>"><i class="dripicons-checklist"></i> Solicitudes TI</a>
+                            </li>
+                            <?php endif; ?>
                         </ul>
                     </div>
                 </li> 
