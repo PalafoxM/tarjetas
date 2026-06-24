@@ -67,6 +67,30 @@ class UsuarioPerfilResolver
         if ($providerType <= 0) {
             $providerType = $this->resolveProviderTypeFromLocalUser($row);
         }
+        if ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) {
+            return [
+                'id_perfil' => $idPerfil,
+                'id_tipo_proveedor' => $providerType,
+                'provider_label' => null,
+                'active_group' => 'ti',
+                'group_label' => 'TI',
+                'group_field' => null,
+                'group_role' => 1,
+                'group_role_label' => 'TI Master',
+                'is_provider_flow' => false,
+                'is_recepcion_flow' => false,
+                'is_cajero_flow' => false,
+                'is_client_like' => false,
+                'is_group_admin' => true,
+                'is_group_capturista' => false,
+                'is_group_backoffice' => true,
+                'is_secturi_cajero' => false,
+                'is_ti_master' => true,
+                'can_access_user_catalog' => true,
+                'can_edit_user_catalog' => true,
+            ];
+        }
+
 
         $activeGroup = null;
         $groupRole = 0;

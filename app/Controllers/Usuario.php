@@ -27,6 +27,7 @@ class Usuario extends BaseController
     private $globals;
     private $resolver;
     private $lastS3Error = '';
+    private $saveUserScript = 'Usuario.saveCajero';
 
     public function __construct()
     {
@@ -51,6 +52,8 @@ class Usuario extends BaseController
     {
         $session = \Config\Services::session();
         $actorContext = $this->getActorContext();
+        $scriptName = $this->saveUserScript ?: 'Usuario.saveCajero';
+        $this->saveUserScript = 'Usuario.saveCajero';
         if (empty($actorContext['can_access_user_catalog'])) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
@@ -94,6 +97,36 @@ class Usuario extends BaseController
         return $this->getUsuarios();
     }
 
+    public function getUsuariosFic()
+    {
+        return $this->getUsuariosPorGrupo('fic');
+    }
+
+    public function getVistaUsuarioFic()
+    {
+        return $this->getUsuariosFic();
+    }
+
+    public function getUsuariosSecul()
+    {
+        return $this->getUsuariosPorGrupo('secul');
+    }
+
+    public function getVistaUsuarioSecul()
+    {
+        return $this->getUsuariosSecul();
+    }
+
+    public function getUsuariosUg()
+    {
+        return $this->getUsuariosPorGrupo('ug');
+    }
+
+    public function getVistaUsuarioUg()
+    {
+        return $this->getUsuariosUg();
+    }
+
     public function getUsuario()
     {
         $actorContext = $this->getActorContext();
@@ -133,6 +166,8 @@ class Usuario extends BaseController
 
     public function saveCajero()
     {
+        $scriptName = $this->saveUserScript ?: 'Usuario.saveCajero';
+        $this->saveUserScript = 'Usuario.saveCajero';
         $session = \Config\Services::session();
         $actorContext = $this->getActorContext();
         if (!$actorContext['can_edit_user_catalog']) {
@@ -293,7 +328,7 @@ class Usuario extends BaseController
                 ],
                 [
                     'id_user' => (int) $session->get('id_usuario'),
-                    'script' => 'Usuario.saveCajero',
+                    'script' => $scriptName,
                 ]
             );
 
@@ -354,6 +389,8 @@ class Usuario extends BaseController
             'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
             'id_partida' => $this->nullableInt($data['id_partida'] ?? null),
             'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
+            'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
+            'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
             'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
             'monto_deposito' => $this->nullableNumeric($data['monto_deposito'] ?? null),
             'tiene_alimentos' => $this->nullableBoolInt($data['tiene_alimentos'] ?? null),
@@ -396,7 +433,7 @@ class Usuario extends BaseController
             ],
             [
                 'id_user' => (int) $session->get('id_usuario'),
-                'script' => 'Usuario.saveCajero',
+                'script' => $scriptName,
             ]
         );
 
@@ -430,7 +467,7 @@ class Usuario extends BaseController
                     ],
                     [
                         'id_user' => (int) $session->get('id_usuario'),
-                        'script' => 'Usuario.saveCajero.qr',
+                        'script' => $scriptName . '.qr',
                     ]
                 );
 
@@ -446,6 +483,12 @@ class Usuario extends BaseController
 
         return $this->respond($response);
     }
+    public function saveUsuario()
+    {
+        $this->saveUserScript = 'Usuario.saveUsuario';
+        return $this->saveCajero();
+    }
+
     public function deleteUsuario()
     {
         $session = \Config\Services::session();
@@ -517,6 +560,7 @@ class Usuario extends BaseController
                 'categorias' => $this->getCatalogData('cat_claves', ['visible' => 1], 'dsc_clave ASC'),
                 'disciplinas' => $this->getCatalogData('cat_diciplina', ['visible' => 1], 'des_diciplina ASC'),
                 'paises' => $this->getCatalogData('cat_pais', ['visible' => 1], 'id_pais ASC'),
+                'estados' => $this->getCatalogData('cat_estado', ['visible' => 1], 'dsc_estado ASC'),
                 'perfiles' => $this->filterPerfilesCatalogo(
                     $this->getCatalogData('cat_perfil', ['visible' => 1], 'id_perfil ASC'),
                     $actorContext
@@ -894,7 +938,30 @@ class Usuario extends BaseController
         return array_values($ids);
     }
 
-    private function buildCatalogRows(array $actorContext): array
+    private function getUsuariosPorGrupo(string $catalogoGrupo)
+    {
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return $this->response->setStatusCode(403)->setJSON([
+                "error" => true,
+                "respuesta" => "No tienes permisos para consultar usuarios.",
+                "data" => [],
+            ]);
+        }
+
+        $catalog = $this->buildCatalogRows($actorContext, $catalogoGrupo);
+        if ($catalog['error']) {
+            return $this->response->setStatusCode(502)->setJSON([
+                "error" => true,
+                "respuesta" => $catalog['respuesta'],
+                "data" => [],
+            ]);
+        }
+
+        return $this->respond($catalog['data']);
+    }
+
+    private function buildCatalogRows(array $actorContext, ?string $catalogoGrupo = null): array
     {
         $baseResponse = $this->globals->getTabla([
             'tabla' => 'vw_usuario',
@@ -934,6 +1001,16 @@ class Usuario extends BaseController
                 continue;
             }
             if ($this->isExcludedCatalogUser($baseRow)) {
+                continue;
+            }
+
+            if ($catalogoGrupo === 'fic' && (int) ($baseRow['id_fic_perfil'] ?? 0) <= 0) {
+                continue;
+            }
+            if ($catalogoGrupo === 'secul' && (int) ($baseRow['id_secul_perfil'] ?? 0) <= 0) {
+                continue;
+            }
+            if ($catalogoGrupo === 'ug' && (int) ($baseRow['id_ug_perfil'] ?? 0) <= 0) {
                 continue;
             }
 
@@ -1425,5 +1502,8 @@ class Usuario extends BaseController
         return $value === '' ? null : $value;
     }
 }
+
+
+
 
 

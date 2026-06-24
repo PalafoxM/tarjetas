@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 $session = \Config\Services::session();
 $contextoUsuario = $contextoUsuario ?? [];
 $catalogRoleOptions = $catalogRoleOptions ?? [];
@@ -230,8 +230,14 @@ $extractCatalogAmount = static function ($item) {
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="id_pais">Pais region</label>
+                        <label class="form-label" for="id_pais">País o región</label>
                         <select class="form-control js-select2-catalog" name="id_pais" id="id_pais" data-placeholder="Buscar pais o region">
+                            <option value="">Seleccione</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 estado-field d-none">
+                        <label class="form-label" for="id_estado">Estado</label>
+                        <select class="form-control js-select2-catalog" name="id_estado" id="id_estado" data-placeholder="Buscar estado">
                             <option value="">Seleccione</option>
                         </select>
                     </div>
@@ -413,5 +419,6 @@ $extractCatalogAmount = static function ($item) {
         </div>
     </form>
 </div>
+
 
 

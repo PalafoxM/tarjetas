@@ -57,37 +57,46 @@ class Inicio extends BaseController {
             ? (object) array_merge((array) $datos->data[0], $usuarioBaseRow)
             : (!empty($usuarioBaseRow) ? (object) $usuarioBaseRow : null);
         $data['allUser'] = [];
-        if (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
+        if (($contextoUsuario['active_group'] ?? '') === 'fic' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            $data['perfilFicMode'] = ((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta';
+            $data['hubTitle'] = 'Perfil FIC';
+            if ((int) ($contextoUsuario['group_role'] ?? 0) === 1) {
+                $data['hubSubtitle'] = 'Acceso institucional Festival Internacional Cervantino. Panel operativo para perfil FIC Admin.';
+            } else {
+                $data['hubSubtitle'] = 'Acceso institucional Festival Internacional Cervantino. Vista de consulta para capturista y administrativo.';
+            }
+            $vista = 'secciones/vPerfilFic';
+        } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
             $data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
             $vista = 'secciones/vProveedor';
-        } elseif($contextoUsuario['is_client_like']){
-            $clientes = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-            $solicitud_pago = $Mglobal->getTabla(['tabla' => "solicitud_pago", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-          
-            if(!empty($clientes->data)){
+        } elseif ($contextoUsuario['is_client_like']) {
+            $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
+            $solicitud_pago = $Mglobal->getTabla(['tabla' => 'solicitud_pago', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
+
+            if (!empty($clientes->data)) {
                 $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
             } elseif (!empty($usuarioBaseRow)) {
                 $data['datosCliente'] = (object) $usuarioBaseRow;
             }
-            if(!empty($solicitud_pago->data)){
+            if (!empty($solicitud_pago->data)) {
                 $data['saldo'] = $solicitud_pago->data[0] ?? 0;
             }
          //  die( var_dump($data['datosCliente']));
 
-            $vista= 'secciones/vCliente';
+            $vista = 'secciones/vCliente';
         }
-        if($contextoUsuario['is_cajero_flow']){
-            $vista= 'secciones/vCajero';
+        if ($contextoUsuario['is_cajero_flow']) {
+            $vista = 'secciones/vCajero';
         }
-        if($contextoUsuario['is_recepcion_flow']){
+        if ($contextoUsuario['is_recepcion_flow']) {
 
-            $vista= 'secciones/vHospedaje';
+            $vista = 'secciones/vHospedaje';
         }
         if ($vista === null) {
             $vista = 'secciones/vInicio';
         }
         $data['scripts'] = array('principal','agregar');
-        $data['contentView'] = $vista;                
+        $data['contentView'] = $vista;
         $this->_renderView($data);
         
     }
@@ -156,7 +165,7 @@ class Inicio extends BaseController {
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia TI';
-        $data['previewInterfaceDescripcion'] = 'Estás consultando la vista de partidas sin cambiar la sesión autenticada.';
+        $data['previewInterfaceDescripcion'] = 'EstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s consultando la vista de partidas sin cambiar la sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -179,6 +188,413 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+
+    public function PerfilFic()
+    {
+        return $this->renderPerfilFicHub('admin');
+    }
+
+    public function PerfilFicConsulta()
+    {
+        return $this->renderPerfilFicHub('consulta');
+    }
+
+    private function renderPerfilFicHub(string $modo = 'admin')
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $esFic = (string) ($contextoUsuario['active_group'] ?? '') === 'fic';
+        $rolFic = (int) ($contextoUsuario['group_role'] ?? 0);
+
+        if (empty($tiUsuario) && (!$esFic || !in_array($rolFic, [1, 2, 4], true))) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+        if (empty($tiUsuario) && $esFic && $modo === 'admin' && in_array($rolFic, [2, 4], true)) {
+            return redirect()->to(base_url('index.php/Inicio/PerfilFicConsulta'));
+        }
+        if (empty($tiUsuario) && $esFic && $modo === 'consulta' && $rolFic === 1) {
+            return redirect()->to(base_url('index.php/Inicio/PerfilFic'));
+        }
+
+        $db = \Config\Database::connect();
+        $perfiles = $db->table('cat_fic')
+            ->select('id_perfil_fic, dsc_perfil')
+            ->where('visible', 1)
+            ->whereIn('id_perfil_fic', [1, 2, 3, 4])
+            ->orderBy('id_perfil_fic', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_fic'];
+        $data['perfilFicMode'] = $modo === 'consulta' ? 'consulta' : 'admin';
+        $data['hubTitle'] = 'Perfil FIC';
+        $data['hubSubtitle'] = $modo === 'consulta'
+            ? 'Acceso institucional Festival Internacional Cervantino. Vista de consulta para capturista y administrativo.'
+            : 'Acceso institucional Festival Internacional Cervantino. Panel operativo para perfil FIC Admin.';
+        $data['ficSolicitudPuedeCrear'] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
+        $data['ficSolicitudPerfilOptions'] = array_map(static function (array $row): array {
+            return [
+                'id_perfil_fic' => (int) ($row['id_perfil_fic'] ?? 0),
+                'dsc_perfil' => (string) ($row['dsc_perfil'] ?? ''),
+            ];
+        }, $perfiles);
+        $data['ficSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil');
+        $data['ficSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil');
+        $data['ficSolicitudGuardarUrl'] = base_url('index.php/Inicio/guardarSolicitudUsuarioFicPerfil');
+        $data['ficSolicitudCancelarUrl'] = base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil');
+        $data['ficSolicitudEstablecimientoId'] = (int) ($session->get('id_establecimiento') ?? 0);
+        $data['contentView'] = 'secciones/vPerfilFic';
+        $this->_renderView($data);
+    }
+
+    public function getSolicitudesUsuarioFicPerfil()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $esFic = (string) ($contextoUsuario['active_group'] ?? '') === 'fic';
+        $rolFic = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($tiUsuario) && (!$esFic || !in_array($rolFic, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'total' => 0,
+                'rows' => [],
+                'message' => 'No tienes permisos para consultar solicitudes FIC.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, cf.dsc_perfil AS perfil_solicitado')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado', 'left')
+            ->where('su.visible', 1)
+            ->where('su.tipo_solicitud', 'alta_usuario_fic');
+
+        if (empty($tiUsuario)) {
+            $builder->where('su.usu_reg', $idSesionUsuario);
+        }
+
+        $search = trim((string) ($this->request->getGet('search') ?? ''));
+        if ($search !== '') {
+            $builder->groupStart()
+                ->like('su.usuario', $search)
+                ->orLike('su.nombre', $search)
+                ->orLike('su.primer_apellido', $search)
+                ->orLike('su.segundo_apellido', $search)
+                ->orLike('su.correo', $search)
+                ->orLike('su.estatus', $search)
+                ->orLike('cf.dsc_perfil', $search)
+                ->groupEnd();
+        }
+
+        $total = (clone $builder)->countAllResults();
+        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
+        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+        $rows = $builder
+            ->orderBy('su.fec_reg', 'DESC')
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'total' => $total,
+            'rows' => array_map(function (array $row): array {
+                return $this->mapSolicitudUsuarioFicPerfilRow($row);
+            }, $rows),
+        ]);
+    }
+
+    public function getSolicitudUsuarioFicPerfil()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $esFic = (string) ($contextoUsuario['active_group'] ?? '') === 'fic';
+        $rolFic = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($tiUsuario) && (!$esFic || !in_array($rolFic, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar solicitudes FIC.',
+            ]);
+        }
+
+        $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'Solicitud no vÃƒÆ’Ã‚Â¡lida.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $row = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, cf.dsc_perfil AS perfil_solicitado')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado', 'left')
+            ->where('su.id_solicitud_usuario', $idSolicitud)
+            ->where('su.visible', 1)
+            ->where('su.tipo_solicitud', 'alta_usuario_fic')
+            ->groupStart()
+                ->where('su.usu_reg', $idSesionUsuario)
+                ->orWhereNotIn('su.usu_reg', [$idSesionUsuario])
+            ->groupEnd()
+            ->get()
+            ->getRowArray();
+
+
+        if (empty($tiUsuario) && (int) ($row['usu_reg'] ?? 0) !== $idSesionUsuario) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar esta solicitud.',
+            ]);
+        }
+        if (empty($row)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'ok' => false,
+                'message' => 'No se encontrÃƒÆ’Ã‚Â³ la solicitud.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'data' => $this->mapSolicitudUsuarioFicPerfilRow($row),
+        ]);
+    }
+
+    public function guardarSolicitudUsuarioFicPerfil()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $esFic = (string) ($contextoUsuario['active_group'] ?? '') === 'fic';
+        $rolFic = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($tiUsuario) && (!$esFic || $rolFic !== 1)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'Solo un administrador FIC puede enviar solicitudes.',
+            ]);
+        }
+
+        if ($this->request->getMethod() !== 'post') {
+            return $this->response->setStatusCode(405)->setJSON([
+                'ok' => false,
+                'message' => 'MÃƒÆ’Ã‚Â©todo no permitido.',
+            ]);
+        }
+
+        $idPerfilSolicitado = (int) ($this->request->getPost('id_perfil_solicitado') ?? 0);
+        $usuario = trim((string) ($this->request->getPost('usuario') ?? ''));
+        $nombre = trim((string) ($this->request->getPost('nombre') ?? ''));
+        $primerApellido = trim((string) ($this->request->getPost('primer_apellido') ?? ''));
+        $segundoApellido = trim((string) ($this->request->getPost('segundo_apellido') ?? ''));
+        $correo = trim((string) ($this->request->getPost('correo') ?? ''));
+        $observaciones = trim((string) ($this->request->getPost('observaciones') ?? ''));
+
+        $usuario = function_exists('mb_strtolower') ? mb_strtolower($usuario, 'UTF-8') : strtolower($usuario);
+        $correo = function_exists('mb_strtolower') ? mb_strtolower($correo, 'UTF-8') : strtolower($correo);
+        $nombre = function_exists('mb_strtoupper') ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
+        $primerApellido = function_exists('mb_strtoupper') ? mb_strtoupper($primerApellido, 'UTF-8') : strtoupper($primerApellido);
+        $segundoApellido = function_exists('mb_strtoupper') ? mb_strtoupper($segundoApellido, 'UTF-8') : strtoupper($segundoApellido);
+
+        if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'Completa los campos obligatorios.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $perfilSolicitado = $db->table('cat_fic')
+            ->where('id_perfil_fic', $idPerfilSolicitado)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($perfilSolicitado)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'ok' => false,
+                'message' => 'El perfil solicitado no existe.',
+            ]);
+        }
+
+        $idEstablecimiento = (int) ($session->get('id_establecimiento') ?? 0);
+        if ($idEstablecimiento <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'No fue posible resolver el establecimiento de sesiÃƒÆ’Ã‚Â³n.',
+            ]);
+        }
+
+        $solicitudDuplicada = $db->table('solicitud_usuario')
+            ->select('id_solicitud_usuario')
+            ->where('visible', 1)
+            ->where('estatus', 'pendiente')
+            ->where('tipo_solicitud', 'alta_usuario_fic')
+            ->where('id_establecimiento', $idEstablecimiento)
+            ->where('id_perfil_solicitado', $idPerfilSolicitado)
+            ->where('LOWER(usuario) = LOWER(' . $db->escape($usuario) . ')', null, false)
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if (!empty($solicitudDuplicada)) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => 'Ya existe una solicitud pendiente para este perfil.',
+            ]);
+        }
+
+        $usuarioExistente = $db->query(
+            'SELECT id_usuario FROM usuario WHERE visible = 1 AND id_establecimiento = ? AND id_fic_perfil = ? AND LOWER(usuario) = LOWER(?) LIMIT 1',
+            [$idEstablecimiento, $idPerfilSolicitado, $usuario]
+        )->getRowArray();
+
+        if (!empty($usuarioExistente)) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => 'Ya existe un usuario activo con este nombre para el perfil solicitado.',
+            ]);
+        }
+
+        $fechaAhora = date('Y-m-d H:i:s');
+        $insertOk = $db->table('solicitud_usuario')->insert([
+            'tipo_solicitud' => 'alta_usuario_fic',
+            'id_proveedor' => null,
+            'id_establecimiento' => $idEstablecimiento,
+            'id_perfil_solicitado' => $idPerfilSolicitado,
+            'usuario' => $usuario,
+            'nombre' => $nombre,
+            'primer_apellido' => $primerApellido,
+            'segundo_apellido' => $segundoApellido,
+            'correo' => $correo,
+            'estatus' => 'pendiente',
+            'comentario_ti' => $observaciones !== '' ? $observaciones : null,
+            'id_usuario_creado' => null,
+            'fec_reg' => $fechaAhora,
+            'usu_reg' => $idSesionUsuario,
+            'fec_act' => $fechaAhora,
+            'usu_act' => $idSesionUsuario,
+            'visible' => 1,
+        ]);
+
+        if (!$insertOk) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'message' => 'No fue posible guardar la solicitud.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'message' => 'Solicitud enviada correctamente.',
+            'data' => [
+                'id_solicitud_usuario' => (int) $db->insertID(),
+            ],
+        ]);
+    }
+
+    public function cancelarSolicitudUsuarioFicPerfil()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $esFic = (string) ($contextoUsuario['active_group'] ?? '') === 'fic';
+        $rolFic = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($tiUsuario) && (!$esFic || !in_array($rolFic, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para cancelar solicitudes FIC.',
+            ]);
+        }
+
+        $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'Solicitud no vÃƒÆ’Ã‚Â¡lida.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $solicitud = $db->table('solicitud_usuario')
+            ->where('id_solicitud_usuario', $idSolicitud)
+            ->where('visible', 1)
+            ->where('tipo_solicitud', 'alta_usuario_fic')
+            ->where('usu_reg', $idSesionUsuario)
+            ->get()
+            ->getRowArray();
+
+        if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => 'Solo se pueden cancelar solicitudes pendientes.',
+            ]);
+        }
+
+        $fechaAhora = date('Y-m-d H:i:s');
+        $updateOk = $db->table('solicitud_usuario')->update([
+            'estatus' => 'cancelada',
+            'fec_act' => $fechaAhora,
+            'usu_act' => $idSesionUsuario,
+        ], [
+            'id_solicitud_usuario' => $idSolicitud,
+        ]);
+
+        if (!$updateOk) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'message' => 'No fue posible cancelar la solicitud.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'message' => 'Solicitud cancelada correctamente.',
+        ]);
+    }
+
+    private function mapSolicitudUsuarioFicPerfilRow(array $row): array
+    {
+        $nombreCompleto = trim(implode(' ', array_filter([
+            trim((string) ($row['nombre'] ?? '')),
+            trim((string) ($row['primer_apellido'] ?? '')),
+            trim((string) ($row['segundo_apellido'] ?? '')),
+        ])));
+
+        return [
+            'id_solicitud_usuario' => (int) ($row['id_solicitud_usuario'] ?? 0),
+            'tipo_solicitud' => (string) ($row['tipo_solicitud'] ?? ''),
+            'id_proveedor' => (int) ($row['id_proveedor'] ?? 0),
+            'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+            'id_perfil_solicitado' => (int) ($row['id_perfil_solicitado'] ?? 0),
+            'perfil_solicitado' => (string) ($row['perfil_solicitado'] ?? ''),
+            'usuario' => (string) ($row['usuario'] ?? ''),
+            'nombre' => (string) ($row['nombre'] ?? ''),
+            'primer_apellido' => (string) ($row['primer_apellido'] ?? ''),
+            'segundo_apellido' => (string) ($row['segundo_apellido'] ?? ''),
+            'correo' => (string) ($row['correo'] ?? ''),
+            'nombre_completo' => $nombreCompleto,
+            'estatus' => (string) ($row['estatus'] ?? ''),
+            'comentario_ti' => (string) ($row['comentario_ti'] ?? ''),
+            'fec_reg' => (string) ($row['fec_reg'] ?? ''),
+            'visible' => (int) ($row['visible'] ?? 0),
+        ];
+    }
     private function buildPartidasDashboardSeed(): array
     {
         $defaultSeed = [
@@ -965,7 +1381,7 @@ class Inicio extends BaseController {
         } elseif ($idTipoEstablecimiento === 2) {
             $idPerfilSolicitado = 7;
             $tipoSolicitud = 'alta_recepcion';
-            $tipoUsuarioLabel = 'RECEPCIÓN';
+            $tipoUsuarioLabel = 'RECEPCIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N';
         }
 
         if ($idPerfilSolicitado <= 0) {
@@ -1115,7 +1531,7 @@ class Inicio extends BaseController {
             return [
                 'id_perfil_solicitado' => 7,
                 'tipo_solicitud' => 'alta_recepcion',
-                'tipo_usuario_solicitado' => 'RECEPCIÓN',
+                'tipo_usuario_solicitado' => 'RECEPCIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N',
             ];
         }
 
@@ -1275,7 +1691,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no válida.',
+                'message' => 'Solicitud no vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lida.',
             ]);
         }
 
@@ -1289,7 +1705,7 @@ class Inicio extends BaseController {
         if (empty($row)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'ok' => false,
-                'message' => 'No se encontró la solicitud.',
+                'message' => 'No se encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ la solicitud.',
             ]);
         }
 
@@ -1320,7 +1736,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseña.',
+                'message' => 'Completa usuario y contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a.',
             ]);
         }
 
@@ -1367,7 +1783,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'La solicitud ya no está pendiente.',
+                'message' => 'La solicitud ya no estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ pendiente.',
             ]);
         }
 
@@ -1498,7 +1914,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobación.',
+                'message' => 'No fue posible finalizar la aprobaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.',
             ]);
         }
 
@@ -1553,7 +1969,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'La solicitud ya no está pendiente.',
+                'message' => 'La solicitud ya no estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ pendiente.',
             ]);
         }
 

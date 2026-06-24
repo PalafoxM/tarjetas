@@ -1,4 +1,4 @@
-var saeg = window.ssa || {};
+﻿var saeg = window.ssa || {};
 
 saeg.principal = (function () {
     return {
@@ -116,6 +116,7 @@ window.cajeros = {
         paises: [],
         perfiles: [],
         tarifas: [],
+        estados: [],
         partidas: [],
         hotel_tarifas: [],
         tipos_habitacion: [],
@@ -178,6 +179,7 @@ window.cajeros = {
 
             $('#categoria_ui').on('change', this.onCategoriaChange.bind(this));
             $('#id_perfil_catalogo').on('change', this.onPerfilBaseChange.bind(this));
+            $('#id_pais').on('change', this.onPaisChange.bind(this));
             $('#perfil_grupo').on('change', this.actualizarFlujoBeneficios.bind(this));
             $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
             $('#id_nivel_cliente, #fecha_check_in, #fecha_check_out').on('change', this.actualizarCalculoAlimentos.bind(this));
@@ -193,11 +195,13 @@ window.cajeros = {
             return;
         }
 
+        var usuariosUrl = contenedor.dataset.usuariosUrl || (base_url + 'index.php/Usuario/getVistaUsuario');
+
         $('#cajerosTable').bootstrapTable({
-            url: base_url + 'index.php/Usuario/getVistaUsuario',
+            url: usuariosUrl,
             responseHandler: function (response) {
                 if (Array.isArray(response)) return response;
-                console.error('Respuesta inválida al cargar usuarios:', response);
+                console.error('Respuesta invÃ¡lida al cargar usuarios:', response);
                 return [];
             },
             onLoadError: function (status, request) {
@@ -298,7 +302,7 @@ window.cajeros = {
         if (idTipo === 1) {
             label = 'GERENTE';
         } else if (idTipo === 2) {
-            label = 'RECEPCIÓN';
+            label = 'RECEPCIÃ“N';
         }
 
         tipoInput.val(label);
@@ -323,7 +327,7 @@ window.cajeros = {
         var idTipo = establecimiento ? Number(establecimiento.getAttribute('data-id-tipo') || 0) : 0;
 
         if (idTipo !== 1 && idTipo !== 2) {
-            Swal.fire('Atención', 'Selecciona un establecimiento válido.', 'warning');
+            Swal.fire('AtenciÃ³n', 'Selecciona un establecimiento vÃ¡lido.', 'warning');
             return;
         }
 
@@ -341,7 +345,7 @@ window.cajeros = {
             data: form.serialize()
         }).done(function (response) {
             if (!response || response.ok !== true) {
-                Swal.fire('Atención', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible enviar la solicitud.', 'warning');
+                Swal.fire('AtenciÃ³n', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible enviar la solicitud.', 'warning');
                 return;
             }
 
@@ -412,6 +416,8 @@ window.cajeros = {
                 return $.trim(item.des_diciplina || '');
             });
             cajeros.poblarSelect('#id_pais', cajeros.catalogos.paises, 'id_pais', 'dsc_pais');
+            cajeros.poblarSelect('#id_estado', cajeros.catalogos.estados, 'id_estado', 'dsc_estado');
+            cajeros.actualizarEstadoPais();
             cajeros.poblarSelect('#id_perfil_catalogo', cajeros.catalogos.perfiles, 'id_perfil', 'dsc_perfil', function (item) {
                 var shortLabels = {
                     4: 'SECTURI',
@@ -495,7 +501,41 @@ window.cajeros = {
             .on('select2:select.proveedor', this.onProveedorSelected.bind(this))
             .on('select2:clear.proveedor', this.limpiarProveedorSeleccionado.bind(this))
             .on('change.proveedor', this.onProveedorChange.bind(this));
-        $('#usuario, #correo, #contrasenia').on('input', this.normalizarMinusculas.bind(this));
+        $('#usuario, #correo').on('input', this.normalizarMinusculas.bind(this));
+    },
+
+    normalizarTextoSinAcentos: function (value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, "")
+            .toUpperCase();
+    },
+
+    esMexicoSeleccionado: function () {
+        var texto = $('#id_pais option:selected').text() || '';
+        return this.normalizarTextoSinAcentos(texto).indexOf('MEXICO') !== -1;
+    },
+
+    onPaisChange: function () {
+        this.actualizarEstadoPais();
+    },
+
+    actualizarEstadoPais: function () {
+        var wrapper = $('.estado-field');
+        var select = $('#id_estado');
+        var esMexico = this.esMexicoSeleccionado();
+
+        if (esMexico) {
+            wrapper.removeClass('d-none');
+            select.prop("disabled", false);
+            if (select.find('option').length <= 1) {
+                this.poblarSelect('#id_estado', this.catalogos.estados, 'id_estado', 'dsc_estado');
+            }
+        } else {
+            select.val('').trigger('change.select2');
+            select.prop("disabled", true);
+            wrapper.addClass('d-none');
+        }
     },
 
     normalizarMinusculas: function (event) {
@@ -601,7 +641,7 @@ window.cajeros = {
             }
         }).done(function (response) {
             if (!response || response.ok !== true) {
-                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
+                Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
                 cajeros.limpiarProveedorSeleccionado();
                 return;
             }
@@ -1088,6 +1128,7 @@ window.cajeros = {
         $('#clave_ui').val('');
         $('.js-select2-catalog').val('').trigger('change.select2');
         this.aplicarPerfilPorContexto();
+        this.actualizarEstadoPais();
         this.actualizarFlujoBeneficios();
         $('#cajeroPageTitle').text('Nuevo usuario');
         this.aplicarModoFormulario(false);
@@ -1138,11 +1179,24 @@ window.cajeros = {
         $('#id_partida_alimentos_ui').val(this.obtenerLabelPartida(data.id_partida || ''));
         $('#id_partida_hospedaje_ui').val(this.obtenerLabelPartida(data.id_partida || ''));
         $('#id_pais').val(data.id_pais || '').trigger('change.select2');
+        $('#id_estado').val(data.id_estado || '').trigger('change.select2');
         $('#grupo_usuario').val(data.grupo_usuario || '');
         $('#id_perfil_catalogo').val(this.getPerfilBasePorGrupo(data.grupo_usuario) || data.id_perfil || '').trigger('change.select2');
         this.onCategoriaChange();
         this.onPerfilBaseChange(data.perfil_grupo || '');
+        this.onPaisChange();
         this.actualizarFlujoBeneficios();
+
+        $('#categoria_ui').val(data.id_clave || '').trigger('change.select2');
+        $('#id_clave').val(data.id_clave || '');
+        $('#id_perfil_catalogo').val(this.getPerfilBasePorGrupo(data.grupo_usuario) || data.id_perfil || '').trigger('change.select2');
+        $('#perfil_grupo').val(data.perfil_grupo || '').trigger('change.select2');
+        $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
+        $('#id_pais').val(data.id_pais || '').trigger('change.select2');
+        $('#id_estado').val(data.id_estado || '').trigger('change.select2');
+        $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '').trigger('change.select2');
+        $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '').trigger('change.select2');
+        $('#id_nivel_cliente').val(data.id_nivel_cliente || '').trigger('change.select2');
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
         this.aplicarModoFormulario(soloConsulta);
@@ -1170,7 +1224,7 @@ window.cajeros = {
         boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
 
         $.ajax({
-            url: base_url + 'index.php/Usuario/saveCajero',
+            url: base_url + 'index.php/Usuario/saveUsuario',
             type: 'POST',
             dataType: 'json',
             data: $('#formAltaProveedorFic').serialize()
@@ -1197,7 +1251,7 @@ window.cajeros = {
         boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
         
         $.ajax({
-            url: base_url + 'index.php/Usuario/saveCajero',
+            url: base_url + 'index.php/Usuario/saveUsuario',
             type: 'POST',
             dataType: 'json',
             data: $('#cajeroForm').serialize()
@@ -1244,3 +1298,4 @@ window.cajeros = {
 $(function () {
     cajeros.iniciar();
 });
+
