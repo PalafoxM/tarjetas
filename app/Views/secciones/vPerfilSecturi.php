@@ -13,7 +13,7 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
     <?php if ($inicioModoConsulta): ?>
         <div class="alert alert-info mb-4" role="alert">
             <strong>Vista en modo consulta</strong>
-            <div>Este acceso muestra la interfaz operativa sin exponer la sección de referencia TI.</div>
+            <div>Este acceso muestra la interfaz operativa disponible para el perfil autenticado.</div>
         </div>
     <?php endif; ?>
 

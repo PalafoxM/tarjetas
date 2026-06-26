@@ -1,4 +1,4 @@
-﻿var saeg = window.ssa || {};
+var saeg = window.ssa || {};
 
 saeg.principal = (function () {
     return {
@@ -201,7 +201,7 @@ window.cajeros = {
             url: usuariosUrl,
             responseHandler: function (response) {
                 if (Array.isArray(response)) return response;
-                console.error('Respuesta invÃ¡lida al cargar usuarios:', response);
+                console.error('Respuesta inválida al cargar usuarios:', response);
                 return [];
             },
             onLoadError: function (status, request) {
@@ -302,7 +302,7 @@ window.cajeros = {
         if (idTipo === 1) {
             label = 'GERENTE';
         } else if (idTipo === 2) {
-            label = 'RECEPCIÃ“N';
+            label = 'RECEPCIÓN';
         }
 
         tipoInput.val(label);
@@ -327,7 +327,7 @@ window.cajeros = {
         var idTipo = establecimiento ? Number(establecimiento.getAttribute('data-id-tipo') || 0) : 0;
 
         if (idTipo !== 1 && idTipo !== 2) {
-            Swal.fire('AtenciÃ³n', 'Selecciona un establecimiento vÃ¡lido.', 'warning');
+            Swal.fire('Atención', 'Selecciona un establecimiento válido.', 'warning');
             return;
         }
 
@@ -345,7 +345,7 @@ window.cajeros = {
             data: form.serialize()
         }).done(function (response) {
             if (!response || response.ok !== true) {
-                Swal.fire('AtenciÃ³n', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible enviar la solicitud.', 'warning');
+                Swal.fire('Atención', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible enviar la solicitud.', 'warning');
                 return;
             }
 
@@ -641,7 +641,7 @@ window.cajeros = {
             }
         }).done(function (response) {
             if (!response || response.ok !== true) {
-                Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
+                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar el proveedor.', 'warning');
                 cajeros.limpiarProveedorSeleccionado();
                 return;
             }

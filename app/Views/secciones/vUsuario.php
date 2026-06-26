@@ -77,8 +77,6 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
         <?php if (!empty($contextoUsuario['active_group'])): ?>
         <span class="badge bg-info">Grupo: <?= esc((string) ($contextoUsuario['group_label'] ?? '')) ?></span>
         <span class="badge bg-secondary">Rol: <?= esc((string) ($contextoUsuario['group_role_label'] ?? '')) ?></span>
-        <?php elseif (!empty($contextoUsuario['is_ti_master'])): ?>
-        <span class="badge bg-success">TI master</span>
         <?php endif; ?>
         <?php if (!empty($contextoUsuario['is_group_capturista'])): ?>
         <span class="badge bg-warning text-dark">Modo consulta</span>

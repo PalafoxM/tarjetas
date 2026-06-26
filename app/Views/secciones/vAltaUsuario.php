@@ -231,7 +231,7 @@ $extractCatalogAmount = static function ($item) {
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="id_pais">País o región</label>
-                        <select class="form-control js-select2-catalog" name="id_pais" id="id_pais" data-placeholder="Buscar pais o region">
+                        <select class="form-control js-select2-catalog" name="id_pais" id="id_pais" data-placeholder="Buscar país o región">
                             <option value="">Seleccione</option>
                         </select>
                     </div>
@@ -312,7 +312,7 @@ $extractCatalogAmount = static function ($item) {
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="correo">Correo</label>
-                        <input type="email" class="form-control crud-ui-lower" name="correo" id="correo" required>
+                        <input type="email" class="form-control crud-ui-lower" name="correo" id="correo">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="contrasenia">Contrase&ntilde;a</label>
@@ -376,7 +376,7 @@ $extractCatalogAmount = static function ($item) {
                         </select>
                     </div>
                     <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="id_tipo_habitacion">Tipo habitacion</label>
+                        <label class="form-label" for="id_tipo_habitacion">Tipo habitación</label>
                         <select class="form-control js-select2-catalog" name="id_tipo_habitacion" id="id_tipo_habitacion" data-placeholder="Buscar tipo de habitacion">
                             <option value="">Seleccione</option>
                             <?php foreach ($catTipoHabitacion as $tipo): ?>

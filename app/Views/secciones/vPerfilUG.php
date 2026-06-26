@@ -1,10 +1,13 @@
-﻿<?php
+<?php
 $session = \Config\Services::session();
 $hubTitle = (string) ($hubTitle ?? 'Perfil UG');
-$hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catálogo UG.');
+$hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catÃ¡logo UG.');
 $hubMode = (string) ($perfilUgMode ?? 'admin');
-$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administración';
+$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'AdministraciÃ³n';
 $mostrarEdicion = $hubMode === 'admin';
+$mostrarSeguimientoSolicitudes = $hubMode === 'consulta';
+$perfilOptions = is_array($ugSolicitudPerfilOptions ?? null) ? $ugSolicitudPerfilOptions : [];
+$solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
 ?>
 <style>
     .crud-ui-upper { text-transform: uppercase; }
@@ -19,19 +22,17 @@ $mostrarEdicion = $hubMode === 'admin';
 
 <div class="container-fluid py-4"
      id="usuariosPage"
-     data-id-perfil="<?= esc($session->get('id_perfil'), 'attr') ?>"
-     data-alta-url="<?= esc(base_url('index.php/Inicio/AltaUsuario'), 'attr') ?>"
-     data-usuarios-url="<?= esc(base_url('index.php/Usuario/getVistaUsuarioUg'), 'attr') ?>">
+     data-catalogo-grupo="ug"
+     data-solicitudes-url="<?= esc($ugSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioUGPerfil'), 'attr') ?>"
+     data-solicitud-detail-url="<?= esc($ugSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioUGPerfil'), 'attr') ?>"
+     data-solicitud-save-url="<?= esc($ugSolicitudGuardarUrl ?? base_url('index.php/Inicio/guardarSolicitudUsuarioUGPerfil'), 'attr') ?>"
+     data-solicitud-cancel-url="<?= esc($ugSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioUGPerfil'), 'attr') ?>"
+     data-solicitud-establecimiento-id="<?= esc((string) $solicitudEstablecimientoId, 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white"><?= esc($hubTitle) ?></h3>
             <p class="text-muted mb-0"><?= esc($hubSubtitle) ?></p>
         </div>
-        <?php if ($mostrarEdicion): ?>
-            <a href="<?= base_url('index.php/Inicio/AltaUsuario') ?>" class="btn btn-primary" id="nuevoCajero">
-                <i class="mdi mdi-account-plus me-1"></i> Nuevo usuario
-            </a>
-        <?php endif; ?>
     </div>
 
     <div class="d-flex flex-wrap gap-2 mb-3">
@@ -41,6 +42,17 @@ $mostrarEdicion = $hubMode === 'admin';
 
     <div class="card">
         <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h4 class="mb-1 text-white">Usuarios UG</h4>
+                    <p class="text-muted mb-0">Consulta el catÃ¡logo visible de usuarios UG segÃºn tu perfil.</p>
+                </div>
+                <?php if ($mostrarEdicion): ?>
+                    <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/ug'), 'attr') ?>">
+                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
+                    </a>
+                <?php endif; ?>
+            </div>
             <table id="cajerosTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"
@@ -70,4 +82,42 @@ $mostrarEdicion = $hubMode === 'admin';
             </table>
         </div>
     </div>
+
+    <?php if ($mostrarSeguimientoSolicitudes): ?>
+    <div class="card mt-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h4 class="mb-1 text-white">Seguimiento de solicitudes UG</h4>
+                    <p class="text-muted mb-0">Vista de consulta para revisar el estatus de las solicitudes capturadas desde este perfil.</p>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table id="tablaSolicitudesCatalogo"
+                       class="table table-dark table-hover align-middle"
+                       data-search="true"
+                       data-pagination="true"
+                       data-side-pagination="server"
+                       data-page-size="10"
+                       data-page-list="[10,25,50,100]"
+                       data-show-columns="false"
+                       data-show-refresh="true"
+                       data-locale="es-MX">
+                    <thead>
+                        <tr>
+                            <th data-field="id_solicitud_usuario" data-sortable="true">Solicitud</th>
+                            <th data-field="perfil_solicitado" data-sortable="true">Perfil solicitado</th>
+                            <th data-field="usuario" data-formatter="catalogoSolicitudUsuarioFormatter" data-sortable="true">Usuario</th>
+                            <th data-field="nombre_completo" data-sortable="true">Nombre</th>
+                            <th data-field="correo" data-sortable="true">Correo</th>
+                            <th data-field="estatus" data-formatter="catalogoSolicitudEstadoFormatter" data-sortable="true">Estatus</th>
+                            <th data-field="fec_reg" data-formatter="saeg.principal.fecha" data-sortable="true">Fecha</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>

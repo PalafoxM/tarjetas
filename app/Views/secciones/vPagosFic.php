@@ -83,7 +83,7 @@ $formatDate = static function (?string $value): string {
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
             <h3 class="mb-1 text-white">Pagos FIC</h3>
-            <p class="text-muted mb-0">Consulta el historial global de pagos y movimientos. TI ve todos los registros; proveedor solo ve los de sus establecimientos desde su propio tablero.</p>
+            <p class="text-muted mb-0">Consulta el historial global de pagos y movimientos. La vista de referencia muestra el tablero completo; proveedor solo ve los de sus establecimientos desde su propio tablero.</p>
         </div>
         <a class="btn btn-outline-light" href="<?= base_url('index.php/Inicio') ?>">
             <i class="mdi mdi-arrow-left me-1"></i> Volver a inicio

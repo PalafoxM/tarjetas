@@ -58,15 +58,13 @@ class Inicio extends BaseController {
             : (!empty($usuarioBaseRow) ? (object) $usuarioBaseRow : null);
         $data['allUser'] = [];
         if (($contextoUsuario['active_group'] ?? '') === 'fic' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-            $data['perfilFicMode'] = ((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta';
-            $data['hubTitle'] = 'Perfil FIC';
-            if ((int) ($contextoUsuario['group_role'] ?? 0) === 1) {
-                $data['hubSubtitle'] = 'Acceso institucional Festival Internacional Cervantino. Panel operativo para perfil FIC Admin.';
-            } else {
-                $data['hubSubtitle'] = 'Acceso institucional Festival Internacional Cervantino. Vista de consulta para capturista y administrativo.';
-            }
-            $vista = 'secciones/vPerfilFic';
+            return $this->renderPerfilFicHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'secul' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilSeculHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
+
             $data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
             $vista = 'secciones/vProveedor';
         } elseif ($contextoUsuario['is_client_like']) {
@@ -164,8 +162,8 @@ class Inicio extends BaseController {
         $data['scripts'] = ['principal', 'agregar'];
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
-        $data['previewInterfaceLabel'] = 'Vista de referencia TI';
-        $data['previewInterfaceDescripcion'] = 'EstÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s consultando la vista de partidas sin cambiar la sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n autenticada.';
+        $data['previewInterfaceLabel'] = 'Vista de referencia';
+        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando la vista de partidas sin cambiar la sesiÃƒÂ³n autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -182,8 +180,8 @@ class Inicio extends BaseController {
         $data['scripts'] = ['principal', 'agregar'];
         $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
         $data['previewInterfaceActiva'] = true;
-        $data['previewInterfaceLabel'] = 'Vista de referencia TI';
-        $data['previewInterfaceDescripcion'] = 'Estas consultando el historial global de pagos sin cambiar la sesion autenticada.';
+        $data['previewInterfaceLabel'] = 'Vista de referencia';
+        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando el historial global de pagos sin cambiar la sesiÃƒÂ³n autenticada.';
         $data['contentView'] = 'secciones/vPagosFic';
         $this->_renderView($data);
     }
@@ -250,6 +248,90 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function SolicitudAlta(string $grupo = 'fic')
+    {
+        $grupo = strtolower(trim($grupo));
+        if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+        }
+
+        $session = \Config\Services::session();
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        $cfg = $grupo === 'fic' ? [] : $this->getSolicitudCatalogoConfig($grupo);
+
+        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        if ($grupo === 'fic' && empty($tiUsuario) && $esGrupo && $rolGrupo !== 1) {
+            return redirect()->to(base_url('index.php/Inicio/PerfilFicConsulta'));
+        }
+        if ($grupo !== 'fic' && empty($tiUsuario) && $esGrupo && $rolGrupo === 1) {
+            return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo)));
+        }
+        if ($grupo !== 'fic' && empty($tiUsuario) && $esGrupo && in_array($rolGrupo, [2, 4], true)) {
+            return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo) . 'Consulta'));
+        }
+
+        $backUrl = $grupo === 'fic'
+            ? base_url('index.php/Inicio/PerfilFic')
+            : base_url('index.php/Inicio/' . ucfirst($grupo));
+
+        $saveUrl = $grupo === 'fic'
+            ? base_url('index.php/Inicio/guardarSolicitudUsuarioFicPerfil')
+            : base_url('index.php/Inicio/guardarSolicitudUsuario' . ucfirst($grupo) . 'Perfil');
+
+        $data = [];
+        $data['scripts'] = ['principal', 'solicitud_alta'];
+        $data['contentView'] = 'secciones/vSolicitudAlta';
+        $data['solicitudAlta'] = [
+            'grupo' => $grupo,
+            'title' => 'Solicitud de folio de usuario',
+            'subtitle' => 'Captura los datos del usuario y el perfil solicitado dentro del catálogo ' . strtoupper($grupo) . '.',
+            'back_url' => $backUrl,
+            'save_url' => $saveUrl,
+            'catalogos_url' => base_url('index.php/Usuario/getCatalogosCrud'),
+            'establecimiento_id' => (int) ($session->get('id_establecimiento') ?? 0),
+        ];
+
+        if ($grupo === 'fic') {
+            $db = \Config\Database::connect();
+            $perfiles = $db->table('cat_fic')
+                ->select('id_perfil_fic, dsc_perfil')
+                ->where('visible', 1)
+                ->whereIn('id_perfil_fic', [1, 2, 3, 4])
+                ->orderBy('id_perfil_fic', 'ASC')
+                ->get()
+                ->getResultArray();
+            $data['solicitudAlta']['perfil_options'] = array_map(static function (array $row): array {
+                return [
+                    'id_perfil_fic' => (int) ($row['id_perfil_fic'] ?? 0),
+                    'dsc_perfil' => (string) ($row['dsc_perfil'] ?? ''),
+                ];
+            }, $perfiles);
+        } else {
+            $perfiles = $this->getSolicitudCatalogoConfig($grupo);
+            $db = \Config\Database::connect();
+            $rows = $db->table($cfg['catalog_table'])
+                ->select($cfg['catalog_id'] . ', ' . $cfg['catalog_label'])
+                ->where('visible', 1)
+                ->orderBy($cfg['catalog_id'], 'ASC')
+                ->get()
+                ->getResultArray();
+            $data['solicitudAlta']['perfil_options'] = array_map(static function (array $row) use ($cfg): array {
+                return [
+                    'id_perfil' => (int) ($row[$cfg['catalog_id']] ?? 0),
+                    'dsc_perfil' => (string) ($row[$cfg['catalog_label']] ?? ''),
+                ];
+            }, $rows);
+        }
+
+        $this->_renderView($data);
+    }
     public function getSolicitudesUsuarioFicPerfil()
     {
         $session = \Config\Services::session();
@@ -332,7 +414,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no vÃƒÆ’Ã‚Â¡lida.',
+                'message' => 'Solicitud no vÃƒÂ¡lida.',
             ]);
         }
 
@@ -360,7 +442,7 @@ class Inicio extends BaseController {
         if (empty($row)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'ok' => false,
-                'message' => 'No se encontrÃƒÆ’Ã‚Â³ la solicitud.',
+                'message' => 'No se encontrÃƒÂ³ la solicitud.',
             ]);
         }
 
@@ -390,25 +472,39 @@ class Inicio extends BaseController {
         if ($this->request->getMethod() !== 'post') {
             return $this->response->setStatusCode(405)->setJSON([
                 'ok' => false,
-                'message' => 'MÃƒÆ’Ã‚Â©todo no permitido.',
+                'message' => 'MÃƒÂ©todo no permitido.',
             ]);
         }
-
+        $idClave = (int) ($this->request->getPost('id_clave') ?? 0);
+        $categoriaLabel = trim((string) ($this->request->getPost('categoria_label') ?? ''));
+        $idPais = (int) ($this->request->getPost('id_pais') ?? 0);
+        $paisLabel = trim((string) ($this->request->getPost('pais_label') ?? ''));
+        $idDiciplina = (int) ($this->request->getPost('id_diciplina') ?? 0);
+        $disciplinaLabel = trim((string) ($this->request->getPost('disciplina_label') ?? ''));
+        $clave = trim((string) ($this->request->getPost('clave') ?? ''));
+        $folio = trim((string) ($this->request->getPost('folio') ?? ''));
+        $subFolio = trim((string) ($this->request->getPost('sub_folio') ?? ''));
+        $pax = (int) ($this->request->getPost('pax') ?? 0);
+        $anfGto = trim((string) ($this->request->getPost('anf_gto') ?? ''));
         $idPerfilSolicitado = (int) ($this->request->getPost('id_perfil_solicitado') ?? 0);
-        $usuario = trim((string) ($this->request->getPost('usuario') ?? ''));
+        $usuario = '';
         $nombre = trim((string) ($this->request->getPost('nombre') ?? ''));
         $primerApellido = trim((string) ($this->request->getPost('primer_apellido') ?? ''));
         $segundoApellido = trim((string) ($this->request->getPost('segundo_apellido') ?? ''));
         $correo = trim((string) ($this->request->getPost('correo') ?? ''));
+        $beneficios = trim((string) ($this->request->getPost('beneficios') ?? 'ninguno'));
         $observaciones = trim((string) ($this->request->getPost('observaciones') ?? ''));
 
-        $usuario = function_exists('mb_strtolower') ? mb_strtolower($usuario, 'UTF-8') : strtolower($usuario);
+        $clave = function_exists('mb_strtolower') ? mb_strtolower($clave, 'UTF-8') : strtolower($clave);
+        $folio = preg_replace('/\D+/', '', $folio);
+        $subFolio = function_exists('mb_strtoupper') ? mb_strtoupper($subFolio, 'UTF-8') : strtoupper($subFolio);
+        $anfGto = function_exists('mb_strtoupper') ? mb_strtoupper($anfGto, 'UTF-8') : strtoupper($anfGto);
         $correo = function_exists('mb_strtolower') ? mb_strtolower($correo, 'UTF-8') : strtolower($correo);
         $nombre = function_exists('mb_strtoupper') ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
         $primerApellido = function_exists('mb_strtoupper') ? mb_strtoupper($primerApellido, 'UTF-8') : strtoupper($primerApellido);
         $segundoApellido = function_exists('mb_strtoupper') ? mb_strtoupper($segundoApellido, 'UTF-8') : strtoupper($segundoApellido);
 
-        if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '') {
+        if ($idClave <= 0 || $idPais <= 0 || $idDiciplina <= 0 || $clave === '' || $folio === '' || $subFolio === '' || $pax <= 0 || $anfGto === '' || $idPerfilSolicitado <= 0 || $nombre === '' || $primerApellido === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
                 'message' => 'Completa los campos obligatorios.',
@@ -433,7 +529,7 @@ class Inicio extends BaseController {
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible resolver el establecimiento de sesiÃƒÆ’Ã‚Â³n.',
+                'message' => 'No fue posible resolver el establecimiento de sesiÃƒÂ³n.',
             ]);
         }
 
@@ -444,7 +540,9 @@ class Inicio extends BaseController {
             ->where('tipo_solicitud', 'alta_usuario_fic')
             ->where('id_establecimiento', $idEstablecimiento)
             ->where('id_perfil_solicitado', $idPerfilSolicitado)
-            ->where('LOWER(usuario) = LOWER(' . $db->escape($usuario) . ')', null, false)
+            ->where('LOWER(nombre) = LOWER(' . $db->escape($nombre) . ')', null, false)
+            ->where('LOWER(primer_apellido) = LOWER(' . $db->escape($primerApellido) . ')', null, false)
+            ->where('LOWER(IFNULL(segundo_apellido, "")) = LOWER(' . $db->escape($segundoApellido) . ')', null, false)
             ->limit(1)
             ->get()
             ->getRowArray();
@@ -452,13 +550,13 @@ class Inicio extends BaseController {
         if (!empty($solicitudDuplicada)) {
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'Ya existe una solicitud pendiente para este perfil.',
+                'message' => 'Ya existe una solicitud pendiente para este perfil y este nombre.',
             ]);
         }
 
         $usuarioExistente = $db->query(
-            'SELECT id_usuario FROM usuario WHERE visible = 1 AND id_establecimiento = ? AND id_fic_perfil = ? AND LOWER(usuario) = LOWER(?) LIMIT 1',
-            [$idEstablecimiento, $idPerfilSolicitado, $usuario]
+            'SELECT id_usuario FROM usuario WHERE visible = 1 AND id_establecimiento = ? AND id_fic_perfil = ? AND UPPER(nombre) = UPPER(?) AND UPPER(primer_apellido) = UPPER(?) AND UPPER(IFNULL(segundo_apellido, "")) = UPPER(?) LIMIT 1',
+            [$idEstablecimiento, $idPerfilSolicitado, $nombre, $primerApellido, $segundoApellido]
         )->getRowArray();
 
         if (!empty($usuarioExistente)) {
@@ -468,10 +566,41 @@ class Inicio extends BaseController {
             ]);
         }
 
+        $detalleSolicitud = [];
+        $beneficiosKey = function_exists('mb_strtolower') ? mb_strtolower($beneficios, 'UTF-8') : strtolower($beneficios);
+        $beneficiosLabel = [
+            'ninguno' => 'Ninguno',
+            'hospedaje' => 'Hospedaje',
+            'alimentos' => 'Alimentos',
+            'ambos' => 'Hospedaje y alimentos',
+        ][$beneficiosKey] ?? 'Ninguno';
+        $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
+        if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
+            $detalleSolicitud[] = 'Hospedaje: sí';
+            $detalleSolicitud[] = 'Partida automática hospedaje: 3390A';
+        }
+        if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
+            $detalleSolicitud[] = 'Alimentos: sí';
+            $detalleSolicitud[] = 'Partida automática alimentos: 3390B';
+        }
+        if ($categoriaLabel !== '') $detalleSolicitud[] = 'Categoría: ' . $categoriaLabel;
+        if ($paisLabel !== '') $detalleSolicitud[] = 'País o región: ' . $paisLabel;
+        if ($disciplinaLabel !== '') $detalleSolicitud[] = 'Disciplina: ' . $disciplinaLabel;
+        if ($clave !== '') $detalleSolicitud[] = 'Clave: ' . $clave;
+        if ($folio !== '') $detalleSolicitud[] = 'Folio: ' . $folio;
+        if ($subFolio !== '') $detalleSolicitud[] = 'Subfolio: ' . $subFolio;
+        if ($pax > 0) $detalleSolicitud[] = 'Pax: ' . $pax;
+        if ($anfGto !== '') $detalleSolicitud[] = 'Anfitrión Gto: ' . $anfGto;
+        if ($observaciones !== '') {
+            $detalleSolicitud[] = '';
+            $detalleSolicitud[] = 'Observaciones:';
+            $detalleSolicitud[] = $observaciones;
+        }
+        $comentarioSolicitud = !empty($detalleSolicitud) ? implode("\n", $detalleSolicitud) : null;
         $fechaAhora = date('Y-m-d H:i:s');
         $insertOk = $db->table('solicitud_usuario')->insert([
             'tipo_solicitud' => 'alta_usuario_fic',
-            'id_proveedor' => null,
+            'id_proveedor' => 0,
             'id_establecimiento' => $idEstablecimiento,
             'id_perfil_solicitado' => $idPerfilSolicitado,
             'usuario' => $usuario,
@@ -480,7 +609,7 @@ class Inicio extends BaseController {
             'segundo_apellido' => $segundoApellido,
             'correo' => $correo,
             'estatus' => 'pendiente',
-            'comentario_ti' => $observaciones !== '' ? $observaciones : null,
+            'comentario_ti' => $comentarioSolicitud,
             'id_usuario_creado' => null,
             'fec_reg' => $fechaAhora,
             'usu_reg' => $idSesionUsuario,
@@ -526,7 +655,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no vÃƒÆ’Ã‚Â¡lida.',
+                'message' => 'Solicitud no vÃƒÂ¡lida.',
             ]);
         }
 
@@ -1381,7 +1510,7 @@ class Inicio extends BaseController {
         } elseif ($idTipoEstablecimiento === 2) {
             $idPerfilSolicitado = 7;
             $tipoSolicitud = 'alta_recepcion';
-            $tipoUsuarioLabel = 'RECEPCIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N';
+            $tipoUsuarioLabel = 'RECEPCIÃƒâ€œN';
         }
 
         if ($idPerfilSolicitado <= 0) {
@@ -1531,7 +1660,7 @@ class Inicio extends BaseController {
             return [
                 'id_perfil_solicitado' => 7,
                 'tipo_solicitud' => 'alta_recepcion',
-                'tipo_usuario_solicitado' => 'RECEPCIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N',
+                'tipo_usuario_solicitado' => 'RECEPCIÃƒâ€œN',
             ];
         }
 
@@ -1691,7 +1820,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lida.',
+                'message' => 'Solicitud no vÃƒÂ¡lida.',
             ]);
         }
 
@@ -1705,7 +1834,7 @@ class Inicio extends BaseController {
         if (empty($row)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'ok' => false,
-                'message' => 'No se encontrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ la solicitud.',
+                'message' => 'No se encontrÃƒÂ³ la solicitud.',
             ]);
         }
 
@@ -1717,6 +1846,7 @@ class Inicio extends BaseController {
 
     public function aprobarSolicitudUsuarioOperativo()
     {
+        $session = \Config\Services::session();
         $tiUsuario = $this->resolveTiMasterUsuario();
 
         if (empty($tiUsuario)) {
@@ -1736,7 +1866,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±a.',
+                'message' => 'Completa usuario y contraseÃƒÂ±a.',
             ]);
         }
 
@@ -1783,7 +1913,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'La solicitud ya no estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ pendiente.',
+                'message' => 'La solicitud ya no estÃƒÂ¡ pendiente.',
             ]);
         }
 
@@ -1853,8 +1983,8 @@ class Inicio extends BaseController {
             'tiene_hospedaje' => 0,
             'activo_qr' => 0,
             'visible' => 1,
-            'id_nivel_cliente' => null,
-            'id_partida' => null,
+            'id_nivel_cliente' => 0,
+            'id_partida' => 0,
             'id_fic_perfil' => null,
             'id_ug_perfil' => null,
             'id_secul_perfil' => null,
@@ -1914,7 +2044,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n.',
+                'message' => 'No fue posible finalizar la aprobaciÃƒÂ³n.',
             ]);
         }
 
@@ -1934,6 +2064,7 @@ class Inicio extends BaseController {
 
     public function rechazarSolicitudUsuarioOperativo()
     {
+        $session = \Config\Services::session();
         $tiUsuario = $this->resolveTiMasterUsuario();
 
         if (empty($tiUsuario)) {
@@ -1969,7 +2100,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'La solicitud ya no estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ pendiente.',
+                'message' => 'La solicitud ya no estÃƒÂ¡ pendiente.',
             ]);
         }
 
@@ -2126,8 +2257,481 @@ class Inicio extends BaseController {
         return false;
     }
 
-    
+    public function PerfilSecul()
+    {
+        return $this->renderPerfilSeculHub('admin');
+    }
+
+    public function PerfilSeculConsulta()
+    {
+        return $this->renderPerfilSeculHub('consulta');
+    }
+
+    public function PerfilUg()
+    {
+        return $this->renderPerfilUgHub('admin');
+    }
+
+    public function PerfilUgConsulta()
+    {
+        return $this->renderPerfilUgHub('consulta');
+    }
+
+    private function renderPerfilSeculHub(string $modo = 'admin')
+    {
+        return $this->renderPerfilCatalogoHub('secul', $modo);
+    }
+
+    private function renderPerfilUgHub(string $modo = 'admin')
+    {
+        return $this->renderPerfilCatalogoHub('ug', $modo);
+    }
+
+    private function renderPerfilCatalogoHub(string $grupo, string $modo = 'admin')
+    {
+        $session = ConfigServices::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        $cfg = $this->getSolicitudCatalogoConfig($grupo);
+
+        if (empty($cfg)) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+        if (empty($tiUsuario) && $esGrupo && $modo === 'consulta' && $rolGrupo === 1) {
+            return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo)));
+        }
+        if (empty($tiUsuario) && $esGrupo && $modo === 'admin' && in_array($rolGrupo, [2, 4], true)) {
+            return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo) . 'Consulta'));
+        }
+
+        $db = ConfigDatabase::connect();
+        $perfiles = $db->table($cfg['catalog_table'])
+            ->select($cfg['catalog_id'] . ', ' . $cfg['catalog_label'])
+            ->where('visible', 1)
+            ->orderBy($cfg['catalog_id'], 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_catalogo'];
+        $data[$cfg['mode_key']] = $modo === 'consulta' ? 'consulta' : 'admin';
+        $data['hubTitle'] = 'Perfil ' . $cfg['label'];
+        $data['hubSubtitle'] = $modo === 'consulta'
+            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catÃ¡logo ' . $cfg['label'] . '.'
+            : 'Panel operativo para solicitar folios del catÃ¡logo ' . $cfg['label'] . '.';
+        $data[$cfg['can_create_key']] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
+        $data[$cfg['perfil_options_key']] = array_map(static function (array $row) use ($cfg): array {
+            return [
+                'id_perfil' => (int) ($row[$cfg['catalog_id']] ?? 0),
+                'dsc_perfil' => (string) ($row[$cfg['catalog_label']] ?? ''),
+            ];
+        }, $perfiles);
+        $base = base_url('index.php/Inicio');
+        $methodSuffix = ucfirst($grupo);
+        $data[$cfg['list_url_key']] = $base . '/getSolicitudesUsuario' . $methodSuffix . 'Perfil';
+        $data[$cfg['detail_url_key']] = $base . '/getSolicitudUsuario' . $methodSuffix . 'Perfil';
+        $data[$cfg['save_url_key']] = $base . '/guardarSolicitudUsuario' . $methodSuffix . 'Perfil';
+        $data[$cfg['cancel_url_key']] = $base . '/cancelarSolicitudUsuario' . $methodSuffix . 'Perfil';
+        $data[$cfg['establecimiento_id_key']] = (int) ($session->get('id_establecimiento') ?? 0);
+        $data['contentView'] = $cfg['view'];
+        $this->_renderView($data);
+    }
+
+    public function getSolicitudesUsuarioSeculPerfil()
+    {
+        return $this->getSolicitudesUsuarioCatalogoPerfil('secul');
+    }
+
+    public function getSolicitudUsuarioSeculPerfil()
+    {
+        return $this->getSolicitudUsuarioCatalogoPerfil('secul');
+    }
+
+    public function guardarSolicitudUsuarioSeculPerfil()
+    {
+        return $this->guardarSolicitudUsuarioCatalogoPerfil('secul');
+    }
+
+    public function cancelarSolicitudUsuarioSeculPerfil()
+    {
+        return $this->cancelarSolicitudUsuarioCatalogoPerfil('secul');
+    }
+
+    public function getSolicitudesUsuarioUgPerfil()
+    {
+        return $this->getSolicitudesUsuarioCatalogoPerfil('ug');
+    }
+
+    public function getSolicitudUsuarioUgPerfil()
+    {
+        return $this->getSolicitudUsuarioCatalogoPerfil('ug');
+    }
+
+    public function guardarSolicitudUsuarioUgPerfil()
+    {
+        return $this->guardarSolicitudUsuarioCatalogoPerfil('ug');
+    }
+
+    public function cancelarSolicitudUsuarioUgPerfil()
+    {
+        return $this->cancelarSolicitudUsuarioCatalogoPerfil('ug');
+    }
+
+    private function getSolicitudesUsuarioCatalogoPerfil(string $grupo)
+    {
+        $session = ConfigServices::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $cfg = $this->getSolicitudCatalogoConfig($grupo);
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($cfg)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+        }
+        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
+        }
+
+        $db = ConfigDatabase::connect();
+        $builder = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, c.' . $cfg['catalog_label'] . ' AS perfil_solicitado')
+            ->join($cfg['catalog_table'] . ' c', 'c.' . $cfg['catalog_id'] . ' = su.id_perfil_solicitado', 'left')
+            ->where('su.visible', 1)
+            ->where('su.tipo_solicitud', $cfg['tipo_solicitud']);
+
+        if (empty($tiUsuario)) {
+            $builder->where('su.usu_reg', $idSesionUsuario);
+        }
+
+        $search = trim((string) ($this->request->getGet('search') ?? ''));
+        if ($search !== '') {
+            $builder->groupStart()
+                ->like('su.usuario', $search)
+                ->orLike('su.nombre', $search)
+                ->orLike('su.primer_apellido', $search)
+                ->orLike('su.segundo_apellido', $search)
+                ->orLike('su.correo', $search)
+                ->orLike('su.estatus', $search)
+                ->orLike('c.' . $cfg['catalog_label'], $search)
+                ->groupEnd();
+        }
+
+        $total = (clone $builder)->countAllResults();
+        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
+        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+        $rows = $builder->orderBy('su.fec_reg', 'DESC')->limit($limit, $offset)->get()->getResultArray();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'total' => $total,
+            'rows' => array_map(function (array $row) use ($grupo): array {
+                return $this->mapSolicitudUsuarioCatalogoPerfilRow($row, $grupo);
+            }, $rows),
+        ]);
+    }
+
+    private function getSolicitudUsuarioCatalogoPerfil(string $grupo)
+    {
+        $session = ConfigServices::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $cfg = $this->getSolicitudCatalogoConfig($grupo);
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($cfg)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+        }
+        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar solicitudes.']);
+        }
+
+        $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃ¡lida.']);
+        }
+
+        $db = ConfigDatabase::connect();
+        $row = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, c.' . $cfg['catalog_label'] . ' AS perfil_solicitado')
+            ->join($cfg['catalog_table'] . ' c', 'c.' . $cfg['catalog_id'] . ' = su.id_perfil_solicitado', 'left')
+            ->where('su.id_solicitud_usuario', $idSolicitud)
+            ->where('su.visible', 1)
+            ->where('su.tipo_solicitud', $cfg['tipo_solicitud'])
+            ->where($tiUsuario ? '1=1' : 'su.usu_reg = ' . $db->escape($idSesionUsuario), null, false)
+            ->get()
+            ->getRowArray();
+
+        if (empty($row)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontrÃ³ la solicitud.']);
+        }
+
+        return $this->response->setJSON(['ok' => true, 'data' => $this->mapSolicitudUsuarioCatalogoPerfilRow($row, $grupo)]);
+    }
+
+    private function guardarSolicitudUsuarioCatalogoPerfil(string $grupo)
+    {
+        $session = ConfigServices::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $cfg = $this->getSolicitudCatalogoConfig($grupo);
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+        $usuario = '';
+
+        if (empty($cfg)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+        }
+        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catÃ¡logo puede enviar solicitudes.']);
+        }
+        if ($this->request->getMethod() !== 'post') {
+            return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'MÃ©todo no permitido.']);
+        }
+
+        $idPerfilSolicitado = (int) ($this->request->getPost('id_perfil_solicitado') ?? 0);
+        $nombre = trim((string) ($this->request->getPost('nombre') ?? ''));
+        $primerApellido = trim((string) ($this->request->getPost('primer_apellido') ?? ''));
+        $segundoApellido = trim((string) ($this->request->getPost('segundo_apellido') ?? ''));
+        $correo = trim((string) ($this->request->getPost('correo') ?? ''));
+        $observaciones = trim((string) ($this->request->getPost('observaciones') ?? ''));
+
+        $nombre = function_exists('mb_strtoupper') ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
+        $primerApellido = function_exists('mb_strtoupper') ? mb_strtoupper($primerApellido, 'UTF-8') : strtoupper($primerApellido);
+        $segundoApellido = function_exists('mb_strtoupper') ? mb_strtoupper($segundoApellido, 'UTF-8') : strtoupper($segundoApellido);
+        $correo = function_exists('mb_strtolower') ? mb_strtolower($correo, 'UTF-8') : strtolower($correo);
+
+        if ($idPerfilSolicitado <= 0 || $nombre === '' || $primerApellido === '') {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Completa los campos obligatorios.']);
+        }
+
+        $db = ConfigDatabase::connect();
+        $perfilSolicitado = $db->table($cfg['catalog_table'])
+            ->where($cfg['catalog_id'], $idPerfilSolicitado)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($perfilSolicitado)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'El perfil solicitado no existe.']);
+        }
+
+        $solicitudDuplicada = $db->table('solicitud_usuario')
+            ->select('id_solicitud_usuario')
+            ->where('visible', 1)
+            ->where('estatus', 'pendiente')
+            ->where('tipo_solicitud', $cfg['tipo_solicitud'])
+            ->where('id_perfil_solicitado', $idPerfilSolicitado)
+            ->where('LOWER(nombre) = LOWER(' . $db->escape($nombre) . ')', null, false)
+            ->where('LOWER(primer_apellido) = LOWER(' . $db->escape($primerApellido) . ')', null, false)
+            ->where('LOWER(IFNULL(segundo_apellido, "")) = LOWER(' . $db->escape($segundoApellido) . ')', null, false)
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if (!empty($solicitudDuplicada)) {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Ya existe una solicitud pendiente para este perfil y este nombre.']);
+        }
+
+        $usuarioExistente = $db->table('usuario')
+            ->select('id_usuario')
+            ->where('visible', 1)
+            ->where($cfg['usuario_group_field'], $idPerfilSolicitado)
+            ->where('UPPER(nombre) = UPPER(' . $db->escape($nombre) . ')', null, false)
+            ->where('UPPER(primer_apellido) = UPPER(' . $db->escape($primerApellido) . ')', null, false)
+            ->where('UPPER(IFNULL(segundo_apellido, "")) = UPPER(' . $db->escape($segundoApellido) . ')', null, false)
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if (!empty($usuarioExistente)) {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Ya existe un usuario activo con este nombre para el perfil solicitado.']);
+        }
+
+        $detalleSolicitud = [];
+        $beneficiosKey = function_exists('mb_strtolower') ? mb_strtolower($beneficios, 'UTF-8') : strtolower($beneficios);
+        $beneficiosLabel = [
+            'ninguno' => 'Ninguno',
+            'hospedaje' => 'Hospedaje',
+            'alimentos' => 'Alimentos',
+            'ambos' => 'Hospedaje y alimentos',
+        ][$beneficiosKey] ?? 'Ninguno';
+        $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
+        if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
+            $detalleSolicitud[] = 'Hospedaje: sí';
+        }
+        if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
+            $detalleSolicitud[] = 'Alimentos: sí';
+        }
+        if ($observaciones !== '') {
+            $detalleSolicitud[] = '';
+            $detalleSolicitud[] = 'Observaciones:';
+            $detalleSolicitud[] = $observaciones;
+        }
+        $comentarioSolicitud = !empty($detalleSolicitud) ? implode("
+", $detalleSolicitud) : null;
+        $fechaAhora = date('Y-m-d H:i:s');
+        $insertOk = $db->table('solicitud_usuario')->insert([
+            'tipo_solicitud' => $cfg['tipo_solicitud'],
+            'id_proveedor' => null,
+            'id_establecimiento' => (int) ($session->get('id_establecimiento') ?? 0),
+            'id_perfil_solicitado' => $idPerfilSolicitado,
+            'usuario' => $usuario,
+            'nombre' => $nombre,
+            'primer_apellido' => $primerApellido,
+            'segundo_apellido' => $segundoApellido,
+            'correo' => $correo,
+            'estatus' => 'pendiente',
+            'comentario_ti' => $comentarioSolicitud,
+            'id_usuario_creado' => null,
+            'fec_reg' => $fechaAhora,
+            'usu_reg' => $idSesionUsuario,
+            'fec_act' => $fechaAhora,
+            'usu_act' => $idSesionUsuario,
+            'visible' => 1,
+        ]);
+
+        if (!$insertOk) {
+            return $this->response->setStatusCode(500)->setJSON(['ok' => false, 'message' => 'No fue posible guardar la solicitud.']);
+        }
+
+        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud enviada correctamente.', 'data' => ['id_solicitud_usuario' => (int) $db->insertID()]]);
+    }
+
+    private function cancelarSolicitudUsuarioCatalogoPerfil(string $grupo)
+    {
+        $session = ConfigServices::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $cfg = $this->getSolicitudCatalogoConfig($grupo);
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+
+        if (empty($cfg)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+        }
+        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para cancelar solicitudes.']);
+        }
+
+        $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃ¡lida.']);
+        }
+
+        $db = ConfigDatabase::connect();
+        $solicitud = $db->table('solicitud_usuario')
+            ->where('id_solicitud_usuario', $idSolicitud)
+            ->where('visible', 1)
+            ->where('tipo_solicitud', $cfg['tipo_solicitud'])
+            ->where('usu_reg', $idSesionUsuario)
+            ->get()
+            ->getRowArray();
+
+        if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden cancelar solicitudes pendientes.']);
+        }
+
+        $fechaAhora = date('Y-m-d H:i:s');
+        $updateOk = $db->table('solicitud_usuario')->update([
+            'estatus' => 'cancelada',
+            'fec_act' => $fechaAhora,
+            'usu_act' => $idSesionUsuario,
+        ], ['id_solicitud_usuario' => $idSolicitud]);
+
+        if (!$updateOk) {
+            return $this->response->setStatusCode(500)->setJSON(['ok' => false, 'message' => 'No fue posible cancelar la solicitud.']);
+        }
+
+        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud cancelada correctamente.']);
+    }
+
+    private function mapSolicitudUsuarioCatalogoPerfilRow(array $row, string $grupo): array
+    {
+        $nombreCompleto = trim(implode(' ', array_filter([
+            trim((string) ($row['nombre'] ?? '')),
+            trim((string) ($row['primer_apellido'] ?? '')),
+            trim((string) ($row['segundo_apellido'] ?? '')),
+        ])));
+
+        return [
+            'id_solicitud_usuario' => (int) ($row['id_solicitud_usuario'] ?? 0),
+            'tipo_solicitud' => (string) ($row['tipo_solicitud'] ?? ''),
+            'id_proveedor' => (int) ($row['id_proveedor'] ?? 0),
+            'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+            'id_perfil_solicitado' => (int) ($row['id_perfil_solicitado'] ?? 0),
+            'perfil_solicitado' => (string) ($row['perfil_solicitado'] ?? ''),
+            'usuario' => (string) ($row['usuario'] ?? ''),
+            'nombre' => (string) ($row['nombre'] ?? ''),
+            'primer_apellido' => (string) ($row['primer_apellido'] ?? ''),
+            'segundo_apellido' => (string) ($row['segundo_apellido'] ?? ''),
+            'correo' => (string) ($row['correo'] ?? ''),
+            'nombre_completo' => $nombreCompleto,
+            'estatus' => (string) ($row['estatus'] ?? ''),
+            'comentario_ti' => (string) ($row['comentario_ti'] ?? ''),
+            'fec_reg' => (string) ($row['fec_reg'] ?? ''),
+            'visible' => (int) ($row['visible'] ?? 0),
+            'catalogo_grupo' => $grupo,
+        ];
+    }
+
+    private function getSolicitudCatalogoConfig(string $grupo): array
+    {
+        $configs = [
+            'secul' => [
+                'label' => 'SECUL',
+                'view' => 'secciones/vPerfilSecul',
+                'mode_key' => 'perfilSeculMode',
+                'can_create_key' => 'seculSolicitudPuedeCrear',
+                'perfil_options_key' => 'seculSolicitudPerfilOptions',
+                'list_url_key' => 'seculSolicitudListadoUrl',
+                'detail_url_key' => 'seculSolicitudDetalleUrl',
+                'save_url_key' => 'seculSolicitudGuardarUrl',
+                'cancel_url_key' => 'seculSolicitudCancelarUrl',
+                'establecimiento_id_key' => 'seculSolicitudEstablecimientoId',
+                'catalog_table' => 'cat_secul',
+                'catalog_id' => 'id_secul_perfil',
+                'catalog_label' => 'des_perfil',
+                'tipo_solicitud' => 'alta_usuario_secul',
+                'usuario_group_field' => 'id_secul_perfil',
+            ],
+            'ug' => [
+                'label' => 'UG',
+                'view' => 'secciones/vPerfilUG',
+                'mode_key' => 'perfilUgMode',
+                'can_create_key' => 'ugSolicitudPuedeCrear',
+                'perfil_options_key' => 'ugSolicitudPerfilOptions',
+                'list_url_key' => 'ugSolicitudListadoUrl',
+                'detail_url_key' => 'ugSolicitudDetalleUrl',
+                'save_url_key' => 'ugSolicitudGuardarUrl',
+                'cancel_url_key' => 'ugSolicitudCancelarUrl',
+                'establecimiento_id_key' => 'ugSolicitudEstablecimientoId',
+                'catalog_table' => 'cat_ug',
+                'catalog_id' => 'id_ug_perfil',
+                'catalog_label' => 'dsc_perfil',
+                'tipo_solicitud' => 'alta_usuario_ug',
+                'usuario_group_field' => 'id_ug_perfil',
+            ],
+        ];
+
+        return $configs[$grupo] ?? [];
+    }
+
 }
-
-
 

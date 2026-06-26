@@ -36,7 +36,7 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
 
     <?php if ($soloConsultaEstablecimientosFic): ?>
         <div class="alert alert-secondary mb-3" role="alert">
-            Tu perfil esta en modo consulta dentro de esta vista. Solo TI puede dar de alta proveedores en este modulo.
+            Tu perfil está en modo consulta dentro de esta vista. Solo un perfil con permisos de administración puede dar de alta proveedores en este módulo.
         </div>
     <?php endif; ?>
 

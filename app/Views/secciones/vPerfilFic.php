@@ -1,10 +1,11 @@
-﻿<?php
+<?php
 $session = \Config\Services::session();
 $hubTitle = (string) ($hubTitle ?? 'Perfil FIC');
 $hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catálogo FIC.');
 $hubMode = (string) ($perfilFicMode ?? 'admin');
 $hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administración';
 $mostrarEdicion = !empty($ficSolicitudPuedeCrear);
+$mostrarSeguimientoSolicitudes = $hubMode === 'consulta';
 $ficSolicitudPerfilOptions = is_array($ficSolicitudPerfilOptions ?? null) ? $ficSolicitudPerfilOptions : [];
 $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
 ?>
@@ -65,17 +66,13 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
      data-solicitud-detail-url="<?= esc($ficSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil'), 'attr') ?>"
      data-solicitud-save-url="<?= esc($ficSolicitudGuardarUrl ?? base_url('index.php/Inicio/guardarSolicitudUsuarioFicPerfil'), 'attr') ?>"
      data-solicitud-cancel-url="<?= esc($ficSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil'), 'attr') ?>"
+     data-fic-mode="<?= esc($hubMode, 'attr') ?>"
      data-solicitud-establecimiento-id="<?= esc((string) $ficSolicitudEstablecimientoId, 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white"><?= esc($hubTitle) ?></h3>
             <p class="text-muted mb-0"><?= esc($hubSubtitle) ?></p>
         </div>
-        <?php if ($mostrarEdicion): ?>
-            <a href="javascript:void(0);" class="btn btn-primary" id="btnNuevaSolicitudUsuarioFic">
-                <i class="mdi mdi-account-plus me-1"></i> Nueva solicitud
-            </a>
-        <?php endif; ?>
     </div>
 
     <div class="d-flex flex-wrap gap-2 mb-3">
@@ -85,6 +82,17 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
 
     <div class="card">
         <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h4 class="mb-1 text-white">Usuarios FIC</h4>
+                    <p class="text-muted mb-0">Consulta el catálogo visible de usuarios FIC según tu perfil.</p>
+                </div>
+                <?php if ($mostrarEdicion): ?>
+                    <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/fic'), 'attr') ?>">
+                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
+                    </a>
+                <?php endif; ?>
+            </div>
             <table id="cajerosTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"
@@ -97,7 +105,7 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
                 <thead>
                     <tr>
                         <th data-field="id_usuario" data-sortable="true">ID</th>
-                        <th data-field="usuario" data-sortable="true">Usuario</th>
+                        <th data-field="usuario" data-formatter="ficSolicitudUsuarioFormatter" data-sortable="true">Usuario</th>
                         <th data-field="nombre_completo" data-sortable="true">Nombre</th>
                         <th data-field="grupo_visible" data-sortable="true">Grupo</th>
                         <th data-field="rol_visible" data-sortable="true">Rol visible</th>
@@ -112,108 +120,6 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
                     </tr>
                 </thead>
             </table>
-        </div>
-    </div>
-
-    <div class="card fic-solicitudes-card mt-4">
-        <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <div>
-                    <h4 class="mb-1 text-white">Solicitudes de usuario FIC</h4>
-                    <p class="text-muted mb-0">Solicitudes de alta capturadas desde este perfil y visibles para seguimiento.</p>
-                </div>
-                <?php if ($mostrarEdicion): ?>
-                    <button type="button" class="btn btn-outline-light" id="btnAbrirSolicitudUsuarioFic">
-                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Crear solicitud
-                    </button>
-                <?php endif; ?>
-            </div>
-
-            <div class="fic-solicitudes-table-wrap">
-                <table id="tablaSolicitudesFic"
-                       class="table table-dark table-hover align-middle fic-solicitudes-table"
-                       data-search="true"
-                       data-pagination="true"
-                       data-page-size="10"
-                       data-page-list="[10,25,50,100]"
-                       data-show-columns="true"
-                       data-show-refresh="true"
-                       data-locale="es-MX">
-                    <thead>
-                        <tr>
-                            <th data-field="id_solicitud_usuario" data-sortable="true">ID</th>
-                            <th data-field="perfil_solicitado" data-sortable="true">Perfil solicitado</th>
-                            <th data-field="usuario" data-sortable="true">Usuario</th>
-                            <th data-field="nombre_completo" data-sortable="true">Nombre</th>
-                            <th data-field="correo" data-sortable="true">Correo</th>
-                            <th data-field="estatus" data-formatter="ficSolicitudEstadoFormatter" data-sortable="true">Estatus</th>
-                            <th data-field="fec_reg" data-formatter="saeg.principal.fecha" data-sortable="true">Fecha</th>
-                            <th data-field="acciones" data-formatter="ficSolicitudAccionesFormatter" data-align="center" data-width="120" data-width-unit="px">Acciones</th>
-                        </tr>
-                    </thead>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade fic-solicitudes-modal" id="modalSolicitudUsuarioFic" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <form id="formSolicitudUsuarioFic" autocomplete="off">
-                <?= csrf_field() ?>
-                <div class="modal-header border-secondary">
-                    <div>
-                        <h5 class="modal-title" id="solicitudUsuarioFicTitulo">Nueva solicitud de usuario</h5>
-                        <p class="text-muted mb-0 small">Captura los datos del usuario y el perfil solicitado dentro del catálogo FIC.</p>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-info d-none mb-3" id="solicitudUsuarioFicAlert" role="alert"></div>
-                    <input type="hidden" id="solicitud_usuario_id_fic" name="id_solicitud_usuario" value="0">
-                    <input type="hidden" id="solicitud_usuario_establecimiento_fic" name="id_establecimiento" value="<?= esc((string) $ficSolicitudEstablecimientoId, 'attr') ?>">
-                    <div class="row g-3">
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="solicitud_usuario_fic_usuario">Usuario</label>
-                            <input type="text" class="form-control crud-ui-lower" id="solicitud_usuario_fic_usuario" name="usuario" required autocomplete="off" placeholder="usuario">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="solicitud_usuario_fic_nombre">Nombre</label>
-                            <input type="text" class="form-control crud-ui-upper" id="solicitud_usuario_fic_nombre" name="nombre" required autocomplete="off" placeholder="NOMBRE">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="solicitud_usuario_fic_perfil">Perfil solicitado</label>
-                            <select class="form-select" id="solicitud_usuario_fic_perfil" name="id_perfil_solicitado" required>
-                                <option value="">Selecciona una opción</option>
-                                <?php foreach ($ficSolicitudPerfilOptions as $perfilOption): ?>
-                                    <option value="<?= esc((string) ($perfilOption['id_perfil_fic'] ?? 0), 'attr') ?>"><?= esc((string) ($perfilOption['dsc_perfil'] ?? '')) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="solicitud_usuario_fic_primer_apellido">Primer apellido</label>
-                            <input type="text" class="form-control crud-ui-upper" id="solicitud_usuario_fic_primer_apellido" name="primer_apellido" required autocomplete="off" placeholder="PRIMER APELLIDO">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="solicitud_usuario_fic_segundo_apellido">Segundo apellido</label>
-                            <input type="text" class="form-control crud-ui-upper" id="solicitud_usuario_fic_segundo_apellido" name="segundo_apellido" autocomplete="off" placeholder="SEGUNDO APELLIDO">
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label" for="solicitud_usuario_fic_correo">Correo</label>
-                            <input type="email" class="form-control crud-ui-lower" id="solicitud_usuario_fic_correo" name="correo" autocomplete="off" placeholder="correo@dominio.com">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="solicitud_usuario_fic_observaciones">Observaciones</label>
-                            <textarea class="form-control" id="solicitud_usuario_fic_observaciones" name="observaciones" rows="3" placeholder="Opcional"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary" id="btnGuardarSolicitudUsuarioFic">Enviar solicitud</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>

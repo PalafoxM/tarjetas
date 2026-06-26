@@ -75,10 +75,75 @@ $contextoUsuario = $contextoUsuario ?? [];
 
     .solicitudes-table-wrap {
         overflow-x: auto;
+        padding: .25rem .25rem .5rem;
+        border-radius: 14px;
     }
 
     .solicitudes-table {
-        min-width: 1400px;
+        min-width: 1220px;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: .92rem;
+    }
+
+    .solicitudes-table thead th {
+        background: linear-gradient(180deg, #4b5563, #404754);
+        color: #f8fafc;
+        border-color: rgba(255, 255, 255, .08) !important;
+        padding: .95rem .85rem;
+        white-space: nowrap;
+    }
+
+    .solicitudes-table tbody td {
+        vertical-align: middle;
+        padding: .9rem .85rem;
+        border-color: rgba(148, 163, 184, .14) !important;
+    }
+
+    .solicitudes-table tbody tr:nth-child(odd) {
+        background-color: rgba(255, 255, 255, .03) !important;
+    }
+
+    .solicitudes-table tbody tr:nth-child(even) {
+        background-color: rgba(15, 23, 42, .58) !important;
+    }
+
+    .solicitudes-table tbody tr:hover {
+        background-color: rgba(59, 130, 246, .12) !important;
+    }
+
+    .bootstrap-table .fixed-table-container {
+        border: 1px solid rgba(148, 163, 184, .12);
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(15, 23, 42, .72);
+    }
+
+    .bootstrap-table .fixed-table-header {
+        background: transparent;
+    }
+
+    .bootstrap-table .fixed-table-body {
+        border-top: 1px solid rgba(148, 163, 184, .12);
+    }
+
+    .bootstrap-table .fixed-table-pagination {
+        color: #cbd5e1;
+        padding-top: .75rem;
+    }
+
+    .bootstrap-table .fixed-table-pagination .pagination-info,
+    .bootstrap-table .fixed-table-pagination .page-list {
+        color: #cbd5e1;
+    }
+
+    .solicitudes-table .badge {
+        font-size: .72rem;
+        padding: .35rem .5rem;
+    }
+
+    .solicitudes-table .btn {
+        min-width: 42px;
     }
 </style>
 
@@ -89,8 +154,8 @@ $contextoUsuario = $contextoUsuario ?? [];
      data-reject-url="<?= esc(base_url('index.php/Inicio/rechazarSolicitudUsuarioOperativo'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
         <div>
-            <h3 class="mb-1 text-white">Bandeja de solicitudes para TI</h3>
-            <p class="text-muted mb-0">Revisa solicitudes pendientes para alta de gerente y recepción. Solo TI master puede aprobar o rechazar.</p>
+            <h3 class="mb-1 text-white">Bandeja de solicitudes operativas</h3>
+            <p class="text-muted mb-0">Revisa solicitudes pendientes para alta de gerente y recepción dentro de la bandeja operativa.</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
@@ -114,7 +179,7 @@ $contextoUsuario = $contextoUsuario ?? [];
                     </select>
                 </div>
                 <div class="col-12 col-md-8 col-lg-9">
-                    <div class="alert alert-info solicitudes-note mb-0" role="alert">Cada solicitud muestra el proveedor, establecimiento, tipo de establecimiento y el candidato propuesto. Desde aquí TI puede revisar, aprobar o rechazar.</div>
+                    <div class="alert alert-info solicitudes-note mb-0" role="alert">Cada solicitud muestra el proveedor, establecimiento, tipo de establecimiento y el candidato propuesto para su revisión operativa.</div>
                 </div>
             </div>
         </div>
@@ -162,7 +227,7 @@ $contextoUsuario = $contextoUsuario ?? [];
                 <div class="modal-header border-secondary">
                     <div>
                         <h5 class="modal-title" id="solicitudUsuarioOperativoTitulo">Revisar solicitud</h5>
-                        <p class="text-muted mb-0 small">TI confirma la información y define el usuario operativo.</p>
+                        <p class="text-muted mb-0 small">Confirma la información y define el usuario operativo.</p>
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -213,7 +278,7 @@ $contextoUsuario = $contextoUsuario ?? [];
                         <div class="col-12 col-md-6">
                             <label class="form-label" for="solicitud_contrasenia_aprobar">Contraseña</label>
                             <input type="password" class="form-control text-lowercase-live" id="solicitud_contrasenia_aprobar" name="contrasenia" required autocomplete="new-password" placeholder="******">
-                            <div class="form-text">TI solo captura usuario y contraseña.</div>
+                            <div class="form-text">Captura el usuario y la contraseña para completar el alta.</div>
                         </div>
                     </div>
                 </div>

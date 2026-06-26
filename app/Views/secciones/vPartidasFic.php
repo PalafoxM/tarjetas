@@ -144,7 +144,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
     <?php if (!empty($previewInterfaceActiva)): ?>
         <div class="panel p-3 mb-4">
             <div class="alert alert-info mb-0" role="alert">
-                <strong><?= esc((string) ($previewInterfaceLabel ?? 'Vista de referencia TI')) ?></strong>
+                <strong><?= esc((string) ($previewInterfaceLabel ?? 'Vista de referencia')) ?></strong>
                 <div><?= esc((string) ($previewInterfaceDescripcion ?? 'Estás consultando una interfaz de referencia sin cambiar la sesión autenticada.')) ?></div>
             </div>
         </div>

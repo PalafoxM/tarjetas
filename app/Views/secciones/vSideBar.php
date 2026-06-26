@@ -89,7 +89,7 @@
                             </li>
                             <?php if((int)$session->id_perfil === 1 && (int)($session->id_tipo_proveedor ?? 0) === 0): ?>
                             <li>
-                                <a href="<?= base_url("/index.php/Inicio/SolicitudesUsuarioFic")?>"><i class="dripicons-checklist"></i> Solicitudes TI</a>
+                                <a href="<?= base_url("/index.php/Inicio/SolicitudesUsuarioFic")?>"><i class="dripicons-checklist"></i> Solicitudes operativas</a>
                             </li>
                             <?php endif; ?>
                         </ul>

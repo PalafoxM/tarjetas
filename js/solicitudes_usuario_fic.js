@@ -8,7 +8,9 @@ var solicitudesUsuarioFic = (function () {
         cancelUrl: '',
         modal: null,
         form: null,
-        currentSolicitud: null
+        currentSolicitud: null,
+        catalogos: { categorias: [], disciplinas: [], paises: [] },
+        catalogosCargados: false
     };
 
     function esc(value) {
@@ -50,14 +52,80 @@ var solicitudesUsuarioFic = (function () {
         alert.addClass('d-none').text('');
     }
 
+    function populateSelect(selector, items, valueKey, labelKey) {
+        var select = $(selector);
+        if (!select.length) return;
+        var current = select.val();
+        select.empty();
+        select.append(new Option('Seleccione', '', false, false));
+        (items || []).forEach(function (item) {
+            select.append(new Option(item[labelKey] || '', item[valueKey] || '', false, false));
+        });
+        if (current !== undefined && current !== null && current !== '') {
+            select.val(String(current));
+        }
+        select.trigger('change.select2');
+    }
+
+    function initCatalogSelects() {
+        if (typeof $.fn.select2 !== 'function') return;
+        $('#solicitud_fic_categoria, #solicitud_fic_pais, #solicitud_fic_disciplina').each(function () {
+            var select = $(this);
+            if (select.hasClass('select2-hidden-accessible')) {
+                select.select2('destroy');
+            }
+            select.select2({
+                width: '100%',
+                dropdownParent: $('#modalSolicitudUsuarioFic'),
+                placeholder: 'Seleccione',
+                allowClear: true
+            });
+        });
+    }
+
+    function updateClave() {
+        var selected = Number($('#solicitud_fic_categoria').val() || 0);
+        var categoria = (state.catalogos.categorias || []).find(function (item) {
+            return Number(item.id_clave || 0) === selected;
+        }) || null;
+        $('#solicitud_fic_id_clave').val(categoria ? String(categoria.id_clave || '') : '');
+        $('#solicitud_fic_clave').val(categoria ? String(categoria.clave || '') : '');
+    }
+
+    function loadCatalogos(callback) {
+        if (state.catalogosCargados) {
+            if (typeof callback === 'function') callback();
+            return;
+        }
+        $.getJSON(base_url + 'index.php/Usuario/getCatalogosCrud')
+            .done(function (response) {
+                var data = response && response.data ? response.data : response;
+                state.catalogos.categorias = Array.isArray(data && data.categorias) ? data.categorias : [];
+                state.catalogos.disciplinas = Array.isArray(data && data.disciplinas) ? data.disciplinas : [];
+                state.catalogos.paises = Array.isArray(data && data.paises) ? data.paises : [];
+                populateSelect('#solicitud_fic_categoria', state.catalogos.categorias, 'id_clave', 'dsc_clave');
+                populateSelect('#solicitud_fic_disciplina', state.catalogos.disciplinas, 'id_diciplina', 'des_diciplina');
+                populateSelect('#solicitud_fic_pais', state.catalogos.paises, 'id_pais', 'dsc_pais');
+                initCatalogSelects();
+                updateClave();
+                state.catalogosCargados = true;
+                if (typeof callback === 'function') callback();
+            })
+            .fail(function () {
+                Swal.fire('Error', 'No fue posible cargar los catÃ¡logos de la solicitud.', 'error');
+            });
+    }
+
     function clearForm() {
         if (state.form && state.form.length && state.form[0]) {
             state.form[0].reset();
         }
         $('#solicitud_usuario_id_fic').val('0');
         $('#solicitud_usuario_establecimiento_fic').val(String(state.root ? state.root.data('solicitud-establecimiento-id') || '' : ''));
-        $('#solicitud_usuario_fic_usuario, #solicitud_usuario_fic_nombre, #solicitud_usuario_fic_primer_apellido, #solicitud_usuario_fic_segundo_apellido, #solicitud_usuario_fic_correo, #solicitud_usuario_fic_observaciones').val('');
-        $('#solicitud_usuario_fic_perfil').val('').trigger('change');
+        $('#solicitud_fic_clave, #solicitud_fic_folio, #solicitud_fic_subfolio, #solicitud_fic_pax, #solicitud_fic_anfitrion, #solicitud_usuario_fic_nombre, #solicitud_usuario_fic_primer_apellido, #solicitud_usuario_fic_segundo_apellido, #solicitud_usuario_fic_correo, #solicitud_usuario_fic_observaciones').val('');
+        $('#solicitud_fic_beneficios').val('ninguno');
+        $('#solicitud_fic_categoria, #solicitud_fic_pais, #solicitud_fic_disciplina, #solicitud_usuario_fic_perfil').val('').trigger('change');
+        $('#solicitud_fic_id_clave').val('');
     }
 
     function getCsrfPayload() {
@@ -84,7 +152,10 @@ var solicitudesUsuarioFic = (function () {
         if (solicitud.id_solicitud_usuario) {
             $('#solicitud_usuario_id_fic').val(String(solicitud.id_solicitud_usuario));
         }
-        $('#solicitud_usuario_fic_usuario').val(String(solicitud.usuario || '').toLowerCase());
+        $('#solicitud_fic_categoria, #solicitud_fic_pais, #solicitud_fic_disciplina').val('').trigger('change');
+        $('#solicitud_fic_id_clave').val('');
+        $('#solicitud_fic_clave, #solicitud_fic_folio, #solicitud_fic_subfolio, #solicitud_fic_pax, #solicitud_fic_anfitrion').val('');
+        $('#solicitud_fic_beneficios').val('ninguno');
         $('#solicitud_usuario_fic_nombre').val(String(solicitud.nombre || '').toUpperCase());
         $('#solicitud_usuario_fic_perfil').val(String(solicitud.id_perfil_solicitado || '')).trigger('change');
         $('#solicitud_usuario_fic_primer_apellido').val(String(solicitud.primer_apellido || '').toUpperCase());
@@ -121,7 +192,7 @@ var solicitudesUsuarioFic = (function () {
         $.getJSON(state.detailUrl, { id_solicitud_usuario: idSolicitud })
             .done(function (response) {
                 if (!response || response.ok !== true || !response.data) {
-                    Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
+                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
                     return;
                 }
                 if (typeof callback === 'function') {
@@ -140,6 +211,11 @@ var solicitudesUsuarioFic = (function () {
 
     window.ficSolicitudEstadoFormatter = function (value) {
         return badgeEstado(value);
+    };
+
+    window.ficSolicitudUsuarioFormatter = function (value) {
+        var usuario = String(value || '').trim();
+        return usuario !== '' ? esc(usuario) : '<span class="text-muted">Por asignar por TI</span>';
     };
 
     window.ficSolicitudAccionesFormatter = function (value, row) {
@@ -168,6 +244,7 @@ var solicitudesUsuarioFic = (function () {
             state.modal = modalEl && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
 
             this.inicializarTabla();
+            loadCatalogos();
             this.bindEvents();
         },
 
@@ -212,25 +289,18 @@ var solicitudesUsuarioFic = (function () {
         },
 
         bindEvents: function () {
-            var self = this;
-
             $(document)
                 .off('click.ficSolicitud')
-                .on('click.ficSolicitud', '#btnNuevaSolicitudUsuarioFic, #btnAbrirSolicitudUsuarioFic', function () {
-                    clearForm();
-                    clearAlert();
-                    if (state.modal && typeof state.modal.show === 'function') {
-                        state.modal.show();
-                    } else {
-                        $('#modalSolicitudUsuarioFic').modal('show');
-                    }
-                })
                 .on('click.ficSolicitud', '.js-fic-ver-solicitud', function () {
                     var idSolicitud = Number($(this).data('id-solicitud') || 0);
                     cargarSolicitud(idSolicitud, function (data) {
+                        var comentario = String(data.comentario_ti || '').trim();
+                        var detalleExtra = comentario !== ''
+                            ? '<hr class="border-secondary my-3"><div><strong>Detalle de solicitud:</strong><pre class="bg-transparent text-light border-0 p-0 m-0" style="white-space:pre-wrap;font-family:inherit;">' + esc(comentario) + '</pre></div>'
+                            : '';
                         Swal.fire({
                             title: 'Solicitud FIC',
-                            html: '<div class="text-start"><strong>Perfil:</strong> ' + esc(data.perfil_solicitado || '') + '<br><strong>Usuario:</strong> ' + esc(data.usuario || '') + '<br><strong>Nombre:</strong> ' + esc(data.nombre_completo || '') + '<br><strong>Correo:</strong> ' + esc(data.correo || '') + '<br><strong>Estatus:</strong> ' + esc(data.estatus || '') + '</div>',
+                            html: '<div class="text-start"><strong>Perfil:</strong> ' + esc(data.perfil_solicitado || '') + '<br><strong>Usuario:</strong> ' + (String(data.usuario || '').trim() !== '' ? esc(data.usuario || '') : 'Por asignar por TI') + '<br><strong>Nombre:</strong> ' + esc(data.nombre_completo || '') + '<br><strong>Correo:</strong> ' + esc(data.correo || '') + '<br><strong>Estatus:</strong> ' + esc(data.estatus || '') + detalleExtra + '</div>',
                             confirmButtonText: 'Cerrar'
                         });
                     });
@@ -275,8 +345,19 @@ var solicitudesUsuarioFic = (function () {
                     if (!state.saveUrl) return;
 
                     var payload = {
+                        id_clave: Number($('#solicitud_fic_id_clave').val() || 0),
+                        categoria_label: $('#solicitud_fic_categoria option:selected').text() || '',
+                        id_pais: Number($('#solicitud_fic_pais').val() || 0),
+                        pais_label: $('#solicitud_fic_pais option:selected').text() || '',
+                        id_diciplina: Number($('#solicitud_fic_disciplina').val() || 0),
+                        disciplina_label: $('#solicitud_fic_disciplina option:selected').text() || '',
+                        clave: String($('#solicitud_fic_clave').val() || '').trim().toLowerCase(),
+                        folio: String($('#solicitud_fic_folio').val() || '').replace(/\D/g, '').trim(),
+                        sub_folio: normalize($('#solicitud_fic_subfolio').val(), true),
+                        pax: Number($('#solicitud_fic_pax').val() || 0),
+                        anf_gto: normalize($('#solicitud_fic_anfitrion').val(), true),
                         id_perfil_solicitado: Number($('#solicitud_usuario_fic_perfil').val() || 0),
-                        usuario: normalize($('#solicitud_usuario_fic_usuario').val(), false),
+                        beneficios: String($('#solicitud_fic_beneficios').val() || 'ninguno'),
                         nombre: normalize($('#solicitud_usuario_fic_nombre').val(), true),
                         primer_apellido: normalize($('#solicitud_usuario_fic_primer_apellido').val(), true),
                         segundo_apellido: normalize($('#solicitud_usuario_fic_segundo_apellido').val(), true),
@@ -285,7 +366,7 @@ var solicitudesUsuarioFic = (function () {
                     };
                     payload = $.extend(payload, getCsrfPayload());
 
-                    if (!payload.id_perfil_solicitado || !payload.usuario || !payload.nombre || !payload.primer_apellido) {
+                    if (!payload.id_clave || !payload.id_pais || !payload.id_diciplina || !payload.clave || !payload.folio || !payload.sub_folio || payload.pax <= 0 || !payload.anf_gto || !payload.beneficios || !payload.id_perfil_solicitado || !payload.nombre || !payload.primer_apellido) {
                         setAlert('Completa los campos obligatorios.', 'warning');
                         return;
                     }
@@ -310,7 +391,16 @@ var solicitudesUsuarioFic = (function () {
 
             $(document)
                 .off('input.ficSolicitudTransform')
-                .on('input.ficSolicitudTransform', '#solicitud_usuario_fic_usuario, #solicitud_usuario_fic_correo', function () {
+                .on('change.ficSolicitudCatalogos', '#solicitud_fic_categoria', function () {
+                    updateClave();
+                })
+                .on('input.ficSolicitudTransform', '#solicitud_fic_folio', function () {
+                    this.value = String(this.value || '').replace(/\D/g, '');
+                })
+                .on('input.ficSolicitudTransform', '#solicitud_fic_subfolio, #solicitud_fic_anfitrion', function () {
+                    this.value = String(this.value || '').toUpperCase();
+                })
+                .on('input.ficSolicitudTransform', '#solicitud_usuario_fic_correo', function () {
                     this.value = String(this.value || '').toLowerCase();
                 })
                 .on('input.ficSolicitudTransform', '#solicitud_usuario_fic_nombre, #solicitud_usuario_fic_primer_apellido, #solicitud_usuario_fic_segundo_apellido', function () {
