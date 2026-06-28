@@ -1,0 +1,77 @@
+CRITICAL - 2023-11-13 15:38:52 --> Invalid file: "secciones/vLogin.php"
+in SYSTEMPATH\Exceptions\FrameworkException.php on line 39.
+ 1 SYSTEMPATH\View\View.php(216): CodeIgniter\Exceptions\FrameworkException::forInvalidFile('secciones/vLogin.php')
+ 2 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('secciones/vLogin', [], true)
+ 3 APPPATH\Views\plantilla\lytLogin.php(3): view('secciones/vLogin')
+ 4 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\plantilla\\lytLogin.php')
+ 5 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 6 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('plantilla/lytLogin', [], true)
+ 7 APPPATH\Controllers\Login.php(33): view('plantilla/lytLogin', [...])
+ 8 APPPATH\Controllers\Login.php(48): App\Controllers\Login->_renderView([...])
+ 9 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Login->index()
+10 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Login))
+11 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+12 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-13 15:39:08 --> Invalid file: "secciones/vLogin.php"
+in SYSTEMPATH\Exceptions\FrameworkException.php on line 39.
+ 1 SYSTEMPATH\View\View.php(216): CodeIgniter\Exceptions\FrameworkException::forInvalidFile('secciones/vLogin.php')
+ 2 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('secciones/vLogin', [], true)
+ 3 APPPATH\Views\plantilla\lytLogin.php(3): view('secciones/vLogin')
+ 4 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\plantilla\\lytLogin.php')
+ 5 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 6 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('plantilla/lytLogin', [], true)
+ 7 APPPATH\Controllers\Login.php(33): view('plantilla/lytLogin', [...])
+ 8 APPPATH\Controllers\Login.php(48): App\Controllers\Login->_renderView([...])
+ 9 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Login->index()
+10 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Login))
+11 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+12 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-13 15:40:53 --> Invalid file: "secciones/vLogin.php"
+in SYSTEMPATH\Exceptions\FrameworkException.php on line 39.
+ 1 SYSTEMPATH\View\View.php(216): CodeIgniter\Exceptions\FrameworkException::forInvalidFile('secciones/vLogin.php')
+ 2 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('secciones/vLogin', [], true)
+ 3 APPPATH\Views\plantilla\lytLogin.php(3): view('secciones/vLogin')
+ 4 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\plantilla\\lytLogin.php')
+ 5 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 6 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('plantilla/lytLogin', [], true)
+ 7 APPPATH\Controllers\Login.php(33): view('plantilla/lytLogin', [...])
+ 8 APPPATH\Controllers\Login.php(48): App\Controllers\Login->_renderView([...])
+ 9 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Login->index()
+10 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Login))
+11 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+12 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-13 15:42:19 --> Invalid file: "secciones/vLogin.php"
+in SYSTEMPATH\Exceptions\FrameworkException.php on line 39.
+ 1 SYSTEMPATH\View\View.php(216): CodeIgniter\Exceptions\FrameworkException::forInvalidFile('secciones/vLogin.php')
+ 2 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('secciones/vLogin', [], true)
+ 3 APPPATH\Views\plantilla\lytLogin.php(3): view('secciones/vLogin')
+ 4 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\plantilla\\lytLogin.php')
+ 5 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 6 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('plantilla/lytLogin', [], true)
+ 7 APPPATH\Controllers\Login.php(33): view('plantilla/lytLogin', [...])
+ 8 APPPATH\Controllers\Login.php(48): App\Controllers\Login->_renderView([...])
+ 9 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Login->index()
+10 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Login))
+11 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+12 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-13 15:42:57 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+CRITICAL - 2023-11-13 15:42:57 --> Invalid file: "secciones/vLogin.php"
+in SYSTEMPATH\Exceptions\FrameworkException.php on line 39.
+ 1 SYSTEMPATH\View\View.php(216): CodeIgniter\Exceptions\FrameworkException::forInvalidFile('secciones/vLogin.php')
+ 2 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('secciones/vLogin', [], true)
+ 3 APPPATH\Views\plantilla\lytLogin.php(3): view('secciones/vLogin')
+ 4 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\plantilla\\lytLogin.php')
+ 5 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 6 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('plantilla/lytLogin', [], true)
+ 7 APPPATH\Controllers\Login.php(33): view('plantilla/lytLogin', [...])
+ 8 APPPATH\Controllers\Login.php(48): App\Controllers\Login->_renderView([...])
+ 9 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Login->index()
+10 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Login))
+11 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+12 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-13 15:43:47 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-13 15:47:16 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-13 15:47:20 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-13 15:47:32 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-13 15:47:42 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-13 15:48:44 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
