@@ -41,7 +41,9 @@ class Services extends BaseService
 
         $sslVerify = env('BACK_STI_SSL_VERIFY');
         if ($sslVerify !== null && ! array_key_exists('verify', $options)) {
-            $options['verify'] = filter_var($sslVerify, FILTER_VALIDATE_BOOLEAN);
+            $options['verify'] = ENVIRONMENT === 'production'
+                ? true
+                : filter_var($sslVerify, FILTER_VALIDATE_BOOLEAN);
         }
 
         $config ??= config(App::class);
