@@ -461,7 +461,7 @@
             </div>
         </div>
 
-        <div id="login_google_access" class="login-google-access">
+ <!--        <div id="login_google_access" class="login-google-access">
             <div class="form-group mb-0 row" id="btn_login">
                 <div class="col-12 mt-2">
                     <button class="btn btn-gradient-primary btn-round btn-block waves-effect waves-light"
@@ -477,7 +477,7 @@
                     </button>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </div>
 
