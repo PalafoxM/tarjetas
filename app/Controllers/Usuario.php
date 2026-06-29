@@ -52,21 +52,21 @@ class Usuario extends BaseController
     {
         $session = \Config\Services::session();
         $actorContext = $this->getActorContext();
-        $scriptName = $this->saveUserScript ?: 'Usuario.saveCajero';
-        $this->saveUserScript = 'Usuario.saveCajero';
         if (empty($actorContext['can_access_user_catalog'])) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
         $data = array();
-        $data['unidad'] = $this->globals->getTabla(["tabla" => "cat_clues", "select" => "id_clues, NOMBRE_UNIDAD", "where" => ["visible" => 1], 'limit' => 10]);
-        $data['perfiles'] = $this->globals->getTabla(["tabla" => "seg_perfiles", "where" => ["visible" => 1]]);
-        $data['cat_sexo'] = $this->globals->getTabla(["tabla" => "cat_sexo", "where" => ["visible" => 1]]);
-        $data['scripts'] = array('principal', 'inicio');
-        $data['edita'] = 0;
-        $data['nombre_completo'] = $session->nombre_completo;
-        $data['contentView'] = 'secciones/vUsuarios';
+        $data['scripts'] = array('principal', 'agregar');
+        $data['contextoUsuario'] = $actorContext;
+        $data['catalogRoleOptions'] = $this->resolver->getAllowedRoleOptions($actorContext);
+        $data['contentView'] = 'secciones/vUsuario';
         $this->_renderView($data);
+    }
+
+    public function listaUsuario()
+    {
+        return $this->index();
     }
 
     public function getUsuarios()
@@ -217,14 +217,14 @@ class Usuario extends BaseController
             if ($idProveedor <= 0) {
                 return $this->respond([
                     'error' => true,
-                    'respuesta' => 'Debes seleccionar un proveedor valido del catalogo.',
+                    'respuesta' => 'Debes seleccionar un proveedor válido del catálogo.',
                 ]);
             }
 
             if ($idUsuario === 0 && trim((string) ($data['contrasenia'] ?? '')) === '') {
                 return $this->respond([
                     'error' => true,
-                    'respuesta' => 'La contrasena es requerida para un proveedor nuevo',
+                    'respuesta' => 'La contraseña es requerida para un proveedor nuevo',
                 ]);
             }
 
@@ -371,13 +371,13 @@ class Usuario extends BaseController
         if ($idUsuario === 0 && trim((string) ($data['contrasenia'] ?? '')) === '') {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'La contrasena es requerida para un usuario nuevo',
+                'respuesta' => 'La contraseña es requerida para un usuario nuevo',
             ]);
         }
 
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
-        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
+        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual  []);
         $dataInsert = [
             'usuario' => trim((string) ($data['usuario'] ?? '')),
             'nombre' => trim((string) ($data['nombre'] ?? '')),
@@ -393,6 +393,7 @@ class Usuario extends BaseController
             'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
             'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
             'monto_deposito' => $this->nullableNumeric($data['monto_deposito'] ?? null),
+            'monto_deposito_hotel' => $this->nullableNumeric($data['monto_deposito_hotel'] ?? null),
             'tiene_alimentos' => $this->nullableBoolInt($data['tiene_alimentos'] ?? null),
             'tiene_hospedaje' => $this->nullableBoolInt($data['tiene_hospedaje'] ?? null),
             'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
@@ -424,18 +425,36 @@ class Usuario extends BaseController
             unset($dataInsert['activo_qr']);
         }
 
-        $response = $this->globals->saveTabla(
-            $dataInsert,
-            [
-                'tabla' => 'usuario',
-                'editar' => $idUsuario > 0 ? 'true' : 'false',
-                'idEditar' => $idUsuario > 0 ? ['id_usuario' => $idUsuario] : null,
-            ],
-            [
-                'id_user' => (int) $session->get('id_usuario'),
-                'script' => $scriptName,
-            ]
-        );
+        if ($idUsuario > 0) {
+            $budgetEditError = $this->validateBudgetImmutableOnEdit($usuarioActual  [], $dataInsert);
+            if ($budgetEditError !== null) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => $budgetEditError,
+                ]);
+            }
+        }
+
+        if ($idUsuario === 0) {
+            $response = $this->saveNewUserWithProgrammedDeposits(
+                $dataInsert,
+                (int) $session->get('id_usuario'),
+                $scriptName
+            );
+        } else {
+            $response = $this->globals->saveTabla(
+                $dataInsert,
+                [
+                    'tabla' => 'usuario',
+                    'editar' => 'true',
+                    'idEditar' => ['id_usuario' => $idUsuario],
+                ],
+                [
+                    'id_user' => (int) $session->get('id_usuario'),
+                    'script' => $scriptName,
+                ]
+            );
+        }
 
         if (!$response->error) {
             $targetUserId = $idUsuario;
@@ -549,7 +568,7 @@ class Usuario extends BaseController
         if (!$actorContext['can_access_user_catalog']) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
-                'respuesta' => 'No tienes permisos para consultar catalogos.',
+                'respuesta' => 'No tienes permisos para consultar catálogos.',
             ]);
         }
 
@@ -1179,6 +1198,260 @@ class Usuario extends BaseController
         return (int) ($result->data[0]->id_usuario ?? 0);
     }
 
+    private function saveNewUserWithProgrammedDeposits(array $dataInsert, int $actorUserId, string $scriptName): object
+    {
+        $response = new \stdClass();
+        $response->error = true;
+        $response->respuesta = 'Error | No fue posible guardar el usuario';
+
+        $this->normalizeProgrammedDepositsForUser($dataInsert);
+
+        $allocations = $this->buildPartidaDepositAllocations($dataInsert);
+        if (!empty($allocations['error'])) {
+            $response->respuesta = $allocations['respuesta'];
+            return $response;
+        }
+
+        $allocationRows = $allocations['data'] ?? [];
+        $primaryPartida = $this->resolvePrimaryPartidaForUser($dataInsert, $allocationRows);
+        $dataInsert['id_partida'] = $primaryPartida;
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            foreach ($allocationRows as $allocation) {
+                $partida = $db->query(
+                    'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus
+                     FROM cat_partida
+                     WHERE id_partida =  AND visible = 1
+                     FOR UPDATE',
+                    [(int) $allocation['id_partida']]
+                )->getRowArray();
+
+                if (empty($partida)) {
+                    throw new \RuntimeException('La partida presupuestal no existe o no está visible: ' . $allocation['id_partida']);
+                }
+
+                $monto = round((float) $allocation['monto'], 2);
+                $disponible = round((float) ($partida['monto_disponible'] ?? 0), 2);
+                if ($monto > $disponible) {
+                    throw new \RuntimeException(
+                        'Presupuesto insuficiente en partida ' . ($partida['partida'] ?? $allocation['id_partida'])
+                        . '. Disponible: $' . number_format($disponible, 2)
+                        . ', requerido: $' . number_format($monto, 2)
+                    );
+                }
+
+                $nuevoEjercido = round((float) ($partida['monto_ejercido'] ?? 0) + $monto, 2);
+                $nuevoDisponible = round($disponible - $monto, 2);
+                $presupuesto = round((float) ($partida['monto_presupuesto'] ?? 0), 2);
+                $porcentaje = $presupuesto > 0 ? round(($nuevoEjercido / $presupuesto) * 100, 2) : 0.0;
+
+                $db->table('cat_partida')
+                    ->where('id_partida', (int) $allocation['id_partida'])
+                    ->update([
+                        'monto_ejercido' => number_format($nuevoEjercido, 2, '.', ''),
+                        'monto_disponible' => number_format($nuevoDisponible, 2, '.', ''),
+                        'porcentaje_ejercido' => number_format($porcentaje, 2, '.', ''),
+                        'estatus' => $nuevoDisponible <= 0 ? 'agotada' : ($partida['estatus'] === 'agotada' ? 'activa' : $partida['estatus']),
+                        'fec_act' => date('Y-m-d H:i:s'),
+                        'usu_act' => $actorUserId,
+                    ]);
+            }
+
+            $db->table('usuario')->insert($dataInsert);
+            $idUsuario = (int) $db->insertID();
+            if ($idUsuario <= 0) {
+                throw new \RuntimeException('No fue posible resolver el usuario creado.');
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Error de transaccion al guardar usuario y presupuesto.');
+            }
+
+            $db->transCommit();
+
+            $response->error = false;
+            $response->respuesta = 'Registro guardado correctamente';
+            $response->idRegistro = $idUsuario;
+            $response->depositos_programados = $allocationRows;
+            $response->script = $scriptName;
+            return $response;
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            log_message('error', 'Usuario.saveNewUserWithProgrammedDeposits: ' . $e->getMessage());
+            $response->respuesta = 'Error | ' . $e->getMessage();
+            return $response;
+        }
+    }
+
+    private function normalizeProgrammedDepositsForUser(array &$dataInsert): void
+    {
+        if ((int) ($dataInsert['tiene_hospedaje'] ?? 0) !== 1) {
+            return;
+        }
+
+        $montoHospedaje = $this->resolveHospedajeDepositAmount($dataInsert);
+        if ($montoHospedaje <= 0) {
+            return;
+        }
+
+        if (round((float) ($dataInsert['monto_deposito_hotel'] ?? 0), 2) <= 0) {
+            $dataInsert['monto_deposito_hotel'] = $montoHospedaje;
+        }
+
+        if (round((float) ($dataInsert['tarifa_total'] ?? 0), 2) <= 0) {
+            $dataInsert['tarifa_total'] = $montoHospedaje;
+        }
+    }
+
+    private function buildPartidaDepositAllocations(array $dataInsert): array
+    {
+        $context = $this->resolver->resolve($dataInsert);
+        if ((int) ($context['id_tipo_proveedor'] ?? 0) > 0 || in_array((int) ($dataInsert['id_perfil'] ?? 0), [2, 5, 7], true)) {
+            return ['error' => false, 'data' => []];
+        }
+
+        $allocations = [];
+        $montoAlimentos = round((float) ($dataInsert['monto_deposito'] ?? 0), 2);
+        if ((int) ($dataInsert['tiene_alimentos'] ?? 0) === 1 && $montoAlimentos > 0) {
+            $foodPartida = $this->resolveFoodPartidaByContext($context);
+            if ($foodPartida === null) {
+                return [
+                    'error' => true,
+                    'respuesta' => 'No hay partida de alimentos configurada para el grupo del usuario.',
+                ];
+            }
+
+            $allocations[] = [
+                'id_partida' => $foodPartida,
+                'tipo' => 'alimentos',
+                'monto' => $montoAlimentos,
+            ];
+        }
+
+        $montoHospedaje = $this->resolveHospedajeDepositAmount($dataInsert);
+        if ((int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1 && $montoHospedaje > 0) {
+            $allocations[] = [
+                'id_partida' => 2,
+                'tipo' => 'hospedaje',
+                'monto' => $montoHospedaje,
+            ];
+        }
+
+        return [
+            'error' => false,
+            'data' => $this->mergePartidaAllocations($allocations),
+        ];
+    }
+
+    private function resolveFoodPartidaByContext(array $context): ?int
+    {
+        $group = (string) ($context['active_group'] ?? '');
+        if (in_array($group, ['secturi', 'secul'], true)) {
+            return 1;
+        }
+        if ($group === 'fic') {
+            return 3;
+        }
+
+        return null;
+    }
+
+    private function resolveHospedajeDepositAmount(array $dataInsert): float
+    {
+        $monto = round((float) ($dataInsert['monto_deposito_hotel'] ?? 0), 2);
+        if ($monto > 0) {
+            return $monto;
+        }
+
+        $tarifaTotal = round((float) ($dataInsert['tarifa_total'] ?? 0), 2);
+        if ($tarifaTotal > 0) {
+            return $tarifaTotal;
+        }
+
+        $tarifaNoche = round((float) ($dataInsert['tarifa_noche'] ?? 0), 2);
+        $noches = max(0, (int) ($dataInsert['noche'] ?? 0));
+        return round($tarifaNoche * $noches, 2);
+    }
+
+    private function mergePartidaAllocations(array $allocations): array
+    {
+        $merged = [];
+        foreach ($allocations as $allocation) {
+            $idPartida = (int) ($allocation['id_partida'] ?? 0);
+            if (!isset($merged[$idPartida])) {
+                $merged[$idPartida] = [
+                    'id_partida' => $idPartida,
+                    'tipo' => (string) ($allocation['tipo'] ?? ''),
+                    'monto' => 0.0,
+                ];
+            }
+
+            $merged[$idPartida]['monto'] = round($merged[$idPartida]['monto'] + (float) ($allocation['monto'] ?? 0), 2);
+            if (!str_contains($merged[$idPartida]['tipo'], (string) ($allocation['tipo'] ?? ''))) {
+                $merged[$idPartida]['tipo'] = trim($merged[$idPartida]['tipo'] . '+' . (string) ($allocation['tipo'] ?? ''), '+');
+            }
+        }
+
+        return array_values($merged);
+    }
+
+    private function resolvePrimaryPartidaForUser(array $dataInsert, array $allocations): int
+    {
+        if (empty($allocations)) {
+            return 0;
+        }
+
+        $current = (int) ($dataInsert['id_partida'] ?? 0);
+        foreach ($allocations as $allocation) {
+            if ((int) ($allocation['id_partida'] ?? 0) === $current) {
+                return $current;
+            }
+        }
+
+        return (int) ($allocations[0]['id_partida'] ?? 0);
+    }
+
+    private function validateBudgetImmutableOnEdit(array $usuarioActual, array $dataInsert): ?string
+    {
+        $fields = [
+            'id_partida' => 'Partida presupuestal',
+            'monto_deposito' => 'Deposito alimentos',
+            'monto_deposito_hotel' => 'Deposito hospedaje',
+            'tiene_alimentos' => 'Beneficio alimentos',
+            'tiene_hospedaje' => 'Beneficio hospedaje',
+            'tarifa_total' => 'Tarifa total hospedaje',
+            'tarifa_noche' => 'Tarifa por noche',
+            'noche' => 'Noches',
+        ];
+
+        $changed = [];
+        foreach ($fields as $field => $label) {
+            if (!$this->budgetFieldEquals($field, $usuarioActual[$field] ?? null, $dataInsert[$field] ?? null)) {
+                $changed[] = $label;
+            }
+        }
+
+        if (empty($changed)) {
+            return null;
+        }
+
+        return 'Los campos presupuestales de un usuario ya creado no se pueden editar desde este flujo para evitar dobles descuentos en cat_partida. Campos detectados: '
+            . implode(', ', $changed)
+            . '.';
+    }
+
+    private function budgetFieldEquals(string $field, $current, $next): bool
+    {
+        if (in_array($field, ['monto_deposito', 'monto_deposito_hotel', 'tarifa_total', 'tarifa_noche'], true)) {
+            return round((float) ($current ?? 0), 2) === round((float) ($next ?? 0), 2);
+        }
+
+        return (int) ($current ?? 0) === (int) ($next ?? 0);
+    }
+
     private function generateInstitutionalQrForUser(int $idUsuario, string $apiToken, array $personalData = []): ?string
     {
         if ($idUsuario <= 0) {
@@ -1502,8 +1775,3 @@ class Usuario extends BaseController
         return $value === '' ? null : $value;
     }
 }
-
-
-
-
-

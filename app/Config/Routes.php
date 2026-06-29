@@ -8,3 +8,4 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Login::index');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
+

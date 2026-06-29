@@ -65,8 +65,8 @@ class Login extends BaseController {
 
 
           try {
-            // Hacemos la petición POST a Node.js
-            $baseUrl = env('NODE_API_BASE_URL');
+            // Hacemos la peticion POST a backSti.
+            $baseUrl = rtrim((string) env('BACK_STI_API_BASE_URL'), '/') . '/';
             $apiResponse = $client->post($baseUrl.'login', [
                 'json' => ['data'=> $data]
             ]);
@@ -126,8 +126,8 @@ class Login extends BaseController {
             }
         
             } catch (\Exception $e) {
-            log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
-            $response->respuesta = 'Error | Conexión fallida con Node.js';
+            log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
+            $response->respuesta = 'Error | Conexión fallida con backSti';
         }       
         return $this->respond($response);
     }

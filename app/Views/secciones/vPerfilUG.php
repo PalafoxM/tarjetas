@@ -1,9 +1,9 @@
 <?php
 $session = \Config\Services::session();
 $hubTitle = (string) ($hubTitle ?? 'Perfil UG');
-$hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catÃ¡logo UG.');
+$hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al cat?logo UG.');
 $hubMode = (string) ($perfilUgMode ?? 'admin');
-$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'AdministraciÃ³n';
+$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administraci?n';
 $mostrarEdicion = $hubMode === 'admin';
 $mostrarSeguimientoSolicitudes = $hubMode === 'consulta';
 $perfilOptions = is_array($ugSolicitudPerfilOptions ?? null) ? $ugSolicitudPerfilOptions : [];
@@ -45,7 +45,7 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                 <div>
                     <h4 class="mb-1 text-white">Usuarios UG</h4>
-                    <p class="text-muted mb-0">Consulta el catÃ¡logo visible de usuarios UG segÃºn tu perfil.</p>
+                    <p class="text-muted mb-0">Consulta el cat?logo visible de usuarios UG seg?n tu perfil.</p>
                 </div>
                 <?php if ($mostrarEdicion): ?>
                     <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/ug'), 'attr') ?>">

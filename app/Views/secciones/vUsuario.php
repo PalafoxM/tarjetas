@@ -57,6 +57,7 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
     data-id-perfil="<?= esc($session->get('id_perfil'), 'attr') ?>"
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>"
+    data-usuarios-url="<?= esc(base_url('index.php/Usuario/getVistaUsuario'), 'attr') ?>"
     data-alta-url="<?= esc(base_url('index.php/Inicio/AltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
@@ -72,7 +73,7 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
 
     <div class="d-flex flex-wrap gap-2 mb-3">
         <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
-            <i class="mdi mdi-arrow-left me-1"></i> Atras
+            <i class="mdi mdi-arrow-left me-1"></i> Atrás
         </a>
         <?php if (!empty($contextoUsuario['active_group'])): ?>
         <span class="badge bg-info">Grupo: <?= esc((string) ($contextoUsuario['group_label'] ?? '')) ?></span>

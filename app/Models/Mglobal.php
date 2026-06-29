@@ -20,6 +20,12 @@ class Mglobal extends Model {
         $this->session = \Config\Services::session();
     }
 
+    private function getBackStiBaseUrl(): string
+    {
+        $baseUrl = (string) env('BACK_STI_API_BASE_URL');
+        return rtrim($baseUrl, '/') . '/';
+    }
+
     /**
      *   getTabla
      *   Busqueda de información por tabla con las propiedades basicas de una query
@@ -61,8 +67,8 @@ class Mglobal extends Model {
             
         } 
         try {
-            // Hacemos la petición POST a Node.js
-            $baseUrl = env('NODE_API_BASE_URL');
+            // Hacemos la peticion POST a backSti.
+            $baseUrl = $this->getBackStiBaseUrl();
             $apiResponse = $client->post($baseUrl.'getTabla', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token  // Agregar el token al header
@@ -81,8 +87,8 @@ class Mglobal extends Model {
             }
         
             } catch (\Exception $e) {
-            log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
-            $response->respuesta = 'Error | Conexión fallida con Node.js';
+            log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
+            $response->respuesta = 'Error | Conexión fallida con backSti';
         }
         return $response;
     }
@@ -107,8 +113,8 @@ class Mglobal extends Model {
             
         } 
         try {
-            // Realizamos la solicitud POST a Node.js
-            $baseUrl = env('NODE_API_BASE_URL');
+            // Realizamos la solicitud POST a backSti.
+            $baseUrl = $this->getBackStiBaseUrl();
             $apiResponse = $client->post($baseUrl.$tabla , [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token // Agregar el token al header si es necesario
@@ -130,7 +136,7 @@ class Mglobal extends Model {
                 return $response;
             }
         } catch (\Exception $e) {
-            log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
+            log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
         }
         
        return $response;
@@ -157,8 +163,8 @@ class Mglobal extends Model {
         $data = ['categoryId' => 135];
     
         try {
-            // Realizamos la solicitud POST a Node.js
-            $baseUrl = env('NODE_API_BASE_URL');
+            // Realizamos la solicitud POST a backSti.
+            $baseUrl = $this->getBackStiBaseUrl();
             $apiResponse = $client->post($baseUrl.$tabla , [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token // Agregar el token al header si es necesario
@@ -179,7 +185,7 @@ class Mglobal extends Model {
                 return $response;
             }
         } catch (\Exception $e) {
-            log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
+            log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
            
         }
         
@@ -232,8 +238,8 @@ class Mglobal extends Model {
         } 
        
     try {
-        // Hacemos la petición POST a Node.js
-        $baseUrl = env('NODE_API_BASE_URL');
+        // Hacemos la peticion POST a backSti.
+        $baseUrl = $this->getBackStiBaseUrl();
         $apiResponse = $client->post($baseUrl . 'saveTabla', [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token  // Agregar el token al header
@@ -245,7 +251,7 @@ class Mglobal extends Model {
             ]
         ]);
 
-        // Decodificamos la respuesta de Node.js
+        // Decodificamos la respuesta de backSti.
         $result = json_decode($apiResponse->getBody());
       
         if ($result->error === false) {
@@ -260,8 +266,8 @@ class Mglobal extends Model {
         }
 
     } catch (\Exception $e) {
-        log_message('error', 'Error al conectar con la API de Node.js: ' . $e->getMessage());
-        $response->respuesta = 'Error | Conexión fallida con Node.js';
+        log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
+        $response->respuesta = 'Error | Conexión fallida con backSti';
     }
 
     return $response;

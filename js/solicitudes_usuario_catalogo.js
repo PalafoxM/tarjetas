@@ -112,7 +112,7 @@ var solicitudesUsuarioCatalogo = (function () {
         $.getJSON(state.detailUrl, { id_solicitud_usuario: idSolicitud })
             .done(function (response) {
                 if (!response || response.ok !== true || !response.data) {
-                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
+                    Swal.fire('Atenci?n', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
                     return;
                 }
                 if (typeof callback === 'function') callback(response.data);

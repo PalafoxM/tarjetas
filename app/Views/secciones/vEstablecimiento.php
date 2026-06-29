@@ -11,7 +11,7 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
     <div class="row mb-3 g-3 align-items-center">
         <div class="col-lg-8">
             <h3 class="mb-1 text-white">Establecimientos FIC</h3>
-            <p class="text-muted mb-0">Homologacion institucional para dar de alta proveedores y consultar los establecimientos relacionados dentro de este workspace.</p>
+            <p class="text-muted mb-0">Homologación institucional para dar de alta proveedores y consultar los establecimientos relacionados dentro de este workspace.</p>
         </div>
         <div class="col-lg-4">
             <div class="d-flex flex-wrap justify-content-lg-end gap-2">

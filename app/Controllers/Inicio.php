@@ -163,7 +163,7 @@ class Inicio extends BaseController {
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando la vista de partidas sin cambiar la sesiÃƒÂ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Est?s consultando la vista de partidas sin cambiar la sesi?n autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -181,7 +181,7 @@ class Inicio extends BaseController {
         $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando el historial global de pagos sin cambiar la sesiÃƒÂ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Est?s consultando el historial global de pagos sin cambiar la sesi?n autenticada.';
         $data['contentView'] = 'secciones/vPagosFic';
         $this->_renderView($data);
     }
@@ -375,6 +375,11 @@ class Inicio extends BaseController {
                 ->groupEnd();
         }
 
+        $estatus = trim((string) ($this->request->getGet('estatus') ?? ''));
+        if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
+            $builder->where('su.estatus', $estatus);
+        }
+
         $total = (clone $builder)->countAllResults();
         $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
         $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
@@ -414,7 +419,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no vÃƒÂ¡lida.',
+                'message' => 'Solicitud no v?lida.',
             ]);
         }
 
@@ -442,7 +447,7 @@ class Inicio extends BaseController {
         if (empty($row)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'ok' => false,
-                'message' => 'No se encontrÃƒÂ³ la solicitud.',
+                'message' => 'No se encontr? la solicitud.',
             ]);
         }
 
@@ -472,7 +477,7 @@ class Inicio extends BaseController {
         if ($this->request->getMethod() !== 'post') {
             return $this->response->setStatusCode(405)->setJSON([
                 'ok' => false,
-                'message' => 'MÃƒÂ©todo no permitido.',
+                'message' => 'M?todo no permitido.',
             ]);
         }
         $idClave = (int) ($this->request->getPost('id_clave') ?? 0);
@@ -529,7 +534,7 @@ class Inicio extends BaseController {
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible resolver el establecimiento de sesiÃƒÂ³n.',
+                'message' => 'No fue posible resolver el establecimiento de sesi?n.',
             ]);
         }
 
@@ -655,7 +660,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no vÃƒÂ¡lida.',
+                'message' => 'Solicitud no v?lida.',
             ]);
         }
 
@@ -753,7 +758,7 @@ class Inicio extends BaseController {
         ]);
 
         $client = \Config\Services::curlrequest();
-        $baseUrl = rtrim((string) env('NODE_API_BASE_URL'), '/');
+        $baseUrl = rtrim((string) env('BACK_STI_API_BASE_URL'), '/');
         $urls = [
             $baseUrl . '/api/partidas-fic/seed',
             $baseUrl . '/partidas-fic/seed',
@@ -806,7 +811,7 @@ class Inicio extends BaseController {
                     ];
                 }
             } catch (\Throwable $e) {
-                log_message('error', 'No fue posible consultar el seed de partidas en Node (' . $url . '): ' . $e->getMessage());
+                log_message('error', 'No fue posible consultar el seed de partidas en backSti (' . $url . '): ' . $e->getMessage());
             }
         }
 
@@ -1385,7 +1390,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(401)->setJSON([
                 'ok' => false,
                 'establecimientos' => [],
-                'message' => 'Sesion invalida.',
+                'message' => 'Sesión inválida.',
             ]);
         }
 
@@ -1510,7 +1515,7 @@ class Inicio extends BaseController {
         } elseif ($idTipoEstablecimiento === 2) {
             $idPerfilSolicitado = 7;
             $tipoSolicitud = 'alta_recepcion';
-            $tipoUsuarioLabel = 'RECEPCIÃƒâ€œN';
+            $tipoUsuarioLabel = 'RECEPCI?N';
         }
 
         if ($idPerfilSolicitado <= 0) {
@@ -1605,8 +1610,15 @@ class Inicio extends BaseController {
         $contextoUsuario = $resolver->resolve($session->get());
 
         $data = [];
-        $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_operativo'];
+        $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_operativo', 'solicitudes_usuario_fic_panel'];
         $data['contextoUsuario'] = $contextoUsuario;
+        $data['ficSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil');
+        $data['ficSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil');
+        $data['ficSolicitudCancelarUrl'] = base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil');
+        $data['operativoSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioOperativo');
+        $data['operativoSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioOperativo');
+        $data['operativoSolicitudAprobarUrl'] = base_url('index.php/Inicio/aprobarSolicitudUsuarioOperativo');
+        $data['operativoSolicitudRechazarUrl'] = base_url('index.php/Inicio/rechazarSolicitudUsuarioOperativo');
         $data['contentView'] = 'secciones/vSolicitudesUsuarioFic';
         $this->_renderView($data);
     }
@@ -1660,7 +1672,7 @@ class Inicio extends BaseController {
             return [
                 'id_perfil_solicitado' => 7,
                 'tipo_solicitud' => 'alta_recepcion',
-                'tipo_usuario_solicitado' => 'RECEPCIÃƒâ€œN',
+                'tipo_usuario_solicitado' => 'RECEPCI?N',
             ];
         }
 
@@ -1820,7 +1832,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Solicitud no vÃƒÂ¡lida.',
+                'message' => 'Solicitud no v?lida.',
             ]);
         }
 
@@ -1834,7 +1846,7 @@ class Inicio extends BaseController {
         if (empty($row)) {
             return $this->response->setStatusCode(404)->setJSON([
                 'ok' => false,
-                'message' => 'No se encontrÃƒÂ³ la solicitud.',
+                'message' => 'No se encontr? la solicitud.',
             ]);
         }
 
@@ -1866,7 +1878,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseÃƒÂ±a.',
+                'message' => 'Completa usuario y contrase?a.',
             ]);
         }
 
@@ -1913,7 +1925,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'La solicitud ya no estÃƒÂ¡ pendiente.',
+                'message' => 'La solicitud ya no est? pendiente.',
             ]);
         }
 
@@ -2044,7 +2056,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobaciÃƒÂ³n.',
+                'message' => 'No fue posible finalizar la aprobaci?n.',
             ]);
         }
 
@@ -2100,7 +2112,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'La solicitud ya no estÃƒÂ¡ pendiente.',
+                'message' => 'La solicitud ya no est? pendiente.',
             ]);
         }
 
@@ -2324,8 +2336,8 @@ class Inicio extends BaseController {
         $data[$cfg['mode_key']] = $modo === 'consulta' ? 'consulta' : 'admin';
         $data['hubTitle'] = 'Perfil ' . $cfg['label'];
         $data['hubSubtitle'] = $modo === 'consulta'
-            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catÃ¡logo ' . $cfg['label'] . '.'
-            : 'Panel operativo para solicitar folios del catÃ¡logo ' . $cfg['label'] . '.';
+            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del cat?logo ' . $cfg['label'] . '.'
+            : 'Panel operativo para solicitar folios del cat?logo ' . $cfg['label'] . '.';
         $data[$cfg['can_create_key']] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
         $data[$cfg['perfil_options_key']] = array_map(static function (array $row) use ($cfg): array {
             return [
@@ -2396,7 +2408,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'Cat?logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2452,7 +2464,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Cat?logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2460,7 +2472,7 @@ class Inicio extends BaseController {
 
         $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         if ($idSolicitud <= 0) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃ¡lida.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no v?lida.']);
         }
 
         $db = ConfigDatabase::connect();
@@ -2475,7 +2487,7 @@ class Inicio extends BaseController {
             ->getRowArray();
 
         if (empty($row)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontrÃ³ la solicitud.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontr? la solicitud.']);
         }
 
         return $this->response->setJSON(['ok' => true, 'data' => $this->mapSolicitudUsuarioCatalogoPerfilRow($row, $grupo)]);
@@ -2494,13 +2506,13 @@ class Inicio extends BaseController {
         $usuario = '';
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Cat?logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catÃ¡logo puede enviar solicitudes.']);
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del cat?logo puede enviar solicitudes.']);
         }
         if ($this->request->getMethod() !== 'post') {
-            return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'MÃ©todo no permitido.']);
+            return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'M?todo no permitido.']);
         }
 
         $idPerfilSolicitado = (int) ($this->request->getPost('id_perfil_solicitado') ?? 0);
@@ -2582,8 +2594,7 @@ class Inicio extends BaseController {
             $detalleSolicitud[] = 'Observaciones:';
             $detalleSolicitud[] = $observaciones;
         }
-        $comentarioSolicitud = !empty($detalleSolicitud) ? implode("
-", $detalleSolicitud) : null;
+        $comentarioSolicitud = !empty($detalleSolicitud) ? implode("\n", $detalleSolicitud) : null;
         $fechaAhora = date('Y-m-d H:i:s');
         $insertOk = $db->table('solicitud_usuario')->insert([
             'tipo_solicitud' => $cfg['tipo_solicitud'],
@@ -2624,7 +2635,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'CatÃ¡logo no vÃ¡lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Cat?logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para cancelar solicitudes.']);
@@ -2632,7 +2643,7 @@ class Inicio extends BaseController {
 
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
         if ($idSolicitud <= 0) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃ¡lida.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no v?lida.']);
         }
 
         $db = ConfigDatabase::connect();
@@ -2734,4 +2745,3 @@ class Inicio extends BaseController {
     }
 
 }
-
