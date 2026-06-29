@@ -22,7 +22,7 @@ class Mglobal extends Model {
 
     private function getBackStiBaseUrl(): string
     {
-        $baseUrl = (string) env('BACK_STI_API_BASE_URL');
+        $baseUrl = (string) env('NODE_API_BASE_URL');
         return rtrim($baseUrl, '/') . '/';
     }
 

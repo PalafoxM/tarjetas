@@ -43,7 +43,7 @@ defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database 
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
 // URL base automática con fallback estable para entornos locales.
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+/* $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
 $projectPath = rtrim(str_replace('/index.php', '', dirname($scriptName)), '/');
@@ -55,7 +55,10 @@ if ($projectPath === '' || $projectPath === '.' || $projectPath === DIRECTORY_SE
 }
 
 $baseUrl = $scheme . $host . ($projectPath !== '' ? '/' . ltrim($projectPath, '/') . '/' : '/');
-defined('BASE') || define('BASE', $baseUrl);
+defined('BASE') || define('BASE', $baseUrl); */
+
+$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https://'.$_SERVER['HTTP_HOST'] : 'http://'.$_SERVER['HTTP_HOST'];
+defined('BASE') || define('BASE', $protocol.'/tarjetas');
 /**
  * @deprecated Use \CodeIgniter\Events\Events::PRIORITY_LOW instead.
  */

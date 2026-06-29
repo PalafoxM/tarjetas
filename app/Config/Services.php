@@ -2,6 +2,10 @@
 
 namespace Config;
 
+use CodeIgniter\HTTP\CURLRequest;
+use CodeIgniter\HTTP\Response;
+use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\HTTP\URI;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -29,4 +33,25 @@ class Services extends BaseService
      *     return new \CodeIgniter\Example();
      * }
      */
+    public static function curlrequest(array $options = [], ?ResponseInterface $response = null, ?App $config = null, bool $getShared = true)
+    {
+        if ($getShared === true) {
+            return static::getSharedInstance('curlrequest', $options, $response, $config);
+        }
+
+        $sslVerify = env('BACK_STI_SSL_VERIFY');
+        if ($sslVerify !== null && ! array_key_exists('verify', $options)) {
+            $options['verify'] = filter_var($sslVerify, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $config ??= config(App::class);
+        $response ??= new Response($config);
+
+        return new CURLRequest(
+            $config,
+            new URI($options['base_uri'] ?? null),
+            $response,
+            $options
+        );
+    }
 }

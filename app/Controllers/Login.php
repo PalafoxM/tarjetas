@@ -67,14 +67,18 @@ class Login extends BaseController {
             // Hacemos la peticion POST a backSti.
             $baseUrl = env('BACK_STI_API_BASE_URL') ?: env('NODE_API_BASE_URL');
             $baseUrl = rtrim((string) $baseUrl, '/') . '/';
+           
 
             if ($baseUrl === '/') {
                 throw new \RuntimeException('No está configurada la URL base de la API.');
             }
-
+        
             $apiResponse = $client->post($baseUrl . 'login', [
                 'json' => ['data'=> $data]
             ]);
+          
+            
+           
     
             $result = json_decode($apiResponse->getBody());
 
