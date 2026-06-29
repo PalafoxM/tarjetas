@@ -44,7 +44,7 @@ defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest au
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
 //Para detectar automaticamente la URL
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https://'.$_SERVER['HTTP_HOST'] : 'http://'.$_SERVER['HTTP_HOST'];
-defined('BASE') || define('BASE', $protocol.'/tarjetas');
+defined('BASE') || define('BASE', $protocol.'');
 /**
  * @deprecated Use \CodeIgniter\Events\Events::PRIORITY_LOW instead.
  */

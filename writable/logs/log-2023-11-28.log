@@ -1,0 +1,704 @@
+INFO - 2023-11-28 10:07:09 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-28 10:07:16 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 10:07:17 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Login.php(52): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Login->validar_usuario()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Login))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 10:07:17 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+INFO - 2023-11-28 10:07:19 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 10:07:19 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Inicio.php(51): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Inicio->getPrincipal()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Inicio))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 10:07:30 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 10:07:30 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 10:08:54 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 10:08:54 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 11:17:54 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 11:17:54 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 11:18:51 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 11:18:51 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:50:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:50:57 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 12:50:57 --> Undefined array key "asunto"
+in APPPATH\Controllers\Agregar.php on line 210.
+ 1 APPPATH\Controllers\Agregar.php(210): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key "asunto"', 'C:\\wamp\\www\\turnos2\\app\\Controllers\\Agregar.php', 210)
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:51:05 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:51:05 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 12:51:05 --> Undefined array key "asunto"
+in APPPATH\Controllers\Agregar.php on line 210.
+ 1 APPPATH\Controllers\Agregar.php(210): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key "asunto"', 'C:\\wamp\\www\\turnos2\\app\\Controllers\\Agregar.php', 210)
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:52:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:52:27 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:52:59 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:52:59 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:53:11 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:53:11 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:53:18 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:53:18 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 12:53:18 --> Undefined array key "cpp"
+in APPPATH\Controllers\Agregar.php on line 228.
+ 1 APPPATH\Controllers\Agregar.php(228): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key "cpp"', 'C:\\wamp\\www\\turnos2\\app\\Controllers\\Agregar.php', 228)
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 12:54:13 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 12:54:13 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:07:09 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:07:09 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:08:33 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:08:33 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:10:11 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:10:11 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:11:38 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:11:38 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:12:49 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:12:49 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:13:41 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:13:41 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:15:28 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:15:28 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:37:20 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:37:20 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:38:44 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:38:44 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 13:38:44 --> Undefined array key "dependencia"
+in APPPATH\Controllers\Agregar.php on line 222.
+ 1 APPPATH\Controllers\Agregar.php(222): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key "dependencia"', 'C:\\wamp\\www\\turnos2\\app\\Controllers\\Agregar.php', 222)
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:39:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:39:56 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:40:59 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:40:59 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 13:46:15 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 13:46:15 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:01:22 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:01:22 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:02:54 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:02:54 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:03:34 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:03:34 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:52:07 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:52:07 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:52:30 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:52:30 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:53:16 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:53:16 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:53:37 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:53:37 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:54:14 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:54:14 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:55:21 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:55:21 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:57:08 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:57:08 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 14:58:01 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 14:58:01 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:00:16 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:00:16 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:02:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:02:31 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:03:12 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:03:12 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:03:49 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:03:49 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:04:08 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:04:08 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:04:34 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:04:34 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:10:48 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:10:48 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:11:09 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:11:09 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:16:54 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:16:54 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:17:08 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:17:08 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:20:33 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:20:33 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:21:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:21:27 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:21:39 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:21:39 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:21:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:21:56 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:22:12 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:22:12 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:23:31 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:23:31 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:23:57 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:23:57 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:24:25 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:24:25 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:24:39 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:24:39 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:24:58 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:24:58 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:25:15 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:25:15 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:25:37 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:25:37 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:25:49 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:25:49 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:26:19 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:26:19 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:26:36 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:26:36 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:27:17 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:27:17 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:27:54 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:27:54 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:28:48 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:28:48 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 16:28:48 --> Undefined array key "nombre_turno"
+in APPPATH\Controllers\Agregar.php on line 221.
+ 1 APPPATH\Controllers\Agregar.php(221): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key "nombre_turno"', 'C:\\wamp\\www\\turnos2\\app\\Controllers\\Agregar.php', 221)
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:30:37 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:30:37 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:31:52 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:31:52 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:33:56 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:33:56 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:35:47 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:35:47 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:36:45 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:36:45 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:37:07 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:37:07 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:37:18 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:37:18 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:37:44 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:37:44 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:38:01 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:38:01 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:38:16 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:38:16 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:40:25 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:40:25 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:40:49 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:40:49 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:41:06 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:41:06 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:41:19 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:41:19 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:41:50 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:41:50 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:43:36 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:43:36 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:44:19 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:44:19 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:44:48 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:44:48 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:45:26 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:45:26 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:46:14 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:46:14 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:51:09 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:51:09 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:52:40 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:52:40 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 16:52:40 --> Undefined variable $fechaActual
+in APPPATH\Views\formularios\vFormAgregar.php on line 126.
+ 1 APPPATH\Views\formularios\vFormAgregar.php(126): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined variable $fechaActual', 'C:\\wamp\\www\\turnos2\\app\\Views\\formularios\\vFormAgregar.php', 126)
+ 2 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\formularios\\vFormAgregar.php')
+ 3 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 4 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('formularios/vFormAgregar', [], true)
+ 5 APPPATH\Views\plantilla\lytDefault.php(3): view('formularios/vFormAgregar')
+ 6 SYSTEMPATH\View\View.php(228): include('C:\\wamp\\www\\turnos2\\app\\Views\\plantilla\\lytDefault.php')
+ 7 SYSTEMPATH\View\View.php(231): CodeIgniter\View\View->CodeIgniter\View\{closure}()
+ 8 SYSTEMPATH\Common.php(1190): CodeIgniter\View\View->render('plantilla/lytDefault', [], true)
+ 9 APPPATH\Controllers\Agregar.php(34): view('plantilla/lytDefault', [...])
+10 APPPATH\Controllers\Agregar.php(178): App\Controllers\Agregar->_renderView([...])
+11 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+12 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+13 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+14 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:52:52 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:52:52 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:53:27 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:53:27 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+CRITICAL - 2023-11-28 16:53:27 --> Undefined array key "nombre_turno"
+in APPPATH\Controllers\Agregar.php on line 221.
+ 1 APPPATH\Controllers\Agregar.php(221): CodeIgniter\Debug\Exceptions->errorHandler(2, 'Undefined array key "nombre_turno"', 'C:\\wamp\\www\\turnos2\\app\\Controllers\\Agregar.php', 221)
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:53:43 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:53:43 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:54:59 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:54:59 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(190): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->guardaTurno()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:56:46 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:56:46 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
+INFO - 2023-11-28 16:58:16 --> Session: Class initialized using 'CodeIgniter\Session\Handlers\FileHandler' driver.
+WARNING - 2023-11-28 16:58:16 --> [DEPRECATED] Creation of dynamic property App\Models\Mglobal::$session is deprecated in APPPATH\Models\Mglobal.php on line 18.
+ 1 APPPATH\Controllers\Agregar.php(132): App\Models\Mglobal->__construct()
+ 2 SYSTEMPATH\CodeIgniter.php(942): App\Controllers\Agregar->index()
+ 3 SYSTEMPATH\CodeIgniter.php(502): CodeIgniter\CodeIgniter->runController(Object(App\Controllers\Agregar))
+ 4 SYSTEMPATH\CodeIgniter.php(361): CodeIgniter\CodeIgniter->handleRequest(null, Object(Config\Cache), false)
+ 5 FCPATH\index.php(79): CodeIgniter\CodeIgniter->run()
