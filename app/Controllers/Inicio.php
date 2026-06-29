@@ -170,9 +170,11 @@ class Inicio extends BaseController {
 
     public function PagosFic()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $session = \Config\Services::session();
 
-        if (empty($tiUsuario)) {
+        $tiUsuario = $session->id_perfil;
+
+        if ($tiUsuario != 1) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 

@@ -14,10 +14,10 @@ $statusBadge = static function (string $estatus): string {
     if (in_array($valor, ['pendiente', 'solicitado', 'en_revision'], true)) {
         return '<span class="badge bg-warning text-dark">Pendiente</span>';
     }
-    if (in_array($valor, ['aprobada', 'autorizada', 'pagada', 'finalizada'], true)) {
-        return '<span class="badge bg-success">Aprobada</span>';
+    if (in_array($valor, ['aprobada', 'aprobado', 'aceptada', 'aceptado', 'aceptados', 'autorizada', 'autorizado', 'pagada', 'pagado', 'finalizada', 'finalizado'], true)) {
+        return '<span class="badge bg-success">Aprobada </span>';
     }
-    if (in_array($valor, ['rechazada', 'cancelada'], true)) {
+    if (in_array($valor, ['rechazada', 'rechazado', 'rechazados', 'cancelada', 'cancelado'], true)) {
         return '<span class="badge bg-danger">Rechazada</span>';
     }
     return '<span class="badge bg-secondary">' . esc($estatus) . '</span>';
@@ -55,6 +55,60 @@ $formatDate = static function (?string $value): string {
 
     .pagos-fic-table-wrap {
         overflow-x: auto;
+    }
+
+    .pagos-fic-card .bootstrap-table .fixed-table-toolbar {
+        margin-bottom: 1rem;
+    }
+
+    .pagos-fic-card .bootstrap-table .fixed-table-toolbar .search {
+        width: min(100%, 360px);
+    }
+
+    .pagos-fic-card .bootstrap-table .fixed-table-toolbar .search input {
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, .34);
+        background: rgba(15, 23, 42, .92);
+        color: #f8fafc;
+    }
+
+    .pagos-fic-card .bootstrap-table .fixed-table-toolbar .search input::placeholder {
+        color: #94a3b8;
+    }
+
+    .pagos-fic-card .fixed-table-pagination {
+        color: #cbd5e1;
+        padding-top: 1rem;
+    }
+
+    .pagos-fic-card .fixed-table-pagination .btn,
+    .pagos-fic-card .fixed-table-pagination .dropdown-menu {
+        background: #111827;
+        border-color: rgba(148, 163, 184, .28);
+        color: #f8fafc;
+    }
+
+    .pagos-fic-card .fixed-table-pagination .dropdown-item {
+        color: #e2e8f0;
+    }
+
+    .pagos-fic-card .fixed-table-pagination .dropdown-item:hover,
+    .pagos-fic-card .fixed-table-pagination .dropdown-item:focus {
+        background: rgba(59, 130, 246, .22);
+        color: #ffffff;
+    }
+
+    .pagos-fic-card .fixed-table-pagination .page-link {
+        background: #111827;
+        border-color: rgba(148, 163, 184, .28);
+        color: #e2e8f0;
+    }
+
+    .pagos-fic-card .fixed-table-pagination .page-item.active .page-link {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: #ffffff;
     }
 
     .pagos-fic-pill {
@@ -141,18 +195,30 @@ $formatDate = static function (?string $value): string {
         </div>
         <div class="card-body pagos-fic-table-wrap">
             <?php if (!empty($pagos)): ?>
-                <table class="table table-dark table-hover align-middle pagos-fic-table mb-0">
+                <table
+                    id="tabla-pagos-fic"
+                    class="table table-dark table-hover align-middle pagos-fic-table mb-0"
+                    data-toggle="table"
+                    data-search="true"
+                    data-search-highlight="true"
+                    data-pagination="true"
+                    data-page-size="10"
+                    data-page-list="[10, 25, 50, 100, All]"
+                    data-locale="es-MX"
+                    data-pagination-pre-text="Anterior"
+                    data-pagination-next-text="Siguiente"
+                    data-search-align="left">
                     <thead>
                         <tr>
-                            <th>Folio</th>
-                            <th>Proveedor</th>
-                            <th>Establecimiento</th>
-                            <th>Tipo</th>
-                            <th>Monto</th>
-                            <th>Estatus</th>
-                            <th>Fecha registro</th>
-                            <th>Fecha respuesta</th>
-                            <th>Observaciones</th>
+                            <th data-sortable="true">Folio</th>
+                            <th data-sortable="true">Usuario</th>
+                            <th data-sortable="true">Establecimiento</th>
+                            <th data-sortable="true">Tipo</th>
+                            <th data-sortable="true">Monto</th>
+                            <th data-sortable="true">Estatus</th>
+                            <th data-sortable="true">Fecha registro</th>
+                            <th data-sortable="true">Fecha respuesta</th>
+                            <th data-sortable="true">Observaciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -161,10 +227,10 @@ $formatDate = static function (?string $value): string {
                                 <td><?= esc((string) ($pago['folio_solicitud'] ?? 'Sin folio')) ?></td>
                                 <td>
                                     <div class="fw-semibold"><?= esc((string) ($pago['razon_social'] ?? 'Sin proveedor')) ?></div>
-                                    <div class="text-muted small">No. <?= esc((string) ($pago['no_proveedor'] ?? '')) ?><?= !empty($pago['usuario_solicitante']) ? ' · ' . esc((string) $pago['usuario_solicitante']) : '' ?></div>
+                                    <div class="text-muted small"><?= esc((string) ($pago['no_proveedor'] ?? '')) ?><?= !empty($pago['usuario_solicitante']) ? ' · ' . esc((string) $pago['usuario_solicitante']) : '' ?></div>
                                 </td>
                                 <td><?= esc((string) ($pago['dsc_establecimiento'] ?? 'Sin establecimiento')) ?></td>
-                                <td><?= esc((string) ($pago['dsc_tipo'] ?? 'Sin tipo')) ?></td>
+                                <td><?= esc((string) ($pago['metodo_autorizacion'] ?? 'Sin tipo')) ?></td>
                                 <td><?= $money($pago['monto_solicitado'] ?? 0) ?></td>
                                 <td><?= $statusBadge((string) ($pago['estatus'] ?? '')) ?></td>
                                 <td><?= esc($formatDate((string) ($pago['fec_reg'] ?? ''))) ?></td>
