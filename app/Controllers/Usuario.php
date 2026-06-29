@@ -995,16 +995,12 @@ class Usuario extends BaseController
             ];
         }
 
-        $displayResponse = $this->globals->getTabla([
-            'tabla' => 'vw_usuario_qr',
-            'where' => ['visible' => 1],
-        ]);
-        if ($displayResponse->error) {
+        
+        
             $displayResponse = $this->globals->getTabla([
                 'tabla' => 'vw_usuario',
                 'where' => ['visible' => 1],
             ]);
-        }
 
         $displayIndex = [];
         if (!$displayResponse->error && !empty($displayResponse->data)) {
