@@ -42,9 +42,16 @@ defined('EXIT_USER_INPUT')     || define('EXIT_USER_INPUT', 7);     // invalid u
 defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database error
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
-//Para detectar automaticamente la URL
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https://'.$_SERVER['HTTP_HOST'] : 'http://'.$_SERVER['HTTP_HOST'];
-defined('BASE') || define('BASE', $protocol.'/tarjetas');
+// Para detectar automaticamente la URL.
+// En local WAMP vive bajo /tarjetas; en produccion se sirve desde la raiz del dominio.
+$isHttps = (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$protocol = $isHttps ? 'https://' : 'http://';
+$localHosts = ['localhost', '127.0.0.1', '::1'];
+$basePath = in_array(strtolower($host), $localHosts, true) ? '/tarjetas' : '';
+
+defined('BASE') || define('BASE', $protocol . $host . $basePath . '/');
 /**
  * @deprecated Use \CodeIgniter\Events\Events::PRIORITY_LOW instead.
  */
