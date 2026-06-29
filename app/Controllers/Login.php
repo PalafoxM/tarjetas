@@ -25,12 +25,12 @@ class Login extends BaseController {
         $session = \Config\Services::session();        
     }
 
-    private function _renderView($data = array()) {   
+    private function _renderView($data = array()) {
         /*if(isset($data['scripts'])){
             array_push($data['scripts'], "notificaciones");
         }*/    
         $data = array_merge($this->defaultData, $data);
-        echo view($data['layout'], $data);               
+        return view($data['layout'], $data);
     }
 
     public function index()
@@ -38,14 +38,13 @@ class Login extends BaseController {
         $session = \Config\Services::session();
         $data = array();
         if ($session->get('logueado')==1) {
-            header('Location:' . base_url() . 'index.php/Inicio');
-            die();
+            return redirect()->to(base_url('index.php/Inicio'));
         }
         //$data['scripts'] = array('principal','somatometria');        
         $data['scripts'] = array('principal');
         $data['layout'] = 'plantilla/lytLogin';
         $data['contentView'] = 'secciones/vLogin';                
-        $this->_renderView($data);        
+        return $this->_renderView($data);        
     }
     public function validar_usuario(){
         $response = new \stdClass();
@@ -66,8 +65,14 @@ class Login extends BaseController {
 
           try {
             // Hacemos la peticion POST a backSti.
-            $baseUrl = rtrim((string) env('BACK_STI_API_BASE_URL'), '/') . '/';
-            $apiResponse = $client->post($baseUrl.'login', [
+            $baseUrl = env('BACK_STI_API_BASE_URL') ?: env('NODE_API_BASE_URL');
+            $baseUrl = rtrim((string) $baseUrl, '/') . '/';
+
+            if ($baseUrl === '/') {
+                throw new \RuntimeException('No está configurada la URL base de la API.');
+            }
+
+            $apiResponse = $client->post($baseUrl . 'login', [
                 'json' => ['data'=> $data]
             ]);
     
@@ -126,7 +131,7 @@ class Login extends BaseController {
             }
         
             } catch (\Exception $e) {
-            log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
+            log_message('error', 'Error al conectar con la API de backSti: ' . $e->getMessage());
             $response->respuesta = 'Error | Conexión fallida con backSti';
         }       
         return $this->respond($response);
@@ -134,8 +139,7 @@ class Login extends BaseController {
     public function cerrar() {
         $session = \Config\Services::session();  
         $session->destroy();
-        header('Location:'.base_url());
-        die();
+        return redirect()->to(base_url());
     }
     
     /**
