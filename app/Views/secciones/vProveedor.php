@@ -51,26 +51,164 @@ $estatusBadge = static function (string $estatus): string {
     }
     return '<span class="badge bg-secondary">' . esc($estatus) . '</span>';
 };
+
+$pendientesCount = is_countable($pendiente ?? null) ? count($pendiente) : $pagosPendientes;
+$aprobadosCount = is_countable($aprobados ?? null) ? count($aprobados) : $pagosAprobados;
+$rechazadosCount = is_countable($rechazado ?? null) ? count($rechazado) : $pagosRechazados;
+$establecimientosCount = is_numeric($establecimiento ?? null) ? (int) $establecimiento : count($proveedorEstablecimientos);
+$montoTotalProveedor = (float) ($total ?? ($ventasCorteContexto['monto_total'] ?? 0));
+$proveedorNombre = (string) ($datosProveedor->dsc_establecimiento ?? $proveedorPerfil['razon_social'] ?? 'Proveedor');
+$proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['no_proveedor'] ?? '');
 ?>
 <style>
     .provider-page {
-        background:
-            radial-gradient(circle at top right, rgba(59, 130, 246, .08), transparent 24%),
-            linear-gradient(180deg, #0f172a, #111827);
+        background: linear-gradient(180deg, #101827 0%, #111827 46%, #172033 100%);
         min-height: calc(100vh - 70px);
         color: #f8fafc;
-        padding: 28px;
+        padding: 28px 28px 42px;
+    }
+
+    .provider-shell {
+        max-width: 1480px;
+        margin: 0 auto;
+    }
+
+    .provider-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1.25rem;
+        align-items: center;
+        padding: 1.25rem;
+        margin-bottom: 1.25rem;
+        border: 1px solid rgba(148, 163, 184, .18);
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(30, 41, 59, .96), rgba(15, 23, 42, .98));
+        box-shadow: 0 18px 42px rgba(2, 6, 23, .22);
+    }
+
+    .provider-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        margin-bottom: .55rem;
+        color: #93c5fd;
+        font-size: .78rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .provider-title {
+        margin: 0;
+        color: #ffffff;
+        font-size: clamp(1.45rem, 2vw, 2rem);
+        line-height: 1.15;
+    }
+
+    .provider-subtitle {
+        margin: .45rem 0 0;
+        color: #cbd5e1;
+    }
+
+    .provider-meta-grid {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+        margin-top: .85rem;
+    }
+
+    .provider-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .45rem .65rem;
+        border: 1px solid rgba(148, 163, 184, .2);
+        border-radius: 999px;
+        background: rgba(15, 23, 42, .72);
+        color: #e2e8f0;
+        font-size: .86rem;
+        font-weight: 600;
+    }
+
+    .provider-action {
+        min-height: 42px;
+        border-radius: 10px;
+        font-weight: 700;
+        box-shadow: 0 14px 28px rgba(37, 99, 235, .2);
     }
 
     .provider-card {
-        background: linear-gradient(180deg, rgba(24, 31, 48, .96), rgba(18, 24, 37, .98));
+        background: rgba(17, 24, 39, .96);
         border: 1px solid rgba(148, 163, 184, .16);
-        border-radius: 16px;
-        box-shadow: 0 18px 48px rgba(2, 6, 23, .25);
+        border-radius: 12px;
+        box-shadow: 0 14px 34px rgba(2, 6, 23, .18);
     }
 
-    .provider-kpi {
-        min-height: 116px;
+    .provider-stat {
+        min-height: 124px;
+    }
+
+    .provider-stat .card-body {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+    }
+
+    .provider-stat-label {
+        color: #94a3b8;
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .provider-stat-value {
+        color: #ffffff;
+        font-size: clamp(1.55rem, 2.6vw, 2.15rem);
+        font-weight: 800;
+        line-height: 1.05;
+    }
+
+    .provider-stat-note {
+        color: #cbd5e1;
+        font-size: .88rem;
+    }
+
+    .provider-section {
+        margin-top: 1.25rem;
+    }
+
+    .provider-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1rem 1rem 0;
+    }
+
+    .provider-section-title {
+        margin: 0;
+        color: #ffffff;
+        font-size: 1.08rem;
+        font-weight: 800;
+    }
+
+    .provider-section-copy {
+        margin: .25rem 0 0;
+        color: #94a3b8;
+        font-size: .9rem;
+    }
+
+    .provider-summary-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .4rem .65rem;
+        border-radius: 999px;
+        background: rgba(14, 165, 233, .14);
+        color: #bae6fd;
+        font-size: .78rem;
+        font-weight: 800;
     }
 
     .provider-table {
@@ -82,17 +220,20 @@ $estatusBadge = static function (string $estatus): string {
     }
 
     .provider-card .bootstrap-table .fixed-table-toolbar,
-    .provider-history-card .bootstrap-table .fixed-table-toolbar {
+    .provider-card .bootstrap-table .fixed-table-pagination {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .provider-card .bootstrap-table .fixed-table-toolbar {
         margin-bottom: 1rem;
     }
 
-    .provider-card .bootstrap-table .fixed-table-toolbar .search,
-    .provider-history-card .bootstrap-table .fixed-table-toolbar .search {
+    .provider-card .bootstrap-table .fixed-table-toolbar .search {
         width: min(100%, 360px);
     }
 
-    .provider-card .bootstrap-table .fixed-table-toolbar .search input,
-    .provider-history-card .bootstrap-table .fixed-table-toolbar .search input {
+    .provider-card .bootstrap-table .fixed-table-toolbar .search input {
         min-height: 42px;
         border-radius: 10px;
         border: 1px solid rgba(148, 163, 184, .34);
@@ -100,67 +241,26 @@ $estatusBadge = static function (string $estatus): string {
         color: #f8fafc;
     }
 
-    .provider-card .fixed-table-pagination,
-    .provider-history-card .fixed-table-pagination {
+    .provider-card .fixed-table-pagination {
         color: #cbd5e1;
         padding-top: 1rem;
     }
 
     .provider-card .fixed-table-pagination .btn,
     .provider-card .fixed-table-pagination .dropdown-menu,
-    .provider-card .fixed-table-pagination .page-link,
-    .provider-history-card .fixed-table-pagination .btn,
-    .provider-history-card .fixed-table-pagination .dropdown-menu,
-    .provider-history-card .fixed-table-pagination .page-link {
+    .provider-card .fixed-table-pagination .page-link {
         background: #111827;
         border-color: rgba(148, 163, 184, .28);
         color: #f8fafc;
     }
 
-    .provider-card .fixed-table-pagination .page-item.active .page-link,
-    .provider-history-card .fixed-table-pagination .page-item.active .page-link {
+    .provider-card .fixed-table-pagination .page-item.active .page-link {
         background: #2563eb;
         border-color: #2563eb;
     }
 
     .provider-history-table {
         min-width: 880px;
-    }
-
-    .provider-history-card {
-        background: rgba(15, 23, 42, .94);
-        border: 1px solid rgba(148, 163, 184, .12);
-        border-radius: 16px;
-        padding: 16px;
-    }
-
-    .provider-history-item {
-        border: 1px solid rgba(148, 163, 184, .12);
-        background: rgba(30, 41, 59, .9);
-        border-radius: 14px;
-        padding: 14px 16px;
-    }
-
-    .provider-history-item + .provider-history-item {
-        margin-top: 12px;
-    }
-
-    .provider-history-title {
-        font-weight: 700;
-        color: #fff;
-        margin-bottom: .15rem;
-    }
-
-    .provider-history-meta {
-        color: #cbd5e1;
-        font-size: .88rem;
-    }
-
-    .provider-history-amount {
-        font-size: 1.15rem;
-        font-weight: 800;
-        color: #fff;
-        white-space: nowrap;
     }
 
     .provider-history-empty {
@@ -172,16 +272,36 @@ $estatusBadge = static function (string $estatus): string {
         border: 1px dashed rgba(148, 163, 184, .2);
     }
 
-    .provider-summary-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-        padding: .4rem .75rem;
-        border-radius: 999px;
-        background: rgba(59, 130, 246, .12);
-        color: #bfdbfe;
-        font-size: .8rem;
-        font-weight: 700;
+    .provider-status-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .75rem;
+        padding: 0 1rem 1rem;
+    }
+
+    .provider-status-item {
+        padding: .85rem;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, .7);
+        border: 1px solid rgba(148, 163, 184, .14);
+    }
+
+    .provider-status-label {
+        color: #94a3b8;
+        font-size: .75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .provider-status-value {
+        margin-top: .15rem;
+        font-size: 1.45rem;
+        font-weight: 800;
+    }
+
+    .provider-table td,
+    .provider-history-table td {
+        vertical-align: middle;
     }
 
     .provider-modal .modal-content {
@@ -225,66 +345,96 @@ $estatusBadge = static function (string $estatus): string {
         filter: invert(1) grayscale(100%);
         opacity: .9;
     }
+
+    @media (max-width: 991px) {
+        .provider-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .provider-action {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 575px) {
+        .provider-page {
+            padding: 18px;
+        }
+
+        .provider-status-strip {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="container-fluid provider-page" id="proveedorPage" data-provider-mode="1" data-establecimientos-url="<?= esc(base_url('index.php/Inicio/getEstablecimientosProveedor'), 'attr') ?>" data-solicitud-url="<?= esc(base_url('index.php/Inicio/guardarSolicitudUsuarioProveedor'), 'attr') ?>">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
-        <div>
-            <h3 class="mb-1 text-white">Perfil proveedor</h3>
-            <p class="text-muted mb-0">Consulta tus establecimientos, pagos y solicita personal para tu negocio.</p>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
+    <div class="provider-shell">
+        <section class="provider-hero">
+            <div>
+                <div class="provider-eyebrow">
+                    <i class="mdi mdi-storefront-outline"></i>
+                    Portal proveedor
+                </div>
+                <h3 class="provider-title"><?= esc($proveedorNombre) ?></h3>
+                <p class="provider-subtitle">Consulta pagos, cortes y solicitudes operativas desde un solo tablero.</p>
+                <div class="provider-meta-grid">
+                    <span class="provider-meta-chip"><i class="mdi mdi-card-account-details-outline"></i> RFC: <?= esc((string) ($rfc ?? 'Sin RFC')) ?></span>
+                    <span class="provider-meta-chip"><i class="mdi mdi-pound"></i> No. proveedor: <?= esc($proveedorNumero !== '' ? $proveedorNumero : 'Sin asignar') ?></span>
+                    <span class="provider-meta-chip"><i class="mdi mdi-calendar-range"></i> Corte desde <?= esc((string) ($ventasCorteContexto['fecha_corte_desde'] ?? 'sin fecha')) ?></span>
+                </div>
+            </div>
+            <button class="btn btn-primary provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
                 <i class="mdi mdi-account-plus me-1"></i> Solicitar personal
             </button>
-        </div>
-    </div>
+        </section>
 
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-lg-4">
-            <div class="card provider-card provider-kpi h-100">
-                <div class="card-body">
-                    <div class="text-uppercase text-muted small mb-2">Proveedor</div>
-                    <h5 class="text-white mb-1"><?= esc((string) ($datosProveedor->dsc_establecimiento ?? $datosProveedor->dsc_establecimiento ?? 'Sin proveedor')) ?></h5>
-                    <div class="text-muted small">RFC: <?= esc((string) ($rfc ?? 'Sin RFC')) ?></div>
-                    <div class="text-muted small">No. proveedor: <?= esc((string) ($datosProveedor->no_proveedor ?? '')) ?></div>
+        <section class="row g-3">
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="card provider-card provider-stat h-100">
+                    <div class="card-body">
+                        <div class="provider-stat-label">Monto total</div>
+                        <div class="provider-stat-value"><?= $formatMoney($montoTotalProveedor) ?></div>
+                        <div class="provider-stat-note"><?= esc((string) ($ventasCorteContexto['estado_corte'] ?? 'Sin movimientos')) ?></div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-6 col-lg-2">
-            <div class="card provider-card provider-kpi h-100">
-                <div class="card-body">
-                    <div class="text-uppercase text-muted small mb-2">Establecimientos</div>
-                    <h2 class="text-white mb-0"><?= $establecimiento ?></h2>
-                    <div class="text-muted small">Vinculados al proveedor</div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="card provider-card provider-stat h-100">
+                    <div class="card-body">
+                        <div class="provider-stat-label">Pagos registrados</div>
+                        <div class="provider-stat-value"><?= (int) $pagosTotales ?></div>
+                        <div class="provider-stat-note">Movimientos capturados</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-6 col-lg-3">
-            <div class="card provider-card provider-kpi h-100">
-                <div class="card-body">
-                    <div class="text-uppercase text-muted small mb-2">Pagos / cortes</div>
-                    
-                    <div class="text-muted small">Con corte desde <?= esc((string) ($ventasCorteContexto['fecha_corte_desde'] ?? '')) ?></div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="card provider-card provider-stat h-100">
+                    <div class="card-body">
+                        <div class="provider-stat-label">Establecimientos</div>
+                        <div class="provider-stat-value"><?= (int) $establecimientosCount ?></div>
+                        <div class="provider-stat-note">Vinculados al proveedor</div>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-12 col-lg-3">
-            <div class="card provider-card provider-kpi h-100">
-                <div class="card-body">
-                    <div class="text-uppercase text-muted small mb-2">Monto total</div>
-                    <h2 class="text-white mb-0">$<?= number_format($total, 2)  ?? 0 ?></h2>
-                    <div class="text-muted small">Estado: <?= esc((string) ($ventasCorteContexto['estado_corte'] ?? 'Sin movimientos')) ?></div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="card provider-card provider-stat h-100">
+                    <div class="card-body">
+                        <div class="provider-stat-label">Estatus</div>
+                        <div class="provider-stat-value"><?= (int) $aprobadosCount ?> / <?= (int) $pendientesCount ?></div>
+                        <div class="provider-stat-note">Aprobados / pendientes</div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-xl-7">
-            <div class="card provider-card h-100">
-                <div class="card-header border-0 bg-transparent pt-3 pb-0">
-                    <h5 class="text-white mb-0">Mis pagos</h5>
+        <section class="provider-section">
+            <div class="card provider-card">
+                <div class="provider-section-header">
+                    <div>
+                        <span class="provider-summary-pill"><i class="mdi mdi-cash-register"></i> Operación diaria</span>
+                        <h5 class="provider-section-title mt-2">Pagos recibidos</h5>
+                        <p class="provider-section-copy">Consulta el monto, propina y total capturado por pago.</p>
+                    </div>
                 </div>
                 <div class="card-body provider-table-wrap">
                     <?php if (!empty($proveedorPagos)): ?>
@@ -302,7 +452,7 @@ $estatusBadge = static function (string $estatus): string {
                             data-search-align="left">
                             <thead>
                                 <tr>
-                                    <th data-sortable="true">Folio</th>
+                                    <th data-sortable="true">Pago</th>
                                     <th data-sortable="true">Monto</th>
                                     <th data-sortable="true">Propina</th>
                                     <th data-sortable="true">Total</th>
@@ -311,69 +461,52 @@ $estatusBadge = static function (string $estatus): string {
                             </thead>
                             <tbody>
                                 <?php foreach ($proveedorPagos as $pago): ?>
+                                    <?php $fechaPago = !empty($pago['fec_reg']) ? date('d/m/Y H:i:s', strtotime((string) $pago['fec_reg'])) : 'Sin fecha'; ?>
                                     <tr>
-                                        <td><?= esc((string) ($pago['id_pago'] ?? '')) ?></td>
                                         <td>
-                                            <div class="fw-semibold">$<?= esc((string) ($pago['monto']?? 'Sin monto')) ?></div>
-                            
+                                            <div class="fw-semibold">#<?= esc((string) ($pago['id_pago'] ?? '')) ?></div>
+                                            <div class="text-muted small">Registro de pago</div>
                                         </td>
-                                        <td><?= $formatMoney($pago['propina'] ?? $pago['propina'] ?? 0) ?></td>
-                                        <td class="fw-semibold"><?= $formatMoney($pago['total'] ?? $pago['total'] ?? 0) ?></td>
-                                        <td><?=  date('d/m/Y:H:i:s', strtotime($pago['fec_reg']) ) ?></td>
+                                        <td><?= $formatMoney($pago['monto'] ?? 0) ?></td>
+                                        <td><?= $formatMoney($pago['propina'] ?? 0) ?></td>
+                                        <td class="fw-semibold"><?= $formatMoney($pago['total'] ?? 0) ?></td>
+                                        <td><?= esc($fechaPago) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     <?php else: ?>
-                        <div class="text-muted">No hay pagos registrados para este proveedor.</div>
+                        <div class="provider-history-empty">No hay pagos registrados para este proveedor.</div>
                     <?php endif; ?>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="col-12 col-xl-5">
-            <div class="provider-history-card h-100">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <section class="provider-section">
+            <div class="card provider-card">
+                <div class="provider-section-header">
                     <div>
-                        <span class="provider-summary-pill">Historial de pagos</span>
-                        <h5 class="text-white mt-2 mb-1">Cortes y pagos</h5>
-                        <p class="text-muted mb-0">Revisa el comportamiento reciente de pagos, pendientes y cortes globales.</p>
+                        <span class="provider-summary-pill"><i class="mdi mdi-history"></i> Historial de pagos</span>
+                        <h5 class="provider-section-title mt-2">Cortes y autorizaciones</h5>
+                        <p class="provider-section-copy">Revisa folios, método, estatus y fecha de cada solicitud de pago.</p>
                     </div>
                 </div>
-
-                <div class="row g-2 mb-3">
-                    <div class="col-4">
-                        <div class="card provider-card provider-kpi h-100">
-                            <div class="card-body">
-                                <div class="text-uppercase text-muted small mb-2">Pendientes</div>
-                                
-                             
-                                <h3 class="mb-0 text-warning"><?= count($pendiente); ?></h3>
-            
-                            </div>
-                        </div>
+                <div class="provider-status-strip">
+                    <div class="provider-status-item">
+                        <div class="provider-status-label">Pendientes</div>
+                        <div class="provider-status-value text-warning"><?= (int) $pendientesCount ?></div>
                     </div>
-                    <div class="col-4">
-                        <div class="card provider-card provider-kpi h-100">
-                            <div class="card-body">
-                                <div class="text-uppercase text-muted small mb-2">Aprobados</div>
-                                <h3 class="mb-0 text-success"><?= count($aprobados); ?></h3>
-              
-                            </div>
-                        </div>
+                    <div class="provider-status-item">
+                        <div class="provider-status-label">Aprobados</div>
+                        <div class="provider-status-value text-success"><?= (int) $aprobadosCount ?></div>
                     </div>
-                    <div class="col-4">
-                        <div class="card provider-card provider-kpi h-100">
-                            <div class="card-body">
-                                <div class="text-uppercase text-muted small mb-2">Rechazados</div>
-                               <h3 class="mb-0 text-danger"><?= count($rechazado); ?></h3>
-                            </div>
-                        </div>
+                    <div class="provider-status-item">
+                        <div class="provider-status-label">Rechazados</div>
+                        <div class="provider-status-value text-danger"><?= (int) $rechazadosCount ?></div>
                     </div>
                 </div>
-
-                <?php if (!empty($solicitudPago)): ?>
-                    <div class="table-responsive">
+                <div class="card-body provider-table-wrap pt-0">
+                    <?php if (!empty($solicitudPago)): ?>
                         <table
                             id="tabla-historial-pagos-proveedor"
                             class="table table-dark table-hover align-middle provider-history-table mb-0"
@@ -407,12 +540,12 @@ $estatusBadge = static function (string $estatus): string {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                    </div>
-                <?php else: ?>
-                    <div class="provider-history-empty mb-3">Aún no hay pagos o solicitudes registradas.</div>
-                <?php endif; ?>
+                    <?php else: ?>
+                        <div class="provider-history-empty">Aún no hay pagos o solicitudes registradas.</div>
+                    <?php endif; ?>
+                </div>
             </div>
-        </div>
+        </section>
     </div>
 </div>
 
