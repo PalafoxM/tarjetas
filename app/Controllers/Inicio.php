@@ -1,6 +1,7 @@
 <?php namespace App\Controllers;
 use CodeIgniter\Controller;
 use App\Libraries\Curps;
+use App\Libraries\DepositosProgramadosService;
 use App\Libraries\Fechas;
 use App\Libraries\Funciones;
 use App\Libraries\UsuarioPerfilResolver;
@@ -2011,6 +2012,9 @@ class Inicio extends BaseController {
             'pax' => null,
             'anf_gto' => null,
             'monto_deposito' => null,
+            'monto_deposito_reservado' => 0.00,
+            'monto_deposito_operativo' => 0.00,
+            'deposito_programado_estatus' => 'sin_programa',
             'qr' => null,
             'nip' => null,
             'folio' => null,
@@ -2225,6 +2229,24 @@ class Inicio extends BaseController {
         $data['providerTypeOptions'] = $resolver->getProviderTypes();
 
         $this->_renderView($data);
+    }
+
+    public function activarQrDepositosProgramados()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $session->get('id_usuario') ?? 0);
+
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Debes indicar el usuario a activar.',
+            ]);
+        }
+
+        $service = new DepositosProgramadosService();
+        $result = $service->activateQrAndApplyDeposits($idUsuario, (int) $session->get('id_usuario'));
+
+        return $this->response->setStatusCode($result->error ? 422 : 200)->setJSON($result);
     }
 
     public function ObtenerHospedaje()

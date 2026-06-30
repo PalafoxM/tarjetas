@@ -15,7 +15,7 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
     .crud-ui-grid-label { display: block; margin-bottom: .5rem; font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #9fb0c9; }
     .select2-container { width: 100% !important; }
     #usuariosPage .fixed-table-body { overflow-x: auto; }
-    #usuariosPage #cajerosTable { min-width: 1280px; }
+    #usuariosPage #cajerosTable { min-width: 1560px; }
     #usuariosPage .usuario-actions { display: inline-flex; flex-wrap: nowrap; gap: .25rem; white-space: nowrap; }
     #usuariosPage .usuario-actions .btn { display: inline-flex; width: 32px; height: 30px; align-items: center; justify-content: center; padding: 0; }
 </style>
@@ -76,6 +76,9 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
                         <th data-field="fec_vigencia_desde" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia desde</th>
                         <th data-field="fec_vigencia_hasta" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia hasta</th>
                         <th data-field="monto_deposito" data-formatter="cajeros.moneda" data-align="center">Monto</th>
+                        <th data-field="monto_deposito_reservado" data-formatter="cajeros.moneda" data-align="center">Saldo reservado</th>
+                        <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo operativo</th>
+                        <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoDepositoProgramado" data-align="center">Estado del programa</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center" data-width="88" data-width-unit="px">Acciones</th>
                     </tr>
                 </thead>

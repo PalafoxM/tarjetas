@@ -32,6 +32,9 @@
                         <th data-field="dsc_perfil" data-sortable="true">Perfil</th>
                         <th data-field="tiene_hospedaje" data-formatter="cajeros.estado" data-align="center">Hospedaje</th>
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estado" data-align="center">Alimentos</th>
+                        <th data-field="monto_deposito_reservado" data-formatter="cajeros.moneda" data-align="center">Saldo reservado</th>
+                        <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo operativo</th>
+                        <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoProgramaDeposito" data-align="center">Estado del programa</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center">Acciones</th>
                     </tr>
                 </thead>
@@ -126,6 +129,22 @@ window.cajeros = {
         if (Number(value) === 1) return '<span class="badge bg-success">Sí</span>';
         if (Number(value) === 2 || Number(value) === 0) return '<span class="badge bg-danger">No</span>';
         return '<span class="badge bg-secondary">Pendiente</span>';
+    },
+
+    moneda(value) {
+        return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
+    },
+
+    estadoProgramaDeposito(value) {
+        var estado = String(value || '').trim().toLowerCase();
+        if (estado === 'reservado') return '<span class="badge bg-warning text-dark">Reservado</span>';
+        if (estado === 'operativo') return '<span class="badge bg-success">Operativo</span>';
+        if (estado === 'parcial') return '<span class="badge bg-info text-dark">Parcial</span>';
+        if (estado === 'aplicado') return '<span class="badge bg-primary">Aplicado</span>';
+        if (estado === 'error') return '<span class="badge bg-danger">Error</span>';
+        if (estado === 'cancelado') return '<span class="badge bg-secondary">Cancelado</span>';
+        if (estado === 'sin_programa') return '<span class="badge bg-light text-dark">Sin programa</span>';
+        return '<span class="badge bg-secondary">Sin definir</span>';
     },
 
     acciones(value, row) {
