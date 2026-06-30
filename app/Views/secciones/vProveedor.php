@@ -196,9 +196,9 @@ $estatusBadge = static function (string $estatus): string {
             <div class="card provider-card provider-kpi h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small mb-2">Proveedor</div>
-                    <h5 class="text-white mb-1"><?= esc((string) ($proveedorPerfil['razon_social'] ?? $proveedorPerfil['nombre'] ?? 'Sin proveedor')) ?></h5>
-                    <div class="text-muted small">RFC: <?= esc((string) ($proveedorPerfil['rfc'] ?? '')) ?></div>
-                    <div class="text-muted small">No. proveedor: <?= esc((string) ($proveedorPerfil['no_proveedor'] ?? '')) ?></div>
+                    <h5 class="text-white mb-1"><?= esc((string) ($datosProveedor->dsc_establecimiento ?? $datosProveedor->dsc_establecimiento ?? 'Sin proveedor')) ?></h5>
+                    <div class="text-muted small">RFC: <?= esc((string) ($rfc ?? 'Sin RFC')) ?></div>
+                    <div class="text-muted small">No. proveedor: <?= esc((string) ($datosProveedor->no_proveedor ?? '')) ?></div>
                 </div>
             </div>
         </div>
@@ -206,7 +206,7 @@ $estatusBadge = static function (string $estatus): string {
             <div class="card provider-card provider-kpi h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small mb-2">Establecimientos</div>
-                    <h2 class="text-white mb-0"><?= count($proveedorEstablecimientos) ?></h2>
+                    <h2 class="text-white mb-0"><?= $establecimiento ?></h2>
                     <div class="text-muted small">Vinculados al proveedor</div>
                 </div>
             </div>
@@ -215,7 +215,7 @@ $estatusBadge = static function (string $estatus): string {
             <div class="card provider-card provider-kpi h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small mb-2">Pagos / cortes</div>
-                    <h2 class="text-white mb-0"><?= $pagosTotales ?></h2>
+                    
                     <div class="text-muted small">Con corte desde <?= esc((string) ($ventasCorteContexto['fecha_corte_desde'] ?? '')) ?></div>
                 </div>
             </div>
@@ -224,7 +224,7 @@ $estatusBadge = static function (string $estatus): string {
             <div class="card provider-card provider-kpi h-100">
                 <div class="card-body">
                     <div class="text-uppercase text-muted small mb-2">Monto total</div>
-                    <h2 class="text-white mb-0"><?= $formatMoney($ventasCorteContexto['monto_total'] ?? 0) ?></h2>
+                    <h2 class="text-white mb-0">$<?= number_format($total, 2)  ?? 0 ?></h2>
                     <div class="text-muted small">Estado: <?= esc((string) ($ventasCorteContexto['estado_corte'] ?? 'Sin movimientos')) ?></div>
                 </div>
             </div>
@@ -279,7 +279,10 @@ $estatusBadge = static function (string $estatus): string {
                         <div class="card provider-card provider-kpi h-100">
                             <div class="card-body">
                                 <div class="text-uppercase text-muted small mb-2">Pendientes</div>
-                                <h3 class="text-white mb-0"><?= (int) $pagosPendientes ?></h3>
+                                
+                             
+                                <h3 class="mb-0 text-warning"><?= count($pendiente); ?></h3>
+            
                             </div>
                         </div>
                     </div>
@@ -287,7 +290,8 @@ $estatusBadge = static function (string $estatus): string {
                         <div class="card provider-card provider-kpi h-100">
                             <div class="card-body">
                                 <div class="text-uppercase text-muted small mb-2">Aprobados</div>
-                                <h3 class="text-white mb-0"><?= (int) $pagosAprobados ?></h3>
+                                <h3 class="mb-0 text-success"><?= count($aprobados); ?></h3>
+              
                             </div>
                         </div>
                     </div>
@@ -295,7 +299,7 @@ $estatusBadge = static function (string $estatus): string {
                         <div class="card provider-card provider-kpi h-100">
                             <div class="card-body">
                                 <div class="text-uppercase text-muted small mb-2">Rechazados</div>
-                                <h3 class="text-white mb-0"><?= (int) $pagosRechazados ?></h3>
+                               <h3 class="mb-0 text-danger"><?= count($rechazado); ?></h3>
                             </div>
                         </div>
                     </div>

@@ -65,8 +65,55 @@ class Inicio extends BaseController {
             return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
 
-            $data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
+            //$data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
+           // var_dump( $data);
+            $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
+            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+            if(!empty($datosProveedor->data)){
+                $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+                $tabla = ["tabla" => "establecimiento", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
+                $proveedor = $Mglobal->getTabla($tabla);
+                $rfc = $Mglobal->getTabla(['tabla' => "proveedor", "where" =>['visible' =>1, "no_proveedor" =>$proveedor->data[0]->no_proveedor]]);
+              
+                $data['rfc'] = (!empty($rfc->data) && isset($rfc->data))?$rfc->data[0]->rfc:'Sin RFC';
+                $noEstablecimientos = ["tabla" => "usuario_establecimiento", "where" => ['visible' => 1, "id_usuario" =>$session->get('id_usuario')]];
+                $e = $Mglobal->getTabla($noEstablecimientos);
+                $data['establecimiento'] = (!empty($e->data) && isset($e->data))?count($e->data):'0';
+                $pagos = $Mglobal->getTabla(['tabla' =>"solicitud_pago", "where" =>['visible' =>1, "id_establecimiento" =>$idEstablecimiento]]);
+                if(!empty($pagos->data) && isset($pagos->data)){
+                    $data['total'] = 0;
+                    $data['aprobados'] = [];
+                    $data['pendiente'] = [];
+                    $data['rechazado'] = [];
+
+                    
+                    foreach($pagos->data as $a){
+                        switch($a->estatus){
+                            case 'autorizado':
+                                $data['aprobados'][] = $a->estatus;
+                                 $data['total'] += $a->monto_solicitado; //11.00
+
+                                break;
+                            case 'pendiente':
+                                $data['pendiente'][] = $a->estatus;
+                                break;
+                            case 'rechazado':
+                                $data['rechazado'][] = $a->estatus;
+                                break;
+                        }
+
+                    }
+
+                }
+
+              //  die( var_dump($data) );
+                $data['datosProveedor'] = $proveedor->data[0];
+
+            }
+           // die( var_dump( $data['rfc']  ) );
             $vista = 'secciones/vProveedor';
+            
+           // die('ok');
         } elseif ($contextoUsuario['is_client_like']) {
             $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
             $solicitud_pago = $Mglobal->getTabla(['tabla' => 'solicitud_pago', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
