@@ -1,6 +1,7 @@
 <?php
 namespace App\Controllers;
 
+use App\Libraries\DepositosProgramadosService;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
 use CodeIgniter\API\ResponseTrait;
@@ -394,6 +395,9 @@ class Usuario extends BaseController
             'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
             'monto_deposito' => $this->nullableNumeric($data['monto_deposito'] ?? null),
             'monto_deposito_hotel' => $this->nullableNumeric($data['monto_deposito_hotel'] ?? null),
+            'monto_deposito_reservado' => 0.00,
+            'monto_deposito_operativo' => 0.00,
+            'deposito_programado_estatus' => 'sin_programa',
             'tiene_alimentos' => $this->nullableBoolInt($data['tiene_alimentos'] ?? null),
             'tiene_hospedaje' => $this->nullableBoolInt($data['tiene_hospedaje'] ?? null),
             'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
@@ -1196,6 +1200,9 @@ class Usuario extends BaseController
 
     private function saveNewUserWithProgrammedDeposits(array $dataInsert, int $actorUserId, string $scriptName): object
     {
+        $service = new DepositosProgramadosService();
+        return $service->reserveNewUser($dataInsert, $actorUserId, $scriptName);
+
         $response = new \stdClass();
         $response->error = true;
         $response->respuesta = 'Error | No fue posible guardar el usuario';

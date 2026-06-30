@@ -1092,6 +1092,18 @@ window.cajeros = {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
     },
 
+    estadoDepositoProgramado: function (value) {
+        var estado = String(value || '').trim().toLowerCase();
+        if (estado === 'reservado') return '<span class="badge bg-warning text-dark">Reservado</span>';
+        if (estado === 'operativo') return '<span class="badge bg-success">Operativo</span>';
+        if (estado === 'parcial') return '<span class="badge bg-info text-dark">Parcial</span>';
+        if (estado === 'aplicado') return '<span class="badge bg-primary">Aplicado</span>';
+        if (estado === 'error') return '<span class="badge bg-danger">Error</span>';
+        if (estado === 'cancelado') return '<span class="badge bg-secondary">Cancelado</span>';
+        if (estado === 'sin_programa') return '<span class="badge bg-light text-dark">Sin programa</span>';
+        return '<span class="badge bg-secondary">Sin definir</span>';
+    },
+
     acciones: function (value, row) {
         row = row || {};
         var idUsuario = Number(row.id_usuario || row.ID_USUARIO || 0);
