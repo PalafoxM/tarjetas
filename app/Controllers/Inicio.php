@@ -106,12 +106,20 @@ class Inicio extends BaseController {
                     }
 
                 }
+                $pagos = $Mglobal->getTabla(["tabla" =>"pagos", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
+                $solicitudPago = $Mglobal->getTabla(["tabla" =>"solicitud_pago", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
+                if(!empty($pagos->data) && isset($pagos->data)){
+                     $data['proveedorPagos'] = $pagos->data;
+                }
+                if(!empty($solicitudPago->data) && isset($solicitudPago->data)){
+                     $data['solicitudPago'] = $solicitudPago->data;
+                }
 
-              //  die( var_dump($data) );
+                //die( var_dump($data['proveedorPagos']) );
                 $data['datosProveedor'] = $proveedor->data[0];
 
             }
-           // die( var_dump( $data['rfc']  ) );
+            //die( var_dump( $data['solicitudPago'] ) );
             $vista = 'secciones/vProveedor';
             
            // die('ok');
@@ -1027,11 +1035,35 @@ class Inicio extends BaseController {
             $pagosRows = $builder->get()->getResultArray();
         }
 
+        foreach ($pagosRows as &$row) {
+            $montoSolicitado = (float) ($row['monto_solicitado'] ?? 0);
+            $observaciones = json_decode((string) ($row['observaciones'] ?? ''), true);
+            $montoConsumo = $montoSolicitado;
+            $propina = 0.0;
+
+            if (is_array($observaciones)) {
+                $montoJson = $observaciones['monto'] ?? null;
+                $propinaJson = $observaciones['propina'] ?? null;
+
+                if (is_numeric($montoJson)) {
+                    $montoConsumo = (float) $montoJson;
+                }
+                if (is_numeric($propinaJson)) {
+                    $propina = (float) $propinaJson;
+                }
+            }
+
+            $row['monto_consumo'] = $montoConsumo;
+            $row['propina'] = $propina;
+            $row['monto_total'] = $montoConsumo + $propina;
+        }
+        unset($row);
+
         $montoTotal = 0.0;
         $montoPendiente = 0.0;
         $fechas = [];
         foreach ($pagosRows as $row) {
-            $monto = (float) ($row['monto_solicitado'] ?? 0);
+            $monto = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
             $montoTotal += $monto;
             $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
             if ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {

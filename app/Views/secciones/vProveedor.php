@@ -8,6 +8,9 @@ $proveedorEstablecimientos = array_values(array_map(static function ($item) {
 $proveedorPagos = array_values(array_map(static function ($item) {
     return is_object($item) ? get_object_vars($item) : (array) $item;
 }, is_array($proveedorPagos ?? null) ? $proveedorPagos : []));
+$solicitudPago = array_values(array_map(static function ($item) {
+    return is_object($item) ? get_object_vars($item) : (array) $item;
+}, is_array($solicitudPago ?? null) ? $solicitudPago : []));
 $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars($ventasCorteContexto) : (is_array($ventasCorteContexto ?? null) ? $ventasCorteContexto : []);
 
 $pagosTotales = count($proveedorPagos);
@@ -24,9 +27,9 @@ foreach ($proveedorPagos as $pagoItem) {
     $estatus = strtolower(trim((string) ($pagoItem['estatus'] ?? '')));
     if (in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
         $pagosPendientes++;
-    } elseif (in_array($estatus, ['aprobada', 'autorizada', 'pagada', 'finalizada'], true)) {
+    } elseif (in_array($estatus, ['aprobada', 'aprobado', 'aceptada', 'aceptado', 'aceptados', 'autorizada', 'autorizado', 'pagada', 'pagado', 'finalizada', 'finalizado'], true)) {
         $pagosAprobados++;
-    } elseif (in_array($estatus, ['rechazada', 'cancelada'], true)) {
+    } elseif (in_array($estatus, ['rechazada', 'rechazado', 'rechazados', 'cancelada', 'cancelado'], true)) {
         $pagosRechazados++;
     }
 }
@@ -40,10 +43,10 @@ $estatusBadge = static function (string $estatus): string {
     if (in_array($valor, ['pendiente', 'solicitado', 'en_revision'], true)) {
         return '<span class="badge bg-warning text-dark">Pendiente</span>';
     }
-    if (in_array($valor, ['aprobada', 'autorizada', 'pagada', 'finalizada'], true)) {
-        return '<span class="badge bg-success">Aprobada</span>';
+    if (in_array($valor, ['aprobada', 'aprobado', 'aceptada', 'aceptado', 'aceptados', 'autorizada', 'autorizado', 'pagada', 'pagado', 'finalizada', 'finalizado'], true)) {
+        return '<span class="badge bg-success">Aprobada / aceptada</span>';
     }
-    if (in_array($valor, ['rechazada', 'cancelada'], true)) {
+    if (in_array($valor, ['rechazada', 'rechazado', 'rechazados', 'cancelada', 'cancelado'], true)) {
         return '<span class="badge bg-danger">Rechazada</span>';
     }
     return '<span class="badge bg-secondary">' . esc($estatus) . '</span>';
@@ -71,11 +74,57 @@ $estatusBadge = static function (string $estatus): string {
     }
 
     .provider-table {
-        min-width: 960px;
+        min-width: 1040px;
     }
 
     .provider-table-wrap {
         overflow-x: auto;
+    }
+
+    .provider-card .bootstrap-table .fixed-table-toolbar,
+    .provider-history-card .bootstrap-table .fixed-table-toolbar {
+        margin-bottom: 1rem;
+    }
+
+    .provider-card .bootstrap-table .fixed-table-toolbar .search,
+    .provider-history-card .bootstrap-table .fixed-table-toolbar .search {
+        width: min(100%, 360px);
+    }
+
+    .provider-card .bootstrap-table .fixed-table-toolbar .search input,
+    .provider-history-card .bootstrap-table .fixed-table-toolbar .search input {
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, .34);
+        background: rgba(15, 23, 42, .92);
+        color: #f8fafc;
+    }
+
+    .provider-card .fixed-table-pagination,
+    .provider-history-card .fixed-table-pagination {
+        color: #cbd5e1;
+        padding-top: 1rem;
+    }
+
+    .provider-card .fixed-table-pagination .btn,
+    .provider-card .fixed-table-pagination .dropdown-menu,
+    .provider-card .fixed-table-pagination .page-link,
+    .provider-history-card .fixed-table-pagination .btn,
+    .provider-history-card .fixed-table-pagination .dropdown-menu,
+    .provider-history-card .fixed-table-pagination .page-link {
+        background: #111827;
+        border-color: rgba(148, 163, 184, .28);
+        color: #f8fafc;
+    }
+
+    .provider-card .fixed-table-pagination .page-item.active .page-link,
+    .provider-history-card .fixed-table-pagination .page-item.active .page-link {
+        background: #2563eb;
+        border-color: #2563eb;
+    }
+
+    .provider-history-table {
+        min-width: 880px;
     }
 
     .provider-history-card {
@@ -235,30 +284,48 @@ $estatusBadge = static function (string $estatus): string {
         <div class="col-12 col-xl-7">
             <div class="card provider-card h-100">
                 <div class="card-header border-0 bg-transparent pt-3 pb-0">
-                    <h5 class="text-white mb-0">Mis establecimientos</h5>
+                    <h5 class="text-white mb-0">Mis pagos</h5>
                 </div>
                 <div class="card-body provider-table-wrap">
-                    <?php if (!empty($proveedorEstablecimientos)): ?>
-                        <table class="table table-dark table-hover align-middle provider-table mb-0">
+                    <?php if (!empty($proveedorPagos)): ?>
+                        <table
+                            id="tabla-pagos-proveedor"
+                            class="table table-dark table-hover align-middle provider-table mb-0"
+                            data-toggle="table"
+                            data-search="true"
+                            data-pagination="true"
+                            data-page-size="10"
+                            data-page-list="[10, 25, 50, 100, All]"
+                            data-locale="es-MX"
+                            data-pagination-pre-text="Anterior"
+                            data-pagination-next-text="Siguiente"
+                            data-search-align="left">
                             <thead>
                                 <tr>
-                                    <th>Establecimiento</th>
-                                    <th>Tipo</th>
-                                    <th>No. proveedor</th>
+                                    <th data-sortable="true">Folio</th>
+                                    <th data-sortable="true">Monto</th>
+                                    <th data-sortable="true">Propina</th>
+                                    <th data-sortable="true">Total</th>
+                                    <th data-sortable="true">Fecha</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($proveedorEstablecimientos as $establecimiento): ?>
+                                <?php foreach ($proveedorPagos as $pago): ?>
                                     <tr>
-                                        <td><?= esc((string) ($establecimiento['dsc_establecimiento'] ?? '')) ?></td>
-                                        <td><?= esc((string) ($establecimiento['dsc_tipo'] ?? '')) ?></td>
-                                        <td><?= esc((string) ($establecimiento['no_proveedor'] ?? '')) ?></td>
+                                        <td><?= esc((string) ($pago['id_pago'] ?? '')) ?></td>
+                                        <td>
+                                            <div class="fw-semibold">$<?= esc((string) ($pago['monto']?? 'Sin monto')) ?></div>
+                            
+                                        </td>
+                                        <td><?= $formatMoney($pago['propina'] ?? $pago['propina'] ?? 0) ?></td>
+                                        <td class="fw-semibold"><?= $formatMoney($pago['total'] ?? $pago['total'] ?? 0) ?></td>
+                                        <td><?=  date('d/m/Y:H:i:s', strtotime($pago['fec_reg']) ) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     <?php else: ?>
-                        <div class="text-muted">No hay establecimientos ligados a este proveedor.</div>
+                        <div class="text-muted">No hay pagos registrados para este proveedor.</div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -305,62 +372,45 @@ $estatusBadge = static function (string $estatus): string {
                     </div>
                 </div>
 
-                <?php if (!empty($proveedorPagos)): ?>
-                    <div class="provider-history-list mb-3">
-                        <?php foreach ($pagosRecientes as $pago): ?>
-                            <div class="provider-history-item mb-2">
-                                <div class="d-flex align-items-start justify-content-between gap-3">
-                                    <div>
-                                        <div class="provider-history-title"><?= esc((string) ($pago['folio_solicitud'] ?? 'Sin folio')) ?></div>
-                                        <div class="provider-history-meta">
-                                            <?= esc((string) ($pago['dsc_establecimiento'] ?? 'Sin establecimiento')) ?>
-                                            · <?= esc((string) ($pago['dsc_tipo'] ?? 'Sin tipo')) ?>
-                                        </div>
-                                        <div class="provider-history-meta mt-1">
-                                            <?= esc((string) ($pago['fec_reg'] ?? '')) ?>
-                                        </div>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="provider-history-amount"><?= $formatMoney($pago['monto_solicitado'] ?? 0) ?></div>
-                                        <div class="mt-2"><?= $estatusBadge((string) ($pago['estatus'] ?? '')) ?></div>
-                                    </div>
-                                </div>
-                                <?php if (!empty($pago['observaciones'])): ?>
-                                    <div class="provider-history-meta mt-2"><?= esc((string) $pago['observaciones']) ?></div>
-                                <?php endif; ?>
-                            </div>
-                        <?php endforeach; ?>
+                <?php if (!empty($solicitudPago)): ?>
+                    <div class="table-responsive">
+                        <table
+                            id="tabla-historial-pagos-proveedor"
+                            class="table table-dark table-hover align-middle provider-history-table mb-0"
+                            data-toggle="table"
+                            data-search="true"
+                            data-pagination="true"
+                            data-page-size="10"
+                            data-page-list="[10, 25, 50, 100, All]"
+                            data-locale="es-MX"
+                            data-pagination-pre-text="Anterior"
+                            data-pagination-next-text="Siguiente"
+                            data-search-align="left">
+                            <thead>
+                                <tr>
+                                    <th data-sortable="true">Folio</th>
+                                    <th data-sortable="true">Método</th>
+                                    <th data-sortable="true">Monto</th>
+                                    <th data-sortable="true">Estatus</th>
+                                    <th data-sortable="true">Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($solicitudPago as $pago): ?>
+                                    <tr>
+                                        <td><?= esc((string) ($pago['folio_solicitud'] ?? 'Sin folio')) ?></td>
+                                        <td><?= esc((string) ($pago['metodo_autorizacion'] ?? 'Sin método')) ?></td>
+                                        <td><?= $formatMoney($pago['monto_solicitado'] ?? 0) ?></td>
+                                        <td><?= $estatusBadge((string) ($pago['estatus'] ?? '')) ?></td>
+                                        <td><?= esc((string) ($pago['fec_reg'] ?? '')) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
                 <?php else: ?>
                     <div class="provider-history-empty mb-3">Aún no hay pagos o solicitudes registradas.</div>
                 <?php endif; ?>
-
-                <div class="table-responsive">
-                    <table class="table table-dark table-hover align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Folio</th>
-                                <th>Importe</th>
-                                <th>Estatus</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($proveedorPagos)): ?>
-                                <?php foreach (array_slice($proveedorPagos, 0, 4) as $pago): ?>
-                                    <tr>
-                                        <td><?= esc((string) ($pago['folio_solicitud'] ?? '')) ?></td>
-                                        <td><?= $formatMoney($pago['monto_solicitado'] ?? 0) ?></td>
-                                        <td><?= $estatusBadge((string) ($pago['estatus'] ?? '')) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="3" class="text-center text-muted py-3">Sin movimientos para mostrar.</td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
     </div>
