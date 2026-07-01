@@ -511,6 +511,25 @@ window.cajeros = {
             .toUpperCase();
     },
 
+    normalizarFechaInput: function (value) {
+        if (!value) return '';
+
+        var texto = String(value).trim();
+        if (texto === '') return '';
+
+        var fecha = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (fecha) {
+            return fecha[1];
+        }
+
+        var parsed = new Date(texto);
+        if (isNaN(parsed.getTime())) {
+            return '';
+        }
+
+        return parsed.toISOString().slice(0, 10);
+    },
+
     esMexicoSeleccionado: function () {
         var texto = $('#id_pais option:selected').text() || '';
         return this.normalizarTextoSinAcentos(texto).indexOf('MEXICO') !== -1;
@@ -1179,10 +1198,10 @@ window.cajeros = {
         $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
         $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '').trigger('change.select2');
         $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '').trigger('change.select2');
-        $('#fecha_check_in').val(data.fecha_check_in || '');
-        $('#fecha_check_out').val(data.fecha_check_out || '');
-        $('#fec_vigencia_desde').val(data.fec_vigencia_desde || '');
-        $('#fec_vigencia_hasta').val(data.fec_vigencia_hasta || '');
+        $('#fecha_check_in').val(this.normalizarFechaInput(data.fecha_check_in));
+        $('#fecha_check_out').val(this.normalizarFechaInput(data.fecha_check_out));
+        $('#fec_vigencia_desde').val(this.normalizarFechaInput(data.fec_vigencia_desde));
+        $('#fec_vigencia_hasta').val(this.normalizarFechaInput(data.fec_vigencia_hasta));
         $('#tarifa_noche').val(data.tarifa_noche || '');
         $('#tarifa_total').val(data.tarifa_total || '');
         $('#monto_deposito').val(data.monto_deposito || '');

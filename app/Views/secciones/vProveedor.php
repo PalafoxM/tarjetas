@@ -426,7 +426,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 </div>
             </div>
         </section>
-
+<!-- 
         <section class="provider-section">
             <div class="card provider-card">
                 <div class="provider-section-header">
@@ -480,7 +480,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                     <?php endif; ?>
                 </div>
             </div>
-        </section>
+        </section> -->
 
         <section class="provider-section">
             <div class="card provider-card">

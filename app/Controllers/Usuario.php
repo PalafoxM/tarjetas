@@ -378,7 +378,7 @@ class Usuario extends BaseController
 
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
-        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual  []);
+        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
         $dataInsert = [
             'usuario' => trim((string) ($data['usuario'] ?? '')),
             'nombre' => trim((string) ($data['nombre'] ?? '')),
@@ -430,7 +430,7 @@ class Usuario extends BaseController
         }
 
         if ($idUsuario > 0) {
-            $budgetEditError = $this->validateBudgetImmutableOnEdit($usuarioActual  [], $dataInsert);
+            $budgetEditError = $this->validateBudgetImmutableOnEdit($usuarioActual ?? [], $dataInsert);
             if ($budgetEditError !== null) {
                 return $this->respond([
                     'error' => true,
