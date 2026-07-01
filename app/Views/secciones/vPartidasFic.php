@@ -18,118 +18,10 @@ $resumen = is_array($dashboardSeed['resumen'] ?? null) ? $dashboardSeed['resumen
 $partidas = is_array($dashboardSeed['partidas'] ?? null) ? $dashboardSeed['partidas'] : [];
 $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
 ?>
-<style>
-    .partidas-shell {
-        background:
-            radial-gradient(circle at top right, rgba(59, 130, 246, .08), transparent 24%),
-            linear-gradient(180deg, #0f172a, #111827);
-        color: #f8fafc;
-        min-height: calc(100vh - 90px);
-        padding: 28px;
-    }
 
-    .partidas-shell .panel {
-        background: rgba(15, 23, 42, .92);
-        border: 1px solid rgba(148, 163, 184, .16);
-        border-radius: 18px;
-        box-shadow: 0 18px 48px rgba(2, 6, 23, .28);
-    }
-
-    .partidas-shell .panel + .panel {
-        margin-top: 18px;
-    }
-
-    .partidas-hero h1 {
-        margin: 0 0 6px;
-        font-size: clamp(1.7rem, 3vw, 2.2rem);
-        font-weight: 800;
-    }
-
-    .partidas-hero p,
-    .partidas-muted {
-        color: #cbd5e1;
-        margin: 0;
-    }
-
-    .partidas-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: .45rem;
-        padding: .45rem .75rem;
-        border-radius: 999px;
-        background: rgba(59, 130, 246, .14);
-        color: #93c5fd;
-        font-size: .82rem;
-        font-weight: 700;
-        letter-spacing: .02em;
-        text-transform: uppercase;
-    }
-
-    .partidas-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 16px;
-    }
-
-    .partidas-card {
-        background: rgba(30, 41, 59, .9);
-        border: 1px solid rgba(148, 163, 184, .12);
-        border-radius: 16px;
-        padding: 16px;
-        min-height: 112px;
-    }
-
-    .partidas-card__label {
-        display: block;
-        color: #94a3b8;
-        font-size: .75rem;
-        letter-spacing: .05em;
-        text-transform: uppercase;
-        margin-bottom: .4rem;
-    }
-
-    .partidas-card__value {
-        font-size: clamp(1.6rem, 3vw, 2.2rem);
-        font-weight: 800;
-        line-height: 1.1;
-    }
-
-    .partidas-card__note {
-        margin-top: .35rem;
-        color: #cbd5e1;
-        font-size: .84rem;
-    }
-
-    .partidas-chart {
-        height: 220px;
-        border-radius: 14px;
-        background:
-            linear-gradient(180deg, rgba(148, 163, 184, .08), rgba(148, 163, 184, .03)),
-            repeating-linear-gradient(90deg, transparent, transparent 10%, rgba(96, 165, 250, .06) 10%, rgba(96, 165, 250, .06) 11%);
-        border: 1px dashed rgba(96, 165, 250, .22);
-        display: grid;
-        place-items: center;
-        color: #bfdbfe;
-        text-align: center;
-        padding: 20px;
-    }
-
-    .partidas-table-wrap {
-        overflow-x: auto;
-    }
-
-    .partidas-table {
-        min-width: 1280px;
-    }
-
-    .partidas-empty-state {
-        padding: 24px;
-        text-align: center;
-        color: #cbd5e1;
-    }
-</style>
-
-<div class="partidas-shell" id="partidas-fic-root" data-preview-mode="<?= esc($previewMode, 'attr') ?>">
+<div class="partidas-shell" id="partidas-fic-root"
+    data-preview-mode="<?= esc($previewMode, 'attr') ?>"
+    data-partidas-dashboard="<?= esc(json_encode($dashboardSeed, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4">
         <div class="partidas-hero">
             <span class="partidas-badge">Partidas FIC</span>
@@ -188,11 +80,15 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
     </div>
 
     <div class="panel p-3 mb-4">
-        <div class="mb-3">
-            <h2 class="h5 mb-1 text-white">Distribución visual por partida</h2>
-            <p class="partidas-muted mb-0">Espacio preparado para el gráfico y comparativo de presupuesto.</p>
-        </div>
-        <div class="partidas-chart">Gráfico pendiente de enlazar con el seed o la API de partidas.</div>
+        <section class="partidas-chart-shell">
+            <div class="partidas-chart-head">
+                <div>
+                    <h2 class="partidas-chart-title">Distribución visual por partida</h2>
+                    <p class="partidas-chart-copy">Vista comparativa del presupuesto oficial por partida usando el mismo tablero presupuestal que ya ves en KPIs, cards y tabla.</p>
+                </div>
+            </div>
+            <div id="partidasMultiPieChart" class="partidas-multi-pie-chart"></div>
+        </section>
     </div>
 
     <div class="panel p-3 mb-4">
@@ -268,7 +164,3 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
         </div>
     </div>
 </div>
-
-<script>
-    window.__partidasDashboardSeed = <?= json_encode($dashboardSeed, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-</script>
