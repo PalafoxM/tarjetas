@@ -40,10 +40,10 @@ class DepositosProgramadosService
             return $response;
         }
 
-        $dailyAmount = $this->resolveDailyAmount($dataInsert);
-        $hotelAmount = $this->resolveHospedajeAmount($dataInsert);
         $days = $this->countInclusiveDays($vigenciaInicio, $vigenciaFin);
-        $foodReserve = round($dailyAmount * $days, 2);
+        $dailyAmount = $this->resolveDailyAmount($dataInsert);
+        $foodReserve = (int) ($dataInsert['tiene_alimentos'] ?? 0) === 1 ? round($dailyAmount * $days, 2) : 0.00;
+        $hotelAmount = (int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1 ? $this->resolveHospedajeAmount($dataInsert) : 0.00;
         $totalReserve = round($foodReserve + $hotelAmount, 2);
         $allocations = $this->buildPartidaDepositAllocations($dataInsert, $foodReserve, $hotelAmount);
         if (!empty($allocations['error'])) {
@@ -54,7 +54,7 @@ class DepositosProgramadosService
         $allocationRows = $allocations['data'] ?? [];
         $userRow = $dataInsert;
         $userRow['monto_deposito'] = 0.00;
-        $userRow['monto_deposito_hotel'] = 0.00;
+        $userRow['monto_deposito_hotel'] = round($hotelAmount, 2);
         $userRow['monto_deposito_reservado'] = $totalReserve;
         $userRow['monto_deposito_operativo'] = 0.00;
         $userRow['deposito_programado_estatus'] = $totalReserve > 0 ? 'reservado' : 'sin_programa';
@@ -269,8 +269,10 @@ class DepositosProgramadosService
         }
 
         $dailyAmount = $this->resolveDailyAmount($user);
-        $foodAmount = round($dailyAmount * $days, 2);
-        $hotelAmount = $tipoEvento === 'activacion' && empty($lastApplication) ? $this->resolveHospedajeAmount($user) : 0.00;
+        $foodAmount = (int) ($user['tiene_alimentos'] ?? 0) === 1 ? round($dailyAmount * $days, 2) : 0.00;
+        $hotelAmount = $tipoEvento === 'activacion' && empty($lastApplication) && (int) ($user['tiene_hospedaje'] ?? 0) === 1
+            ? $this->resolveHospedajeAmount($user)
+            : 0.00;
         $totalApplied = round($foodAmount + $hotelAmount, 2);
         if ($totalApplied <= 0) {
             return ['applied' => false, 'message' => 'El monto calculado es cero.'];
@@ -282,7 +284,7 @@ class DepositosProgramadosService
         $saldoAnteriorOperativo = round((float) ($user['monto_deposito_operativo'] ?? 0), 2);
 
         $saldoNuevoAlimentos = round($saldoAnteriorAlimentos + $foodAmount, 2);
-        $saldoNuevoHotel = round($saldoAnteriorHotel + $hotelAmount, 2);
+        $saldoNuevoHotel = $saldoAnteriorHotel > 0 ? $saldoAnteriorHotel : round($hotelAmount, 2);
         $saldoNuevoReservado = round(max(0.00, $saldoAnteriorReservado - $totalApplied), 2);
         $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
         $programStatus = $saldoNuevoReservado > 0 ? 'parcial' : 'aplicado';
@@ -539,9 +541,6 @@ class DepositosProgramadosService
     private function buildPartidaDepositAllocations(array $dataInsert, float $foodReserve, float $hotelReserve): array
     {
         $context = $this->resolver->resolve($dataInsert);
-        if ((int) ($context['id_tipo_proveedor'] ?? 0) > 0 || in_array((int) ($dataInsert['id_perfil'] ?? 0), [2, 5, 7], true)) {
-            return ['error' => false, 'data' => []];
-        }
 
         $allocations = [];
         if ($foodReserve > 0 && (int) ($dataInsert['tiene_alimentos'] ?? 0) === 1) {
@@ -574,6 +573,9 @@ class DepositosProgramadosService
     private function resolveFoodPartidaByContext(array $context): ?int
     {
         $group = (string) ($context['active_group'] ?? '');
+        $idTipoProveedor = (int) ($context['id_tipo_proveedor'] ?? 0);
+        $idPerfil = (int) ($context['id_perfil'] ?? 0);
+
         if (in_array($group, ['secturi', 'secul'], true)) {
             return 1;
         }
@@ -581,7 +583,11 @@ class DepositosProgramadosService
             return 3;
         }
 
-        return null;
+        if ($idTipoProveedor > 0 || in_array($idPerfil, [2, 5, 7], true)) {
+            return 0;
+        }
+
+        return 0;
     }
 
     private function mergePartidaAllocations(array $allocations): array
@@ -625,9 +631,9 @@ class DepositosProgramadosService
             }
 
             $partida = $this->db->query(
-                'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus
+                'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus, visible
                  FROM cat_partida
-                 WHERE id_partida = ? AND visible = 1
+                 WHERE id_partida = ?
                  FOR UPDATE',
                 [$idPartida]
             )->getRowArray();

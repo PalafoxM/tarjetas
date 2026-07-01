@@ -902,8 +902,7 @@ class Inicio extends BaseController {
         $db = \Config\Database::connect();
         $rows = $db->table('cat_partida')
             ->select('id_partida, partida, des_partida, monto_presupuesto, monto_ejercido, monto_disponible, porcentaje_ejercido, proyecto, estatus, color_dashboard, orden_dashboard, fec_reg, fec_act, usu_reg, usu_act, visible')
-            ->where('visible', 1)
-            ->whereIn('id_partida', [1, 2, 3])
+            ->whereIn('id_partida', [0, 1, 2, 3])
             ->orderBy('orden_dashboard', 'ASC')
             ->get()
             ->getResultArray();
@@ -1718,12 +1717,99 @@ class Inicio extends BaseController {
         $data['ficSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil');
         $data['ficSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil');
         $data['ficSolicitudCancelarUrl'] = base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil');
+        $data['qrSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesActivacionQrFic');
         $data['operativoSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioOperativo');
         $data['operativoSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioOperativo');
         $data['operativoSolicitudAprobarUrl'] = base_url('index.php/Inicio/aprobarSolicitudUsuarioOperativo');
         $data['operativoSolicitudRechazarUrl'] = base_url('index.php/Inicio/rechazarSolicitudUsuarioOperativo');
         $data['contentView'] = 'secciones/vSolicitudesUsuarioFic';
         $this->_renderView($data);
+    }
+
+    public function getSolicitudesActivacionQrFic()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'total' => 0,
+                'rows' => [],
+                'message' => 'No tienes permisos para consultar solicitudes de activaciÃ³n QR.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('usuario u')
+            ->select('
+                u.id_usuario,
+                u.usuario,
+                CONCAT_WS(" ", u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
+                u.correo,
+                u.activo_qr,
+                u.deposito_programado_estatus,
+                u.fec_reg,
+                u.fec_act,
+                u.visible
+            ')
+            ->where('u.visible', 1)
+            ->where('u.activo_qr', 0);
+
+        $search = trim((string) ($this->request->getGet('search') ?? ''));
+        if ($search !== '') {
+            $builder->groupStart()
+                ->like('u.usuario', $search)
+                ->orLike('u.nombre', $search)
+                ->orLike('u.primer_apellido', $search)
+                ->orLike('u.segundo_apellido', $search)
+                ->orLike('u.correo', $search)
+                ->orLike('u.deposito_programado_estatus', $search)
+                ->groupEnd();
+        }
+
+        $estatus = trim((string) ($this->request->getGet('estatus') ?? ''));
+        if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
+            if ($estatus === 'activo') {
+                $builder->where('u.activo_qr', 1);
+            } elseif ($estatus === 'pendiente') {
+                $builder->where('u.activo_qr', 0);
+            } else {
+                $builder->where('u.deposito_programado_estatus', $estatus);
+            }
+        }
+
+        $total = (clone $builder)->countAllResults();
+        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
+        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+
+        $rows = $builder
+            ->orderBy('u.fec_reg', 'DESC')
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
+
+        $mapped = array_map(static function (array $row): array {
+            $activoQr = (int) ($row['activo_qr'] ?? 0);
+            $estatus = $activoQr === 1 ? 'aprobada' : 'pendiente';
+            return [
+                'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+                'usuario' => (string) ($row['usuario'] ?? ''),
+                'nombre_completo' => (string) ($row['nombre_completo'] ?? ''),
+                'correo' => (string) ($row['correo'] ?? ''),
+                'estatus' => $estatus,
+                'deposito_programado_estatus' => (string) ($row['deposito_programado_estatus'] ?? ''),
+                'fec_reg' => (string) ($row['fec_reg'] ?? ''),
+                'fec_act' => (string) ($row['fec_act'] ?? ''),
+                'activo_qr' => $activoQr,
+                'acciones' => '',
+            ];
+        }, $rows);
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'total' => $total,
+            'rows' => $mapped,
+        ]);
     }
 
     private function solicitudUsuarioOperativoBaseBuilder($db)
@@ -1981,7 +2067,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contrase?a.',
+                'message' => 'Completa usuario y contraseña.',
             ]);
         }
 
@@ -2162,7 +2248,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobaci?n.',
+                'message' => 'No fue posible finalizar la aprobación.',
             ]);
         }
 

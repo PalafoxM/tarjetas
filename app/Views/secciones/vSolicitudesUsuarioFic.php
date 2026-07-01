@@ -2,6 +2,7 @@
 $ficSolicitudListadoUrl = (string) ($ficSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil'));
 $ficSolicitudDetalleUrl = (string) ($ficSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil'));
 $ficSolicitudCancelarUrl = (string) ($ficSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil'));
+$qrSolicitudListadoUrl = (string) ($qrSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesActivacionQrFic'));
 $operativoSolicitudListadoUrl = (string) ($operativoSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioOperativo'));
 $operativoSolicitudDetalleUrl = (string) ($operativoSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioOperativo'));
 $operativoSolicitudAprobarUrl = (string) ($operativoSolicitudAprobarUrl ?? base_url('index.php/Inicio/aprobarSolicitudUsuarioOperativo'));
@@ -184,7 +185,8 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
     id="solicitudesUsuarioFicPanelRoot"
     data-folio-list-url="<?= esc($ficSolicitudListadoUrl, 'attr') ?>"
     data-folio-detail-url="<?= esc($ficSolicitudDetalleUrl, 'attr') ?>"
-    data-folio-cancel-url="<?= esc($ficSolicitudCancelarUrl, 'attr') ?>">
+    data-folio-cancel-url="<?= esc($ficSolicitudCancelarUrl, 'attr') ?>"
+    data-qr-list-url="<?= esc($qrSolicitudListadoUrl, 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
         <div>
             <h3 class="mb-1 text-white">Bandeja de solicitudes FIC</h3>
@@ -226,7 +228,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                             <th data-field="correo" data-sortable="true">Correo</th>
                             <th data-field="estatus" data-sortable="true">Estatus</th>
                             <th data-field="fec_reg" data-sortable="true">Fecha de solicitud</th>
-                            <th data-field="acciones" data-align="center">Acciones</th>
+                            <th data-field="acciones" data-align="center" data-formatter="solicitudesQrFicAccionesFormatter">Acciones</th>
                         </tr>
                     </thead>
                 </table>

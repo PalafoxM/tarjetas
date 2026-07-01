@@ -417,6 +417,9 @@ class Usuario extends BaseController
         }
 
         if ($idUsuario === 0) {
+            if ((int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1) {
+                $dataInsert['fecha_check_in'] = null;
+            }
             $dataInsert['nip'] = $this->generateUniquePlainToken('nip', 4, true);
             $dataInsert['api_token'] = $this->generateUniquePlainToken('api_token', 32, false);
             $dataInsert['activo_qr'] = 0;
@@ -440,7 +443,7 @@ class Usuario extends BaseController
         }
 
         if ($idUsuario === 0) {
-            $response = $this->saveNewUserWithProgrammedDeposits(
+            $response = (new DepositosProgramadosService())->reserveNewUser(
                 $dataInsert,
                 (int) $session->get('id_usuario'),
                 $scriptName
@@ -1269,225 +1272,6 @@ class Usuario extends BaseController
         }
 
         return (int) ($result->data[0]->id_usuario ?? 0);
-    }
-
-    private function saveNewUserWithProgrammedDeposits(array $dataInsert, int $actorUserId, string $scriptName): object
-    {
-        $service = new DepositosProgramadosService();
-        return $service->reserveNewUser($dataInsert, $actorUserId, $scriptName);
-
-        $response = new \stdClass();
-        $response->error = true;
-        $response->respuesta = 'Error | No fue posible guardar el usuario';
-
-        $this->normalizeProgrammedDepositsForUser($dataInsert);
-
-        $allocations = $this->buildPartidaDepositAllocations($dataInsert);
-        if (!empty($allocations['error'])) {
-            $response->respuesta = $allocations['respuesta'];
-            return $response;
-        }
-
-        $allocationRows = $allocations['data'] ?? [];
-        $primaryPartida = $this->resolvePrimaryPartidaForUser($dataInsert, $allocationRows);
-        $dataInsert['id_partida'] = $primaryPartida;
-
-        $db = \Config\Database::connect();
-        $db->transBegin();
-
-        try {
-            foreach ($allocationRows as $allocation) {
-                $partida = $db->query(
-                    'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus
-                     FROM cat_partida
-                     WHERE id_partida =  AND visible = 1
-                     FOR UPDATE',
-                    [(int) $allocation['id_partida']]
-                )->getRowArray();
-
-                if (empty($partida)) {
-                    throw new \RuntimeException('La partida presupuestal no existe o no está visible: ' . $allocation['id_partida']);
-                }
-
-                $monto = round((float) $allocation['monto'], 2);
-                $disponible = round((float) ($partida['monto_disponible'] ?? 0), 2);
-                if ($monto > $disponible) {
-                    throw new \RuntimeException(
-                        'Presupuesto insuficiente en partida ' . ($partida['partida'] ?? $allocation['id_partida'])
-                        . '. Disponible: $' . number_format($disponible, 2)
-                        . ', requerido: $' . number_format($monto, 2)
-                    );
-                }
-
-                $nuevoEjercido = round((float) ($partida['monto_ejercido'] ?? 0) + $monto, 2);
-                $nuevoDisponible = round($disponible - $monto, 2);
-                $presupuesto = round((float) ($partida['monto_presupuesto'] ?? 0), 2);
-                $porcentaje = $presupuesto > 0 ? round(($nuevoEjercido / $presupuesto) * 100, 2) : 0.0;
-
-                $db->table('cat_partida')
-                    ->where('id_partida', (int) $allocation['id_partida'])
-                    ->update([
-                        'monto_ejercido' => number_format($nuevoEjercido, 2, '.', ''),
-                        'monto_disponible' => number_format($nuevoDisponible, 2, '.', ''),
-                        'porcentaje_ejercido' => number_format($porcentaje, 2, '.', ''),
-                        'estatus' => $nuevoDisponible <= 0 ? 'agotada' : ($partida['estatus'] === 'agotada' ? 'activa' : $partida['estatus']),
-                        'fec_act' => date('Y-m-d H:i:s'),
-                        'usu_act' => $actorUserId,
-                    ]);
-            }
-
-            $db->table('usuario')->insert($dataInsert);
-            $idUsuario = (int) $db->insertID();
-            if ($idUsuario <= 0) {
-                throw new \RuntimeException('No fue posible resolver el usuario creado.');
-            }
-
-            if ($db->transStatus() === false) {
-                throw new \RuntimeException('Error de transaccion al guardar usuario y presupuesto.');
-            }
-
-            $db->transCommit();
-
-            $response->error = false;
-            $response->respuesta = 'Registro guardado correctamente';
-            $response->idRegistro = $idUsuario;
-            $response->depositos_programados = $allocationRows;
-            $response->script = $scriptName;
-            return $response;
-        } catch (\Throwable $e) {
-            $db->transRollback();
-            log_message('error', 'Usuario.saveNewUserWithProgrammedDeposits: ' . $e->getMessage());
-            $response->respuesta = 'Error | ' . $e->getMessage();
-            return $response;
-        }
-    }
-
-    private function normalizeProgrammedDepositsForUser(array &$dataInsert): void
-    {
-        if ((int) ($dataInsert['tiene_hospedaje'] ?? 0) !== 1) {
-            return;
-        }
-
-        $montoHospedaje = $this->resolveHospedajeDepositAmount($dataInsert);
-        if ($montoHospedaje <= 0) {
-            return;
-        }
-
-        if (round((float) ($dataInsert['monto_deposito_hotel'] ?? 0), 2) <= 0) {
-            $dataInsert['monto_deposito_hotel'] = $montoHospedaje;
-        }
-
-        if (round((float) ($dataInsert['tarifa_total'] ?? 0), 2) <= 0) {
-            $dataInsert['tarifa_total'] = $montoHospedaje;
-        }
-    }
-
-    private function buildPartidaDepositAllocations(array $dataInsert): array
-    {
-        $context = $this->resolver->resolve($dataInsert);
-        if ((int) ($context['id_tipo_proveedor'] ?? 0) > 0 || in_array((int) ($dataInsert['id_perfil'] ?? 0), [2, 5, 7], true)) {
-            return ['error' => false, 'data' => []];
-        }
-
-        $allocations = [];
-        $montoAlimentos = round((float) ($dataInsert['monto_deposito'] ?? 0), 2);
-        if ((int) ($dataInsert['tiene_alimentos'] ?? 0) === 1 && $montoAlimentos > 0) {
-            $foodPartida = $this->resolveFoodPartidaByContext($context);
-            if ($foodPartida === null) {
-                return [
-                    'error' => true,
-                    'respuesta' => 'No hay partida de alimentos configurada para el grupo del usuario.',
-                ];
-            }
-
-            $allocations[] = [
-                'id_partida' => $foodPartida,
-                'tipo' => 'alimentos',
-                'monto' => $montoAlimentos,
-            ];
-        }
-
-        $montoHospedaje = $this->resolveHospedajeDepositAmount($dataInsert);
-        if ((int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1 && $montoHospedaje > 0) {
-            $allocations[] = [
-                'id_partida' => 2,
-                'tipo' => 'hospedaje',
-                'monto' => $montoHospedaje,
-            ];
-        }
-
-        return [
-            'error' => false,
-            'data' => $this->mergePartidaAllocations($allocations),
-        ];
-    }
-
-    private function resolveFoodPartidaByContext(array $context): ?int
-    {
-        $group = (string) ($context['active_group'] ?? '');
-        if (in_array($group, ['secturi', 'secul'], true)) {
-            return 1;
-        }
-        if ($group === 'fic') {
-            return 3;
-        }
-
-        return null;
-    }
-
-    private function resolveHospedajeDepositAmount(array $dataInsert): float
-    {
-        $monto = round((float) ($dataInsert['monto_deposito_hotel'] ?? 0), 2);
-        if ($monto > 0) {
-            return $monto;
-        }
-
-        $tarifaTotal = round((float) ($dataInsert['tarifa_total'] ?? 0), 2);
-        if ($tarifaTotal > 0) {
-            return $tarifaTotal;
-        }
-
-        $tarifaNoche = round((float) ($dataInsert['tarifa_noche'] ?? 0), 2);
-        $noches = max(0, (int) ($dataInsert['noche'] ?? 0));
-        return round($tarifaNoche * $noches, 2);
-    }
-
-    private function mergePartidaAllocations(array $allocations): array
-    {
-        $merged = [];
-        foreach ($allocations as $allocation) {
-            $idPartida = (int) ($allocation['id_partida'] ?? 0);
-            if (!isset($merged[$idPartida])) {
-                $merged[$idPartida] = [
-                    'id_partida' => $idPartida,
-                    'tipo' => (string) ($allocation['tipo'] ?? ''),
-                    'monto' => 0.0,
-                ];
-            }
-
-            $merged[$idPartida]['monto'] = round($merged[$idPartida]['monto'] + (float) ($allocation['monto'] ?? 0), 2);
-            if (!str_contains($merged[$idPartida]['tipo'], (string) ($allocation['tipo'] ?? ''))) {
-                $merged[$idPartida]['tipo'] = trim($merged[$idPartida]['tipo'] . '+' . (string) ($allocation['tipo'] ?? ''), '+');
-            }
-        }
-
-        return array_values($merged);
-    }
-
-    private function resolvePrimaryPartidaForUser(array $dataInsert, array $allocations): int
-    {
-        if (empty($allocations)) {
-            return 0;
-        }
-
-        $current = (int) ($dataInsert['id_partida'] ?? 0);
-        foreach ($allocations as $allocation) {
-            if ((int) ($allocation['id_partida'] ?? 0) === $current) {
-                return $current;
-            }
-        }
-
-        return (int) ($allocations[0]['id_partida'] ?? 0);
     }
 
     private function validateBudgetImmutableOnEdit(array $usuarioActual, array $dataInsert): ?string
