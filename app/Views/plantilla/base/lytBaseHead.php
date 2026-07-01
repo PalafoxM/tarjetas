@@ -24,6 +24,9 @@
         <link rel="stylesheet" type="text/css" href="<?php echo base_url();?>/assets/fileinput5/css/fileinput.css">
         <link href="<?php echo base_url(); ?>/assets/css/bootstrap-icons.css" rel="stylesheet" type="text/css" />
         <link href="<?php echo base_url();?>/assets/css/custom.css" rel="stylesheet" type="text/css" id="custom-style" />
+        <?php if (isset($styles)): foreach ($styles as $css): ?>
+            <link href="<?php echo base_url() . "/assets/css/{$css}.css" ?>?filever=<?php echo time() ?>" rel="stylesheet" type="text/css" />
+        <?php endforeach; endif; ?>
 
         <script src="<?php echo base_url("/assets/js/vendor.min.js"); ?>"></script>        
 

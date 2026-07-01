@@ -94,3 +94,4 @@ CREATE TABLE IF NOT EXISTS `usuario_deposito_programado_aplicacion` (
         FOREIGN KEY (`id_movimiento`) REFERENCES `detalle_movimiento` (`id_detalle_movimiento`)
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

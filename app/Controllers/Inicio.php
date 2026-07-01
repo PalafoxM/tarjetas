@@ -215,11 +215,12 @@ class Inicio extends BaseController {
         }
 
         $data = [];
-        $data['scripts'] = ['principal', 'agregar'];
+        $data['styles'] = ['partidas_fic'];
+        $data['scripts'] = ['principal', 'agregar', 'partidas_fic'];
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'Est?s consultando la vista de partidas sin cambiar la sesi?n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando la vista de partidas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -239,7 +240,7 @@ class Inicio extends BaseController {
         $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'Est?s consultando el historial global de pagos sin cambiar la sesi?n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de pagos sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vPagosFic';
         $this->_renderView($data);
     }
@@ -592,7 +593,7 @@ class Inicio extends BaseController {
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible resolver el establecimiento de sesi?n.',
+                'message' => 'No fue posible resolver el establecimiento de sesión.',
             ]);
         }
 

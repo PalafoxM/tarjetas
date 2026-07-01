@@ -1,0 +1,245 @@
+.partidas-shell {
+    background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, .08), transparent 24%),
+        linear-gradient(180deg, #0f172a, #111827);
+    color: #f8fafc;
+    min-height: calc(100vh - 90px);
+    padding: 28px;
+}
+
+.partidas-shell .panel {
+    background: rgba(15, 23, 42, .92);
+    border: 1px solid rgba(148, 163, 184, .16);
+    border-radius: 18px;
+    box-shadow: 0 18px 48px rgba(2, 6, 23, .28);
+}
+
+.partidas-shell .panel + .panel {
+    margin-top: 18px;
+}
+
+.partidas-hero h1 {
+    margin: 0 0 6px;
+    font-size: clamp(1.7rem, 3vw, 2.2rem);
+    font-weight: 800;
+}
+
+.partidas-hero p,
+.partidas-muted {
+    color: #cbd5e1;
+    margin: 0;
+}
+
+.partidas-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .45rem .75rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, .14);
+    color: #93c5fd;
+    font-size: .82rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+}
+
+.partidas-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.partidas-card {
+    background: rgba(30, 41, 59, .9);
+    border: 1px solid rgba(148, 163, 184, .12);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 112px;
+}
+
+.partidas-card__label {
+    display: block;
+    color: #94a3b8;
+    font-size: .75rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin-bottom: .4rem;
+}
+
+.partidas-card__value {
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.partidas-card__note {
+    margin-top: .35rem;
+    color: #cbd5e1;
+    font-size: .84rem;
+}
+
+.partidas-chart-shell {
+    background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, .10), transparent 28%),
+        linear-gradient(180deg, rgba(15, 23, 42, .96), rgba(17, 24, 39, .96));
+    border: 1px solid rgba(96, 165, 250, .16);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .02);
+}
+
+.partidas-chart-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.partidas-chart-title {
+    margin: 0;
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.partidas-chart-copy {
+    margin: .35rem 0 0;
+    color: #cbd5e1;
+    max-width: 74ch;
+}
+
+.partidas-multi-pie-chart {
+    border-radius: 16px;
+    border: 1px dashed rgba(96, 165, 250, .22);
+    background:
+        linear-gradient(180deg, rgba(148, 163, 184, .06), rgba(148, 163, 184, .03)),
+        repeating-linear-gradient(90deg, transparent, transparent 11.5%, rgba(96, 165, 250, .05) 11.5%, rgba(96, 165, 250, .05) 12.5%);
+    padding: 16px;
+    min-height: 320px;
+}
+
+.partidas-chart-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.partidas-chart-canvas,
+.partidas-chart-side {
+    border-radius: 16px;
+    background: rgba(15, 23, 42, .62);
+    border: 1px solid rgba(148, 163, 184, .12);
+    min-height: 284px;
+}
+
+.partidas-chart-canvas {
+    padding: 10px;
+}
+
+.partidas-chart-side {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.partidas-chart-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.partidas-chart-summary-card {
+    background: rgba(30, 41, 59, .82);
+    border: 1px solid rgba(148, 163, 184, .10);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.partidas-chart-summary-label {
+    display: block;
+    color: #94a3b8;
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: .35rem;
+}
+
+.partidas-chart-summary-value {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.partidas-chart-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+}
+
+.partidas-chart-legend-item {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    background: rgba(30, 41, 59, .66);
+    border: 1px solid rgba(148, 163, 184, .08);
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.partidas-chart-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .04);
+}
+
+.partidas-chart-legend-label {
+    color: #e2e8f0;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.partidas-chart-legend-meta {
+    text-align: right;
+    color: #cbd5e1;
+    font-size: .84rem;
+    white-space: nowrap;
+}
+
+.partidas-chart-empty {
+    height: 100%;
+    min-height: 284px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #bfdbfe;
+    padding: 24px;
+}
+
+.partidas-table-wrap {
+    overflow-x: auto;
+}
+
+.partidas-table {
+    min-width: 1280px;
+}
+
+.partidas-empty-state {
+    padding: 24px;
+    text-align: center;
+    color: #cbd5e1;
+}
+
+@media (max-width: 992px) {
+    .partidas-grid,
+    .partidas-chart-layout,
+    .partidas-chart-summary {
+        grid-template-columns: 1fr;
+    }
+}
