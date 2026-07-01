@@ -692,21 +692,94 @@ class Usuario extends BaseController
             ]);
         }
 
+        $fechaAhora = date('Y-m-d H:i:s');
         $response = $this->globals->saveTabla(
             [
-                'estatus_hospedaje' => 'check_in',
-                'observaciones' => $observaciones
+                'fecha_check_in' => $fechaAhora,
+                'observaciones_hospedaje' => $observaciones,
+                'fec_act' => $fechaAhora,
+                'usu_act' => (int) $session->get('id_usuario'),
             ],
             [
-                'tabla' => 'usuario_hospedaje',
+                'tabla' => 'usuario',
                 'editar' => true,
                 'idEditar' => ['id_usuario' => $idUsuario, 'visible' => 1],
             ],
             [
                 'id_user' => (int) $session->get('id_usuario'),
-                'script' => 'Usuario.checkInHospedaje',
+                'script' => 'Usuario.checkInHospedaje.usuario',
             ]
         );
+
+        if (!$response->error) {
+            $this->globals->saveTabla(
+                [
+                    'estatus_hospedaje' => 'check_in',
+                    'observaciones' => $observaciones
+                ],
+                [
+                    'tabla' => 'usuario_hospedaje',
+                    'editar' => true,
+                    'idEditar' => ['id_usuario' => $idUsuario, 'visible' => 1],
+                ],
+                [
+                    'id_user' => (int) $session->get('id_usuario'),
+                    'script' => 'Usuario.checkInHospedaje',
+                ]
+            );
+        }
+
+        return $this->respond($response);
+    }
+
+    public function checkOutHospedaje()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) $this->request->getPost('id_usuario');
+        $observaciones = trim((string) $this->request->getPost('observaciones', FILTER_SANITIZE_STRING));
+
+        if ($idUsuario <= 0) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Identificador de usuario no valido',
+            ]);
+        }
+
+        $fechaAhora = date('Y-m-d H:i:s');
+        $response = $this->globals->saveTabla(
+            [
+                'fecha_check_out' => $fechaAhora,
+                'fec_act' => $fechaAhora,
+                'usu_act' => (int) $session->get('id_usuario'),
+            ],
+            [
+                'tabla' => 'usuario',
+                'editar' => true,
+                'idEditar' => ['id_usuario' => $idUsuario, 'visible' => 1],
+            ],
+            [
+                'id_user' => (int) $session->get('id_usuario'),
+                'script' => 'Usuario.checkOutHospedaje.usuario',
+            ]
+        );
+
+        if (!$response->error) {
+            $this->globals->saveTabla(
+                [
+                    'estatus_hospedaje' => 'check_out',
+                    'observaciones' => $observaciones
+                ],
+                [
+                    'tabla' => 'usuario_hospedaje',
+                    'editar' => true,
+                    'idEditar' => ['id_usuario' => $idUsuario, 'visible' => 1],
+                ],
+                [
+                    'id_user' => (int) $session->get('id_usuario'),
+                    'script' => 'Usuario.checkOutHospedaje',
+                ]
+            );
+        }
 
         return $this->respond($response);
     }

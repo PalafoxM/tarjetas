@@ -65,11 +65,13 @@ class Inicio extends BaseController {
         } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
             return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
+      
 
             //$data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
            // var_dump( $data);
             $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
             $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+              //  die('ok');
             if(!empty($datosProveedor->data)){
                 $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
                 $tabla = ["tabla" => "establecimiento", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
@@ -106,7 +108,10 @@ class Inicio extends BaseController {
                     }
 
                 }
+
+                  
                 $pagos = $Mglobal->getTabla(["tabla" =>"pagos", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
+            //    die( var_dump( $pagos  ) );
                 $solicitudPago = $Mglobal->getTabla(["tabla" =>"solicitud_pago", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
                 if(!empty($pagos->data) && isset($pagos->data)){
                      $data['proveedorPagos'] = $pagos->data;
@@ -143,7 +148,22 @@ class Inicio extends BaseController {
             $vista = 'secciones/vCajero';
         }
         if ($contextoUsuario['is_recepcion_flow']) {
+           if($session->id_usuario == 1){
+            $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]])->data;
+            
+           }else{
+             $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
+            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+           /*  $tabla = ["tabla" => "vw_usuario", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
+            $cliente = $Mglobal->getTabla($tabla);
+            $data['usuarioHotel'] = (!empty($cliente->data) && isset($cliente->data))?$cliente->data:[]; */
+           // var_dump($cliente);
+            //die(  );
+            
+           }
 
+            //die('ok');
             $vista = 'secciones/vHospedaje';
         }
         if ($vista === null) {
@@ -2342,8 +2362,8 @@ class Inicio extends BaseController {
         ]);
   
         $response = $Mglobal->getTabla([
-            'tabla' => 'vw_usuario_hospedaje',
-            'where' => ['visible' => 1, 'id_establecimiento_hotel' => $idUsuario->data[0]->id_establecimiento]
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1, 'id_establecimiento' => $idUsuario->data[0]->id_establecimiento]
         ]);
       
         $data = array();
