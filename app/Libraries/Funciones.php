@@ -10,7 +10,7 @@ class Funciones {
     public function __construct()
     {
         $this->globals = new Globals();
-        $this->secretKey = 'ORnsLEykJAMTEvacurICINGeRvelINclOg';
+        $this->secretKey = 'ORnsLEykJAMTEvacurICINGeRvelINclOg'; 
     }
 
     function encode($data) {

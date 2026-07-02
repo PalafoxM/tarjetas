@@ -53,6 +53,12 @@ class DepositosProgramadosService
 
         $allocationRows = $allocations['data'] ?? [];
         $userRow = $dataInsert;
+        $idEstablecimiento = $this->resolveRequiredEstablecimientoId($userRow);
+        if ($idEstablecimiento <= 0) {
+            $response->respuesta = 'Error | Debes seleccionar un establecimiento antes de guardar el usuario.';
+            return $response;
+        }
+        $userRow['id_establecimiento'] = $idEstablecimiento;
         $userRow['monto_deposito'] = 0.00;
         $userRow['monto_deposito_hotel'] = round($hotelAmount, 2);
         $userRow['monto_deposito_reservado'] = $totalReserve;
@@ -72,25 +78,6 @@ class DepositosProgramadosService
 
             $this->applyPartidaReservations($allocationRows, $actorUserId);
 
-            $programId = 0;
-            if ($totalReserve > 0) {
-                $programId = $this->insertProgramSummaryRow([
-                    'id_usuario' => $idUsuario,
-                    'id_qr_cliente' => $idUsuario,
-                    'tipo_evento' => 'alta',
-                    'periodo_inicio' => $vigenciaInicio->format('Y-m-d'),
-                    'periodo_fin' => $vigenciaFin->format('Y-m-d'),
-                    'fecha_ejecucion_programada' => $userRow['fec_reg'],
-                    'monto_diario' => $dailyAmount,
-                    'dias_programados' => $days,
-                    'monto_total_reservado' => $totalReserve,
-                    'monto_total_aplicado' => 0.00,
-                    'estatus' => 'reservado',
-                    'observaciones' => 'Reserva inicial al alta del usuario.',
-                    'usu_reg' => $actorUserId,
-                ]);
-            }
-
             if ($this->db->transStatus() === false) {
                 throw new RuntimeException('Error de transacción al reservar el depósito del usuario.');
             }
@@ -100,7 +87,7 @@ class DepositosProgramadosService
             $response->error = false;
             $response->respuesta = 'Registro guardado correctamente';
             $response->idRegistro = $idUsuario;
-            $response->programa_id = $programId;
+            $response->programa_id = 0;
             $response->depositos_programados = $allocationRows;
             $response->monto_reservado = $totalReserve;
             $response->monto_operativo = 0.00;
@@ -207,70 +194,36 @@ class DepositosProgramadosService
 
     private function applyCurrentWindow(array $user, string $tipoEvento, DateTimeImmutable $referenceDate, int $actorUserId): array
     {
-        $master = $this->getMasterProgramRow((int) ($user['id_usuario'] ?? 0));
-        if (empty($master)) {
-            return ['applied' => false, 'message' => 'No existe un programa de depósito reservado para el usuario.'];
-        }
-
         $vigenciaInicio = $this->resolveUserDate($user, ['fec_vigencia_desde', 'fecha_check_in']);
         $vigenciaFin = $this->resolveUserDate($user, ['fec_vigencia_hasta', 'fecha_check_out']);
         if ($vigenciaInicio === null || $vigenciaFin === null) {
-            return ['applied' => false, 'message' => 'El usuario no tiene vigencia completa para aplicar depósitos.'];
-        }
-
-        $lastApplication = $this->getLatestApplicationRow((int) $master['id_usuario_deposito_programado']);
-        if ($tipoEvento === 'semanal' && $lastApplication === null) {
-            return ['applied' => false, 'message' => 'El usuario aún no tiene una activación previa.'];
+            return ['applied' => false, 'message' => 'El usuario no tiene vigencia completa para aplicar depositos.'];
         }
 
         $start = $tipoEvento === 'activacion'
             ? $referenceDate->setTime(0, 0, 0)
-            : ($lastApplication !== null
-                ? $this->resolveDateTime((string) $lastApplication['periodo_fin'])?->add(new DateInterval('P1D'))
-                : $vigenciaInicio);
-
-        if ($start === null) {
-            $start = $vigenciaInicio;
-        }
-
+            : $vigenciaInicio;
         $start = $this->normalizeDateToStart($start);
         if ($start < $vigenciaInicio) {
             $start = $vigenciaInicio;
         }
         if ($start > $vigenciaFin) {
-            return ['applied' => false, 'message' => 'La vigencia ya concluyó.'];
+            return ['applied' => false, 'message' => 'La vigencia ya concluyo.'];
         }
 
-        $end = $tipoEvento === 'activacion'
-            ? $this->endOfWeekSunday($start)
-            : $this->endOfWeekSunday($start);
+        $end = $this->endOfWeekSunday($start);
         if ($end > $vigenciaFin) {
             $end = $vigenciaFin;
         }
 
         $days = $this->countInclusiveDays($start, $end);
         if ($days <= 0) {
-            return ['applied' => false, 'message' => 'No hay días pendientes para aplicar.'];
-        }
-
-        $alreadyApplied = $this->db->table('usuario_deposito_programado_aplicacion')
-            ->select('id_usuario_deposito_programado_aplicacion')
-            ->where('id_usuario_deposito_programado', (int) $master['id_usuario_deposito_programado'])
-            ->where('tipo_evento', $tipoEvento)
-            ->where('periodo_inicio', $start->format('Y-m-d'))
-            ->where('periodo_fin', $end->format('Y-m-d'))
-            ->where('estatus_aplicacion', 'aplicado')
-            ->where('visible', 1)
-            ->limit(1)
-            ->get()
-            ->getRowArray();
-        if (!empty($alreadyApplied)) {
-            return ['applied' => false, 'message' => 'Ese periodo ya fue aplicado.'];
+            return ['applied' => false, 'message' => 'No hay dias pendientes para aplicar.'];
         }
 
         $dailyAmount = $this->resolveDailyAmount($user);
         $foodAmount = (int) ($user['tiene_alimentos'] ?? 0) === 1 ? round($dailyAmount * $days, 2) : 0.00;
-        $hotelAmount = $tipoEvento === 'activacion' && empty($lastApplication) && (int) ($user['tiene_hospedaje'] ?? 0) === 1
+        $hotelAmount = $tipoEvento === 'activacion' && (int) ($user['tiene_hospedaje'] ?? 0) === 1
             ? $this->resolveHospedajeAmount($user)
             : 0.00;
         $totalApplied = round($foodAmount + $hotelAmount, 2);
@@ -284,49 +237,13 @@ class DepositosProgramadosService
         $saldoAnteriorOperativo = round((float) ($user['monto_deposito_operativo'] ?? 0), 2);
 
         $saldoNuevoAlimentos = round($saldoAnteriorAlimentos + $foodAmount, 2);
-        $saldoNuevoHotel = $saldoAnteriorHotel > 0 ? $saldoAnteriorHotel : round($hotelAmount, 2);
+        $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmount), 2);
         $saldoNuevoReservado = round(max(0.00, $saldoAnteriorReservado - $totalApplied), 2);
         $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
         $programStatus = $saldoNuevoReservado > 0 ? 'parcial' : 'aplicado';
 
         $this->db->transBegin();
         try {
-            $paymentId = $this->insertPago([
-                'id_usuario' => (int) $user['id_usuario'],
-                'id_establecimiento' => (int) ($user['id_establecimiento'] ?? 0),
-                'monto' => $totalApplied,
-                'propina' => 0.00,
-                'total' => $totalApplied,
-                'usu_reg' => $actorUserId,
-            ]);
-
-            $movementId = $this->insertMovimiento([
-                'id_usuario' => (int) $user['id_usuario'],
-                'id_pago' => $paymentId,
-                'tipo_movimiento' => 'abono',
-                'tipo_origen' => $tipoEvento === 'activacion' ? 'deposito_activacion' : 'deposito_semanal',
-                'creditos' => $totalApplied,
-                'saldo_anterior' => $saldoAnteriorOperativo,
-                'saldo_nuevo' => $saldoNuevoOperativo,
-                'descripcion' => $this->buildMovementDescription($tipoEvento, $start, $end, $foodAmount, $hotelAmount),
-                'usu_reg' => $actorUserId,
-            ]);
-
-            $applicationId = $this->insertApplicationLog([
-                'id_usuario_deposito_programado' => (int) $master['id_usuario_deposito_programado'],
-                'tipo_evento' => $tipoEvento,
-                'periodo_inicio' => $start->format('Y-m-d'),
-                'periodo_fin' => $end->format('Y-m-d'),
-                'fecha_aplicacion' => $referenceDate->format('Y-m-d H:i:s'),
-                'monto_aplicado' => $totalApplied,
-                'id_pago' => $paymentId,
-                'id_movimiento' => $movementId,
-                'estatus_aplicacion' => 'aplicado',
-                'detalle_error' => null,
-                'intento' => $this->nextAttempt((int) $master['id_usuario_deposito_programado']),
-                'usu_reg' => $actorUserId,
-            ]);
-
             $this->db->table('usuario')
                 ->where('id_usuario', (int) $user['id_usuario'])
                 ->update([
@@ -339,17 +256,8 @@ class DepositosProgramadosService
                     'usu_act' => $actorUserId,
                 ]);
 
-            $this->db->table('usuario_deposito_programado')
-                ->where('id_usuario_deposito_programado', (int) $master['id_usuario_deposito_programado'])
-                ->update([
-                    'monto_total_aplicado' => number_format($saldoAnteriorOperativo + $totalApplied, 2, '.', ''),
-                    'estatus' => $programStatus,
-                    'fec_act' => $referenceDate->format('Y-m-d H:i:s'),
-                    'usu_act' => $actorUserId,
-                ]);
-
             if ($this->db->transStatus() === false) {
-                throw new RuntimeException('La transacción de aplicación no pudo completarse.');
+                throw new RuntimeException('La transaccion de aplicacion no pudo completarse.');
             }
 
             $this->db->transCommit();
@@ -358,8 +266,6 @@ class DepositosProgramadosService
                 'applied' => true,
                 'applied_amount' => $totalApplied,
                 'program_row' => [
-                    'id_usuario_deposito_programado' => (int) $master['id_usuario_deposito_programado'],
-                    'id_usuario_deposito_programado_aplicacion' => $applicationId,
                     'periodo_inicio' => $start->format('Y-m-d'),
                     'periodo_fin' => $end->format('Y-m-d'),
                     'tipo_evento' => $tipoEvento,
@@ -372,155 +278,74 @@ class DepositosProgramadosService
             return ['applied' => false, 'message' => $e->getMessage()];
         }
     }
-
     private function markProgramError(int $idUsuario, string $tipoEvento, string $referenceDate, int $actorUserId, string $message): void
     {
-        $master = $this->getMasterProgramRow($idUsuario);
-        if (empty($master)) {
-            return;
-        }
-
         $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
-        $this->db->transStart();
-        $this->db->table('usuario_deposito_programado')
-            ->where('id_usuario_deposito_programado', (int) $master['id_usuario_deposito_programado'])
+        $this->db->table('usuario')
+            ->where('id_usuario', $idUsuario)
             ->update([
-                'estatus' => 'error',
-                'observaciones' => trim('Error en ' . $tipoEvento . ': ' . $message),
+                'deposito_programado_estatus' => 'error',
                 'fec_act' => $now->format('Y-m-d H:i:s'),
                 'usu_act' => $actorUserId,
             ]);
-
-        $this->db->table('usuario_deposito_programado_aplicacion')->insert([
-            'id_usuario_deposito_programado' => (int) $master['id_usuario_deposito_programado'],
-            'tipo_evento' => $tipoEvento,
-            'periodo_inicio' => $now->format('Y-m-d'),
-            'periodo_fin' => $now->format('Y-m-d'),
-            'fecha_aplicacion' => $now->format('Y-m-d H:i:s'),
-            'monto_aplicado' => 0.00,
-            'id_pago' => null,
-            'id_movimiento' => null,
-            'estatus_aplicacion' => 'error',
-            'detalle_error' => $message,
-            'intento' => $this->nextAttempt((int) $master['id_usuario_deposito_programado']),
-            'fec_reg' => $now->format('Y-m-d H:i:s'),
-            'usu_reg' => $actorUserId,
-            'visible' => 0,
-        ]);
-        $this->db->transComplete();
     }
-
     private function insertUser(array $data): int
     {
         $this->db->table('usuario')->insert($data);
         return (int) $this->db->insertID();
     }
 
-    private function insertProgramSummaryRow(array $data): int
+    private function resolveRequiredEstablecimientoId(array $data): int
     {
-        $payload = [
-            'id_usuario' => (int) ($data['id_usuario'] ?? 0),
-            'id_qr_cliente' => $data['id_qr_cliente'] ?? null,
-            'tipo_evento' => (string) ($data['tipo_evento'] ?? 'alta'),
-            'periodo_inicio' => $data['periodo_inicio'],
-            'periodo_fin' => $data['periodo_fin'],
-            'fecha_ejecucion_programada' => $data['fecha_ejecucion_programada'],
-            'monto_diario' => number_format((float) ($data['monto_diario'] ?? 0), 2, '.', ''),
-            'dias_programados' => (int) ($data['dias_programados'] ?? 0),
-            'monto_total_reservado' => number_format((float) ($data['monto_total_reservado'] ?? 0), 2, '.', ''),
-            'monto_total_aplicado' => number_format((float) ($data['monto_total_aplicado'] ?? 0), 2, '.', ''),
-            'estatus' => (string) ($data['estatus'] ?? 'reservado'),
-            'observaciones' => $data['observaciones'] ?? null,
-            'fec_reg' => date('Y-m-d H:i:s'),
-            'usu_reg' => (int) ($data['usu_reg'] ?? 0),
-            'fec_act' => date('Y-m-d H:i:s'),
-            'usu_act' => (int) ($data['usu_reg'] ?? 0),
-            'visible' => 1,
-        ];
-
-        $existing = $this->db->table('usuario_deposito_programado')
-            ->select('id_usuario_deposito_programado')
-            ->where('id_usuario', $payload['id_usuario'])
-            ->where('periodo_inicio', $payload['periodo_inicio'])
-            ->where('periodo_fin', $payload['periodo_fin'])
-            ->where('tipo_evento', $payload['tipo_evento'])
-            ->where('visible', 1)
-            ->get()
-            ->getRowArray();
-
-        if (!empty($existing)) {
-            $this->db->table('usuario_deposito_programado')
-                ->where('id_usuario_deposito_programado', (int) $existing['id_usuario_deposito_programado'])
-                ->update($payload);
-            return (int) $existing['id_usuario_deposito_programado'];
+        $idEstablecimiento = (int) ($data['id_establecimiento'] ?? 0);
+        if ($idEstablecimiento > 0) {
+            return $idEstablecimiento;
         }
 
-        $this->db->table('usuario_deposito_programado')->insert($payload);
-        return (int) $this->db->insertID();
+        $idPerfil = (int) ($data['id_perfil'] ?? 0);
+        $idFic = (int) ($data['id_fic_perfil'] ?? 0);
+        $idUg = (int) ($data['id_ug_perfil'] ?? 0);
+        $idSecul = (int) ($data['id_secul_perfil'] ?? 0);
+        $idSecturi = (int) ($data['id_secturi_perfil'] ?? 0);
+
+        if ($idFic > 0 || $idUg > 0) {
+            if ($idPerfil === 9) {
+                return 90;
+            }
+            if ($idPerfil === 10) {
+                return 91;
+            }
+        }
+
+        if ($idSecul > 0) {
+            return 89;
+        }
+
+        if ($idSecturi > 0) {
+            return 85;
+        }
+
+        return 0;
+    }
+
+    private function insertProgramSummaryRow(array $data): int
+    {
+        return 0;
     }
 
     private function insertApplicationLog(array $data): int
     {
-        $payload = [
-            'id_usuario_deposito_programado' => (int) ($data['id_usuario_deposito_programado'] ?? 0),
-            'tipo_evento' => (string) ($data['tipo_evento'] ?? 'semanal'),
-            'periodo_inicio' => $data['periodo_inicio'],
-            'periodo_fin' => $data['periodo_fin'],
-            'fecha_aplicacion' => $data['fecha_aplicacion'],
-            'monto_aplicado' => number_format((float) ($data['monto_aplicado'] ?? 0), 2, '.', ''),
-            'id_pago' => $data['id_pago'] ?? null,
-            'id_movimiento' => $data['id_movimiento'] ?? null,
-            'estatus_aplicacion' => (string) ($data['estatus_aplicacion'] ?? 'aplicado'),
-            'detalle_error' => $data['detalle_error'] ?? null,
-            'intento' => (int) ($data['intento'] ?? 1),
-            'fec_reg' => date('Y-m-d H:i:s'),
-            'usu_reg' => (int) ($data['usu_reg'] ?? 0),
-            'fec_act' => date('Y-m-d H:i:s'),
-            'usu_act' => (int) ($data['usu_reg'] ?? 0),
-            'visible' => (int) ($data['visible'] ?? 1),
-        ];
-
-        $this->db->table('usuario_deposito_programado_aplicacion')->insert($payload);
-        return (int) $this->db->insertID();
+        return 0;
     }
 
     private function insertPago(array $data): int
     {
-        $payload = [
-            'id_tipo_pago' => 1,
-            'id_usuario' => (int) ($data['id_usuario'] ?? 0),
-            'id_establecimiento' => (int) ($data['id_establecimiento'] ?? 0),
-            'id_solicitud_pago' => null,
-            'monto' => number_format((float) ($data['monto'] ?? 0), 2, '.', ''),
-            'propina' => number_format((float) ($data['propina'] ?? 0), 2, '.', ''),
-            'total' => number_format((float) ($data['total'] ?? 0), 2, '.', ''),
-            'fec_reg' => date('Y-m-d H:i:s'),
-            'usu_reg' => (int) ($data['usu_reg'] ?? 0),
-            'visible' => 1,
-        ];
-
-        $this->db->table('pagos')->insert($payload);
-        return (int) $this->db->insertID();
+        return 0;
     }
 
     private function insertMovimiento(array $data): int
     {
-        $payload = [
-            'id_usuario' => (int) ($data['id_usuario'] ?? 0),
-            'id_pago' => $data['id_pago'] ?? null,
-            'tipo_movimiento' => (string) ($data['tipo_movimiento'] ?? 'abono'),
-            'tipo_origen' => (string) ($data['tipo_origen'] ?? 'deposito_programado'),
-            'creditos' => number_format((float) ($data['creditos'] ?? 0), 2, '.', ''),
-            'saldo_anterior' => number_format((float) ($data['saldo_anterior'] ?? 0), 2, '.', ''),
-            'saldo_nuevo' => number_format((float) ($data['saldo_nuevo'] ?? 0), 2, '.', ''),
-            'descripcion' => $data['descripcion'] ?? null,
-            'fec_reg' => date('Y-m-d H:i:s'),
-            'usu_reg' => (int) ($data['usu_reg'] ?? 0),
-            'visible' => 1,
-        ];
-
-        $this->db->table('detalle_movimiento')->insert($payload);
-        return (int) $this->db->insertID();
+        return 0;
     }
 
     private function buildMovementDescription(string $tipoEvento, DateTimeImmutable $inicio, DateTimeImmutable $fin, float $foodAmount, float $hotelAmount): string
@@ -579,7 +404,7 @@ class DepositosProgramadosService
         if (in_array($group, ['secturi', 'secul'], true)) {
             return 1;
         }
-        if ($group === 'fic') {
+        if (in_array($group, ['fic', 'ug'], true)) {
             return 3;
         }
 
@@ -595,7 +420,7 @@ class DepositosProgramadosService
         $merged = [];
         foreach ($allocations as $allocation) {
             $idPartida = (int) ($allocation['id_partida'] ?? 0);
-            if ($idPartida <= 0) {
+            if ($idPartida < 0) {
                 continue;
             }
 
@@ -626,7 +451,7 @@ class DepositosProgramadosService
         foreach ($allocations as $allocation) {
             $idPartida = (int) ($allocation['id_partida'] ?? 0);
             $monto = round((float) ($allocation['monto'] ?? 0), 2);
-            if ($idPartida <= 0 || $monto <= 0) {
+            if ($idPartida < 0 || $monto <= 0) {
                 continue;
             }
 
@@ -775,38 +600,16 @@ class DepositosProgramadosService
 
     private function getMasterProgramRow(int $idUsuario): array
     {
-        $row = $this->db->table('usuario_deposito_programado')
-            ->where('id_usuario', $idUsuario)
-            ->where('tipo_evento', 'alta')
-            ->where('visible', 1)
-            ->orderBy('id_usuario_deposito_programado', 'DESC')
-            ->get()
-            ->getRowArray();
-
-        return is_array($row) ? $row : [];
+        return [];
     }
 
     private function getLatestApplicationRow(int $idUsuarioDepositoProgramado): ?array
     {
-        $row = $this->db->table('usuario_deposito_programado_aplicacion')
-            ->where('id_usuario_deposito_programado', $idUsuarioDepositoProgramado)
-            ->where('visible', 1)
-            ->where('estatus_aplicacion', 'aplicado')
-            ->orderBy('fecha_aplicacion', 'DESC')
-            ->get()
-            ->getRowArray();
-
-        return is_array($row) ? $row : null;
+        return null;
     }
 
     private function nextAttempt(int $idUsuarioDepositoProgramado): int
     {
-        $row = $this->db->table('usuario_deposito_programado_aplicacion')
-            ->select('MAX(intento) AS intento')
-            ->where('id_usuario_deposito_programado', $idUsuarioDepositoProgramado)
-            ->get()
-            ->getRowArray();
-
-        return ((int) ($row['intento'] ?? 0)) + 1;
+        return 1;
     }
 }

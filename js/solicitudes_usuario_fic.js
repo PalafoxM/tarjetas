@@ -112,7 +112,7 @@ var solicitudesUsuarioFic = (function () {
                 if (typeof callback === 'function') callback();
             })
             .fail(function () {
-                Swal.fire('Error', 'No fue posible cargar los cat?logos de la solicitud.', 'error');
+                Swal.fire('Error', 'No fue posible cargar los catálogos de la solicitud.', 'error');
             });
     }
 

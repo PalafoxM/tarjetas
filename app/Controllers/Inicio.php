@@ -2521,7 +2521,7 @@ class Inicio extends BaseController {
 
     private function renderPerfilCatalogoHub(string $grupo, string $modo = 'admin')
     {
-        $session = ConfigServices::session();
+        $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -2543,7 +2543,7 @@ class Inicio extends BaseController {
             return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo) . 'Consulta'));
         }
 
-        $db = ConfigDatabase::connect();
+        $db = \Config\Database::connect();
         $perfiles = $db->table($cfg['catalog_table'])
             ->select($cfg['catalog_id'] . ', ' . $cfg['catalog_label'])
             ->where('visible', 1)
@@ -2556,8 +2556,8 @@ class Inicio extends BaseController {
         $data[$cfg['mode_key']] = $modo === 'consulta' ? 'consulta' : 'admin';
         $data['hubTitle'] = 'Perfil ' . $cfg['label'];
         $data['hubSubtitle'] = $modo === 'consulta'
-            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del cat?logo ' . $cfg['label'] . '.'
-            : 'Panel operativo para solicitar folios del cat?logo ' . $cfg['label'] . '.';
+            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catálogo ' . $cfg['label'] . '.'
+            : 'Panel operativo para solicitar folios del catálogo ' . $cfg['label'] . '.';
         $data[$cfg['can_create_key']] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
         $data[$cfg['perfil_options_key']] = array_map(static function (array $row) use ($cfg): array {
             return [
@@ -2628,7 +2628,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'Cat?logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2684,7 +2684,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Cat?logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2726,10 +2726,10 @@ class Inicio extends BaseController {
         $usuario = '';
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Cat?logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del cat?logo puede enviar solicitudes.']);
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catálogo puede enviar solicitudes.']);
         }
         if ($this->request->getMethod() !== 'post') {
             return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'M?todo no permitido.']);
@@ -2855,7 +2855,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Cat?logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para cancelar solicitudes.']);

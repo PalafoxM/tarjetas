@@ -397,11 +397,19 @@ class Usuario extends BaseController
         $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
+        $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
 
         if ($partidaUsuario === null) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Debes seleccionar una partida para este perfil.',
+            ]);
+        }
+
+        if ($idEstablecimientoAlta === null) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes seleccionar un establecimiento para este usuario.',
             ]);
         }
 
@@ -412,7 +420,7 @@ class Usuario extends BaseController
             'segundo_apellido' => trim((string) ($data['segundo_apellido'] ?? '')),
             'correo' => trim((string) ($data['correo'] ?? '')),
             'id_perfil' => $legacyProfile,
-            'id_establecimiento' => $this->nullableInt($data['id_establecimiento'] ?? null),
+            'id_establecimiento' => $idEstablecimientoAlta,
             'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
             'id_partida' => $partidaUsuario,
             'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
@@ -1026,6 +1034,42 @@ class Usuario extends BaseController
 
         if ($idPartidaExistente !== null && $idPartidaExistente > 0) {
             return $idPartidaExistente;
+        }
+
+        return null;
+    }
+
+    private function resolveEstablecimientoAlta(array $data, string $grupoUsuario, ?int $selectedProfile, array $existingRow = []): ?int
+    {
+        $idEstablecimiento = $this->nullableInt($data['id_establecimiento'] ?? null);
+        if ($idEstablecimiento !== null && $idEstablecimiento > 0) {
+            return $idEstablecimiento;
+        }
+
+        $idEstablecimiento = $this->nullableInt($existingRow['id_establecimiento'] ?? null);
+        if ($idEstablecimiento !== null && $idEstablecimiento > 0) {
+            return $idEstablecimiento;
+        }
+
+        $groupProfileMap = [
+            4 => 85,
+            8 => 89,
+            9 => 90,
+            10 => 91,
+        ];
+
+        if ($selectedProfile !== null && isset($groupProfileMap[$selectedProfile])) {
+            return $groupProfileMap[$selectedProfile];
+        }
+
+        if (in_array($grupoUsuario, ['fic', 'ug', 'secul', 'secturi'], true) && isset($groupProfileMap[$selectedProfile ?? 0])) {
+            return $groupProfileMap[$selectedProfile ?? 0];
+        }
+
+        $session = \Config\Services::session();
+        $sessionEstablecimiento = $this->nullableInt($session->get('id_establecimiento') ?? null);
+        if ($sessionEstablecimiento !== null && $sessionEstablecimiento > 0) {
+            return $sessionEstablecimiento;
         }
 
         return null;

@@ -1,7 +1,7 @@
 <?php
 $session = \Config\Services::session();
 $hubTitle = (string) ($hubTitle ?? 'Perfil SECUL');
-$hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al cat?logo SECUL.');
+$hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catálogoSECUL.');
 $hubMode = (string) ($perfilSeculMode ?? 'admin');
 $hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administraci?n';
 $mostrarEdicion = $hubMode === 'admin';
@@ -45,7 +45,7 @@ $solicitudEstablecimientoId = (int) ($seculSolicitudEstablecimientoId ?? 0);
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                 <div>
                     <h4 class="mb-1 text-white">Usuarios SECUL</h4>
-                    <p class="text-muted mb-0">Consulta el cat?logo visible de usuarios SECUL seg?n tu perfil.</p>
+                    <p class="text-muted mb-0">Consulta el catálogo visible de usuarios SECUL según tu perfil.</p>
                 </div>
                 <?php if ($mostrarEdicion): ?>
                     <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/secul'), 'attr') ?>">
