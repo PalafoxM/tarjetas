@@ -181,6 +181,7 @@ class Usuario extends BaseController
         $data = $this->request->getPost();
         $idUsuario = (int) ($data['id_usuario'] ?? 0);
         $usuarioActual = null;
+        $usuarioInput = $this->resolveUsuarioInput($data);
 
         if ($idUsuario > 0) {
             $usuarioActual = $this->getBaseUserRow($idUsuario);
@@ -230,12 +231,20 @@ class Usuario extends BaseController
             }
 
             $db = \Config\Database::connect();
-            $proveedor = $db->table('proveedor')
+            $proveedorQuery = $db->table('proveedor')
                 ->select('id_proveedor, id_tipo_proveedor, no_proveedor, razon_social')
                 ->where('id_proveedor', $idProveedor)
                 ->where('visible', 1)
-                ->get()
-                ->getRowArray();
+                ->get();
+
+            if ($proveedorQuery === false) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'No fue posible consultar el proveedor seleccionado.',
+                ]);
+            }
+
+            $proveedor = $proveedorQuery->getRowArray();
 
             if (!$proveedor) {
                 return $this->respond([
@@ -261,7 +270,7 @@ class Usuario extends BaseController
                 ]);
             }
 
-            $usuarioNormalizado = strtolower(trim((string) ($data['usuario'] ?? '')));
+            $usuarioNormalizado = $usuarioInput;
             if ($usuarioNormalizado === '') {
                 return $this->respond([
                     'error' => true,
@@ -360,7 +369,7 @@ class Usuario extends BaseController
             return $this->respond($response);
         }
 
-        foreach (['usuario', 'nombre', 'primer_apellido', 'correo'] as $campo) {
+        foreach (['nombre', 'primer_apellido', 'correo'] as $campo) {
             if (trim((string) ($data[$campo] ?? '')) === '') {
                 return $this->respond([
                     'error' => true,
@@ -376,11 +385,18 @@ class Usuario extends BaseController
             ]);
         }
 
+        if ($usuarioInput === '') {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'El campo usuario es requerido',
+            ]);
+        }
+
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
         $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
         $dataInsert = [
-            'usuario' => trim((string) ($data['usuario'] ?? '')),
+            'usuario' => $usuarioInput,
             'nombre' => trim((string) ($data['nombre'] ?? '')),
             'primer_apellido' => trim((string) ($data['primer_apellido'] ?? '')),
             'segundo_apellido' => trim((string) ($data['segundo_apellido'] ?? '')),
@@ -898,6 +914,33 @@ class Usuario extends BaseController
         return $builder->countAllResults() > 0;
     }
 
+    private function resolveUsuarioInput(array $data): string
+    {
+        $candidates = [
+            (string) ($data['usuario'] ?? ''),
+            (string) ($data['nombre_usuario'] ?? ''),
+            (string) ($data['usuario_login'] ?? ''),
+            (string) ($data['usr_usuario'] ?? ''),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $candidate = strtolower(trim($candidate));
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $correo = strtolower(trim((string) ($data['correo'] ?? '')));
+        if ($correo !== '' && str_contains($correo, '@')) {
+            $correoUsuario = trim((string) strstr($correo, '@', true));
+            if ($correoUsuario !== '') {
+                return $correoUsuario;
+            }
+        }
+
+        return '';
+    }
+
     private function resolveSavedProviderUserId(object $response, int $currentId, string $usuario): int
     {
         if ($currentId > 0) {
@@ -941,12 +984,17 @@ class Usuario extends BaseController
         $establecimientoIds = [];
 
         if ($idProveedor > 0) {
-            $proveedor = $db->table('proveedor')
+            $proveedorQuery = $db->table('proveedor')
                 ->select('id_proveedor, no_proveedor')
                 ->where('id_proveedor', $idProveedor)
                 ->where('visible', 1)
-                ->get()
-                ->getRowArray();
+                ->get();
+
+            if ($proveedorQuery === false) {
+                return false;
+            }
+
+            $proveedor = $proveedorQuery->getRowArray();
 
             if (!empty($proveedor['no_proveedor'])) {
                 $rows = $db->table('establecimiento')
