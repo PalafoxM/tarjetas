@@ -6,6 +6,7 @@ $idUsuarioEditar = (int) ($idUsuarioEditar ?? 0);
 $esNuevo = $idUsuarioEditar <= 0;
 $modoAltaProveedor = !empty($modoAltaProveedor);
 $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
+$partidaOptions = is_array($partidaOptions ?? null) ? $partidaOptions : [];
 $extractCatalogAmount = static function ($item) {
     $candidates = ['monto_diario', 'tarifa_diaria', 'tarifa_noche', 'tarifa', 'precio', 'costo', 'importe', 'monto', 'valor'];
 
@@ -354,8 +355,23 @@ $extractCatalogAmount = static function ($item) {
                         <input type="number" step="0.01" class="form-control" id="monto_total_alimentos_ui" readonly>
                     </div>
                     <input type="hidden" name="id_partida" id="id_partida">
+                    <div class="col-md-3" id="partidaManualWrapper">
+                        <label class="form-label" for="id_partida_ui">Partida</label>
+                        <select class="form-control js-select2-catalog" id="id_partida_ui" data-placeholder="Buscar partida">
+                            <option value="">Seleccione</option>
+                            <?php foreach ($partidaOptions as $partida): ?>
+                                <?php
+                                    $partidaCodigo = trim((string) ($partida->partida ?? ''));
+                                    $partidaDescripcion = trim((string) ($partida->des_partida ?? ''));
+                                    $partidaLabel = trim($partidaCodigo . ($partidaDescripcion !== '' ? ' - ' . $partidaDescripcion : ''));
+                                ?>
+                                <option value="<?= esc((string) ($partida->id_partida ?? ''), 'attr') ?>"><?= esc($partidaLabel, 'html') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">FIC y UG se asignan autom&aacute;ticamente a 3390A o 3390B seg&uacute;n el beneficio.</small>
+                    </div>
                     <div class="col-md-3 alimentos-field" id="partidaAlimentosWrapper">
-                        <label class="form-label" for="id_partida_alimentos_ui">Partida</label>
+                        <label class="form-label" for="id_partida_alimentos_ui">Partida alimentos</label>
                         <input type="text" class="form-control" id="id_partida_alimentos_ui" readonly>
                     </div>
                     <div class="col-md-3">
@@ -405,7 +421,7 @@ $extractCatalogAmount = static function ($item) {
                         <input type="number" step="0.01" class="form-control" name="tarifa_total" id="tarifa_total">
                     </div>
                     <div class="col-md-3 hospedaje-field" id="partidaHospedajeWrapper">
-                        <label class="form-label" for="id_partida_hospedaje_ui">Partida</label>
+                        <label class="form-label" for="id_partida_hospedaje_ui">Partida hospedaje</label>
                         <input type="text" class="form-control" id="id_partida_hospedaje_ui" readonly>
                     </div>
                 </div>
@@ -419,6 +435,4 @@ $extractCatalogAmount = static function ($item) {
         </div>
     </form>
 </div>
-
-
 

@@ -395,6 +395,16 @@ class Usuario extends BaseController
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
         $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
+        $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
+        $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
+
+        if ($partidaUsuario === null) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes seleccionar una partida para este perfil.',
+            ]);
+        }
+
         $dataInsert = [
             'usuario' => $usuarioInput,
             'nombre' => trim((string) ($data['nombre'] ?? '')),
@@ -404,7 +414,7 @@ class Usuario extends BaseController
             'id_perfil' => $legacyProfile,
             'id_establecimiento' => $this->nullableInt($data['id_establecimiento'] ?? null),
             'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
-            'id_partida' => $this->nullableInt($data['id_partida'] ?? null),
+            'id_partida' => $partidaUsuario,
             'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
             'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
             'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
@@ -939,6 +949,86 @@ class Usuario extends BaseController
         }
 
         return '';
+    }
+
+    private function resolveGrupoUsuarioAlta(array $data, array $assignment, array $existingRow = []): string
+    {
+        $grupo = strtolower(trim((string) ($data['grupo_usuario'] ?? '')));
+        if (in_array($grupo, ['fic', 'ug', 'secul', 'secturi', 'proveedor'], true)) {
+            return $grupo;
+        }
+
+        if ((int) ($assignment['id_tipo_proveedor'] ?? 0) > 0) {
+            return 'proveedor';
+        }
+        if ((int) ($assignment['id_fic_perfil'] ?? 0) > 0) {
+            return 'fic';
+        }
+        if ((int) ($assignment['id_ug_perfil'] ?? 0) > 0) {
+            return 'ug';
+        }
+        if ((int) ($assignment['id_secul_perfil'] ?? 0) > 0) {
+            return 'secul';
+        }
+        if ((int) ($assignment['id_secturi_perfil'] ?? 0) > 0) {
+            return 'secturi';
+        }
+
+        if ((int) ($existingRow['id_tipo_proveedor'] ?? 0) > 0) {
+            return 'proveedor';
+        }
+        if ((int) ($existingRow['id_fic_perfil'] ?? 0) > 0) {
+            return 'fic';
+        }
+        if ((int) ($existingRow['id_ug_perfil'] ?? 0) > 0) {
+            return 'ug';
+        }
+        if ((int) ($existingRow['id_secul_perfil'] ?? 0) > 0) {
+            return 'secul';
+        }
+        if ((int) ($existingRow['id_secturi_perfil'] ?? 0) > 0) {
+            return 'secturi';
+        }
+
+        return '';
+    }
+
+    private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int
+    {
+        $idPartidaActual = $this->nullableInt($data['id_partida'] ?? null);
+        $idPartidaExistente = $this->nullableInt($existingRow['id_partida'] ?? null);
+        $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
+
+        if (in_array($grupoUsuario, ['fic', 'ug'], true)) {
+            if ($tieneHospedaje) {
+                return 2;
+            }
+
+            if ($tieneAlimentos) {
+                return 3;
+            }
+
+            if ($idPartidaActual !== null && $idPartidaActual > 0) {
+                return $idPartidaActual;
+            }
+
+            if ($idPartidaExistente !== null && $idPartidaExistente > 0) {
+                return $idPartidaExistente;
+            }
+
+            return 3;
+        }
+
+        if ($idPartidaActual !== null && $idPartidaActual > 0) {
+            return $idPartidaActual;
+        }
+
+        if ($idPartidaExistente !== null && $idPartidaExistente > 0) {
+            return $idPartidaExistente;
+        }
+
+        return null;
     }
 
     private function resolveSavedProviderUserId(object $response, int $currentId, string $usuario): int

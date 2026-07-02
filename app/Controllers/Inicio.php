@@ -2389,6 +2389,7 @@ class Inicio extends BaseController {
             $data['providerTypeOptions'] = [];
             $data['hotelOptions'] = [];
             $data['catTipoHabitacion'] = [];
+            $data['partidaOptions'] = [];
 
             $this->_renderView($data);
             return;
@@ -2411,8 +2412,17 @@ class Inicio extends BaseController {
             ],
         ]);
 
+        $catPartida = $Mglobal->getTabla([
+            'tabla' => 'cat_partida',
+            'where' => [
+                'visible' => 1,
+            ],
+            'order' => 'id_partida ASC',
+        ]);
+
         $data['hotelOptions'] = $hotelOptions->data ?? [];
         $data['catTipoHabitacion'] = $catTipoHabitacion->data ?? [];
+        $data['partidaOptions'] = $catPartida->data ?? [];
         $data['catalogRoleOptions'] = $resolver->getAllowedRoleOptions($contextoUsuario);
         $data['providerTypeOptions'] = $resolver->getProviderTypes();
 

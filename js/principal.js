@@ -184,6 +184,7 @@ window.cajeros = {
             $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
             $('#id_nivel_cliente, #fecha_check_in, #fecha_check_out').on('change', this.actualizarCalculoAlimentos.bind(this));
             $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta').on('change', this.actualizarCalculoHospedaje.bind(this));
+            $('#id_partida_ui').on('change', this.onPartidaChange.bind(this));
             $('#folio_ui').on('input', this.normalizarFolio.bind(this));
             $('#subf_ui, #anf_gto_ui').on('input', this.normalizarSoloLetrasMayusculas.bind(this));
 
@@ -426,6 +427,11 @@ window.cajeros = {
                     10: 'UG'
                 };
                 return shortLabels[Number(item.id_perfil)] || item.dsc_perfil || '';
+            });
+            cajeros.poblarSelect('#id_partida_ui', cajeros.catalogos.partidas, 'id_partida', 'partida', function (item) {
+                var partida = $.trim(String(item.partida || ''));
+                var descripcion = $.trim(String(item.des_partida || ''));
+                return partida + (descripcion ? ' - ' + descripcion : '');
             });
             cajeros.poblarSelect('#id_nivel_cliente', cajeros.catalogos.tarifas, 'id_nivel_cliente', 'dsc_nivel_cliente');
             cajeros.poblarSelect('#id_establecimiento', cajeros.catalogos.establecimientos, 'id_establecimiento', 'dsc_establecimiento');
@@ -887,6 +893,60 @@ window.cajeros = {
         }
     },
 
+    esPartidaAutomaticaFicUg: function () {
+        var grupo = this.obtenerGrupoInstitucional();
+        return grupo === 'fic' || grupo === 'ug';
+    },
+
+    resolverPartidaAutomatica: function () {
+        if ($('#tiene_hospedaje').val() === '1') {
+            return '2';
+        }
+
+        if ($('#tiene_alimentos').val() === '1') {
+            return '3';
+        }
+
+        return String($('#id_partida').val() || '3');
+    },
+
+    sincronizarPartidaUI: function () {
+        var esAutomatica = this.esPartidaAutomaticaFicUg();
+        var hidden = $('#id_partida');
+        var select = $('#id_partida_ui');
+        var wrapper = $('#partidaManualWrapper');
+        var valor = String(hidden.val() || select.val() || '');
+
+        if (esAutomatica) {
+            valor = this.resolverPartidaAutomatica();
+            hidden.val(valor);
+            if (select.length) {
+                select.val(valor).prop('disabled', true).trigger('change.select2');
+            }
+            wrapper.addClass('d-none');
+        } else {
+            if (select.length) {
+                select.prop('disabled', false);
+                wrapper.removeClass('d-none');
+                if (valor !== '') {
+                    select.val(valor).trigger('change.select2');
+                }
+                valor = String(select.val() || hidden.val() || '');
+            }
+            hidden.val(valor);
+        }
+
+        var partidaLabel = this.obtenerLabelPartida(valor);
+        $('#id_partida_alimentos_ui').val(partidaLabel);
+        $('#id_partida_hospedaje_ui').val(partidaLabel);
+        return valor;
+    },
+
+    onPartidaChange: function () {
+        $('#id_partida').val(String($('#id_partida_ui').val() || ''));
+        this.sincronizarPartidaUI();
+    },
+
     buscarPorId: function (items, key, value) {
         var match = null;
         (items || []).some(function (item) {
@@ -1005,22 +1065,10 @@ window.cajeros = {
         var esProveedor = this.esProveedorLike();
         var tieneAlimentos = !esProveedor && $('#tiene_alimentos').val() === '1';
         var tieneHospedaje = !esProveedor && $('#tiene_hospedaje').val() === '1';
-        var grupo = this.obtenerGrupoInstitucional();
-        var partida = '';
-
-        if (tieneHospedaje) {
-            partida = '2';
-        } else if (tieneAlimentos) {
-            if (grupo === 'fic' || grupo === 'ug' || this.esRolVisibleCliente() || this.esPerfilCliente()) {
-                partida = '3';
-            } else {
-                partida = '1';
-            }
-        }
+        var esAutomatica = this.esPartidaAutomaticaFicUg();
 
         $('.alimentos-field').toggle(tieneAlimentos);
         $('.hospedaje-field').toggle(tieneHospedaje);
-        $('#partidaAlimentosWrapper').toggle(tieneAlimentos);
         $('#partidaHospedajeWrapper').toggle(tieneHospedaje);
 
         if (!tieneHospedaje) {
@@ -1035,13 +1083,15 @@ window.cajeros = {
 
         if (esProveedor) {
             $('#tiene_alimentos, #tiene_hospedaje').val('0');
-            partida = '';
         }
 
-        var partidaLabel = this.obtenerLabelPartida(partida);
-        $('#id_partida').val(partida);
-        $('#id_partida_alimentos_ui').val(partidaLabel);
-        $('#id_partida_hospedaje_ui').val(partidaLabel);
+        if (esAutomatica) {
+            $('#partidaManualWrapper').addClass('d-none');
+        } else {
+            $('#partidaManualWrapper').removeClass('d-none');
+        }
+
+        this.sincronizarPartidaUI();
         this.actualizarCalculoHospedaje();
         this.actualizarCalculoAlimentos();
     },
@@ -1158,6 +1208,7 @@ window.cajeros = {
         $('#nip').val('');
         $('#clave_ui').val('');
         $('.js-select2-catalog').val('').trigger('change.select2');
+        $('#id_partida').val('');
         this.aplicarPerfilPorContexto();
         this.actualizarEstadoPais();
         this.actualizarFlujoBeneficios();
@@ -1198,6 +1249,8 @@ window.cajeros = {
         $('#id_establecimiento').val(data.id_establecimiento || '').trigger('change.select2');
         $('#id_establecimiento_hotel').val(data.id_establecimiento_hotel || '').trigger('change.select2');
         $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '').trigger('change.select2');
+        $('#id_partida').val(data.id_partida || '');
+        $('#id_partida_ui').val(data.id_partida || '').trigger('change.select2');
         $('#fecha_check_in').val(this.normalizarFechaInput(data.fecha_check_in));
         $('#fecha_check_out').val(this.normalizarFechaInput(data.fecha_check_out));
         $('#fec_vigencia_desde').val(this.normalizarFechaInput(data.fec_vigencia_desde));
@@ -1206,7 +1259,6 @@ window.cajeros = {
         $('#tarifa_total').val(data.tarifa_total || '');
         $('#monto_deposito').val(data.monto_deposito || '');
         $('#noche').val(data.noche || '');
-        $('#id_partida').val(data.id_partida || '');
         $('#id_partida_alimentos_ui').val(this.obtenerLabelPartida(data.id_partida || ''));
         $('#id_partida_hospedaje_ui').val(this.obtenerLabelPartida(data.id_partida || ''));
         $('#id_pais').val(data.id_pais || '').trigger('change.select2');
@@ -1278,7 +1330,15 @@ window.cajeros = {
     guardar: function () {
         var boton = $('#guardarCajero');
         var textoOriginal = boton.html();
-        
+        var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
+
+        if (!this.esPartidaAutomaticaFicUg() && partida === '') {
+            Swal.fire('Atención', 'Selecciona una partida antes de guardar.', 'warning');
+            return;
+        }
+
+        $('#id_partida').val(partida);
+         
         boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
         
         $.ajax({
