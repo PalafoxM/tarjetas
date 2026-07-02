@@ -68,12 +68,16 @@
         return parts.length > 1 ? String(parts.pop() || '').toLowerCase() : '';
     }
 
-    function getPreviewBody(url, label, fileName) {
+    function getPreviewBody(url, label, fileName, field) {
         var ext = getExtension(fileName) || getExtension(url);
         var safeUrl = esc(url);
         var safeLabel = esc(label || 'Archivo');
+        var esFirma = String(field || '').toLowerCase() === 'firma';
 
         if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].indexOf(ext) !== -1) {
+            if (esFirma) {
+                return '<div class="text-center bg-white rounded border border-secondary p-4"><img src="' + safeUrl + '" alt="' + safeLabel + '" class="img-fluid" style="max-height:70vh;object-fit:contain;"></div>';
+            }
             return '<div class="text-center"><img src="' + safeUrl + '" alt="' + safeLabel + '" class="img-fluid rounded border border-secondary" style="max-height:70vh;object-fit:contain;"></div>';
         }
 
@@ -106,7 +110,7 @@
 
         $('#modalPreviewArchivoQrFicTitle').text(config.title || 'PrevisualizaciÃ³n de archivo');
         $('#modalPreviewArchivoQrFicSubtitle').text(config.subtitle || '');
-        $('#modalPreviewArchivoQrFicBody').html(getPreviewBody(url, config.title || 'Archivo', config.fileName || ''));
+        $('#modalPreviewArchivoQrFicBody').html(getPreviewBody(url, config.title || 'Archivo', config.fileName || '', config.field || ''));
         $('#modalPreviewArchivoQrFicOpen').attr('href', url);
         state.previewModal.show();
     }
