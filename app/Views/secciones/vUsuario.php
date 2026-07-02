@@ -49,6 +49,26 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
         justify-content: center;
         padding: 0;
     }
+
+    #usuariosPage .bootstrap-table .fixed-table-toolbar {
+        margin-bottom: 1rem;
+    }
+
+    #usuariosPage .bootstrap-table .fixed-table-toolbar .search {
+        width: min(100%, 380px);
+    }
+
+    #usuariosPage .bootstrap-table .fixed-table-toolbar .search input {
+        min-height: 42px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, .34);
+        background: rgba(15, 23, 42, .92);
+        color: #f8fafc;
+    }
+
+    #usuariosPage .bootstrap-table .fixed-table-toolbar .search input::placeholder {
+        color: #94a3b8;
+    }
 </style>
 
 <div
@@ -89,6 +109,8 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
             <table id="cajerosTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"
+                   data-search-align="left"
+                   data-search-highlight="true"
                    data-pagination="true"
                    data-page-size="25"
                    data-page-list="[5,10,25,50,100]"
@@ -108,9 +130,7 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estadoBooleano" data-align="center">Alimentos</th>
                         <th data-field="fec_vigencia_desde" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia desde</th>
                         <th data-field="fec_vigencia_hasta" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia hasta</th>
-                        <th data-field="monto_deposito" data-formatter="cajeros.moneda" data-align="center">Monto</th>
-                        <th data-field="monto_deposito_reservado" data-formatter="cajeros.moneda" data-align="center">Saldo reservado</th>
-                        <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo operativo</th>
+                        <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo disponible</th>
                         <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoDepositoProgramado" data-align="center">Estado del programa</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center" data-width="88" data-width-unit="px">Acciones</th>
                     </tr>
