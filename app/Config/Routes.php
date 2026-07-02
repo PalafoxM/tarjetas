@@ -10,6 +10,9 @@ $routes->get('Login', 'Login::index');
 $routes->get('Login/cerrar', 'Login::cerrar');
 $routes->post('Login/validar_usuario', 'Login::validar_usuario');
 $routes->get('Inicio', 'Inicio::index');
+$routes->post('Inicio/getSolicitudesActivacionQrFic', 'Inicio::getSolicitudesActivacionQrFic');
+$routes->post('Inicio/activarQrUsuarioFic', 'Inicio::activarQrUsuarioFic');
+$routes->post('Inicio/rechazarActivacionQrUsuarioFic', 'Inicio::rechazarActivacionQrUsuarioFic');
 $routes->post('Inicio/activarQrDepositosProgramados', 'Inicio::activarQrDepositosProgramados');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 

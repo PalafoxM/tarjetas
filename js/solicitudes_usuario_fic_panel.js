@@ -1,12 +1,17 @@
-var solicitudesUsuarioFicPanel = (function () {
+﻿var solicitudesUsuarioFicPanel = (function () {
+    var S3_PUBLIC_BASE_URL = 'https://sectur-audiovisuales-509634423753-us-east-1-an.s3.amazonaws.com/';
     var state = {
         root: null,
         qrTable: null,
         folioTable: null,
         qrListUrl: '',
+        qrApproveUrl: '',
+        qrRejectUrl: '',
         folioListUrl: '',
         folioDetailUrl: '',
-        folioCancelUrl: ''
+        folioCancelUrl: '',
+        previewModal: null,
+        previewModalEl: null
     };
 
     function esc(value) {
@@ -33,6 +38,72 @@ var solicitudesUsuarioFicPanel = (function () {
         if (estado === 'rechazada') return '<span class="badge bg-danger">Rechazada</span>';
         if (estado === 'cancelada') return '<span class="badge bg-secondary">Cancelada</span>';
         return '<span class="badge bg-secondary">' + esc(estado || 'Sin definir') + '</span>';
+    }
+
+    function construirUrlArchivoS3(value) {
+        if (!value) {
+            return '';
+        }
+
+        var archivo = String(value).trim();
+        if (archivo === '') {
+            return '';
+        }
+
+        if (archivo.indexOf('http://') === 0 || archivo.indexOf('https://') === 0) {
+            return archivo;
+        }
+
+        return S3_PUBLIC_BASE_URL + archivo.replace(/^\/+/, '');
+    }
+
+    function getExtension(url) {
+        var cleanUrl = String(url || '').split('?')[0].split('#')[0];
+        var parts = cleanUrl.split('.');
+        return parts.length > 1 ? String(parts.pop() || '').toLowerCase() : '';
+    }
+
+    function getPreviewBody(url, label) {
+        var ext = getExtension(url);
+        var safeUrl = esc(url);
+        var safeLabel = esc(label || 'Archivo');
+
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].indexOf(ext) !== -1) {
+            return '<div class="text-center"><img src="' + safeUrl + '" alt="' + safeLabel + '" class="img-fluid rounded border border-secondary" style="max-height:70vh;object-fit:contain;"></div>';
+        }
+
+        if (ext === 'pdf') {
+            return '<iframe src="' + safeUrl + '" title="' + safeLabel + '" style="width:100%;height:70vh;border:0;border-radius:12px;"></iframe>';
+        }
+
+        return '<div class="alert alert-info mb-0">No hay vista previa embebida para este tipo de archivo. Usa el botÃ³n <strong>Abrir en nueva pestaÃ±a</strong>.</div>';
+    }
+
+    function openPreviewModal(config) {
+        var url = construirUrlArchivoS3(config.url || '');
+        if (!url) {
+            Swal.fire('AtenciÃ³n', 'No hay archivo disponible para previsualizar.', 'warning');
+            return;
+        }
+
+        if (!state.previewModal) {
+            var modalEl = document.getElementById('modalPreviewArchivoQrFic');
+            if (modalEl && window.bootstrap && bootstrap.Modal) {
+                state.previewModalEl = modalEl;
+                state.previewModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            }
+        }
+
+        if (!state.previewModal) {
+            Swal.fire('AtenciÃ³n', 'No fue posible abrir el visor de archivos.', 'warning');
+            return;
+        }
+
+        $('#modalPreviewArchivoQrFicTitle').text(config.title || 'PrevisualizaciÃ³n de archivo');
+        $('#modalPreviewArchivoQrFicSubtitle').text(config.subtitle || '');
+        $('#modalPreviewArchivoQrFicBody').html(getPreviewBody(url, config.title || 'Archivo'));
+        $('#modalPreviewArchivoQrFicOpen').attr('href', url);
+        state.previewModal.show();
     }
 
     function refreshTable($table) {
@@ -62,7 +133,7 @@ var solicitudesUsuarioFicPanel = (function () {
         $.getJSON(state.folioDetailUrl, { id_solicitud_usuario: idSolicitud })
             .done(function (response) {
                 if (!response || response.ok !== true || !response.data) {
-                    Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
+                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
                     return;
                 }
                 if (typeof callback === 'function') {
@@ -73,6 +144,27 @@ var solicitudesUsuarioFicPanel = (function () {
                 Swal.fire('Error', 'No fue posible cargar la solicitud.', 'error');
             });
     }
+
+    window.queryParamsSolicitudesActivacionQrFic = function (params) {
+        return $.extend({
+            limit: params.limit || params.pageSize || 10,
+            offset: params.offset || 0,
+            search: params.searchText || '',
+            sort: params.sort || '',
+            order: params.order || '',
+            estatus_activacion: $('#filtroSolicitudQrFicEstatus').val() || ''
+        }, getCsrfPayload());
+    };
+
+    window.responseHandlerSolicitudesActivacionQrFic = function (response) {
+        if (response && (response.ok === true || response.success === true) && Array.isArray(response.rows)) {
+            return {
+                total: Number(response.total || 0),
+                rows: response.rows
+            };
+        }
+        return { total: 0, rows: [] };
+    };
 
     function initQrTable() {
         var table = state.qrTable;
@@ -86,7 +178,7 @@ var solicitudesUsuarioFicPanel = (function () {
 
         table.bootstrapTable({
             url: state.qrListUrl,
-            method: 'get',
+            method: 'post',
             locale: 'es-MX',
             search: true,
             searchAlign: 'left',
@@ -95,17 +187,17 @@ var solicitudesUsuarioFicPanel = (function () {
             pageSize: 10,
             pageList: [10, 25, 50, 100],
             queryParams: function (params) {
-                return {
+                return $.extend({
                     limit: params.limit || params.pageSize || 10,
                     offset: params.offset || 0,
                     search: params.searchText || '',
                     sort: params.sort || '',
                     order: params.order || '',
-                    estatus: $('#filtroSolicitudQrFicEstatus').val() || ''
-                };
+                    estatus_activacion: $('#filtroSolicitudQrFicEstatus').val() || ''
+                }, getCsrfPayload());
             },
             responseHandler: function (response) {
-                if (response && response.ok === true && Array.isArray(response.rows)) {
+                if (response && (response.ok === true || response.success === true) && Array.isArray(response.rows)) {
                     return {
                         total: Number(response.total || 0),
                         rows: response.rows
@@ -113,11 +205,11 @@ var solicitudesUsuarioFicPanel = (function () {
                 }
                 return { total: 0, rows: [] };
             },
-            onLoadSuccess: function () {
-                $('#solicitudesQrPlaceholder').addClass('d-none');
+            onLoadSuccess: function (data) {
+                $('#solicitudesQrPlaceholder').toggleClass('d-none', !((data && data.total) > 0));
             },
             onLoadError: function () {
-                Swal.fire('Error', 'No fue posible cargar las solicitudes de activación QR.', 'error');
+                Swal.fire('Error', 'No fue posible cargar las solicitudes de activaciÃ³n QR.', 'error');
             }
         });
     }
@@ -173,8 +265,27 @@ var solicitudesUsuarioFicPanel = (function () {
         });
     }
 
-    window.solicitudesQrFicEstadoFormatter = function (value) {
-        return badgeEstado(value);
+    window.solicitudesQrFicArchivoFormatter = function (value, row, index) {
+        var archivo = String(value || '').trim();
+        if (!archivo) {
+            return '<span class="text-muted">Sin archivo</span>';
+        }
+
+        return '<button type="button" class="btn btn-outline-info btn-sm js-qr-fic-preview" data-field="' + esc(this.field || '') + '" data-title="' + esc(this.title || 'Archivo') + '" data-id-usuario="' + esc(row && row.id_usuario ? row.id_usuario : '') + '" data-archivo="' + esc(archivo) + '">Ver</button>';
+    };
+
+    window.solicitudesQrFicExpedienteFormatter = function (value) {
+        var completo = value === true || value === 1 || value === '1';
+        return completo
+            ? '<span class="badge bg-success">Completo</span>'
+            : '<span class="badge bg-warning text-dark">Incompleto</span>';
+    };
+
+    window.solicitudesQrFicEstadoFormatter = function (value, row) {
+        var estado = Number(value !== undefined && value !== null ? value : (row && row.activo_qr ? row.activo_qr : 0));
+        return estado === 1
+            ? '<span class="badge bg-success">QR activo</span>'
+            : '<span class="badge bg-warning text-dark">Pendiente</span>';
     };
 
     window.solicitudesQrFicFechaFormatter = function (value) {
@@ -183,9 +294,19 @@ var solicitudesUsuarioFicPanel = (function () {
 
     window.solicitudesQrFicAccionesFormatter = function (value, row) {
         if (!row) return '';
-        return '<div class="usuario-actions">' +
-            '<button type="button" class="btn btn-outline-info btn-sm js-qr-fic-ver" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Ver"><i class="mdi mdi-eye"></i></button>' +
-            '</div>';
+
+        var activo = Number(row.activo_qr || row.qr_activo || 0) === 1;
+        var buttons = [];
+        buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-qr-fic-preview" data-field="qr" data-title="QR" data-id-usuario="' + esc(row.id_usuario || '') + '" data-archivo="' + esc(row.qr || '') + '" title="Ver QR"><i class="mdi mdi-eye"></i></button>');
+
+        if (!activo) {
+            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-qr-fic-activar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Aceptar / activar QR"><i class="mdi mdi-check"></i></button>');
+            buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-qr-fic-rechazar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
+        } else {
+            buttons.push('<span class="badge bg-success align-self-center">QR activo</span>');
+        }
+
+        return '<div class="usuario-actions">' + buttons.join('') + '</div>';
     };
 
     window.solicitudesFicPanelEstadoFormatter = function (value) {
@@ -245,7 +366,7 @@ var solicitudesUsuarioFicPanel = (function () {
 
                 Swal.fire({
                     title: 'Cancelar solicitud',
-                    text: 'La solicitud se marcará como cancelada.',
+                    text: 'La solicitud se marcarÃ¡ como cancelada.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Cancelar solicitud',
@@ -260,7 +381,7 @@ var solicitudesUsuarioFicPanel = (function () {
                         data: $.extend({ id_solicitud_usuario: idSolicitud }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.ok !== true) {
-                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cancelar la solicitud.', 'warning');
+                            Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cancelar la solicitud.', 'warning');
                             return;
                         }
 
@@ -271,22 +392,74 @@ var solicitudesUsuarioFicPanel = (function () {
                     });
                 });
             })
-            .on('click.solicitudesFicPanel', '.js-qr-fic-ver', function () {
+            .on('click.solicitudesFicPanel', '.js-qr-fic-preview', function () {
+                openPreviewModal({
+                    title: String($(this).data('title') || 'Archivo'),
+                    subtitle: 'ID usuario: ' + String($(this).data('id-usuario') || ''),
+                    url: String($(this).data('archivo') || '')
+            });
+            })
+            .on('click.solicitudesFicPanel', '.js-qr-fic-activar', function () {
                 var idUsuario = Number($(this).data('id-usuario') || 0);
-                if (!idUsuario) return;
-
-                var row = {};
-                if (state.qrTable && state.qrTable.length && state.qrTable.data('bootstrap.table')) {
-                    var data = state.qrTable.bootstrapTable('getData') || [];
-                    row = data.find(function (item) {
-                        return Number(item.id_usuario || 0) === idUsuario;
-                    }) || {};
-                }
+                if (!idUsuario || !state.qrApproveUrl) return;
 
                 Swal.fire({
-                    title: 'Solicitud de activación QR',
-                    html: '<div class="text-start"><strong>Usuario:</strong> ' + esc(row.usuario || '') + '<br><strong>Nombre:</strong> ' + esc(row.nombre_completo || '') + '<br><strong>Correo:</strong> ' + esc(row.correo || '') + '<br><strong>Estatus:</strong> ' + esc(row.estatus || '') + '</div>',
-                    confirmButtonText: 'Cerrar'
+                    title: '¿Deseas activar el QR de este usuario?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, activar',
+                    cancelButtonText: 'Cancelar'
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+
+                    $.ajax({
+                        url: state.qrApproveUrl,
+                        method: 'POST',
+                        dataType: 'json',
+                        data: $.extend({ id_usuario: idUsuario }, getCsrfPayload())
+                    }).done(function (response) {
+                        if (!response || response.success !== true) {
+                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
+                            return;
+                        }
+
+                        Swal.fire('Listo', response.message || 'QR activado correctamente.', 'success');
+                        refreshTable(state.qrTable);
+                    }).fail(function () {
+                        Swal.fire('Error', 'No fue posible activar el QR.', 'error');
+                    });
+                });
+            })
+            .on('click.solicitudesFicPanel', '.js-qr-fic-rechazar', function () {
+                var idUsuario = Number($(this).data('id-usuario') || 0);
+                if (!idUsuario || !state.qrRejectUrl) return;
+
+                Swal.fire({
+                    title: '¿Deseas rechazar esta solicitud?',
+                    text: 'El usuario tendrá que cargar nuevamente sus evidencias.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, rechazar',
+                    cancelButtonText: 'Cancelar'
+                }).then(function (result) {
+                    if (!result.isConfirmed) return;
+
+                    $.ajax({
+                        url: state.qrRejectUrl,
+                        method: 'POST',
+                        dataType: 'json',
+                        data: $.extend({ id_usuario: idUsuario }, getCsrfPayload())
+                    }).done(function (response) {
+                        if (!response || response.success !== true) {
+                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible rechazar la solicitud.', 'warning');
+                            return;
+                        }
+
+                        Swal.fire('Listo', response.message || 'Solicitud rechazada.', 'success');
+                        refreshTable(state.qrTable);
+                    }).fail(function () {
+                        Swal.fire('Error', 'No fue posible rechazar la solicitud.', 'error');
+                    });
                 });
             });
     }
@@ -298,11 +471,17 @@ var solicitudesUsuarioFicPanel = (function () {
 
             state.root = root;
             state.qrListUrl = root.data('qr-list-url') || '';
+            state.qrApproveUrl = root.data('qr-approve-url') || '';
+            state.qrRejectUrl = root.data('qr-reject-url') || '';
             state.folioListUrl = root.data('folio-list-url') || '';
             state.folioDetailUrl = root.data('folio-detail-url') || '';
             state.folioCancelUrl = root.data('folio-cancel-url') || '';
             state.qrTable = $('#tablaSolicitudesActivacionQrFic');
             state.folioTable = $('#tablaSolicitudesFoliosFic');
+            state.previewModalEl = document.getElementById('modalPreviewArchivoQrFic');
+            state.previewModal = state.previewModalEl && window.bootstrap && bootstrap.Modal
+                ? bootstrap.Modal.getOrCreateInstance(state.previewModalEl)
+                : null;
 
             initQrTable();
             initFolioTable();
@@ -316,3 +495,4 @@ $(function () {
         solicitudesUsuarioFicPanel.iniciar();
     }
 });
+

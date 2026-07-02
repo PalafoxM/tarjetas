@@ -60,6 +60,7 @@ window.addEventListener('load', function () {
     });
 })(window, document);
 </script>
+<script src="<?= base_url("/js/global-loading.js") ?>"></script>
 
 <!-- bundle      
    

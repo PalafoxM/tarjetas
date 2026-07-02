@@ -119,6 +119,7 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
     <link rel="stylesheet" type="text/css" href="<?= base_url('css/fic-common.css') ?>">
     <link rel="stylesheet" type="text/css" href="<?= base_url('parallax.js_files/styles.css') ?>">
     <link rel="stylesheet" type="text/css" href="<?= base_url('css/fic-login.css') ?>">
+    <link rel="stylesheet" type="text/css" href="<?= base_url('assets/css/global-loading.css') ?>">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -145,3 +146,10 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
 <script>
     var base_url = "<?= base_url(); ?>";
 </script>
+<div id="globalLoadingOverlay" class="global-loading-overlay" aria-hidden="true">
+    <div class="global-loading-overlay__card" role="status" aria-live="polite" aria-busy="true">
+        <span class="global-loading-overlay__spinner"></span>
+        <strong>Cargando...</strong>
+        <span class="global-loading-overlay__text">Preparando la interfaz</span>
+    </div>
+</div>

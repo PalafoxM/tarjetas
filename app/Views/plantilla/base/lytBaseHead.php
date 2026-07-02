@@ -24,6 +24,7 @@
         <link rel="stylesheet" type="text/css" href="<?php echo base_url();?>/assets/fileinput5/css/fileinput.css">
         <link href="<?php echo base_url(); ?>/assets/css/bootstrap-icons.css" rel="stylesheet" type="text/css" />
         <link href="<?php echo base_url();?>/assets/css/custom.css" rel="stylesheet" type="text/css" id="custom-style" />
+        <link href="<?php echo base_url();?>/assets/css/global-loading.css" rel="stylesheet" type="text/css" />
         <?php if (isset($styles)): foreach ($styles as $css): ?>
             <link href="<?php echo base_url() . "/assets/css/{$css}.css" ?>?filever=<?php echo time() ?>" rel="stylesheet" type="text/css" />
         <?php endforeach; endif; ?>
@@ -50,6 +51,7 @@
         <script src="<?= base_url("/assets/parsley_2_9/dist/parsley.js")?>"></script>
         <script src="<?= base_url("/assets/parsley_2_9/dist/i18n/es.js")?>"></script>
         <script src="<?= base_url("/js/general.js")?>"></script>
+        <script src="<?= base_url("/js/global-loading.js")?>"></script>
 
         <?php if (isset($scripts)): foreach ($scripts as $js): ?>
             <script src="<?php echo base_url() . "/js/{$js}.js" ?>?filever=<?php echo time() ?>" type="text/javascript"></script>
@@ -69,6 +71,13 @@
             color: red
             }
         </style>
+        <div id="globalLoadingOverlay" class="global-loading-overlay" aria-hidden="true">
+            <div class="global-loading-overlay__card" role="status" aria-live="polite" aria-busy="true">
+                <span class="global-loading-overlay__spinner"></span>
+                <strong>Cargando...</strong>
+                <span class="global-loading-overlay__text">Preparando la interfaz</span>
+            </div>
+        </div>
         
         <div class="wrapper">
         <?php echo view('secciones/vNavBar'); ?>           

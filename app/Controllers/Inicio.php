@@ -240,7 +240,7 @@ class Inicio extends BaseController {
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'Estás consultando la vista de partidas sin cambiar la sesión autenticada.';
+        $data['previewInterfaceDescripcion'] = 'EstÃ¡s consultando la vista de partidas sin cambiar la sesiÃ³n autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -260,7 +260,7 @@ class Inicio extends BaseController {
         $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de pagos sin cambiar la sesión autenticada.';
+        $data['previewInterfaceDescripcion'] = 'EstÃ¡s consultando el historial global de pagos sin cambiar la sesiÃ³n autenticada.';
         $data['contentView'] = 'secciones/vPagosFic';
         $this->_renderView($data);
     }
@@ -331,7 +331,7 @@ class Inicio extends BaseController {
     {
         $grupo = strtolower(trim($grupo));
         if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃ¡lida.']);
         }
 
         $session = \Config\Services::session();
@@ -370,7 +370,7 @@ class Inicio extends BaseController {
         $data['solicitudAlta'] = [
             'grupo' => $grupo,
             'title' => 'Solicitud de folio de usuario',
-            'subtitle' => 'Captura los datos del usuario y el perfil solicitado dentro del catálogo ' . strtoupper($grupo) . '.',
+            'subtitle' => 'Captura los datos del usuario y el perfil solicitado dentro del catÃ¡logo ' . strtoupper($grupo) . '.',
             'back_url' => $backUrl,
             'save_url' => $saveUrl,
             'catalogos_url' => base_url('index.php/Usuario/getCatalogosCrud'),
@@ -613,7 +613,7 @@ class Inicio extends BaseController {
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible resolver el establecimiento de sesión.',
+                'message' => 'No fue posible resolver el establecimiento de sesiÃ³n.',
             ]);
         }
 
@@ -660,21 +660,21 @@ class Inicio extends BaseController {
         ][$beneficiosKey] ?? 'Ninguno';
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Hospedaje: sí';
-            $detalleSolicitud[] = 'Partida automática hospedaje: 3390A';
+            $detalleSolicitud[] = 'Hospedaje: sÃ­';
+            $detalleSolicitud[] = 'Partida automÃ¡tica hospedaje: 3390A';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Alimentos: sí';
-            $detalleSolicitud[] = 'Partida automática alimentos: 3390B';
+            $detalleSolicitud[] = 'Alimentos: sÃ­';
+            $detalleSolicitud[] = 'Partida automÃ¡tica alimentos: 3390B';
         }
-        if ($categoriaLabel !== '') $detalleSolicitud[] = 'Categoría: ' . $categoriaLabel;
-        if ($paisLabel !== '') $detalleSolicitud[] = 'País o región: ' . $paisLabel;
+        if ($categoriaLabel !== '') $detalleSolicitud[] = 'CategorÃ­a: ' . $categoriaLabel;
+        if ($paisLabel !== '') $detalleSolicitud[] = 'PaÃ­s o regiÃ³n: ' . $paisLabel;
         if ($disciplinaLabel !== '') $detalleSolicitud[] = 'Disciplina: ' . $disciplinaLabel;
         if ($clave !== '') $detalleSolicitud[] = 'Clave: ' . $clave;
         if ($folio !== '') $detalleSolicitud[] = 'Folio: ' . $folio;
         if ($subFolio !== '') $detalleSolicitud[] = 'Subfolio: ' . $subFolio;
         if ($pax > 0) $detalleSolicitud[] = 'Pax: ' . $pax;
-        if ($anfGto !== '') $detalleSolicitud[] = 'Anfitrión Gto: ' . $anfGto;
+        if ($anfGto !== '') $detalleSolicitud[] = 'AnfitriÃ³n Gto: ' . $anfGto;
         if ($observaciones !== '') {
             $detalleSolicitud[] = '';
             $detalleSolicitud[] = 'Observaciones:';
@@ -1492,7 +1492,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(401)->setJSON([
                 'ok' => false,
                 'establecimientos' => [],
-                'message' => 'Sesión inválida.',
+                'message' => 'SesiÃ³n invÃ¡lida.',
             ]);
         }
 
@@ -1733,82 +1733,240 @@ class Inicio extends BaseController {
         if (empty($tiUsuario)) {
             return $this->response->setStatusCode(403)->setJSON([
                 'ok' => false,
+                'success' => false,
                 'total' => 0,
                 'rows' => [],
-                'message' => 'No tienes permisos para consultar solicitudes de activaciÃ³n QR.',
+                'message' => 'No tienes permisos para consultar solicitudes de activación QR.',
             ]);
         }
 
         $db = \Config\Database::connect();
+        $request = $this->request;
         $builder = $db->table('usuario u')
             ->select('
                 u.id_usuario,
+                u.folio,
                 u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
                 CONCAT_WS(" ", u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
                 u.correo,
+                u.qr,
+                u.ine_frontal,
+                u.ine_trasera,
+                u.firma,
                 u.activo_qr,
-                u.deposito_programado_estatus,
                 u.fec_reg,
                 u.fec_act,
                 u.visible
             ')
-            ->where('u.visible', 1)
-            ->where('u.activo_qr', 0);
+            ->where('u.visible', 1);
 
-        $search = trim((string) ($this->request->getGet('search') ?? ''));
+        $estatusActivacion = trim((string) ($request->getPost('estatus_activacion') ?? $request->getGet('estatus_activacion') ?? $request->getPost('estatus') ?? $request->getGet('estatus') ?? ''));
+        if ($estatusActivacion !== '' && !in_array(strtolower($estatusActivacion), ['todos', 'all'], true)) {
+            if ($estatusActivacion === 'pendiente') {
+                $builder->where('u.activo_qr', 0);
+            } elseif ($estatusActivacion === 'aprobada') {
+                $builder->where('u.activo_qr', 1);
+            }
+        }
+
+        $search = trim((string) ($request->getPost('search') ?? $request->getGet('search') ?? ''));
         if ($search !== '') {
             $builder->groupStart()
-                ->like('u.usuario', $search)
+                ->like('u.id_usuario', $search)
+                ->orLike('u.folio', $search)
+                ->orLike('u.usuario', $search)
                 ->orLike('u.nombre', $search)
                 ->orLike('u.primer_apellido', $search)
                 ->orLike('u.segundo_apellido', $search)
                 ->orLike('u.correo', $search)
-                ->orLike('u.deposito_programado_estatus', $search)
                 ->groupEnd();
         }
 
-        $estatus = trim((string) ($this->request->getGet('estatus') ?? ''));
-        if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
-            if ($estatus === 'activo') {
-                $builder->where('u.activo_qr', 1);
-            } elseif ($estatus === 'pendiente') {
-                $builder->where('u.activo_qr', 0);
-            } else {
-                $builder->where('u.deposito_programado_estatus', $estatus);
-            }
+        $sort = trim((string) ($request->getPost('sort') ?? $request->getGet('sort') ?? ''));
+        $order = strtolower(trim((string) ($request->getPost('order') ?? $request->getGet('order') ?? 'desc')));
+        $allowedSorts = [
+            'id_usuario' => 'u.id_usuario',
+            'folio' => 'u.folio',
+            'usuario' => 'u.usuario',
+            'nombre_completo' => 'nombre_completo',
+            'correo' => 'u.correo',
+            'qr_activo' => 'u.activo_qr',
+            'activo_qr' => 'u.activo_qr',
+            'fec_reg' => 'u.fec_reg',
+            'fec_act' => 'u.fec_act',
+        ];
+        if (!isset($allowedSorts[$sort])) {
+            $sort = 'fec_reg';
+        }
+        if (!in_array($order, ['asc', 'desc'], true)) {
+            $order = 'desc';
         }
 
         $total = (clone $builder)->countAllResults();
-        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
-        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+        $limit = max(1, (int) ($request->getPost('limit') ?? $request->getGet('limit') ?? 10));
+        $offset = max(0, (int) ($request->getPost('offset') ?? $request->getGet('offset') ?? 0));
 
         $rows = $builder
-            ->orderBy('u.fec_reg', 'DESC')
+            ->orderBy($allowedSorts[$sort], $order)
             ->limit($limit, $offset)
             ->get()
             ->getResultArray();
 
         $mapped = array_map(static function (array $row): array {
             $activoQr = (int) ($row['activo_qr'] ?? 0);
-            $estatus = $activoQr === 1 ? 'aprobada' : 'pendiente';
+            $qr = trim((string) ($row['qr'] ?? ''));
+            $ineFrontal = trim((string) ($row['ine_frontal'] ?? ''));
+            $ineTrasera = trim((string) ($row['ine_trasera'] ?? ''));
+            $firma = trim((string) ($row['firma'] ?? ''));
+
             return [
                 'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+                'folio' => (string) ($row['folio'] ?? ''),
                 'usuario' => (string) ($row['usuario'] ?? ''),
-                'nombre_completo' => (string) ($row['nombre_completo'] ?? ''),
+                'nombre' => (string) ($row['nombre'] ?? ''),
+                'primer_apellido' => (string) ($row['primer_apellido'] ?? ''),
+                'segundo_apellido' => (string) ($row['segundo_apellido'] ?? ''),
+                'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
                 'correo' => (string) ($row['correo'] ?? ''),
-                'estatus' => $estatus,
-                'deposito_programado_estatus' => (string) ($row['deposito_programado_estatus'] ?? ''),
+                'qr' => $qr,
+                'ine_frontal' => $ineFrontal,
+                'ine_trasera' => $ineTrasera,
+                'firma' => $firma,
+                'expediente_completo' => ($ineFrontal !== '' && $ineTrasera !== '' && $firma !== ''),
+                'activo_qr' => $activoQr,
+                'qr_activo' => $activoQr,
                 'fec_reg' => (string) ($row['fec_reg'] ?? ''),
                 'fec_act' => (string) ($row['fec_act'] ?? ''),
-                'activo_qr' => $activoQr,
-                'acciones' => '',
+                'visible' => (int) ($row['visible'] ?? 0),
             ];
         }, $rows);
 
         return $this->response->setJSON([
             'ok' => true,
+            'success' => true,
             'total' => $total,
             'rows' => $mapped,
+        ]);
+    }
+
+    public function activarQrUsuarioFic()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'No tienes permisos para activar solicitudes de QR.',
+            ]);
+        }
+
+        $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'El usuario es requerido.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $usuario = $db->table('usuario')
+            ->select('id_usuario, visible, qr, ine_frontal, ine_trasera, firma, activo_qr')
+            ->where('id_usuario', $idUsuario)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuario)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'success' => false,
+                'message' => 'No fue posible resolver el usuario.',
+            ]);
+        }
+        if ((int) ($usuario['visible'] ?? 0) !== 1) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'El usuario no está visible.',
+            ]);
+        }
+
+        $qr = trim((string) ($usuario['qr'] ?? ''));
+        $ineFrontal = trim((string) ($usuario['ine_frontal'] ?? ''));
+        $ineTrasera = trim((string) ($usuario['ine_trasera'] ?? ''));
+        $firma = trim((string) ($usuario['firma'] ?? ''));
+        if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'El expediente está incompleto o falta el QR generado.',
+            ]);
+        }
+
+        $db->table('usuario')
+            ->where('id_usuario', $idUsuario)
+            ->update([
+                'activo_qr' => 1,
+                'fec_act' => date('Y-m-d H:i:s'),
+                'usu_act' => (int) ($tiUsuario['id_usuario'] ?? 0),
+            ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'QR activado correctamente.',
+        ]);
+    }
+
+    public function rechazarActivacionQrUsuarioFic()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'No tienes permisos para rechazar solicitudes de QR.',
+            ]);
+        }
+
+        $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'El usuario es requerido.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $usuario = $db->table('usuario')
+            ->select('id_usuario, visible')
+            ->where('id_usuario', $idUsuario)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuario)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'success' => false,
+                'message' => 'No fue posible resolver el usuario.',
+            ]);
+        }
+        if ((int) ($usuario['visible'] ?? 0) !== 1) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'El usuario no está visible.',
+            ]);
+        }
+
+        $db->table('usuario')
+            ->where('id_usuario', $idUsuario)
+            ->update([
+                'activo_qr' => 0,
+                'ine_frontal' => null,
+                'ine_trasera' => null,
+                'firma' => null,
+                'fec_act' => date('Y-m-d H:i:s'),
+                'usu_act' => (int) ($tiUsuario['id_usuario'] ?? 0),
+            ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Solicitud rechazada. El usuario podrá iniciar nuevamente el proceso.',
         ]);
     }
 
@@ -2067,7 +2225,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseña.',
+                'message' => 'Completa usuario y contraseÃ±a.',
             ]);
         }
 
@@ -2248,7 +2406,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobación.',
+                'message' => 'No fue posible finalizar la aprobaciÃ³n.',
             ]);
         }
 
@@ -2556,8 +2714,8 @@ class Inicio extends BaseController {
         $data[$cfg['mode_key']] = $modo === 'consulta' ? 'consulta' : 'admin';
         $data['hubTitle'] = 'Perfil ' . $cfg['label'];
         $data['hubSubtitle'] = $modo === 'consulta'
-            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catálogo ' . $cfg['label'] . '.'
-            : 'Panel operativo para solicitar folios del catálogo ' . $cfg['label'] . '.';
+            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catÃ¡logo ' . $cfg['label'] . '.'
+            : 'Panel operativo para solicitar folios del catÃ¡logo ' . $cfg['label'] . '.';
         $data[$cfg['can_create_key']] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
         $data[$cfg['perfil_options_key']] = array_map(static function (array $row) use ($cfg): array {
             return [
@@ -2628,7 +2786,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catálogo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catÃ¡logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2684,7 +2842,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃ¡logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2726,10 +2884,10 @@ class Inicio extends BaseController {
         $usuario = '';
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃ¡logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catálogo puede enviar solicitudes.']);
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catÃ¡logo puede enviar solicitudes.']);
         }
         if ($this->request->getMethod() !== 'post') {
             return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'M?todo no permitido.']);
@@ -2804,10 +2962,10 @@ class Inicio extends BaseController {
         ][$beneficiosKey] ?? 'Ninguno';
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Hospedaje: sí';
+            $detalleSolicitud[] = 'Hospedaje: sÃ­';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Alimentos: sí';
+            $detalleSolicitud[] = 'Alimentos: sÃ­';
         }
         if ($observaciones !== '') {
             $detalleSolicitud[] = '';
@@ -2855,7 +3013,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃ¡logo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para cancelar solicitudes.']);
@@ -2965,3 +3123,4 @@ class Inicio extends BaseController {
     }
 
 }
+
