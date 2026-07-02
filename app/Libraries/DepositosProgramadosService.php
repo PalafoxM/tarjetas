@@ -79,7 +79,7 @@ class DepositosProgramadosService
             $this->applyPartidaReservations($allocationRows, $actorUserId);
 
             if ($this->db->transStatus() === false) {
-                throw new RuntimeException('Error de transacción al reservar el depósito del usuario.');
+                throw new RuntimeException('Error de transaccion al reservar el deposito del usuario.');
             }
 
             $this->db->transCommit();
@@ -108,8 +108,18 @@ class DepositosProgramadosService
         $response->respuesta = 'Error | No fue posible activar el QR';
 
         $user = $this->getUserRow($idUsuario);
+        if (
+            (int) ($user['activo_qr'] ?? 0) === 1
+            && round((float) ($user['monto_deposito_operativo'] ?? 0), 2) > 0
+        ) {
+            $response->error = false;
+            $response->respuesta = 'QR ya estaba activo y el deposito inicial ya fue aplicado.';
+            $response->id_usuario = $idUsuario;
+            $response->aplicado = 0.00;
+            return $response;
+        }
         if (empty($user)) {
-            $response->respuesta = 'Error | El usuario no existe o no está visible.';
+            $response->respuesta = 'Error | El usuario no existe o no esta visible.';
             return $response;
         }
 
@@ -127,24 +137,24 @@ class DepositosProgramadosService
 
             $result = $this->applyCurrentWindow($user, 'activacion', $now, $actorUserId);
             if (!$result['applied']) {
-                throw new RuntimeException($result['message'] ?? 'No se pudo aplicar el depósito de activación.');
+                throw new RuntimeException($result['message'] ?? 'No se pudo aplicar el deposito de activacion.');
             }
 
             if ($this->db->transStatus() === false) {
-                throw new RuntimeException('Error de transacción al activar el QR.');
+                throw new RuntimeException('Error de transaccion al activar el QR.');
             }
 
             $this->db->transCommit();
 
             $response->error = false;
-            $response->respuesta = 'QR activado y depósito aplicado correctamente';
+            $response->respuesta = 'QR activado y deposito aplicado correctamente';
             $response->id_usuario = $idUsuario;
             $response->aplicado = $result['applied_amount'];
             $response->programa = $result['program_row'] ?? null;
             return $response;
         } catch (\Throwable $e) {
             $this->db->transRollback();
-            $this->markProgramError($idUsuario, 'activacion', $referenceDate, $actorUserId, $e->getMessage());
+            $this->markProgramError($idUsuario, 'activacion', $referenceDate ?? date('Y-m-d H:i:s'), $actorUserId, $e->getMessage());
             log_message('error', 'DepositosProgramadosService.activateQrAndApplyDeposits: ' . $e->getMessage());
             $response->respuesta = 'Error | ' . $e->getMessage();
             return $response;
@@ -202,7 +212,7 @@ class DepositosProgramadosService
 
         $start = $tipoEvento === 'activacion'
             ? $referenceDate->setTime(0, 0, 0)
-            : $vigenciaInicio;
+            : $referenceDate->modify('+1 day')->setTime(0, 0, 0);
         $start = $this->normalizeDateToStart($start);
         if ($start < $vigenciaInicio) {
             $start = $vigenciaInicio;
@@ -235,6 +245,18 @@ class DepositosProgramadosService
         $saldoAnteriorHotel = round((float) ($user['monto_deposito_hotel'] ?? 0), 2);
         $saldoAnteriorReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
         $saldoAnteriorOperativo = round((float) ($user['monto_deposito_operativo'] ?? 0), 2);
+        if ($saldoAnteriorReservado <= 0) {
+            return ['applied' => false, 'message' => 'No hay saldo reservado pendiente por aplicar.'];
+        }
+        if ($totalApplied > $saldoAnteriorReservado) {
+            if ($hotelAmount >= $saldoAnteriorReservado) {
+                $hotelAmount = $saldoAnteriorReservado;
+                $foodAmount = 0.00;
+            } else {
+                $foodAmount = round($saldoAnteriorReservado - $hotelAmount, 2);
+            }
+            $totalApplied = $saldoAnteriorReservado;
+        }
 
         $saldoNuevoAlimentos = round($saldoAnteriorAlimentos + $foodAmount, 2);
         $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmount), 2);
@@ -351,7 +373,7 @@ class DepositosProgramadosService
     private function buildMovementDescription(string $tipoEvento, DateTimeImmutable $inicio, DateTimeImmutable $fin, float $foodAmount, float $hotelAmount): string
     {
         $parts = [
-            'Depósito programado ' . $tipoEvento,
+            'Deposito programado ' . $tipoEvento,
             'Periodo ' . $inicio->format('Y-m-d') . ' a ' . $fin->format('Y-m-d'),
             'Alimentos $' . number_format($foodAmount, 2, '.', ','),
         ];
@@ -464,7 +486,7 @@ class DepositosProgramadosService
             )->getRowArray();
 
             if (empty($partida)) {
-                throw new RuntimeException('La partida presupuestal no existe o no está visible: ' . $idPartida);
+                throw new RuntimeException('La partida presupuestal no existe o no esta visible: ' . $idPartida);
             }
 
             $disponible = round((float) ($partida['monto_disponible'] ?? 0), 2);
