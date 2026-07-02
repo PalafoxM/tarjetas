@@ -187,6 +187,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
     data-folio-detail-url="<?= esc($ficSolicitudDetalleUrl, 'attr') ?>"
     data-folio-cancel-url="<?= esc($ficSolicitudCancelarUrl, 'attr') ?>"
     data-qr-list-url="<?= esc($qrSolicitudListadoUrl, 'attr') ?>"
+    data-qr-file-url="<?= esc(base_url('index.php/Inicio/verArchivoSolicitudQrFic'), 'attr') ?>"
     data-qr-approve-url="<?= esc(base_url('index.php/Inicio/activarQrUsuarioFic'), 'attr') ?>"
     data-qr-reject-url="<?= esc(base_url('index.php/Inicio/rechazarActivacionQrUsuarioFic'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
