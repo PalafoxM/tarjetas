@@ -1901,17 +1901,20 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $db->table('usuario')
-            ->where('id_usuario', $idUsuario)
-            ->update([
-                'activo_qr' => 1,
-                'fec_act' => date('Y-m-d H:i:s'),
-                'usu_act' => (int) ($tiUsuario['id_usuario'] ?? 0),
+        $service = new DepositosProgramadosService($db);
+        $result = $service->activateQrAndApplyDeposits($idUsuario, (int) ($tiUsuario['id_usuario'] ?? 0));
+        if (!empty($result->error)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => preg_replace('/^Error \| /', '', (string) ($result->respuesta ?? 'No fue posible activar el QR.')),
             ]);
+        }
 
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'QR activado correctamente.',
+            'message' => (string) ($result->respuesta ?? 'QR activado correctamente.'),
+            'aplicado' => (float) ($result->aplicado ?? 0),
+            'programa' => $result->programa ?? null,
         ]);
     }
 
