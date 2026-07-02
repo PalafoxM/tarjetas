@@ -1973,6 +1973,183 @@ class Inicio extends BaseController {
         ]);
     }
 
+    public function verArchivoSolicitudQrFic()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar este archivo.');
+        }
+
+        $idUsuario = (int) ($this->request->getGet('id_usuario') ?? 0);
+        $campo = trim((string) ($this->request->getGet('campo') ?? ''));
+        $camposPermitidos = ['qr', 'ine_frontal', 'ine_trasera', 'firma'];
+
+        if ($idUsuario <= 0 || !in_array($campo, $camposPermitidos, true)) {
+            return $this->response->setStatusCode(422)->setBody('Solicitud invalida.');
+        }
+
+        $db = \Config\Database::connect();
+        $usuario = $db->table('usuario')
+            ->select('id_usuario, visible, qr, ine_frontal, ine_trasera, firma')
+            ->where('id_usuario', $idUsuario)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuario)) {
+            return $this->response->setStatusCode(404)->setBody('Usuario no encontrado.');
+        }
+
+        $archivo = trim((string) ($usuario[$campo] ?? ''));
+        if ($archivo === '') {
+            return $this->response->setStatusCode(404)->setBody('Archivo no disponible.');
+        }
+
+        $url = $this->buildS3PresignedGetUrl($archivo, 300);
+        if ($url === '') {
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el acceso temporal al archivo.');
+        }
+
+        return redirect()->to($url);
+    }
+
+    private function buildS3PresignedGetUrl(string $storedPath, int $expires = 300): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $storedPath) && stripos($storedPath, '.amazonaws.com/') === false) {
+            return $storedPath;
+        }
+
+        $bucket = $this->envFirst(['AWS_BUCKET', 'AWS_S3_BUCKET', 'S3_BUCKET', 'S3_BUCKET_NAME']);
+        $region = $this->envFirst(['AWS_REGION', 'AWS_DEFAULT_REGION', 'S3_REGION'], 'us-east-1');
+        $accessKey = $this->envFirst(['AWS_ACCESS_KEY_ID', 'AWS_ACCESS_KEY', 'S3_ACCESS_KEY', 'S3_KEY']);
+        $secretKey = $this->envFirst(['AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'S3_SECRET_KEY', 'S3_SECRET']);
+        $sessionToken = $this->envFirst(['AWS_SESSION_TOKEN', 'S3_SESSION_TOKEN']);
+
+        if ($bucket === '' || $accessKey === '' || $secretKey === '') {
+            log_message('error', 'Inicio.buildS3PresignedGetUrl: missing S3 env vars.');
+            return '';
+        }
+
+        $objectKey = $this->resolveS3ObjectKey($storedPath, $bucket);
+        if ($objectKey === '') {
+            return '';
+        }
+
+        $expires = max(60, min(3600, $expires));
+        $encodedKey = $this->encodeS3Key($objectKey);
+        $host = $region === 'us-east-1'
+            ? $bucket . '.s3.amazonaws.com'
+            : $bucket . '.s3.' . $region . '.amazonaws.com';
+
+        $amzDate = gmdate('Ymd\THis\Z');
+        $dateStamp = gmdate('Ymd');
+        $credentialScope = $dateStamp . '/' . $region . '/s3/aws4_request';
+
+        $query = [
+            'X-Amz-Algorithm' => 'AWS4-HMAC-SHA256',
+            'X-Amz-Credential' => $accessKey . '/' . $credentialScope,
+            'X-Amz-Date' => $amzDate,
+            'X-Amz-Expires' => (string) $expires,
+            'X-Amz-SignedHeaders' => 'host',
+        ];
+
+        if ($sessionToken !== '') {
+            $query['X-Amz-Security-Token'] = $sessionToken;
+        }
+
+        ksort($query);
+        $canonicalQuery = [];
+        foreach ($query as $name => $value) {
+            $canonicalQuery[] = rawurlencode($name) . '=' . rawurlencode((string) $value);
+        }
+        $canonicalQueryString = implode('&', $canonicalQuery);
+
+        $canonicalRequest = implode("\n", [
+            'GET',
+            '/' . $encodedKey,
+            $canonicalQueryString,
+            'host:' . $host . "\n",
+            'host',
+            'UNSIGNED-PAYLOAD',
+        ]);
+
+        $stringToSign = implode("\n", [
+            'AWS4-HMAC-SHA256',
+            $amzDate,
+            $credentialScope,
+            hash('sha256', $canonicalRequest),
+        ]);
+
+        $signingKey = $this->getAwsSignatureKey($secretKey, $dateStamp, $region, 's3');
+        $signature = hash_hmac('sha256', $stringToSign, $signingKey);
+
+        return 'https://' . $host . '/' . $encodedKey . '?' . $canonicalQueryString . '&X-Amz-Signature=' . $signature;
+    }
+
+    private function resolveS3ObjectKey(string $storedPath, string $bucket): string
+    {
+        $path = trim($storedPath);
+        if ($path === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $path)) {
+            $parts = parse_url($path);
+            $host = (string) ($parts['host'] ?? '');
+            $urlPath = ltrim((string) ($parts['path'] ?? ''), '/');
+
+            if ($host === '') {
+                return '';
+            }
+
+            if (stripos($host, $bucket . '.s3') === 0) {
+                return rawurldecode($urlPath);
+            }
+
+            if (stripos($host, 's3') === 0) {
+                $prefix = $bucket . '/';
+                if (strpos($urlPath, $prefix) === 0) {
+                    return rawurldecode(substr($urlPath, strlen($prefix)));
+                }
+            }
+
+            return rawurldecode($urlPath);
+        }
+
+        return ltrim(str_replace('\\', '/', $path), '/');
+    }
+
+    private function envFirst(array $keys, string $default = ''): string
+    {
+        foreach ($keys as $key) {
+            $value = env($key);
+            if ($value !== null && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return $default;
+    }
+
+    private function encodeS3Key(string $key): string
+    {
+        $segments = array_map('rawurlencode', explode('/', str_replace('\\', '/', $key)));
+        return implode('/', $segments);
+    }
+
+    private function getAwsSignatureKey(string $secretKey, string $dateStamp, string $regionName, string $serviceName): string
+    {
+        $kDate = hash_hmac('sha256', $dateStamp, 'AWS4' . $secretKey, true);
+        $kRegion = hash_hmac('sha256', $regionName, $kDate, true);
+        $kService = hash_hmac('sha256', $serviceName, $kRegion, true);
+        return hash_hmac('sha256', 'aws4_request', $kService, true);
+    }
+
     private function solicitudUsuarioOperativoBaseBuilder($db)
     {
         return $db->table('solicitud_usuario su')

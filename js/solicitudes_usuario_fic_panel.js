@@ -5,6 +5,7 @@
         qrTable: null,
         folioTable: null,
         qrListUrl: '',
+        qrFileUrl: '',
         qrApproveUrl: '',
         qrRejectUrl: '',
         folioListUrl: '',
@@ -40,21 +41,25 @@
         return '<span class="badge bg-secondary">' + esc(estado || 'Sin definir') + '</span>';
     }
 
-    function construirUrlArchivoS3(value) {
-        if (!value) {
+    function construirUrlArchivo(config) {
+        if (!config) {
             return '';
         }
 
-        var archivo = String(value).trim();
-        if (archivo === '') {
+        var directo = String(config.url || '').trim();
+        if (directo !== '') {
+            return directo;
+        }
+
+        var idUsuario = String(config.idUsuario || '').trim();
+        var campo = String(config.field || '').trim();
+        if (!state.qrFileUrl || idUsuario === '' || campo === '') {
             return '';
         }
 
-        if (archivo.indexOf('http://') === 0 || archivo.indexOf('https://') === 0) {
-            return archivo;
-        }
-
-        return S3_PUBLIC_BASE_URL + archivo.replace(/^\/+/, '');
+        return state.qrFileUrl
+            + '?id_usuario=' + encodeURIComponent(idUsuario)
+            + '&campo=' + encodeURIComponent(campo);
     }
 
     function getExtension(url) {
@@ -63,8 +68,8 @@
         return parts.length > 1 ? String(parts.pop() || '').toLowerCase() : '';
     }
 
-    function getPreviewBody(url, label) {
-        var ext = getExtension(url);
+    function getPreviewBody(url, label, fileName) {
+        var ext = getExtension(fileName) || getExtension(url);
         var safeUrl = esc(url);
         var safeLabel = esc(label || 'Archivo');
 
@@ -80,7 +85,7 @@
     }
 
     function openPreviewModal(config) {
-        var url = construirUrlArchivoS3(config.url || '');
+        var url = construirUrlArchivo(config || {});
         if (!url) {
             Swal.fire('Atención', 'No hay archivo disponible para previsualizar.', 'warning');
             return;
@@ -101,7 +106,7 @@
 
         $('#modalPreviewArchivoQrFicTitle').text(config.title || 'Previsualización de archivo');
         $('#modalPreviewArchivoQrFicSubtitle').text(config.subtitle || '');
-        $('#modalPreviewArchivoQrFicBody').html(getPreviewBody(url, config.title || 'Archivo'));
+        $('#modalPreviewArchivoQrFicBody').html(getPreviewBody(url, config.title || 'Archivo', config.fileName || ''));
         $('#modalPreviewArchivoQrFicOpen').attr('href', url);
         state.previewModal.show();
     }
@@ -396,7 +401,10 @@
                 openPreviewModal({
                     title: String($(this).data('title') || 'Archivo'),
                     subtitle: 'ID usuario: ' + String($(this).data('id-usuario') || ''),
-                    url: String($(this).data('archivo') || '')
+                    idUsuario: String($(this).data('id-usuario') || ''),
+                    field: String($(this).data('field') || ''),
+                    fileName: String($(this).data('archivo') || ''),
+                    url: String($(this).data('url') || '')
             });
             })
             .on('click.solicitudesFicPanel', '.js-qr-fic-activar', function () {
@@ -471,6 +479,7 @@
 
             state.root = root;
             state.qrListUrl = root.data('qr-list-url') || '';
+            state.qrFileUrl = root.data('qr-file-url') || '';
             state.qrApproveUrl = root.data('qr-approve-url') || '';
             state.qrRejectUrl = root.data('qr-reject-url') || '';
             state.folioListUrl = root.data('folio-list-url') || '';
