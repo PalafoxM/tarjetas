@@ -76,13 +76,13 @@
             return '<iframe src="' + safeUrl + '" title="' + safeLabel + '" style="width:100%;height:70vh;border:0;border-radius:12px;"></iframe>';
         }
 
-        return '<div class="alert alert-info mb-0">No hay vista previa embebida para este tipo de archivo. Usa el botÃ³n <strong>Abrir en nueva pestaÃ±a</strong>.</div>';
+        return '<div class="alert alert-info mb-0">No hay vista previa embebida para este tipo de archivo. Usa el botón <strong>Abrir en nueva pestaÃ±a</strong>.</div>';
     }
 
     function openPreviewModal(config) {
         var url = construirUrlArchivoS3(config.url || '');
         if (!url) {
-            Swal.fire('AtenciÃ³n', 'No hay archivo disponible para previsualizar.', 'warning');
+            Swal.fire('Atención', 'No hay archivo disponible para previsualizar.', 'warning');
             return;
         }
 
@@ -95,11 +95,11 @@
         }
 
         if (!state.previewModal) {
-            Swal.fire('AtenciÃ³n', 'No fue posible abrir el visor de archivos.', 'warning');
+            Swal.fire('Atención', 'No fue posible abrir el visor de archivos.', 'warning');
             return;
         }
 
-        $('#modalPreviewArchivoQrFicTitle').text(config.title || 'PrevisualizaciÃ³n de archivo');
+        $('#modalPreviewArchivoQrFicTitle').text(config.title || 'Previsualización de archivo');
         $('#modalPreviewArchivoQrFicSubtitle').text(config.subtitle || '');
         $('#modalPreviewArchivoQrFicBody').html(getPreviewBody(url, config.title || 'Archivo'));
         $('#modalPreviewArchivoQrFicOpen').attr('href', url);
@@ -133,7 +133,7 @@
         $.getJSON(state.folioDetailUrl, { id_solicitud_usuario: idSolicitud })
             .done(function (response) {
                 if (!response || response.ok !== true || !response.data) {
-                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
+                    Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
                     return;
                 }
                 if (typeof callback === 'function') {
@@ -209,7 +209,7 @@
                 $('#solicitudesQrPlaceholder').toggleClass('d-none', !((data && data.total) > 0));
             },
             onLoadError: function () {
-                Swal.fire('Error', 'No fue posible cargar las solicitudes de activaciÃ³n QR.', 'error');
+                Swal.fire('Error', 'No fue posible cargar las solicitudes de activación QR.', 'error');
             }
         });
     }
@@ -366,7 +366,7 @@
 
                 Swal.fire({
                     title: 'Cancelar solicitud',
-                    text: 'La solicitud se marcarÃ¡ como cancelada.',
+                    text: 'La solicitud se marcará como cancelada.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Cancelar solicitud',
@@ -381,7 +381,7 @@
                         data: $.extend({ id_solicitud_usuario: idSolicitud }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.ok !== true) {
-                            Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible cancelar la solicitud.', 'warning');
+                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cancelar la solicitud.', 'warning');
                             return;
                         }
 

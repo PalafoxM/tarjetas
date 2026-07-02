@@ -240,7 +240,7 @@ class Inicio extends BaseController {
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃ¡s consultando la vista de partidas sin cambiar la sesiÃ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando la vista de partidas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -260,7 +260,7 @@ class Inicio extends BaseController {
         $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃ¡s consultando el historial global de pagos sin cambiar la sesiÃ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de pagos sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vPagosFic';
         $this->_renderView($data);
     }
@@ -331,7 +331,7 @@ class Inicio extends BaseController {
     {
         $grupo = strtolower(trim($grupo));
         if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃ¡lida.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
 
         $session = \Config\Services::session();
@@ -370,7 +370,7 @@ class Inicio extends BaseController {
         $data['solicitudAlta'] = [
             'grupo' => $grupo,
             'title' => 'Solicitud de folio de usuario',
-            'subtitle' => 'Captura los datos del usuario y el perfil solicitado dentro del catÃ¡logo ' . strtoupper($grupo) . '.',
+            'subtitle' => 'Captura los datos del usuario y el perfil solicitado dentro del catálogo ' . strtoupper($grupo) . '.',
             'back_url' => $backUrl,
             'save_url' => $saveUrl,
             'catalogos_url' => base_url('index.php/Usuario/getCatalogosCrud'),
@@ -613,7 +613,7 @@ class Inicio extends BaseController {
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible resolver el establecimiento de sesiÃ³n.',
+                'message' => 'No fue posible resolver el establecimiento de sesión.',
             ]);
         }
 
@@ -661,20 +661,20 @@ class Inicio extends BaseController {
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
             $detalleSolicitud[] = 'Hospedaje: sÃ­';
-            $detalleSolicitud[] = 'Partida automÃ¡tica hospedaje: 3390A';
+            $detalleSolicitud[] = 'Partida automática hospedaje: 3390A';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
             $detalleSolicitud[] = 'Alimentos: sÃ­';
-            $detalleSolicitud[] = 'Partida automÃ¡tica alimentos: 3390B';
+            $detalleSolicitud[] = 'Partida automática alimentos: 3390B';
         }
         if ($categoriaLabel !== '') $detalleSolicitud[] = 'CategorÃ­a: ' . $categoriaLabel;
-        if ($paisLabel !== '') $detalleSolicitud[] = 'PaÃ­s o regiÃ³n: ' . $paisLabel;
+        if ($paisLabel !== '') $detalleSolicitud[] = 'PaÃ­s o región: ' . $paisLabel;
         if ($disciplinaLabel !== '') $detalleSolicitud[] = 'Disciplina: ' . $disciplinaLabel;
         if ($clave !== '') $detalleSolicitud[] = 'Clave: ' . $clave;
         if ($folio !== '') $detalleSolicitud[] = 'Folio: ' . $folio;
         if ($subFolio !== '') $detalleSolicitud[] = 'Subfolio: ' . $subFolio;
         if ($pax > 0) $detalleSolicitud[] = 'Pax: ' . $pax;
-        if ($anfGto !== '') $detalleSolicitud[] = 'AnfitriÃ³n Gto: ' . $anfGto;
+        if ($anfGto !== '') $detalleSolicitud[] = 'Anfitrión Gto: ' . $anfGto;
         if ($observaciones !== '') {
             $detalleSolicitud[] = '';
             $detalleSolicitud[] = 'Observaciones:';
@@ -1492,7 +1492,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(401)->setJSON([
                 'ok' => false,
                 'establecimientos' => [],
-                'message' => 'SesiÃ³n invÃ¡lida.',
+                'message' => 'Sesión inválida.',
             ]);
         }
 
@@ -2409,7 +2409,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobaciÃ³n.',
+                'message' => 'No fue posible finalizar la aprobación.',
             ]);
         }
 
@@ -2717,8 +2717,8 @@ class Inicio extends BaseController {
         $data[$cfg['mode_key']] = $modo === 'consulta' ? 'consulta' : 'admin';
         $data['hubTitle'] = 'Perfil ' . $cfg['label'];
         $data['hubSubtitle'] = $modo === 'consulta'
-            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catÃ¡logo ' . $cfg['label'] . '.'
-            : 'Panel operativo para solicitar folios del catÃ¡logo ' . $cfg['label'] . '.';
+            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catálogo ' . $cfg['label'] . '.'
+            : 'Panel operativo para solicitar folios del catálogo ' . $cfg['label'] . '.';
         $data[$cfg['can_create_key']] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
         $data[$cfg['perfil_options_key']] = array_map(static function (array $row) use ($cfg): array {
             return [
@@ -2789,7 +2789,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catÃ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2845,7 +2845,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -2887,10 +2887,10 @@ class Inicio extends BaseController {
         $usuario = '';
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catÃ¡logo puede enviar solicitudes.']);
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catálogo puede enviar solicitudes.']);
         }
         if ($this->request->getMethod() !== 'post') {
             return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'M?todo no permitido.']);
@@ -3016,7 +3016,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para cancelar solicitudes.']);
