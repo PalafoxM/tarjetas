@@ -193,7 +193,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
         <div>
             <h3 class="mb-1 text-white">Bandeja de solicitudes FIC</h3>
-            <p class="text-muted mb-0">Separamos la revisiÃ³n por tipo de trÃ¡mite para que QR, folios y personal operativo no queden mezclados.</p>
+            <p class="text-muted mb-0">Separamos la revisión por tipo de trámite para que QR, folios y personal operativo no queden mezclados.</p>
         </div>
         <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
             <i class="mdi mdi-arrow-left me-1"></i> Volver a inicio
@@ -293,7 +293,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                 <div class="modal-header border-secondary">
                     <div>
                         <h5 class="modal-title" id="solicitudUsuarioOperativoTitulo">Revisar solicitud</h5>
-                        <p class="text-muted mb-0 small">Confirma la informaciÃ³n y define el usuario operativo.</p>
+                        <p class="text-muted mb-0 small">Confirma la información y define el usuario operativo.</p>
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -305,7 +305,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                             <div class="solicitudes-summary-card">
                                 <span class="solicitudes-summary-label">Proveedor solicitante</span>
                                 <div class="solicitudes-summary-value" id="solicitud_proveedor_aprobar"></div>
-                                <div class="solicitudes-summary-label mt-3">RazÃ³n social</div>
+                                <div class="solicitudes-summary-label mt-3">Razón social</div>
                                 <div class="solicitudes-summary-value" id="solicitud_razon_social_aprobar"></div>
                             </div>
                         </div>
@@ -366,7 +366,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                 <div class="modal-header border-secondary">
                     <div>
                         <h5 class="modal-title" id="solicitudUsuarioOperativoRechazoTitulo">Rechazar solicitud</h5>
-                        <p class="text-muted mb-0 small">Captura el motivo para conservar el histÃ³rico de la solicitud.</p>
+                        <p class="text-muted mb-0 small">Captura el motivo para conservar el histórico de la solicitud.</p>
                     </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
