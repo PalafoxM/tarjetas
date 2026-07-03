@@ -237,6 +237,179 @@
         cursor: pointer;
     }
 
+    .login-support-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 12px;
+        width: 100%;
+        border: 1px solid #d4af37;
+        border-radius: 999px;
+        padding: 10px 14px;
+        color: #f7e8a6;
+        background: rgba(212, 175, 55, 0.12);
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .login-support-btn:hover {
+        background: rgba(212, 175, 55, 0.22);
+        transform: translateY(-1px);
+    }
+
+    .login-support-modal .modal-content {
+        width: min(92vw, 460px);
+        border: 1px solid rgba(212, 175, 55, 0.55);
+        border-radius: 18px;
+        background: rgba(8, 8, 8, 0.98);
+        color: #f7e8a6;
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.56);
+        overflow: hidden;
+    }
+
+    .login-support-modal .modal-header,
+    .login-support-modal .modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px 20px;
+        border-color: rgba(212, 175, 55, 0.32);
+    }
+
+    .login-support-modal .modal-header {
+        border-bottom: 1px solid rgba(212, 175, 55, 0.32);
+    }
+
+    .login-support-modal .modal-footer {
+        border-top: 1px solid rgba(212, 175, 55, 0.32);
+        justify-content: flex-end;
+    }
+
+    .login-support-modal .modal-body {
+        padding: 8px 20px;
+    }
+
+    .login-support-modal .modal-title {
+        margin: 0;
+        color: #f7e8a6;
+        font-family: Arial, sans-serif;
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    .login-support-modal .support-contact-item {
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .login-support-modal .support-contact-item:last-child {
+        border-bottom: 0;
+    }
+
+    .login-support-modal .support-contact-label {
+        display: block;
+        margin-bottom: 4px;
+        color: #d4af37;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .login-support-modal a {
+        color: #fff3b0;
+        text-decoration: none;
+    }
+
+    .login-support-modal a:hover {
+        color: #ffffff;
+        text-decoration: underline;
+    }
+
+    .login-support-modal-close,
+    .login-support-modal-action {
+        border: 1px solid rgba(212, 175, 55, 0.5);
+        color: #f7e8a6;
+        background: rgba(212, 175, 55, 0.12);
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .login-support-modal-close {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        font-size: 22px;
+        line-height: 1;
+    }
+
+    .login-support-modal-action {
+        min-height: 40px;
+        border-radius: 999px;
+        padding: 8px 18px;
+        font-weight: 800;
+    }
+
+    .login-support-modal-close:hover,
+    .login-support-modal-action:hover {
+        background: rgba(212, 175, 55, 0.24);
+        transform: translateY(-1px);
+    }
+
+    .modal.login-support-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 1060;
+        display: none;
+        width: 100%;
+        height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        outline: 0;
+    }
+
+    .modal.login-support-modal.show {
+        display: block;
+    }
+
+    .login-support-modal .modal-dialog {
+        min-height: 100%;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        pointer-events: none;
+    }
+
+    .login-support-modal .modal-content {
+        pointer-events: auto;
+    }
+
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1050;
+        background: rgba(0, 0, 0, 0.64);
+    }
+
+    .modal-backdrop.fade {
+        opacity: 0;
+    }
+
+    .modal-backdrop.show {
+        opacity: 1;
+    }
+
+    body.modal-open {
+        overflow: hidden;
+    }
+
     .login-auth-panel .btn:disabled {
         cursor: wait;
         opacity: 0.82;
@@ -455,6 +628,11 @@
                             </div>
 
                             <button type="button" id="btnAcceder" class="btn btn-primary" onclick="loginTradicional();">Acceder</button>
+
+                            <button type="button" class="login-support-btn" data-bs-toggle="modal" data-bs-target="#modalSoporteLogin">
+                                <i class="mdi mdi-headset"></i>
+                                Soporte 24 horas
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -478,6 +656,30 @@
                 </div>
             </div>
         </div> -->
+    </div>
+</div>
+
+<div class="modal fade login-support-modal" id="modalSoporteLogin" tabindex="-1" aria-labelledby="modalSoporteLoginLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalSoporteLoginLabel">Soporte 24 horas</h5>
+                <button type="button" class="login-support-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="support-contact-item">
+                    <span class="support-contact-label">Telefono</span>
+                    <a href="tel:+524731391180">473 139 1180</a>
+                </div>
+                <div class="support-contact-item">
+                    <span class="support-contact-label">Correo</span>
+                    <a href="mailto:a.palafoxm@guanajuato.gob.mx">a.palafoxm@guanajuato.gob.mx</a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="login-support-modal-action" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
     </div>
 </div>
 
