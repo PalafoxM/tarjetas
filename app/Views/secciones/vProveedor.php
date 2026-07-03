@@ -383,13 +383,14 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                     <span class="provider-meta-chip"><i class="mdi mdi-calendar-range"></i> Corte desde <?= esc((string) ($ventasCorteContexto['fecha_corte_desde'] ?? 'sin fecha')) ?></span>
                 </div>
             </div>
-            <button class="btn btn-primary provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
-                <i class="mdi mdi-account-plus me-1"></i> Solicitar personal
-            </button>
-            <button class="btn btn-primary provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPago">
-                <i class="mdi mdi-account-plus me-1"></i> Pagar sin QR
-            </button>
-          
+            <div class="d-grid gap-2">
+                <button class="btn btn-outline-light provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
+                    <i class="mdi mdi-account-plus me-1"></i> Solicitar personal
+                </button>
+                <a class="btn btn-primary provider-action" href="<?= esc(base_url('index.php/Inicio/ProveedorFormatos'), 'attr') ?>">
+                    <i class="mdi mdi-file-document-outline me-1"></i> Formatos
+                </a>
+            </div>
         </section>
 
         <section class="row g-3">
@@ -430,6 +431,40 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 </div>
             </div>
         </section>
+
+        <section class="provider-section">
+            <div class="card provider-card">
+                <div class="provider-section-header">
+                    <div>
+                        <span class="provider-summary-pill"><i class="mdi mdi-office-building"></i> Padrón ligado</span>
+                        <h5 class="provider-section-title mt-2">Mis establecimientos</h5>
+                        <p class="provider-section-copy">Todos los establecimientos vinculados a este proveedor se muestran aquí para consulta rápida.</p>
+                    </div>
+                </div>
+                <div class="card-body pt-0">
+                    <?php if (!empty($proveedorEstablecimientos)): ?>
+                        <div class="row g-3">
+                            <?php foreach ($proveedorEstablecimientos as $establecimiento): ?>
+                                <div class="col-12 col-md-6 col-xl-4">
+                                    <div class="card provider-card h-100">
+                                        <div class="card-body">
+                                            <div class="provider-stat-label">ID establecimiento</div>
+                                            <div class="provider-stat-value"><?= esc((string) ($establecimiento['id_establecimiento'] ?? '')) ?></div>
+                                            <div class="fw-semibold mt-2"><?= esc((string) ($establecimiento['dsc_establecimiento'] ?? 'Sin nombre')) ?></div>
+                                            <div class="provider-stat-note mt-1"><?= esc((string) ($establecimiento['dsc_tipo'] ?? 'Sin tipo')) ?></div>
+                                            <div class="provider-stat-note mt-1">No. proveedor: <?= esc((string) ($establecimiento['no_proveedor'] ?? '')) ?></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="provider-history-empty">Este proveedor aún no tiene establecimientos visibles ligados.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+
 <!-- 
         <section class="provider-section">
             <div class="card provider-card">
@@ -593,41 +628,6 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 <div class="modal-footer border-secondary">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     <button type="submit" class="btn btn-primary" id="btnEnviarSolicitudProveedor">Enviar solicitud</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-<div class="modal fade provider-modal" id="modalSolicitudPago" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content bg-dark text-white">
-            <form id="formSolicitudPago">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title">Solicitud de pago</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted mb-3">Selecciona el establecimiento y completa los datos del usuario solicitado. El perfil se resolverá automáticamente desde el tipo de establecimiento.</p>
-                    <div class="row g-3">
-                 
-                        <div class="col-md-4">
-                            <label class="form-label">Monto</label>
-                            <input type="text" id="Monto" class="form-control crud-ui-upper" readonly placeholder="Se resolverá automáticamente">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Proína</label>
-                            <input type="text" id="Proína" name="nombre" class="form-control crud-ui-upper" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">No. QR</label>
-                            <input type="text" id="no_qr" name="primer_apellido" class="form-control crud-ui-upper" required>
-                        </div>
-                    
-                    </div>
-                </div>
-                <div class="modal-footer border-secondary">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                    <button type="submit" class="btn btn-primary" id="btnEnviarSolicitudPago">Enviar solicitud</button>
                 </div>
             </form>
         </div>
