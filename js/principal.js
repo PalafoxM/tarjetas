@@ -365,6 +365,44 @@ window.cajeros = {
             cajeros.actualizarTipoSolicitudProveedor();
         });
     },
+    btnEnviarSolicitudPago: function () {
+        var boton = $('#btnEnviarSolicitudPago');
+        var form = $('#formSolicitudPago');
+        var textoOriginal = boton.html();
+   
+        $('#solicitud_nombre').val(String($('#solicitud_nombre').val() || '').toUpperCase());
+        $('#solicitud_primer_apellido').val(String($('#solicitud_primer_apellido').val() || '').toUpperCase());
+        $('#solicitud_segundo_apellido').val(String($('#solicitud_segundo_apellido').val() || '').toUpperCase());
+        $('#solicitud_correo').val(String($('#solicitud_correo').val() || '').toLowerCase());
+
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Enviando...');
+
+        $.ajax({
+            url: $('#proveedorPage').data('solicitud-url') || '',
+            type: 'POST',
+            dataType: 'json',
+            data: form.serialize()
+        }).done(function (response) {
+            if (!response || response.ok !== true) {
+                Swal.fire('Atención', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible enviar la solicitud.', 'warning');
+                return;
+            }
+
+            Swal.fire('Correcto', response.message || 'Solicitud enviada correctamente.', 'success').then(function () {
+                $('#modalSolicitudPersonal').modal('hide');
+                cajeros.limpiarSolicitudProveedor();
+            });
+        }).fail(function (jqXHR) {
+            var message = 'No fue posible enviar la solicitud.';
+            if (jqXHR && jqXHR.responseJSON && (jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta)) {
+                message = jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta;
+            }
+            Swal.fire('Error', message, 'error');
+        }).always(function () {
+            boton.prop('disabled', false).html(textoOriginal);
+            cajeros.actualizarTipoSolicitudProveedor();
+        });
+    },
     parseJSON: function (value, fallback) {
         if (!value) return fallback;
         try {
