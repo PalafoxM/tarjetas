@@ -367,7 +367,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
     }
 </style>
 
-<div class="container-fluid provider-page" id="proveedorPage" data-provider-mode="1" data-establecimientos-url="<?= esc(base_url('index.php/Inicio/getEstablecimientosProveedor'), 'attr') ?>" data-solicitud-url="<?= esc(base_url('index.php/Inicio/guardarSolicitudUsuarioProveedor'), 'attr') ?>">
+<div class="container-fluid provider-page" id="proveedorPage" data-provider-mode="1" data-establecimientos-url="<?= esc(base_url('index.php/Inicio/getEstablecimientosProveedor'), 'attr') ?>" data-solicitud-url="<?= esc(base_url('index.php/Inicio/guardarSolicitudUsuarioProveedor'), 'attr') ?>" data-pago-sin-qr-url="<?= esc(base_url('index.php/Inicio/guardarPagoSinQrProveedor'), 'attr') ?>">
     <div class="provider-shell">
         <section class="provider-hero">
             <div>
@@ -390,6 +390,9 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 <a class="btn btn-primary provider-action" href="<?= esc(base_url('index.php/Inicio/ProveedorFormatos'), 'attr') ?>">
                     <i class="mdi mdi-file-document-outline me-1"></i> Formatos
                 </a>
+                <button class="btn btn-success provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalPagoSinQr">
+                    <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR
+                </button>
             </div>
         </section>
 
@@ -585,6 +588,54 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 </div>
             </div>
         </section>
+    </div>
+</div>
+
+<div class="modal fade provider-modal" id="modalPagoSinQr" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-dark text-white">
+            <form id="formPagoSinQr">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Pago sin QR</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Captura el folio del cliente, monto, propina y NIP para aplicar el cargo al saldo disponible.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="pago_sin_qr_folio">Folio</label>
+                            <input type="text" id="pago_sin_qr_folio" name="folio" class="form-control crud-ui-upper" placeholder="FIC-745-QR" required autocomplete="off">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="pago_sin_qr_monto">Monto</label>
+                            <input type="number" step="0.01" min="0.01" id="pago_sin_qr_monto" name="monto" class="form-control" required autocomplete="off">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="pago_sin_qr_propina">Propina</label>
+                            <select id="pago_sin_qr_propina" name="propina_porcentaje" class="form-select" required>
+                                <option value="0">0%</option>
+                                <option value="5">5%</option>
+                                <option value="10">10%</option>
+                                <option value="15">15%</option>
+                                <option value="20">20%</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="pago_sin_qr_total">Total</label>
+                            <input type="number" step="0.01" id="pago_sin_qr_total" name="total" class="form-control" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="pago_sin_qr_nip">NIP del cliente</label>
+                            <input type="password" inputmode="numeric" maxlength="8" id="pago_sin_qr_nip" name="nip" class="form-control" required autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-success" id="btnEnviarPagoSinQr">Aplicar pago</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

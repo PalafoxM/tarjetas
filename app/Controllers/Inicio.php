@@ -1898,6 +1898,7 @@ class Inicio extends BaseController {
     public function guardarSolicitudUsuarioProveedor()
     {
         $session = \Config\Services::session();
+        $idSesionUsuario = (int) $session->get('id_usuario');
         if ($idSesionUsuario <= 0) {
             return $this->response->setStatusCode(403)->setJSON([
                 'ok' => false,
@@ -2057,6 +2058,191 @@ class Inicio extends BaseController {
                 'tipo_usuario' => $tipoUsuarioLabel,
                 'id_perfil_solicitado' => $idPerfilSolicitado,
                 'id_establecimiento' => $idEstablecimiento,
+            ],
+        ]);
+    }
+
+    public function guardarPagoSinQrProveedor()
+    {
+        $session = \Config\Services::session();
+        $idSesionUsuario = (int) $session->get('id_usuario');
+        if ($idSesionUsuario <= 0) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'Solo un proveedor autenticado puede aplicar pagos.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $usuarioProveedor = $db->table('usuario u')
+            ->select('u.id_usuario, u.id_proveedor, p.no_proveedor')
+            ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'inner')
+            ->where('u.id_usuario', $idSesionUsuario)
+            ->where('u.visible', 1)
+            ->where('u.id_proveedor >', 0)
+            ->where('p.visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuarioProveedor)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No fue posible resolver el proveedor autenticado.',
+            ]);
+        }
+
+        $noProveedor = trim((string) ($usuarioProveedor['no_proveedor'] ?? ''));
+        $establecimientoProveedor = $db->table('establecimiento')
+            ->select('id_establecimiento')
+            ->where('visible', 1)
+            ->where('no_proveedor', $noProveedor)
+            ->orderBy('id_establecimiento', 'ASC')
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($establecimientoProveedor)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'El proveedor autenticado no tiene establecimiento visible ligado.',
+            ]);
+        }
+
+        $folio = strtoupper(trim((string) ($this->request->getPost('folio') ?? '')));
+        $monto = round((float) ($this->request->getPost('monto') ?? 0), 2);
+        $propinaPorcentaje = (int) ($this->request->getPost('propina_porcentaje') ?? 0);
+        $nip = trim((string) ($this->request->getPost('nip') ?? ''));
+        $porcentajesPermitidos = [0, 5, 10, 15, 20];
+
+        if (!preg_match('/^FIC-(\d+)-QR$/', $folio, $matches)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'El folio debe tener el formato FIC-745-QR.',
+            ]);
+        }
+
+        $idUsuarioCliente = (int) ($matches[1] ?? 0);
+        if ($idUsuarioCliente <= 0 || $monto <= 0 || !in_array($propinaPorcentaje, $porcentajesPermitidos, true) || $nip === '') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'Completa folio, monto, propina y NIP con valores validos.',
+            ]);
+        }
+
+        $cliente = $db->table('usuario')
+            ->select('id_usuario, nip, monto_deposito')
+            ->where('id_usuario', $idUsuarioCliente)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($cliente)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'ok' => false,
+                'message' => 'No se encontro el cliente del folio capturado.',
+            ]);
+        }
+
+        if ((string) ($cliente['nip'] ?? '') !== $nip) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'El NIP no corresponde al cliente del folio.',
+            ]);
+        }
+
+        $propinaMonto = round($monto * $propinaPorcentaje / 100, 2);
+        $total = round($monto + $propinaMonto, 2);
+        $saldoActual = round((float) ($cliente['monto_deposito'] ?? 0), 2);
+
+        if ($total > $saldoActual) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => 'Saldo insuficiente para aplicar el pago.',
+            ]);
+        }
+
+         $globals = new Mglobal();
+        
+        $id_establecimiento = $globals->getTabla(['tabla' => 'vw_usuario', "where" => ["id_usuario" => $session->get('id_usuario')]]);
+       // die( var_dump($idProveedor));
+
+        $fechaAhora = date('Y-m-d H:i:s');
+        $saldoNuevo = round($saldoActual - $total, 2);
+        $idEstablecimientoProveedor = (!empty($id_establecimiento->data) && isset($id_establecimiento->data)) ? (int) $id_establecimiento->data[0]->id_establecimiento : 0;
+        $folioSolicitud = 'FIC-' . date('YmdHis') . '-' . strtoupper(bin2hex(random_bytes(2)));
+        $observacionesPago = json_encode([
+            'monto' => $monto,
+            'propina' => $propinaMonto,
+            'propina_porcentaje' => $propinaPorcentaje,
+            'total' => $total,
+            'descripcion' => 'Pago sin QR',
+            'folio_cliente' => $folio,
+            'proveedor_id' => (int) ($usuarioProveedor['id_proveedor'] ?? 0),
+        ]);
+
+        $db->transStart();
+        $db->table('solicitud_pago')->insert([
+            'folio_solicitud' => $folioSolicitud,
+            'id_usuario' => $idUsuarioCliente,
+            'id_establecimiento' => $idEstablecimientoProveedor,
+            'monto_solicitado' => number_format($total, 2, '.', ''),
+            'metodo_autorizacion' => 'web',
+            'estatus' => 'autorizado',
+            'token_autorizacion' => bin2hex(random_bytes(16)),
+            'fecha_respuesta' => $fechaAhora,
+            'motivo_rechazo' => null,
+            'observaciones' => $observacionesPago,
+            'fec_reg' => $fechaAhora,
+            'usu_reg' => $idSesionUsuario,
+            'fec_act' => $fechaAhora,
+            'usu_act' => $idSesionUsuario,
+            'visible' => 1,
+        ]);
+        $idSolicitudPago = (int) $db->insertID();
+
+        $db->table('usuario')
+            ->where('id_usuario', $idUsuarioCliente)
+            ->where('visible', 1)
+            ->update([
+                'monto_deposito' => number_format($saldoNuevo, 2, '.', ''),
+                'fec_act' => $fechaAhora,
+                'usu_act' => $idSesionUsuario,
+            ]);
+
+        $db->table('pagos')->insert([
+            'id_tipo_pago' => 2,
+            'id_usuario' => $idUsuarioCliente,
+            'id_establecimiento' => $idEstablecimientoProveedor,
+            'id_solicitud_pago' => 3,
+            'monto' => number_format($monto, 2, '.', ''),
+            'propina' => number_format($propinaMonto, 2, '.', ''),
+            'total' => number_format($total, 2, '.', ''),
+            'fec_reg' => $fechaAhora,
+            'usu_reg' => $idSesionUsuario,
+            'visible' => 1,
+        ]);
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'message' => 'No fue posible aplicar el pago.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'message' => 'Pago aplicado correctamente.',
+            'data' => [
+                'id_usuario' => $idUsuarioCliente,
+                'folio' => $folio,
+                'id_solicitud_pago' => $idSolicitudPago,
+                'folio_solicitud' => $folioSolicitud,
+                'monto' => number_format($monto, 2, '.', ''),
+                'propina' => number_format($propinaMonto, 2, '.', ''),
+                'total' => number_format($total, 2, '.', ''),
+                'saldo_anterior' => number_format($saldoActual, 2, '.', ''),
+                'saldo_nuevo' => number_format($saldoNuevo, 2, '.', ''),
             ],
         ]);
     }
