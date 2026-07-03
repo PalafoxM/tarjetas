@@ -76,12 +76,16 @@ class Inicio extends BaseController {
                 $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
                 $tabla = ["tabla" => "establecimiento", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
                 $proveedor = $Mglobal->getTabla($tabla);
+                $proveedorEstablecimientos = $this->resolveProviderEstablishments(\Config\Database::connect(), $proveedor->data[0] ?? (object) []);
                 $rfc = $Mglobal->getTabla(['tabla' => "proveedor", "where" =>['visible' =>1, "no_proveedor" =>$proveedor->data[0]->no_proveedor]]);
               
                 $data['rfc'] = (!empty($rfc->data) && isset($rfc->data))?$rfc->data[0]->rfc:'Sin RFC';
                 $noEstablecimientos = ["tabla" => "usuario_establecimiento", "where" => ['visible' => 1, "id_usuario" =>$session->get('id_usuario')]];
                 $e = $Mglobal->getTabla($noEstablecimientos);
                 $data['establecimiento'] = (!empty($e->data) && isset($e->data))?count($e->data):'0';
+                $data['proveedorEstablecimientos'] = array_values(array_map(static function ($item) {
+                    return is_object($item) ? get_object_vars($item) : (array) $item;
+                }, $proveedorEstablecimientos));
                 $pagos = $Mglobal->getTabla(['tabla' =>"solicitud_pago", "where" =>['visible' =>1, "id_establecimiento" =>$idEstablecimiento]]);
                 if(!empty($pagos->data) && isset($pagos->data)){
                     $data['total'] = 0;
@@ -192,7 +196,7 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
-      public function Establecimiento()
+    public function Establecimiento()
     {        
         $session = \Config\Services::session();
         $Mglobal = new Mglobal; 
@@ -211,6 +215,39 @@ class Inicio extends BaseController {
         $this->_renderView($data);
         
     }
+
+    public function ProveedorFormatos()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contextoUsuario'] = $contextoUsuario;
+        $data['contentView'] = 'secciones/vProveedorFormatos';
+        $this->_renderView($data);
+    }
+
+    public function pdfProveedorEncabezadoFactura($idEstablecimiento = null)
+    {
+        return $this->renderProveedorFormatoPdf('encabezado_factura', (int) $idEstablecimiento);
+    }
+
+    public function pdfProveedorFormatoPT($idEstablecimiento = null)
+    {
+        return $this->renderProveedorFormatoPdf('formato_pt', (int) $idEstablecimiento);
+    }
+
+    public function pdfProveedorLiberacionPago($idEstablecimiento = null)
+    {
+        return $this->renderProveedorFormatoPdf('liberacion_pago', (int) $idEstablecimiento);
+    }
+
     public function Hospedaje()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -1470,6 +1507,332 @@ class Inicio extends BaseController {
             ->orderBy('e.dsc_establecimiento', 'ASC')
             ->get()
             ->getResult();
+    }
+
+    private function renderProveedorFormatoPdf(string $tipoDocumento, int $idEstablecimiento)
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return redirect()->to(base_url('index.php/Login/cerrar?inactividad=1'));
+        }
+
+        $data = $this->buildProviderFormatPdfData($idUsuario, $idEstablecimiento, $tipoDocumento);
+        if (empty($data['proveedorPerfil']) || empty($data['proveedorEstablecimiento'])) {
+            return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
+        }
+
+        $templateMap = [
+            'encabezado_factura' => [
+                'title' => 'EncabezadoFactura',
+                'file' => 'EncabezadoFactura',
+                'template' => FCPATH . 'assets/images/EncabezadoFactura_43.pdf',
+            ],
+            'formato_pt' => [
+                'title' => 'FormatPagoTerceros',
+                'file' => 'FormatPagoTerceros',
+                'template' => FCPATH . 'assets/images/FormatPagoTerceros_43.pdf',
+            ],
+            'liberacion_pago' => [
+                'title' => 'LiberacionPago',
+                'file' => 'LiberacionPago',
+                'template' => FCPATH . 'assets/images/LiberacionPago_43.pdf',
+            ],
+        ];
+
+        $config = $templateMap[$tipoDocumento] ?? $templateMap['encabezado_factura'];
+        $templatePath = (string) ($config['template'] ?? '');
+        if ($templatePath === '' || !is_file($templatePath) || !is_readable($templatePath)) {
+            log_message('error', 'No se encontro la plantilla PDF proveedor: ' . $templatePath);
+            return redirect()
+                ->to(base_url('index.php/Inicio/ProveedorFormatos'))
+                ->with('error', 'No fue posible encontrar la plantilla del PDF solicitado.');
+        }
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0775, true);
+        }
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'margin_top' => 0,
+                'margin_bottom' => 0,
+                'margin_left' => 0,
+                'margin_right' => 0,
+                'margin_header' => 0,
+                'margin_footer' => 0,
+                'default_font' => 'dejavusans',
+                'tempDir' => $tempDir,
+            ]);
+
+            $mpdf->SetTitle($config['title']);
+            $this->writeProviderTemplatePdf($mpdf, $templatePath, $tipoDocumento, $data);
+            $mpdf->Output($config['file'] . '_' . $idEstablecimiento . '.pdf', 'I');
+            exit;
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF proveedor: ' . $e->getMessage());
+            if (ENVIRONMENT !== 'production') {
+                throw $e;
+            }
+
+            return redirect()
+                ->to(base_url('index.php/Inicio/ProveedorFormatos'))
+                ->with('error', 'No fue posible generar el PDF solicitado.');
+        }
+    }
+
+    private function writeProviderTemplatePdf(\Mpdf\Mpdf $mpdf, string $templatePath, string $tipoDocumento, array $data): void
+    {
+        $pageCount = $mpdf->setSourceFile($templatePath);
+
+        for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
+            $templateId = $mpdf->importPage($pageNumber);
+            $size = $mpdf->getTemplateSize($templateId);
+
+            $mpdf->AddPageByArray([
+                'orientation' => $size['orientation'] ?? 'P',
+                'sheet-size' => [$size['width'], $size['height']],
+                'margin-left' => 0,
+                'margin-right' => 0,
+                'margin-top' => 0,
+                'margin-bottom' => 0,
+                'margin-header' => 0,
+                'margin-footer' => 0,
+            ]);
+            $mpdf->useTemplate($templateId, 0, 0, $size['width'], $size['height']);
+
+            if ($pageNumber === 1) {
+                $this->writeProviderTemplateOverlay($mpdf, $tipoDocumento, $data);
+            }
+        }
+
+        if ($tipoDocumento === 'encabezado_factura') {
+            $invoicePdfPath = $this->resolveProviderInvoicePdfPath($data);
+            if ($invoicePdfPath !== '') {
+                $this->appendProviderPdfPages($mpdf, $invoicePdfPath);
+            }
+        }
+    }
+
+    private function appendProviderPdfPages(\Mpdf\Mpdf $mpdf, string $pdfPath): void
+    {
+        $pageCount = $mpdf->setSourceFile($pdfPath);
+
+        for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
+            $templateId = $mpdf->importPage($pageNumber);
+            $size = $mpdf->getTemplateSize($templateId);
+
+            $mpdf->AddPageByArray([
+                'orientation' => $size['orientation'] ?? 'P',
+                'sheet-size' => [$size['width'], $size['height']],
+                'margin-left' => 0,
+                'margin-right' => 0,
+                'margin-top' => 0,
+                'margin-bottom' => 0,
+                'margin-header' => 0,
+                'margin-footer' => 0,
+            ]);
+            $mpdf->useTemplate($templateId, 0, 0, $size['width'], $size['height']);
+        }
+    }
+
+    private function resolveProviderInvoicePdfPath(array $data): string
+    {
+        $solicitudPago = is_array($data['solicitudPago'] ?? null) ? $data['solicitudPago'] : [];
+        $observaciones = is_array($solicitudPago['observaciones_json'] ?? null) ? $solicitudPago['observaciones_json'] : [];
+        $candidateKeys = [
+            'factura_pdf',
+            'pdf_factura',
+            'archivo_factura_pdf',
+            'archivo_factura',
+            'ruta_factura_pdf',
+            'ruta_pdf_factura',
+            'comprobante_pdf',
+            'pdf',
+        ];
+
+        foreach ($candidateKeys as $key) {
+            $candidate = trim((string) ($observaciones[$key] ?? ''));
+            if ($candidate === '' || preg_match('#^https?://#i', $candidate)) {
+                continue;
+            }
+
+            $paths = [
+                $candidate,
+                FCPATH . ltrim($candidate, '/\\'),
+                WRITEPATH . ltrim($candidate, '/\\'),
+            ];
+
+            foreach ($paths as $path) {
+                if (is_file($path) && is_readable($path) && strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf') {
+                    return $path;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function writeProviderTemplateOverlay(\Mpdf\Mpdf $mpdf, string $tipoDocumento, array $data): void
+    {
+        $overlay = $this->buildProviderTemplateOverlayData($tipoDocumento, $data);
+        if (empty($overlay)) {
+            return;
+        }
+
+        foreach ($overlay as $item) {
+            $html = '<div style="font-family: dejavusans; font-size: ' . (float) $item['fontSize'] . 'pt; color: #111;">'
+                . esc((string) $item['text'])
+                . '</div>';
+            $mpdf->WriteFixedPosHTML($html, (float) $item['x'], (float) $item['y'], (float) $item['w'], (float) $item['h']);
+        }
+    }
+
+    private function buildProviderTemplateOverlayData(string $tipoDocumento, array $data): array
+    {
+        $proveedorPerfil = is_array($data['proveedorPerfil'] ?? null) ? $data['proveedorPerfil'] : [];
+        $proveedorEstablecimiento = is_array($data['proveedorEstablecimiento'] ?? null) ? $data['proveedorEstablecimiento'] : [];
+        $solicitudPago = is_array($data['solicitudPago'] ?? null) ? $data['solicitudPago'] : [];
+
+        $fechaEmision = !empty($data['fecha_emision']) ? date('d/m/Y', strtotime((string) $data['fecha_emision'])) : date('d/m/Y');
+        $folio = (string) ($data['folio_formato'] ?? '');
+        $razonSocial = trim((string) ($proveedorPerfil['razon_social'] ?? ''));
+        $establecimiento = trim((string) ($proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
+        $monto = !empty($solicitudPago['monto_solicitado']) ? '$' . number_format((float) $solicitudPago['monto_solicitado'], 2) : '';
+
+        $common = [
+            ['text' => $fechaEmision, 'x' => 154, 'y' => 12, 'w' => 42, 'h' => 6, 'fontSize' => 8],
+            ['text' => $folio, 'x' => 147, 'y' => 24, 'w' => 52, 'h' => 6, 'fontSize' => 7],
+        ];
+
+        if ($tipoDocumento === 'encabezado_factura') {
+            return array_merge($common, [
+                ['text' => $razonSocial, 'x' => 35, 'y' => 55, 'w' => 140, 'h' => 8, 'fontSize' => 8],
+                ['text' => $establecimiento, 'x' => 35, 'y' => 64, 'w' => 140, 'h' => 8, 'fontSize' => 8],
+            ]);
+        }
+
+        if ($tipoDocumento === 'formato_pt') {
+            return array_merge($common, [
+                ['text' => $razonSocial, 'x' => 42, 'y' => 50, 'w' => 125, 'h' => 8, 'fontSize' => 8],
+                ['text' => $monto, 'x' => 145, 'y' => 78, 'w' => 40, 'h' => 8, 'fontSize' => 8],
+            ]);
+        }
+
+        if ($tipoDocumento === 'liberacion_pago') {
+            return array_merge($common, [
+                ['text' => $razonSocial, 'x' => 38, 'y' => 52, 'w' => 130, 'h' => 8, 'fontSize' => 8],
+                ['text' => $establecimiento, 'x' => 38, 'y' => 61, 'w' => 130, 'h' => 8, 'fontSize' => 8],
+            ]);
+        }
+
+        return $common;
+    }
+
+    private function buildProviderFormatPdfData(int $idUsuario, int $idEstablecimiento, string $tipoDocumento): array
+    {
+        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        $proveedorPerfil = is_array($dashboard['proveedorPerfil'] ?? null) ? $dashboard['proveedorPerfil'] : [];
+        $establecimientos = array_values(array_map(static function ($item) {
+            return is_object($item) ? get_object_vars($item) : (array) $item;
+        }, is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []));
+
+        $establecimientoSeleccionado = [];
+        foreach ($establecimientos as $establecimiento) {
+            if ((int) ($establecimiento['id_establecimiento'] ?? 0) === $idEstablecimiento) {
+                $establecimientoSeleccionado = $establecimiento;
+                break;
+            }
+        }
+
+        if (empty($establecimientoSeleccionado) && !empty($establecimientos)) {
+            $establecimientoSeleccionado = $establecimientos[0];
+        }
+
+        if (empty($proveedorPerfil) || empty($establecimientoSeleccionado)) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $solicitudPago = $db->table('solicitud_pago sp')
+            ->select('
+                sp.id_solicitud_pago,
+                sp.folio_solicitud,
+                sp.id_usuario,
+                sp.id_establecimiento,
+                sp.monto_solicitado,
+                sp.metodo_autorizacion,
+                sp.estatus,
+                sp.token_autorizacion,
+                sp.fecha_respuesta,
+                sp.motivo_rechazo,
+                sp.observaciones,
+                sp.fec_reg,
+                sp.fec_act,
+                sp.visible
+            ')
+            ->where('sp.visible', 1)
+            ->where('sp.id_usuario', $idUsuario)
+            ->where('sp.id_establecimiento', $idEstablecimiento)
+            ->orderBy('sp.fec_reg', 'DESC')
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        $solicitudContexto = [];
+        if (!empty($solicitudPago)) {
+            $observacionesRaw = trim((string) ($solicitudPago['observaciones'] ?? ''));
+            $observacionesJson = json_decode($observacionesRaw, true);
+            $solicitudContexto = [
+                'id_solicitud_pago' => (int) ($solicitudPago['id_solicitud_pago'] ?? 0),
+                'folio_solicitud' => (string) ($solicitudPago['folio_solicitud'] ?? ''),
+                'monto_solicitado' => (float) ($solicitudPago['monto_solicitado'] ?? 0),
+                'metodo_autorizacion' => (string) ($solicitudPago['metodo_autorizacion'] ?? ''),
+                'estatus' => (string) ($solicitudPago['estatus'] ?? ''),
+                'fecha_respuesta' => (string) ($solicitudPago['fecha_respuesta'] ?? ''),
+                'motivo_rechazo' => (string) ($solicitudPago['motivo_rechazo'] ?? ''),
+                'observaciones' => $observacionesRaw,
+                'observaciones_json' => is_array($observacionesJson) ? $observacionesJson : [],
+                'fecha_registro' => (string) ($solicitudPago['fec_reg'] ?? ''),
+                'fecha_actualizacion' => (string) ($solicitudPago['fec_act'] ?? ''),
+            ];
+        }
+
+        $documentos = [
+            'encabezado_factura' => [
+                'titulo' => 'Encabezado de factura',
+                'descripcion' => 'Documento de referencia para identificar al proveedor y al establecimiento antes de emitir comprobantes o formatos de pago.',
+                'objetivo' => 'Sirve como portada operativa para validar datos fiscales y administrativos.',
+            ],
+            'formato_pt' => [
+                'titulo' => 'Formato PT',
+                'descripcion' => 'Formato operativo para concentrar datos base del proveedor y su establecimiento seleccionado.',
+                'objetivo' => 'Permite capturar y validar la trazabilidad del tramite.',
+            ],
+            'liberacion_pago' => [
+                'titulo' => 'Liberacion de pago',
+                'descripcion' => 'Documento para formalizar la autorizacion de pago al proveedor de acuerdo con el establecimiento elegido.',
+                'objetivo' => 'Resume la informacion necesaria para la liberacion administrativa.',
+            ],
+        ];
+
+        $documento = $documentos[$tipoDocumento] ?? $documentos['encabezado_factura'];
+
+        return [
+            'documentoCodigo' => $tipoDocumento,
+            'documentoTitulo' => $documento['titulo'],
+            'documentoDescripcion' => $documento['descripcion'],
+            'documentoObjetivo' => $documento['objetivo'],
+            'fecha_emision' => date('Y-m-d H:i:s'),
+            'folio_formato' => 'PROV-' . $idUsuario . '-' . $idEstablecimiento . '-' . date('YmdHis'),
+            'proveedorPerfil' => $proveedorPerfil,
+            'proveedorEstablecimiento' => $establecimientoSeleccionado,
+            'proveedorEstablecimientos' => $establecimientos,
+            'conteo_establecimientos' => count($establecimientos),
+            'solicitudPago' => $solicitudContexto,
+        ];
     }
 
     public function getEstablecimientosProveedor()
