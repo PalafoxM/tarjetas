@@ -646,7 +646,10 @@ class Usuario extends BaseController
             return $this->failNotFound('Cajero no encontrado');
         }
 
-        $html = view('pdfs/vpdfOrdenHospedaje', (array) $response->data[0]);
+        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
+        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
+
+        $html = view('pdfs/vpdfOrdenHospedaje', $pdfData);
         $mpdf = new \Mpdf\Mpdf([
             'format' => 'Letter',
             'margin_top' => 18,
@@ -654,7 +657,7 @@ class Usuario extends BaseController
             'margin_left' => 16,
             'margin_right' => 16,
             'default_font' => 'dejavusans',
-            'tempDir' => WRITEPATH . 'cache',
+            'tempDir' => $this->getMpdfOrdenesTempDir(),
         ]);
         $mpdf->SetTitle('Orden de hospedaje');
         $mpdf->WriteHTML($html);
@@ -668,9 +671,10 @@ class Usuario extends BaseController
             'tabla' => 'vw_usuario',
             'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
         ]);
-        $pdfData = $response->data[0];
+        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
+        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
 
-        $html = view('pdfs/vpdfOrdenAlimentos', (array) $pdfData);
+        $html = view('pdfs/vpdfOrdenAlimentos', $pdfData);
         $mpdf = new \Mpdf\Mpdf([
             'format' => 'Letter',
             'margin_top' => 18,
@@ -678,7 +682,7 @@ class Usuario extends BaseController
             'margin_left' => 16,
             'margin_right' => 16,
             'default_font' => 'dejavusans',
-            'tempDir' => WRITEPATH . 'cache',
+            'tempDir' => $this->getMpdfOrdenesTempDir(),
         ]);
         $mpdf->SetTitle('Orden de alimentos');
         $mpdf->WriteHTML($html);
@@ -839,6 +843,374 @@ class Usuario extends BaseController
         }
 
         return (array) $response->data[0];
+    }
+
+    private function buildUsuarioOrdenPdfData(int $idUsuario, array $viewData): array
+    {
+        $usuarioRow = $this->getBaseUserRow($idUsuario) ?? [];
+        $data = array_merge($viewData, $usuarioRow);
+
+        $nombreCompleto = trim(implode(' ', array_filter([
+            trim((string) ($data['nombre'] ?? '')),
+            trim((string) ($data['primer_apellido'] ?? '')),
+            trim((string) ($data['segundo_apellido'] ?? '')),
+        ], static fn($value) => $value !== '')));
+
+        $vigenciaDesde = $this->firstNonEmpty($data, ['fec_vigencia_desde', 'vigente_desde', 'fecha_check_in']);
+        $vigenciaHasta = $this->firstNonEmpty($data, ['fec_vigencia_hasta', 'vigente_hasta', 'fecha_check_out']);
+        $diasVigencia = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
+        $totalAutorizado = $this->firstPositiveFloat($data, ['tarifa_total', 'monto_deposito', 'monto_deposito_operativo']);
+        $tarifaDiaria = $this->firstPositiveFloat($data, ['tarifa_noche']);
+        if ($tarifaDiaria <= 0 && $totalAutorizado > 0 && $diasVigencia > 0) {
+            $tarifaDiaria = $totalAutorizado / $diasVigencia;
+        }
+
+        $data['nombre_completo'] = $nombreCompleto !== '' ? $nombreCompleto : trim((string) ($viewData['nombre_completo'] ?? ''));
+        $data['usuario_login'] = trim((string) ($data['usuario'] ?? ''));
+        $data['folio_entrega'] = $this->firstNonEmpty($data, ['folio', 'sub_folio', 'folio_entrega']);
+        $data['codigo_qr'] = $this->firstNonEmpty($data, ['qr', 'codigo_qr']);
+        $data['vigente_desde'] = $vigenciaDesde;
+        $data['vigente_hasta'] = $vigenciaHasta;
+        $data['tarifa_resumen'] = [
+            'monto_diario' => $tarifaDiaria,
+            'dias_vigencia' => $diasVigencia,
+            'tarifa_total' => $totalAutorizado,
+        ];
+
+        $data['beneficios'] = array_merge(is_array($data['beneficios'] ?? null) ? $data['beneficios'] : [], [
+            'beneficio_qr_label' => $this->buildUsuarioOrdenBeneficioLabel($data),
+            'hotel_nombre' => $this->resolveEstablecimientoNombre((int) ($data['id_establecimiento_hotel'] ?? 0)),
+            'tipo_habitacion' => $this->resolveTipoHabitacionNombre((int) ($data['id_tipo_habitacion'] ?? 0)),
+            'fecha_check_in' => $data['fecha_check_in'] ?? null,
+            'fecha_check_out' => $data['fecha_check_out'] ?? null,
+            'noches' => (int) ($data['noche'] ?? 0),
+            'tarifa_noche' => (float) ($data['tarifa_noche'] ?? 0),
+            'tarifa_total_hospedaje' => (float) ($data['tarifa_total'] ?? 0),
+            'folio_hospedaje' => $data['folio'] ?? '',
+            'observaciones_hospedaje' => $data['observaciones_hospedaje'] ?? '',
+        ]);
+
+        return $data;
+    }
+
+    private function firstNonEmpty(array $data, array $keys): string
+    {
+        foreach ($keys as $key) {
+            $value = trim((string) ($data[$key] ?? ''));
+            if ($value !== '' && strtoupper($value) !== '\N') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    private function firstPositiveFloat(array $data, array $keys): float
+    {
+        foreach ($keys as $key) {
+            $value = (float) ($data[$key] ?? 0);
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return 0.0;
+    }
+
+    private function calculateDateSpanDays(string $from, string $to): int
+    {
+        if ($from === '' || $to === '') {
+            return 0;
+        }
+
+        try {
+            $fromDate = new \DateTimeImmutable(date('Y-m-d', strtotime($from)));
+            $toDate = new \DateTimeImmutable(date('Y-m-d', strtotime($to)));
+        } catch (\Throwable $e) {
+            return 0;
+        }
+
+        if ($toDate < $fromDate) {
+            return 0;
+        }
+
+        return (int) $fromDate->diff($toDate)->days + 1;
+    }
+
+    private function buildUsuarioOrdenBeneficioLabel(array $data): string
+    {
+        $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
+
+        if ($tieneAlimentos && $tieneHospedaje) {
+            return 'Alimentos y hospedaje';
+        }
+        if ($tieneHospedaje) {
+            return 'Solo hospedaje';
+        }
+        if ($tieneAlimentos) {
+            return 'Solo alimentos';
+        }
+
+        return 'Sin beneficio asignado';
+    }
+
+    private function resolveEstablecimientoNombre(int $idEstablecimiento): string
+    {
+        if ($idEstablecimiento <= 0) {
+            return 'Sin hotel asignado';
+        }
+
+        $response = $this->globals->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento],
+        ]);
+
+        if ($response->error || empty($response->data)) {
+            return 'Hotel #' . $idEstablecimiento;
+        }
+
+        return trim((string) ($response->data[0]->dsc_establecimiento ?? '')) ?: 'Hotel #' . $idEstablecimiento;
+    }
+
+    private function resolveTipoHabitacionNombre(int $idTipoHabitacion): string
+    {
+        if ($idTipoHabitacion <= 0) {
+            return 'Sin definir';
+        }
+
+        $response = $this->globals->getTabla([
+            'tabla' => 'cat_tipo_habitacion',
+            'where' => ['visible' => 1, 'id_tipo_habitacion' => $idTipoHabitacion],
+        ]);
+
+        if ($response->error || empty($response->data)) {
+            return 'Habitacion #' . $idTipoHabitacion;
+        }
+
+        return trim((string) ($response->data[0]->dsc_tipo_habitacion ?? '')) ?: 'Habitacion #' . $idTipoHabitacion;
+    }
+
+    private function resolveUsuarioFirmaPdfSrc(int $idUsuario, $storedPath = null): string
+    {
+        $firma = trim((string) $storedPath);
+        if ($firma === '' && $idUsuario > 0) {
+            $row = $this->getBaseUserRow($idUsuario);
+            $firma = trim((string) ($row['firma'] ?? ''));
+        }
+
+        if ($firma === '') {
+            return '';
+        }
+
+        $url = $this->buildS3PresignedGetUrl($firma, 300);
+        if ($url === '') {
+            return '';
+        }
+
+        $imageBody = $this->downloadRemoteFile($url);
+        if ($imageBody === '') {
+            return '';
+        }
+
+        $localPath = $this->persistFirmaPdfImage((int) $idUsuario, $firma, $imageBody);
+        return $localPath !== '' ? $localPath : '';
+    }
+
+    private function downloadRemoteFile(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        if (!function_exists('curl_init')) {
+            $body = @file_get_contents($url);
+            return is_string($body) ? $body : '';
+        }
+
+        $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
+        $sslVerify = !in_array($sslVerifyValue, ['0', 'false', 'no'], true);
+        $curlOptions = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+        ];
+
+        $caInfo = $this->resolveCurlCaInfo();
+        if ($sslVerify && $caInfo !== '') {
+            $curlOptions[CURLOPT_CAINFO] = $caInfo;
+        }
+
+        $curl = curl_init($url);
+        curl_setopt_array($curl, $curlOptions);
+
+        $body = curl_exec($curl);
+        $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        if (!is_string($body) || $httpCode < 200 || $httpCode >= 300) {
+            return '';
+        }
+
+        return $body;
+    }
+
+    private function persistFirmaPdfImage(int $idUsuario, string $sourceKey, string $imageBody): string
+    {
+        $directory = $this->getMpdfOrdenesTempDir() . DIRECTORY_SEPARATOR . 'firmas';
+        if (!is_dir($directory)) {
+            @mkdir($directory, 0775, true);
+        }
+
+        if (!is_dir($directory) || !is_writable($directory)) {
+            return '';
+        }
+
+        $hash = substr(hash('sha256', $sourceKey . '|' . $imageBody), 0, 16);
+        $jpgPath = $directory . DIRECTORY_SEPARATOR . 'firma_usuario_' . $idUsuario . '_' . $hash . '.jpg';
+        if (is_file($jpgPath)) {
+            return str_replace('\\', '/', $jpgPath);
+        }
+
+        if (function_exists('imagecreatefromstring') && function_exists('imagejpeg')) {
+            $source = @imagecreatefromstring($imageBody);
+            if ($source !== false) {
+                $width = imagesx($source);
+                $height = imagesy($source);
+                $canvas = imagecreatetruecolor($width, $height);
+                $white = imagecolorallocate($canvas, 255, 255, 255);
+                imagefilledrectangle($canvas, 0, 0, $width, $height, $white);
+                imagecopy($canvas, $source, 0, 0, 0, 0, $width, $height);
+                imagejpeg($canvas, $jpgPath, 92);
+                imagedestroy($canvas);
+                imagedestroy($source);
+
+                return is_file($jpgPath) ? str_replace('\\', '/', $jpgPath) : '';
+            }
+        }
+
+        $fallbackPath = $directory . DIRECTORY_SEPARATOR . 'firma_usuario_' . $idUsuario . '_' . $hash . '.img';
+        return file_put_contents($fallbackPath, $imageBody) !== false ? str_replace('\\', '/', $fallbackPath) : '';
+    }
+
+    private function getMpdfOrdenesTempDir(): string
+    {
+        $directory = WRITEPATH . 'cache' . DIRECTORY_SEPARATOR . 'mpdf_ordenes';
+        if (!is_dir($directory)) {
+            @mkdir($directory, 0775, true);
+        }
+
+        return $directory;
+    }
+
+    private function buildS3PresignedGetUrl(string $storedPath, int $expires = 300): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $storedPath) && stripos($storedPath, '.amazonaws.com/') === false) {
+            return $storedPath;
+        }
+
+        $bucket = $this->envFirst(['AWS_BUCKET', 'AWS_S3_BUCKET', 'S3_BUCKET', 'S3_BUCKET_NAME']);
+        $region = $this->envFirst(['AWS_REGION', 'AWS_DEFAULT_REGION', 'S3_REGION'], 'us-east-1');
+        $accessKey = $this->envFirst(['AWS_ACCESS_KEY_ID', 'AWS_ACCESS_KEY', 'S3_ACCESS_KEY', 'S3_KEY']);
+        $secretKey = $this->envFirst(['AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'S3_SECRET_KEY', 'S3_SECRET']);
+        $sessionToken = $this->envFirst(['AWS_SESSION_TOKEN', 'S3_SESSION_TOKEN']);
+
+        if ($bucket === '' || $accessKey === '' || $secretKey === '') {
+            return '';
+        }
+
+        $objectKey = $this->resolveS3ObjectKey($storedPath, $bucket);
+        if ($objectKey === '') {
+            return '';
+        }
+
+        $service = 's3';
+        $host = $bucket . '.s3.' . $region . '.amazonaws.com';
+        $amzDate = gmdate('Ymd\THis\Z');
+        $dateStamp = gmdate('Ymd');
+        $credentialScope = $dateStamp . '/' . $region . '/' . $service . '/aws4_request';
+        $signedHeaders = 'host';
+
+        $query = [
+            'X-Amz-Algorithm' => 'AWS4-HMAC-SHA256',
+            'X-Amz-Credential' => $accessKey . '/' . $credentialScope,
+            'X-Amz-Date' => $amzDate,
+            'X-Amz-Expires' => (string) max(60, $expires),
+            'X-Amz-SignedHeaders' => $signedHeaders,
+        ];
+
+        if ($sessionToken !== '') {
+            $query['X-Amz-Security-Token'] = $sessionToken;
+        }
+
+        ksort($query);
+        $canonicalQuery = [];
+        foreach ($query as $key => $value) {
+            $canonicalQuery[] = rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
+        }
+        $canonicalQueryString = implode('&', $canonicalQuery);
+        $canonicalUri = '/' . $this->encodeS3Key($objectKey);
+        $canonicalHeaders = 'host:' . $host . "\n";
+
+        $canonicalRequest = implode("\n", [
+            'GET',
+            $canonicalUri,
+            $canonicalQueryString,
+            $canonicalHeaders,
+            $signedHeaders,
+            'UNSIGNED-PAYLOAD',
+        ]);
+
+        $stringToSign = implode("\n", [
+            'AWS4-HMAC-SHA256',
+            $amzDate,
+            $credentialScope,
+            hash('sha256', $canonicalRequest),
+        ]);
+
+        $signingKey = $this->getAwsSignatureKey($secretKey, $dateStamp, $region, $service);
+        $query['X-Amz-Signature'] = hash_hmac('sha256', $stringToSign, $signingKey);
+        ksort($query);
+
+        $finalQuery = [];
+        foreach ($query as $key => $value) {
+            $finalQuery[] = rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
+        }
+
+        return 'https://' . $host . $canonicalUri . '?' . implode('&', $finalQuery);
+    }
+
+    private function resolveS3ObjectKey(string $storedPath, string $bucket): string
+    {
+        $path = trim($storedPath);
+        if ($path === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $path)) {
+            $parts = parse_url($path);
+            $host = (string) ($parts['host'] ?? '');
+            $urlPath = ltrim((string) ($parts['path'] ?? ''), '/');
+
+            if ($host === '') {
+                return '';
+            }
+
+            if (stripos($host, $bucket . '.s3') === 0 || stripos($host, 's3') === 0) {
+                return rawurldecode($urlPath);
+            }
+
+            return '';
+        }
+
+        return ltrim(str_replace('\\', '/', $path), '/');
     }
 
     private function getProviderProfileDataForUser(array $row): array
