@@ -2988,7 +2988,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseÃ±a.',
+                'message' => 'Completa usuario y contraseña.',
             ]);
         }
 

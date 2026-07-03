@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $ficSolicitudListadoUrl = (string) ($ficSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil'));
 $ficSolicitudDetalleUrl = (string) ($ficSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil'));
 $ficSolicitudCancelarUrl = (string) ($ficSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil'));
@@ -262,6 +262,122 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
         </div>
     </div>
 
+    <div class="card solicitudes-card mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                <div>
+                    <h4 class="solicitudes-section-title">Solicitudes de nuevos folios</h4>
+                    <p class="solicitudes-section-copy">Revisión de altas de folio FIC registradas en solicitud_usuario.</p>
+                </div>
+            </div>
+            <div class="row g-3 align-items-end mb-3">
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label class="form-label" for="filtroSolicitudFolioFicEstatus">Estatus</label>
+                    <select id="filtroSolicitudFolioFicEstatus" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="pendiente" selected>Pendientes</option>
+                        <option value="aprobada">Aprobadas</option>
+                        <option value="rechazada">Rechazadas</option>
+                        <option value="cancelada">Canceladas</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-8 col-lg-9">
+                    <div class="alert solicitudes-note mb-0" role="alert">La consulta usa el flujo FIC existente y separa esta bandeja de QR y personal operativo.</div>
+                </div>
+            </div>
+            <div class="solicitudes-table-wrap">
+                <table
+                    id="tablaSolicitudesFoliosFic"
+                    class="table table-dark table-hover align-middle solicitudes-table"
+                    data-locale="es-MX"
+                    data-search="true"
+                    data-search-align="left"
+                    data-pagination="true"
+                    data-side-pagination="server"
+                    data-method="get"
+                    data-page-size="10"
+                    data-page-list="[10, 25, 50, 100]"
+                    data-sortable="true"
+                    data-classes="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th data-field="id_solicitud_usuario" data-sortable="true">ID solicitud</th>
+                            <th data-field="perfil_solicitado" data-sortable="true">Perfil solicitado</th>
+                            <th data-field="usuario" data-formatter="solicitudesFicPanelUsuarioFormatter">Usuario</th>
+                            <th data-field="nombre_completo" data-sortable="true">Nombre completo</th>
+                            <th data-field="correo">Correo</th>
+                            <th data-field="estatus" data-sortable="true" data-formatter="solicitudesFicPanelEstadoFormatter">Estatus</th>
+                            <th data-field="fec_reg" data-sortable="true" data-formatter="solicitudesFicPanelFechaFormatter">Fecha de solicitud</th>
+                            <th data-field="acciones" data-align="center" data-formatter="solicitudesFicPanelAccionesFormatter">Acciones</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div
+        id="solicitudesUsuarioOperativoRoot"
+        data-list-url="<?= esc($operativoSolicitudListadoUrl, 'attr') ?>"
+        data-detail-url="<?= esc($operativoSolicitudDetalleUrl, 'attr') ?>"
+        data-approve-url="<?= esc($operativoSolicitudAprobarUrl, 'attr') ?>"
+        data-reject-url="<?= esc($operativoSolicitudRechazarUrl, 'attr') ?>">
+        <div class="card solicitudes-card mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                    <div>
+                        <h4 class="solicitudes-section-title">Solicitudes de gerente y recepción</h4>
+                        <p class="solicitudes-section-copy">Bandeja operativa para altas de personal por establecimiento.</p>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-12 col-md-4 col-lg-3">
+                        <label class="form-label" for="filtroSolicitudUsuarioOperativoEstatus">Estatus</label>
+                        <select id="filtroSolicitudUsuarioOperativoEstatus" class="form-select">
+                            <option value="">Todos</option>
+                            <option value="pendiente" selected>Pendientes</option>
+                            <option value="aprobada">Aprobadas</option>
+                            <option value="rechazada">Rechazadas</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-8 col-lg-9">
+                        <div class="alert solicitudes-note mb-0" role="alert">Cada solicitud muestra proveedor, establecimiento, tipo de establecimiento y candidato propuesto.</div>
+                    </div>
+                </div>
+                <div class="solicitudes-table-wrap">
+                    <table
+                        id="tablaSolicitudesUsuarioOperativo"
+                        class="table table-dark table-hover align-middle solicitudes-table"
+                        data-locale="es-MX"
+                        data-search="true"
+                        data-search-align="left"
+                        data-pagination="true"
+                        data-side-pagination="server"
+                        data-method="get"
+                        data-page-size="10"
+                        data-page-list="[10, 25, 50, 100]"
+                        data-sortable="true"
+                        data-classes="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th data-field="proveedor_solicitante" data-formatter="formatterSolicitudUsuarioOperativoProveedor">Proveedor solicitante</th>
+                                <th data-field="proveedor_razon_social" data-formatter="formatterSolicitudUsuarioOperativoRazonSocial">Razón social / identificador</th>
+                                <th data-field="dsc_establecimiento" data-sortable="true">Establecimiento</th>
+                                <th data-field="dsc_tipo" data-sortable="true">Tipo establecimiento</th>
+                                <th data-field="tipo_usuario_solicitado" data-formatter="formatterSolicitudUsuarioOperativoTipoUsuario">Tipo de usuario solicitado</th>
+                                <th data-field="nombre_completo" data-sortable="true">Nombre completo</th>
+                                <th data-field="correo">Correo</th>
+                                <th data-field="fec_reg" data-sortable="true" data-formatter="formatterSolicitudUsuarioOperativoFecha">Fecha de solicitud</th>
+                                <th data-field="estatus" data-sortable="true" data-formatter="formatterSolicitudUsuarioOperativoStatus">Estatus</th>
+                                <th data-field="acciones" data-align="center" data-formatter="formatterSolicitudUsuarioOperativoAcciones">Acciones</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade solicitudes-modal" id="modalPreviewArchivoQrFic" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
             <div class="modal-content">
@@ -342,9 +458,9 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                             <input type="text" class="form-control text-lowercase-live" id="solicitud_usuario_operativo" name="usuario" required autocomplete="off" placeholder="usuario">
                         </div>
                         <div class="col-12 col-md-6">
-                            <label class="form-label" for="solicitud_contrasenia_aprobar">ContraseÃ±a</label>
+                            <label class="form-label" for="solicitud_contrasenia_aprobar">Contraseña</label>
                             <input type="password" class="form-control text-lowercase-live" id="solicitud_contrasenia_aprobar" name="contrasenia" required autocomplete="new-password" placeholder="******">
-                            <div class="form-text">Captura el usuario y la contraseÃ±a para completar el alta.</div>
+                            <div class="form-text">Captura el usuario y la contraseña para completar el alta.</div>
                         </div>
                     </div>
                 </div>
@@ -356,6 +472,8 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
             </form>
         </div>
     </div>
+</div>
+
 </div>
 
 <div class="modal fade solicitudes-modal" id="modalRechazoSolicitudUsuarioOperativo" tabindex="-1" aria-hidden="true">

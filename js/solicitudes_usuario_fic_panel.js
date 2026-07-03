@@ -85,7 +85,7 @@
             return '<iframe src="' + safeUrl + '" title="' + safeLabel + '" style="width:100%;height:70vh;border:0;border-radius:12px;"></iframe>';
         }
 
-        return '<div class="alert alert-info mb-0">No hay vista previa embebida para este tipo de archivo. Usa el botón <strong>Abrir en nueva pestaÃ±a</strong>.</div>';
+        return '<div class="alert alert-info mb-0">No hay vista previa embebida para este tipo de archivo. Usa el botón <strong>Abrir en nueva pestaña</strong>.</div>';
     }
 
     function openPreviewModal(config) {
