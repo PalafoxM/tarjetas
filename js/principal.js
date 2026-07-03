@@ -182,8 +182,8 @@ window.cajeros = {
             $('#id_pais').on('change', this.onPaisChange.bind(this));
             $('#perfil_grupo').on('change', this.actualizarFlujoBeneficios.bind(this));
             $('#tiene_alimentos, #tiene_hospedaje').on('change', this.actualizarFlujoBeneficios.bind(this));
-            $('#id_nivel_cliente, #fecha_check_in, #fecha_check_out').on('change', this.actualizarCalculoAlimentos.bind(this));
-            $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta').on('change', this.actualizarCalculoHospedaje.bind(this));
+            $('#id_nivel_cliente, #fec_vigencia_desde, #fec_vigencia_hasta').on('change', this.actualizarCalculoAlimentos.bind(this));
+            $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde_hos, #fec_vigencia_hasta_hos').on('change', this.actualizarCalculoHospedaje.bind(this));
             $('#id_partida_ui').on('change', this.onPartidaChange.bind(this));
             $('#folio_ui').on('input', this.normalizarFolio.bind(this));
             $('#subf_ui, #anf_gto_ui').on('input', this.normalizarSoloLetrasMayusculas.bind(this));
@@ -1137,7 +1137,7 @@ window.cajeros = {
 
         var tarifa = this.buscarPorId(this.catalogos.tarifas, 'id_nivel_cliente', $('#id_nivel_cliente').val());
         var montoDiario = this.obtenerMontoCatalogo(tarifa);
-        var dias = this.calcularDiasVigencia($('#fecha_check_in').val(), $('#fecha_check_out').val(), true);
+        var dias = this.calcularDiasVigencia($('#fec_vigencia_desde').val(), $('#fec_vigencia_hasta').val(), true);
         var total = montoDiario * dias;
 
         $('#monto_deposito').val(montoDiario > 0 ? montoDiario.toFixed(2) : '');
@@ -1166,7 +1166,7 @@ window.cajeros = {
             })[0] || null;
         var habitacionOption = $('#id_tipo_habitacion option:selected');
         var tarifaNoche = Number((tarifaHotel && tarifaHotel.tarifa_noche) || habitacionOption.data('tarifa') || 0);
-        var noches = this.calcularDiasVigencia($('#fec_vigencia_desde').val(), $('#fec_vigencia_hasta').val(), false);
+        var noches = this.calcularDiasVigencia($('#fec_vigencia_desde_hos').val(), $('#fec_vigencia_hasta_hos').val(), false);
         var total = tarifaNoche * noches;
 
         $('#tarifa_noche').val(tarifaNoche > 0 ? tarifaNoche.toFixed(2) : '').prop('readonly', true);
@@ -1185,10 +1185,10 @@ window.cajeros = {
         $('#partidaHospedajeWrapper').toggle(tieneHospedaje);
 
         if (!tieneHospedaje) {
-            $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde, #fec_vigencia_hasta, #tarifa_noche, #tarifa_total, #noche').val('');
+            $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde_hos, #fec_vigencia_hasta_hos, #tarifa_noche, #tarifa_total, #noche').val('');
         }
         if (!tieneAlimentos) {
-            $('#fecha_check_in, #fecha_check_out').val('');
+            $('#fec_vigencia_desde, #fec_vigencia_hasta').val('');
             $('#id_nivel_cliente').val('').trigger('change.select2');
             $('#monto_deposito').val('');
             $('#monto_total_alimentos_ui').val('');
@@ -1364,10 +1364,10 @@ window.cajeros = {
         $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '').trigger('change.select2');
         $('#id_partida').val(data.id_partida || '');
         $('#id_partida_ui').val(data.id_partida || '').trigger('change.select2');
-        $('#fecha_check_in').val(this.normalizarFechaInput(data.fecha_check_in));
-        $('#fecha_check_out').val(this.normalizarFechaInput(data.fecha_check_out));
         $('#fec_vigencia_desde').val(this.normalizarFechaInput(data.fec_vigencia_desde));
         $('#fec_vigencia_hasta').val(this.normalizarFechaInput(data.fec_vigencia_hasta));
+        $('#fec_vigencia_desde_hos').val(this.normalizarFechaInput(data.fec_vigencia_desde_hos));
+        $('#fec_vigencia_hasta_hos').val(this.normalizarFechaInput(data.fec_vigencia_hasta_hos));
         $('#tarifa_noche').val(data.tarifa_noche || '');
         $('#tarifa_total').val(data.tarifa_total || '');
         $('#monto_deposito').val(data.monto_deposito || '');

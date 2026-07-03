@@ -11,8 +11,8 @@ $usuarioLogin = trim((string) $usuarioRaw);
 $folioEntrega = trim((string) ($folio_entrega ?? ($folio ?? '')));
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
 $vigenciaLabel = 'Sin vigencia';
-if (!empty($vigente_desde) && !empty($vigente_hasta)) {
-    $vigenciaLabel = date('d/m/Y H:i', strtotime((string) $vigente_desde)) . ' al ' . date('d/m/Y H:i', strtotime((string) $vigente_hasta));
+if (!empty($vigente_desde_hosp) && !empty($vigente_hasta_hosp)) {
+    $vigenciaLabel = date('d/m/Y H:i', strtotime((string) $vigente_desde_hosp)) . ' al ' . date('d/m/Y H:i', strtotime((string) $vigente_hasta_hosp));
 }
 
 $checkInLabel = !empty($beneficios['fecha_check_in']) ? date('d/m/Y H:i', strtotime((string) $beneficios['fecha_check_in'])) : 'Sin definir';

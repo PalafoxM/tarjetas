@@ -158,7 +158,7 @@ class UsuarioPerfilResolver
         }
 
         if ($actorContext['is_secturi_cajero']) {
-            return $targetContext['active_group'] === 'secturi';
+            return true;
         }
 
         if (!$actorContext['active_group']) {
@@ -189,6 +189,19 @@ class UsuarioPerfilResolver
     public function getAllowedRoleOptions(array $actorContext): array
     {
         if ($actorContext['is_ti_master']) {
+            $options = [];
+            foreach (self::GROUPS as $groupKey => $config) {
+                $options[$groupKey] = [
+                    'label' => $config['label'],
+                    'roles' => $config['roles'],
+                ];
+            }
+
+            return $options;
+        }
+
+        // El cajero SECTURI puede consultar todos los subperfiles visibles.
+        if (!empty($actorContext['is_secturi_cajero'])) {
             $options = [];
             foreach (self::GROUPS as $groupKey => $config) {
                 $options[$groupKey] = [

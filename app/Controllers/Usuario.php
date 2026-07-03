@@ -440,6 +440,8 @@ class Usuario extends BaseController
             'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? null),
             'fec_vigencia_desde' => $this->nullableString($data['fec_vigencia_desde'] ?? null),
             'fec_vigencia_hasta' => $this->nullableString($data['fec_vigencia_hasta'] ?? null),
+            'fec_vigencia_desde_hos' => $this->nullableString($data['fec_vigencia_desde_hos'] ?? null),
+            'fec_vigencia_hasta_hos' => $this->nullableString($data['fec_vigencia_hasta_hos'] ?? null),
             'noche' => $this->nullableInt($data['noche'] ?? null),
             'tarifa_noche' => $this->nullableNumeric($data['tarifa_noche'] ?? null),
             'tarifa_total' => $this->nullableNumeric($data['tarifa_total'] ?? null),
@@ -849,6 +851,7 @@ class Usuario extends BaseController
     {
         $usuarioRow = $this->getBaseUserRow($idUsuario) ?? [];
         $data = array_merge($viewData, $usuarioRow);
+        $sources = [$data, $usuarioRow, $viewData];
 
         $nombreCompleto = trim(implode(' ', array_filter([
             trim((string) ($data['nombre'] ?? '')),
@@ -858,23 +861,49 @@ class Usuario extends BaseController
 
         $vigenciaDesde = $this->firstNonEmpty($data, ['fec_vigencia_desde', 'vigente_desde', 'fecha_check_in']);
         $vigenciaHasta = $this->firstNonEmpty($data, ['fec_vigencia_hasta', 'vigente_hasta', 'fecha_check_out']);
+        $vigenciaDesdeHosp = $this->firstNonEmpty($data, ['fec_vigencia_desde_hos', 'vigente_desde_hos']);
+        $vigenciaHastaHosp = $this->firstNonEmpty($data, ['fec_vigencia_hasta_hos', 'vigente_hasta_hos']);
         $diasVigencia = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
-        $totalAutorizado = $this->firstPositiveFloat($data, ['tarifa_total', 'monto_deposito', 'monto_deposito_operativo']);
-        $tarifaDiaria = $this->firstPositiveFloat($data, ['tarifa_noche']);
-        if ($tarifaDiaria <= 0 && $totalAutorizado > 0 && $diasVigencia > 0) {
-            $tarifaDiaria = $totalAutorizado / $diasVigencia;
+        $diasVigenciaHosp = $this->calculateDateSpanDays($vigenciaDesdeHosp, $vigenciaHastaHosp);
+        $tarifaDiariaAlimentos = $this->resolveNivelClienteMontoDeposito((int) ($data['id_nivel_cliente'] ?? 0));
+        if ($tarifaDiariaAlimentos <= 0) {
+            $tarifaDiariaAlimentos = $this->firstPositiveFloatFromSources($sources, [
+                'monto_deposito_diario',
+                'monto_diario',
+                'tarifa_diaria',
+                'monto_deposito',
+            ]);
+        }
+        $totalAutorizadoAlimentos = $tarifaDiariaAlimentos > 0 && $diasVigencia > 0
+            ? round($tarifaDiariaAlimentos * $diasVigencia, 2)
+            : 0.00;
+        if ($totalAutorizadoAlimentos <= 0) {
+            $totalAutorizadoAlimentos = $this->firstPositiveFloatFromSources($sources, [
+                'monto_total_alimentos',
+                'monto_deposito_operativo',
+            ]);
+            if ($tarifaDiariaAlimentos <= 0 && $totalAutorizadoAlimentos > 0 && $diasVigencia > 0) {
+                $tarifaDiariaAlimentos = round($totalAutorizadoAlimentos / $diasVigencia, 2);
+            }
+        }
+        $tarifaNocheHospedaje = $this->firstPositiveFloatFromSources($sources, ['tarifa_noche']);
+        $totalHospedaje = $this->firstPositiveFloatFromSources($sources, ['tarifa_total', 'monto_deposito_hotel']);
+        if ($totalHospedaje <= 0 && $tarifaNocheHospedaje > 0 && $diasVigenciaHosp > 0) {
+            $totalHospedaje = round($tarifaNocheHospedaje * $diasVigenciaHosp, 2);
         }
 
         $data['nombre_completo'] = $nombreCompleto !== '' ? $nombreCompleto : trim((string) ($viewData['nombre_completo'] ?? ''));
         $data['usuario_login'] = trim((string) ($data['usuario'] ?? ''));
-        $data['folio_entrega'] = $this->firstNonEmpty($data, ['folio', 'sub_folio', 'folio_entrega']);
-        $data['codigo_qr'] = $this->firstNonEmpty($data, ['qr', 'codigo_qr']);
+        $data['folio_entrega'] = $this->firstNonEmptyFromSources($sources, ['folio', 'sub_folio', 'folio_entrega', 'folio_hospedaje']);
+        $data['codigo_qr'] = $this->firstNonEmptyFromSources($sources, ['qr', 'codigo_qr']);
         $data['vigente_desde'] = $vigenciaDesde;
         $data['vigente_hasta'] = $vigenciaHasta;
+        $data['vigente_desde_hosp'] = $vigenciaDesdeHosp;
+        $data['vigente_hasta_hosp'] = $vigenciaHastaHosp;
         $data['tarifa_resumen'] = [
-            'monto_diario' => $tarifaDiaria,
+            'monto_diario' => $tarifaDiariaAlimentos,
             'dias_vigencia' => $diasVigencia,
-            'tarifa_total' => $totalAutorizado,
+            'tarifa_total' => $totalAutorizadoAlimentos,
         ];
 
         $data['beneficios'] = array_merge(is_array($data['beneficios'] ?? null) ? $data['beneficios'] : [], [
@@ -883,10 +912,12 @@ class Usuario extends BaseController
             'tipo_habitacion' => $this->resolveTipoHabitacionNombre((int) ($data['id_tipo_habitacion'] ?? 0)),
             'fecha_check_in' => $data['fecha_check_in'] ?? null,
             'fecha_check_out' => $data['fecha_check_out'] ?? null,
+            'vigente_desde_hosp' => $vigenciaDesdeHosp,
+            'vigente_hasta_hosp' => $vigenciaHastaHosp,
             'noches' => (int) ($data['noche'] ?? 0),
-            'tarifa_noche' => (float) ($data['tarifa_noche'] ?? 0),
-            'tarifa_total_hospedaje' => (float) ($data['tarifa_total'] ?? 0),
-            'folio_hospedaje' => $data['folio'] ?? '',
+            'tarifa_noche' => $tarifaNocheHospedaje,
+            'tarifa_total_hospedaje' => $totalHospedaje,
+            'folio_hospedaje' => $data['folio_entrega'],
             'observaciones_hospedaje' => $data['observaciones_hospedaje'] ?? '',
         ]);
 
@@ -915,6 +946,56 @@ class Usuario extends BaseController
         }
 
         return 0.0;
+    }
+
+    private function firstNonEmptyFromSources(array $sources, array $keys): string
+    {
+        foreach ($sources as $source) {
+            if (!is_array($source)) {
+                continue;
+            }
+
+            $value = $this->firstNonEmpty($source, $keys);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return '';
+    }
+
+    private function firstPositiveFloatFromSources(array $sources, array $keys): float
+    {
+        foreach ($sources as $source) {
+            if (!is_array($source)) {
+                continue;
+            }
+
+            $value = $this->firstPositiveFloat($source, $keys);
+            if ($value > 0) {
+                return $value;
+            }
+        }
+
+        return 0.0;
+    }
+
+    private function resolveNivelClienteMontoDeposito(int $idNivelCliente): float
+    {
+        if ($idNivelCliente <= 0) {
+            return 0.00;
+        }
+
+        $response = $this->globals->getTabla([
+            'tabla' => 'cat_nivel_cliente',
+            'where' => ['visible' => 1, 'id_nivel_cliente' => $idNivelCliente],
+        ]);
+
+        if ($response->error || empty($response->data)) {
+            return 0.00;
+        }
+
+        return round((float) ($response->data[0]->monto_deposito ?? 0), 2);
     }
 
     private function calculateDateSpanDays(string $from, string $to): int
@@ -1770,6 +1851,11 @@ class Usuario extends BaseController
         }));
 
         if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
+            return $perfiles;
+        }
+
+        // Cajero SECTURI debe poder ver todo el catálogo visible, incluidos subperfiles.
+        if (!empty($actorContext['is_secturi_cajero'])) {
             return $perfiles;
         }
 

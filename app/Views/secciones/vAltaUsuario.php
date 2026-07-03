@@ -333,12 +333,12 @@ $extractCatalogAmount = static function ($item) {
                         </select>
                     </div>
                     <div class="col-md-3 alimentos-field">
-                        <label class="form-label" for="fecha_check_in">Vigencia desde</label>
-                        <input type="date" class="form-control" name="fecha_check_in" id="fecha_check_in">
+                        <label class="form-label" for="fec_vigencia_desde">Vigencia alimentos desde</label>
+                        <input type="date" class="form-control" name="fec_vigencia_desde" id="fec_vigencia_desde">
                     </div>
                     <div class="col-md-3 alimentos-field">
-                        <label class="form-label" for="fecha_check_out">Vigencia hasta</label>
-                        <input type="date" class="form-control" name="fecha_check_out" id="fecha_check_out">
+                        <label class="form-label" for="fec_vigencia_hasta">Vigencia alimentos hasta</label>
+                        <input type="date" class="form-control" name="fec_vigencia_hasta" id="fec_vigencia_hasta">
                     </div>
                     <div class="col-md-3 alimentos-field">
                         <label class="form-label" for="id_nivel_cliente">Tarifa diaria</label>
@@ -401,12 +401,12 @@ $extractCatalogAmount = static function ($item) {
                         </select>
                     </div>
                     <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="fec_vigencia_desde">Vigencia estancia desde</label>
-                        <input type="date" class="form-control" name="fec_vigencia_desde" id="fec_vigencia_desde">
+                        <label class="form-label" for="fec_vigencia_desde_hos">Vigencia hospedaje desde</label>
+                        <input type="date" class="form-control" name="fec_vigencia_desde_hos" id="fec_vigencia_desde_hos">
                     </div>
                     <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="fec_vigencia_hasta">Vigencia estancia hasta</label>
-                        <input type="date" class="form-control" name="fec_vigencia_hasta" id="fec_vigencia_hasta">
+                        <label class="form-label" for="fec_vigencia_hasta_hos">Vigencia hospedaje hasta</label>
+                        <input type="date" class="form-control" name="fec_vigencia_hasta_hos" id="fec_vigencia_hasta_hos">
                     </div>
                     <div class="col-md-3 hospedaje-field">
                         <label class="form-label" for="tarifa_noche">Tarifa diaria de hospedaje</label>
@@ -435,4 +435,3 @@ $extractCatalogAmount = static function ($item) {
         </div>
     </form>
 </div>
-
