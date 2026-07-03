@@ -140,8 +140,7 @@ class Inicio extends BaseController {
             if (!empty($solicitud_pago->data)) {
                 $data['saldo'] = $solicitud_pago->data[0] ?? 0;
             }
-         //  die( var_dump($data['datosCliente']));
-
+         //die( var_dump($data['datosCliente']));
             $vista = 'secciones/vCliente';
         }
         if ($contextoUsuario['is_cajero_flow']) {
@@ -2008,6 +2007,41 @@ class Inicio extends BaseController {
         $url = $this->buildS3PresignedGetUrl($archivo, 300);
         if ($url === '') {
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el acceso temporal al archivo.');
+        }
+
+        return redirect()->to($url);
+    }
+
+    public function verQrCliente()
+    {
+        $session = \Config\Services::session();
+        $idSesion = (int) ($session->get('id_usuario') ?? 0);
+        $idUsuario = (int) ($this->request->getGet('id_usuario') ?? $idSesion);
+
+        if ($idSesion <= 0 || $idUsuario <= 0 || $idUsuario !== $idSesion) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar este QR.');
+        }
+
+        $db = \Config\Database::connect();
+        $usuario = $db->table('usuario')
+            ->select('id_usuario, visible, qr')
+            ->where('id_usuario', $idUsuario)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuario)) {
+            return $this->response->setStatusCode(404)->setBody('Usuario no encontrado.');
+        }
+
+        $qr = trim((string) ($usuario['qr'] ?? ''));
+        if ($qr === '') {
+            return $this->response->setStatusCode(404)->setBody('QR no disponible.');
+        }
+
+        $url = $this->buildS3PresignedGetUrl($qr, 300);
+        if ($url === '') {
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el acceso temporal al QR.');
         }
 
         return redirect()->to($url);

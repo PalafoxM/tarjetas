@@ -14,14 +14,17 @@ $clienteValor = static function ($origen, string $campo, $default = '') {
 $idUsuario = (int) $clienteValor($datosCliente ?? null, 'id_usuario', 0);
 $qrPath = trim((string) $clienteValor($datosCliente ?? null, 'qr', ''));
 $qrRegistrado = $qrPath !== '';
-$qrReferencia = $qrRegistrado ? 'QR institucional disponible' : 'FIC-' . $idUsuario;
-$saldoDisponible = (float) $clienteValor($saldo ?? null, 'saldo_solicitudo', 0);
+$qrReferencia = 'FIC-' . $idUsuario . '-' . 'QR';
+$saldoDisponible = (float) $clienteValor($datosCliente ?? null, 'monto_deposito', 0);
 $nombreCompleto = (string) $clienteValor($datosCliente ?? null, 'nombre_completo', 'Sin nombre registrado');
 $correo = (string) $clienteValor($datosCliente ?? null, 'correo', 'Sin correo registrado');
 $folio = (string) $clienteValor($datosCliente ?? null, 'folio', 'Sin folio registrado');
 $nip = (string) $clienteValor($datosCliente ?? null, 'nip', 'Sin NIP registrado');
+$tieneAlimentos = (string) $clienteValor($datosCliente ?? null, 'tiene_alimentos', 'Sin información registrada');
+$tieneHospedaje = (string) $clienteValor($datosCliente ?? null, 'tiene_hospedaje', 'Sin información registrada');
+$activo_qr = (string) $clienteValor($datosCliente ?? null, 'activo_qr', 'Sin información registrada');
 $qrUrl = $qrRegistrado
-    ? base_url(ltrim($qrPath, '/'))
+    ? base_url('index.php/Inicio/verQrCliente?id_usuario=' . $idUsuario)
     : 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=' . rawurlencode($qrReferencia);
 ?>
 <link rel="stylesheet" href="<?= base_url('css/fic-cliente.css') ?>?filever=<?= time() ?>">
@@ -91,13 +94,14 @@ $qrUrl = $qrRegistrado
                 </div>
                 <div class="cliente-list-item">
                     <span class="cliente-list-label">Beneficio</span>
-                    <strong class="cliente-list-value"></strong>
+                    <strong class="cliente-list-value">Hospedaje: <?= ($tieneHospedaje == 1) ? 'Sí' : 'No' ?></strong>
+                    <strong class="cliente-list-value">Alimentos: <?= ($tieneAlimentos == 1) ? 'Sí' : 'No' ?></strong>
                 </div>
                 <div class="cliente-callout">
-                    <?php if ($qrRegistrado): ?>
-                        Este QR usa la ruta institucional guardada en el alta del usuario.
+                    <?php if ($activo_qr == 1): ?>
+                       <span class="cliente-callout-text text-success">Este QR ya se encuentra activo para operar.</span>
                     <?php else: ?>
-                        No se encontró una ruta QR registrada; se muestra un identificador visual temporal de respaldo.
+                       <span class="cliente-callout-text text-danger">Este QR aún no se encuentra activo para operar.</span>
                     <?php endif; ?>
                 </div>
             </div>
