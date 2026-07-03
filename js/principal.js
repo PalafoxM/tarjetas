@@ -241,6 +241,23 @@ window.cajeros = {
                 cajeros.enviarSolicitudProveedor();
             });
 
+        $('#modalPagoSinQr')
+            .off('hidden.bs.modal.pagoSinQr')
+            .on('hidden.bs.modal.pagoSinQr', function () {
+                cajeros.limpiarPagoSinQr();
+            });
+
+        $('#pago_sin_qr_monto, #pago_sin_qr_propina')
+            .off('input.pagoSinQr change.pagoSinQr')
+            .on('input.pagoSinQr change.pagoSinQr', this.actualizarTotalPagoSinQr.bind(this));
+
+        $('#formPagoSinQr')
+            .off('submit.pagoSinQr')
+            .on('submit.pagoSinQr', function (event) {
+                event.preventDefault();
+                cajeros.enviarPagoSinQr();
+            });
+
         this.cargarEstablecimientosSolicitudProveedor();
     },
 
@@ -363,6 +380,64 @@ window.cajeros = {
         }).always(function () {
             boton.prop('disabled', false).html(textoOriginal);
             cajeros.actualizarTipoSolicitudProveedor();
+        });
+    },
+    limpiarPagoSinQr: function () {
+        var form = $('#formPagoSinQr')[0];
+        if (form) {
+            form.reset();
+        }
+        $('#pago_sin_qr_total').val('');
+        $('#btnEnviarPagoSinQr').prop('disabled', false);
+    },
+    actualizarTotalPagoSinQr: function () {
+        var monto = Number($('#pago_sin_qr_monto').val() || 0);
+        var porcentaje = Number($('#pago_sin_qr_propina').val() || 0);
+        var propina = monto > 0 ? (monto * porcentaje / 100) : 0;
+        var total = monto + propina;
+
+        $('#pago_sin_qr_total').val(total > 0 ? total.toFixed(2) : '');
+    },
+    enviarPagoSinQr: function () {
+        var boton = $('#btnEnviarPagoSinQr');
+        var form = $('#formPagoSinQr');
+        var textoOriginal = boton.html();
+        var url = $('#proveedorPage').data('pago-sin-qr-url') || '';
+
+        this.actualizarTotalPagoSinQr();
+
+        if (!url) {
+            Swal.fire('Error', 'No fue posible resolver la ruta para pagos sin QR.', 'error');
+            return;
+        }
+
+        $('#pago_sin_qr_folio').val(String($('#pago_sin_qr_folio').val() || '').toUpperCase());
+
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Aplicando...');
+
+        $.ajax({
+            url: url,
+            type: 'POST',
+            dataType: 'json',
+            data: form.serialize()
+        }).done(function (response) {
+            if (!response || response.ok !== true) {
+                Swal.fire('Atencion', (response && (response.message || response.respuesta)) ? (response.message || response.respuesta) : 'No fue posible aplicar el pago.', 'warning');
+                return;
+            }
+
+            Swal.fire('Correcto', response.message || 'Pago aplicado correctamente.', 'success').then(function () {
+                $('#modalPagoSinQr').modal('hide');
+                cajeros.limpiarPagoSinQr();
+            });
+        }).fail(function (jqXHR) {
+            var message = 'No fue posible aplicar el pago.';
+            if (jqXHR && jqXHR.responseJSON && (jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta)) {
+                message = jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta;
+            }
+            Swal.fire('Error', message, 'error');
+        }).always(function () {
+            boton.prop('disabled', false).html(textoOriginal);
         });
     },
     btnEnviarSolicitudPago: function () {
