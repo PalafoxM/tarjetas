@@ -1117,6 +1117,110 @@ class Usuario extends BaseController
         return $this->respond($response);
     }
 
+    public function subirIneFirmaCajero()
+    {
+        $session = \Config\Services::session();
+        $actorContext = $this->getActorContext();
+       
+
+        $idUsuario = (int) $this->request->getPost('id_usuario');
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Identificador de usuario no valido.',
+            ]);
+        }
+
+        $usuarioActual = $this->getBaseUserRow($idUsuario);
+        if (!$usuarioActual) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'error' => true,
+                'respuesta' => 'El usuario no existe o ya no esta disponible.',
+            ]);
+        }
+
+    
+
+        $archivo = $this->request->getFile('ine_firma_cajero');
+        if (!$archivo || !$archivo->isValid()) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona un PDF valido.',
+            ]);
+        }
+
+        $extension = strtolower((string) $archivo->getClientExtension());
+        $mimeType = strtolower((string) $archivo->getMimeType());
+        if ($extension !== 'pdf' && $mimeType !== 'application/pdf') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El archivo debe ser PDF.',
+            ]);
+        }
+
+        if ($archivo->getSize() > 10 * 1024 * 1024) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El PDF no debe pesar mas de 10 MB.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->fieldExists('ine_firma_cajero', 'usuario')) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'Falta la columna usuario.ine_firma_cajero en la base de datos.',
+            ]);
+        }
+
+        $tmpDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'cajero';
+        if (!is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0775, true);
+        }
+
+        if (!is_dir($tmpDir) || !is_writable($tmpDir)) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No se puede escribir el archivo temporal.',
+            ]);
+        }
+
+        $fileName = 'ine_firma_cajero_' . $idUsuario . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.pdf';
+        $archivo->move($tmpDir, $fileName, true);
+        $absolutePath = $tmpDir . DIRECTORY_SEPARATOR . $fileName;
+        $objectKey = 'ACTIVACIONESFIC/CAJERO/' . $fileName;
+        $s3Url = $this->uploadFileToS3($absolutePath, $objectKey, 'application/pdf');
+        @unlink($absolutePath);
+
+        if ($s3Url === null) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No fue posible subir el PDF a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+            ]);
+        }
+
+        $actualizado = $db->table('usuario')
+            ->where('id_usuario', $idUsuario)
+            ->update([
+                'ine_firma_cajero' => $s3Url,
+                'fec_act' => date('Y-m-d H:i:s'),
+                'usu_act' => (int) $session->get('id_usuario'),
+            ]);
+
+        if (!$actualizado) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'El PDF subio a S3, pero no se pudo guardar la ruta en usuario.',
+            ]);
+        }
+
+        return $this->respond([
+            'error' => false,
+            'respuesta' => 'PDF guardado correctamente.',
+            'ruta' => $s3Url,
+        ]);
+    }
+
     public function getCatalogosCrud()
     {
         $actorContext = $this->getActorContext();
