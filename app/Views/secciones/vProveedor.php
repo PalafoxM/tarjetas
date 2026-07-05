@@ -388,7 +388,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                     <i class="mdi mdi-account-plus me-1"></i> Solicitar personal
                 </button>
                 <a class="btn btn-primary provider-action" href="<?= esc(base_url('index.php/Inicio/ProveedorFormatos'), 'attr') ?>">
-                    <i class="mdi mdi-file-document-outline me-1"></i> Formatos
+                    <i class="mdi mdi-file-document-outline me-1"></i> Subir Factura
                 </a>
                 <button class="btn btn-success provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalPagoSinQr">
                     <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR

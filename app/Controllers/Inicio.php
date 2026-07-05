@@ -128,10 +128,9 @@ class Inicio extends BaseController {
                 $data['datosProveedor'] = $proveedor->data[0];
 
             }
-
-            if($data['datosProveedor']->id_tipo == 1){
+             
+            if(!empty($datosProveedor->data[0]->id_tipo_proveedor) && $datosProveedor->data[0]->id_tipo_proveedor == 1){
                $vista = 'secciones/vProveedor';
-
             }else{
                $vista = 'secciones/vHospedaje';
             }
