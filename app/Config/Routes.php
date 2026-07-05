@@ -19,6 +19,7 @@ $routes->post('Inicio/getSolicitudesActivacionQrFic', 'Inicio::getSolicitudesAct
 $routes->post('Inicio/activarQrUsuarioFic', 'Inicio::activarQrUsuarioFic');
 $routes->post('Inicio/rechazarActivacionQrUsuarioFic', 'Inicio::rechazarActivacionQrUsuarioFic');
 $routes->post('Inicio/activarQrDepositosProgramados', 'Inicio::activarQrDepositosProgramados');
+$routes->post('Usuario/subirIneFirmaCajero', 'Usuario::subirIneFirmaCajero');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 

@@ -2410,13 +2410,7 @@ class Inicio extends BaseController {
     public function activarQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
-        if (empty($tiUsuario)) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'success' => false,
-                'message' => 'No tienes permisos para activar solicitudes de QR.',
-            ]);
-        }
-
+       
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
         if ($idUsuario <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
