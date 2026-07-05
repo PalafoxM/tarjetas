@@ -128,8 +128,16 @@ class Inicio extends BaseController {
                 $data['datosProveedor'] = $proveedor->data[0];
 
             }
-            //die( var_dump( $data['solicitudPago'] ) );
-            $vista = 'secciones/vProveedor';
+
+            if($data['datosProveedor']->id_tipo == 1){
+               $vista = 'secciones/vProveedor';
+
+            }else{
+               $vista = 'secciones/vHospedaje';
+            }
+       // die( var_dump( $data['datosProveedor'] ) );
+          
+            
             
            // die('ok');
         } elseif ($contextoUsuario['is_client_like']) {
@@ -166,7 +174,7 @@ class Inicio extends BaseController {
             
            }
 
-            //die('ok');
+           // die('ok');
             $vista = 'secciones/vHospedaje';
         }
         if ($vista === null) {
@@ -3380,7 +3388,7 @@ class Inicio extends BaseController {
   
         $response = $Mglobal->getTabla([
             'tabla' => 'vw_usuario',
-            'where' => ['visible' => 1, 'id_establecimiento' => $idUsuario->data[0]->id_establecimiento]
+            'where' => ['visible' => 1, 'id_establecimiento_hotel' => $idUsuario->data[0]->id_establecimiento]
         ]);
       
         $data = array();
