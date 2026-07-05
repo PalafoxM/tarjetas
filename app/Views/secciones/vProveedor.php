@@ -577,7 +577,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                                         <td><?= esc((string) ($pago['metodo_autorizacion'] ?? 'Sin método')) ?></td>
                                         <td><?= $formatMoney($pago['monto_solicitado'] ?? 0) ?></td>
                                         <td><?= $estatusBadge((string) ($pago['estatus'] ?? '')) ?></td>
-                                        <td><?= esc((string) ($pago['fec_reg'] ?? '')) ?></td>
+                                        <td><?= esc((string) ( date('Y-m-d H:i:s', strtotime($pago['fec_reg'] ?? '')) ?? '')) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

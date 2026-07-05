@@ -137,7 +137,12 @@ class DepositosProgramadosService
 
             $result = $this->applyCurrentWindow($user, 'activacion', $now, $actorUserId);
             if (!$result['applied']) {
-                throw new RuntimeException($result['message'] ?? 'No se pudo aplicar el deposito de activacion.');
+                $result = [
+                    'applied' => true,
+                    'applied_amount' => 0.00,
+                    'program_row' => null,
+                    'message' => $result['message'] ?? 'QR activado sin deposito programado por aplicar.',
+                ];
             }
 
             if ($this->db->transStatus() === false) {
@@ -147,7 +152,9 @@ class DepositosProgramadosService
             $this->db->transCommit();
 
             $response->error = false;
-            $response->respuesta = 'QR activado y deposito aplicado correctamente';
+            $response->respuesta = (float) ($result['applied_amount'] ?? 0) > 0
+                ? 'QR activado y deposito aplicado correctamente'
+                : 'QR activado correctamente. ' . (string) ($result['message'] ?? 'Sin deposito programado por aplicar.');
             $response->id_usuario = $idUsuario;
             $response->aplicado = $result['applied_amount'];
             $response->programa = $result['program_row'] ?? null;

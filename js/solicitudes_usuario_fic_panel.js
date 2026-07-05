@@ -437,8 +437,12 @@
 
                         Swal.fire('Listo', response.message || 'QR activado correctamente.', 'success');
                         refreshTable(state.qrTable);
-                    }).fail(function () {
-                        Swal.fire('Error', 'No fue posible activar el QR.', 'error');
+                    }).fail(function (jqXHR) {
+                        var message = 'No fue posible activar el QR.';
+                        if (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.message) {
+                            message = jqXHR.responseJSON.message;
+                        }
+                        Swal.fire('Error', message, 'error');
                     });
                 });
             })
