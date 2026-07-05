@@ -31,7 +31,7 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
     }
 
     #usuariosPage #cajerosTable {
-        min-width: 1560px;
+        min-width: 1840px;
     }
 
     #usuariosPage .usuario-actions {
@@ -124,6 +124,9 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
                         <th data-field="nombre_completo" data-sortable="true">Nombre</th>
                         <th data-field="grupo_visible" data-sortable="true">Grupo</th>
                         <th data-field="rol_visible" data-sortable="true">Rol visible</th>
+                        <th data-field="folio" data-sortable="true">Folio</th>
+                        <th data-field="sub_folio" data-sortable="true">Subfolio</th>
+                        <th data-field="pax_total" data-sortable="true" data-align="center">Pax</th>
                         <th data-field="nip" data-align="center">NIP</th>
                         <th data-field="activo_qr" data-formatter="cajeros.qrActivo" data-align="center">QR activo</th>
                         <th data-field="tiene_hospedaje" data-formatter="cajeros.estadoBooleano" data-align="center">Hospedaje</th>

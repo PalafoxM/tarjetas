@@ -107,6 +107,7 @@ window.cajeros = {
     isProviderMode: false,
     listUrl: '',
     altaUrl: '',
+    saveUrl: '',
     providerSelection: null,
     contexto: {},
     roleOptions: {},
@@ -145,6 +146,7 @@ window.cajeros = {
         this.roleOptions = this.parseJSON(contenedor.dataset.roleOptions, {});
         this.listUrl = contenedor.dataset.listUrl || (base_url + 'index.php/Inicio/Usuarios');
         this.altaUrl = contenedor.dataset.altaUrl || (base_url + 'index.php/Inicio/AltaUsuario');
+        this.saveUrl = contenedor.dataset.saveUrl || (base_url + 'index.php/Usuario/saveAltaUsuario');
         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
 
         if (this.isAltaPage) {
@@ -187,12 +189,14 @@ window.cajeros = {
             $('#id_partida_ui').on('change', this.onPartidaChange.bind(this));
             $('#folio_ui').on('input', this.normalizarFolio.bind(this));
             $('#subf_ui, #anf_gto_ui').on('input', this.normalizarSoloLetrasMayusculas.bind(this));
+            $('#pax_ui').on('input change', this.redibujarAltaUsuarioPax.bind(this));
 
-            $('#cajeroForm').on('submit', function (event) {
+            $('#cajeroForm').off('submit.altaUsuario').on('submit.altaUsuario', function (event) {
                 event.preventDefault();
-                cajeros.guardar();
+                cajeros.guardarAltaUsuario();
             });
 
+            this.inicializarAltaUsuarioMultiPax();
             return;
         }
 
@@ -747,6 +751,7 @@ window.cajeros = {
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
         this.aplicarModoFormulario(soloConsulta);
+        this.actualizarResumenAltaUsuario();
         $('#cajeroPageTitle').text(soloConsulta ? 'Consultar proveedor' : 'Editar proveedor');
     },
 
@@ -1145,6 +1150,9 @@ window.cajeros = {
         if (!tieneHospedaje) {
             $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '');
         }
+        if (this.isAltaPage) {
+            this.actualizarResumenAltaUsuario();
+        }
     },
 
     actualizarCalculoHospedaje: function () {
@@ -1172,6 +1180,9 @@ window.cajeros = {
         $('#tarifa_noche').val(tarifaNoche > 0 ? tarifaNoche.toFixed(2) : '').prop('readonly', true);
         $('#noche').val(noches > 0 ? noches : '');
         $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '').prop('readonly', true);
+        if (this.isAltaPage) {
+            this.actualizarResumenAltaUsuario();
+        }
     },
 
     actualizarFlujoBeneficios: function () {
@@ -1207,6 +1218,114 @@ window.cajeros = {
         this.sincronizarPartidaUI();
         this.actualizarCalculoHospedaje();
         this.actualizarCalculoAlimentos();
+        if (this.isAltaPage) {
+            this.actualizarResumenAltaUsuario();
+        }
+    },
+
+
+    inicializarAltaUsuarioMultiPax: function () {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        this.redibujarAltaUsuarioPax();
+        this.actualizarResumenAltaUsuario();
+    },
+
+    redibujarAltaUsuarioPax: function () {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        var paxTotal = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
+        var templateHtml = $('#paxPersonaTemplate').html() || '';
+        var container = $('#paxPersonasExtras');
+
+        $('#paxResumenBadge').text(paxTotal + (paxTotal === 1 ? ' pax' : ' pax'));
+
+        if (!container.length) {
+            return;
+        }
+
+        container.empty();
+        if (paxTotal <= 1 || templateHtml === '') {
+            this.actualizarResumenAltaUsuario();
+            return;
+        }
+
+        for (var index = 1; index < paxTotal; index += 1) {
+            var html = templateHtml
+                .replace(/__INDEX__/g, String(index))
+                .replace(/__DISPLAY__/g, String(index + 1));
+            container.append(html);
+        }
+
+        this.actualizarResumenAltaUsuario();
+    },
+
+    actualizarResumenAltaUsuario: function () {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        var paxTotal = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
+        var alimentos = Number($('#monto_total_alimentos_ui').val() || 0);
+        var hospedaje = Number($('#tarifa_total').val() || 0);
+        var totalPax = 0;
+
+        if (Number($('#tiene_alimentos').val() || 0) === 1 && Number($('#tiene_hospedaje').val() || 0) === 1) {
+            totalPax = alimentos + hospedaje;
+        } else if (Number($('#tiene_alimentos').val() || 0) === 1) {
+            totalPax = alimentos;
+        } else if (Number($('#tiene_hospedaje').val() || 0) === 1) {
+            totalPax = hospedaje;
+        }
+
+        var totalGrupo = totalPax * paxTotal;
+
+        $('#altaResumenMontoAlimentosPax').val(alimentos > 0 ? this.moneda(alimentos) : '');
+        $('#altaResumenMontoHospedajePax').val(hospedaje > 0 ? this.moneda(hospedaje) : '');
+        $('#altaResumenMontoPax').val(totalPax > 0 ? this.moneda(totalPax) : '');
+        $('#altaResumenMontoGrupo').val(totalGrupo > 0 ? this.moneda(totalGrupo) : '');
+        $('#paxResumenBadge').text(paxTotal + ' pax');
+    },
+
+    guardarAltaUsuario: function () {
+        var boton = $('#guardarCajero');
+        var textoOriginal = boton.html();
+        var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
+
+        if (!this.esPartidaAutomaticaFicUg() && partida === '') {
+            Swal.fire('Atencion', 'Selecciona una partida antes de guardar.', 'warning');
+            return;
+        }
+
+        $('#id_partida').val(partida);
+        this.actualizarResumenAltaUsuario();
+
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
+
+        $.ajax({
+            url: this.saveUrl || (base_url + 'index.php/Usuario/saveAltaUsuario'),
+            type: 'POST',
+            dataType: 'json',
+            data: $('#cajeroForm').serialize()
+        }).done(function (response) {
+            if (response.error) {
+                Swal.fire('Atencion', response.respuesta, 'warning');
+                return;
+            }
+
+            var paxCount = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
+            Swal.fire('Correcto', paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.', 'success').then(function () {
+                window.location.href = cajeros.listUrl;
+            });
+        }).fail(function () {
+            Swal.fire('Error', 'No fue posible guardar el usuario.', 'error');
+        }).always(function () {
+            boton.prop('disabled', false).html(textoOriginal);
+        });
     },
 
     estadoBooleano: function (value) {
@@ -1322,9 +1441,11 @@ window.cajeros = {
         $('#clave_ui').val('');
         $('.js-select2-catalog').val('').trigger('change.select2');
         $('#id_partida').val('');
+        $('#pax_ui').val(1);
         this.aplicarPerfilPorContexto();
         this.actualizarEstadoPais();
         this.actualizarFlujoBeneficios();
+        this.redibujarAltaUsuarioPax();
         $('#cajeroPageTitle').text('Nuevo usuario');
         this.aplicarModoFormulario(false);
     },
@@ -1377,6 +1498,11 @@ window.cajeros = {
         $('#id_pais').val(data.id_pais || '').trigger('change.select2');
         $('#id_estado').val(data.id_estado || '').trigger('change.select2');
         $('#grupo_usuario').val(data.grupo_usuario || '');
+        $('#folio_ui').val(data.folio || '');
+        $('#subf_ui').val(data.sub_folio || '');
+        $('#anf_gto_ui').val(data.anf_gto || '');
+        $('#pax_ui').val(Number(data.pax_total || data.pax || 1) || 1);
+        this.redibujarAltaUsuarioPax();
         $('#id_perfil_catalogo').val(this.getPerfilBasePorGrupo(data.grupo_usuario) || data.id_perfil || '').trigger('change.select2');
         this.onCategoriaChange();
         this.onPerfilBaseChange(data.perfil_grupo || '');
@@ -1396,6 +1522,7 @@ window.cajeros = {
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
         this.aplicarModoFormulario(soloConsulta);
+        this.actualizarResumenAltaUsuario();
         $('#cajeroPageTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
     },
 

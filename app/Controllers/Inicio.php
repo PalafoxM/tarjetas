@@ -3310,6 +3310,7 @@ class Inicio extends BaseController {
         $data['regresarUrl'] = $modoAltaProveedor
             ? base_url('index.php/Inicio/EstablecimientosFic')
             : base_url('index.php/Inicio/Usuarios');
+        $data['saveUrl'] = base_url('index.php/Usuario/saveAltaUsuario');
         $data['contentView'] = 'secciones/vAltaUsuario';
 
         if ($modoAltaProveedor) {

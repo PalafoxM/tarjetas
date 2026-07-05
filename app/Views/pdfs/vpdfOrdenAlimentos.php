@@ -10,6 +10,8 @@ if ($usuarioRaw === '' && isset($usuario)) {
 }
 $usuarioLogin = trim((string) $usuarioRaw);
 $folioEntrega = trim((string) ($folio_entrega ?? ($folio ?? '')));
+$subFolioEntrega = trim((string) ($sub_folio ?? ''));
+$paxEntrega = max(1, (int) ($pax_total ?? ($pax ?? 1)));
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
 $vigenciaLabel = 'Sin vigencia';
 if (!empty($vigente_desde) && !empty($vigente_hasta)) {
@@ -59,6 +61,12 @@ if (!empty($vigente_desde) && !empty($vigente_hasta)) {
             <td class="value-half"><?= esc($usuarioLogin !== '' ? $usuarioLogin : 'Sin usuario') ?></td>
             <td class="label">Folio</td>
             <td class="value-half"><?= esc($folioEntrega !== '' ? $folioEntrega : 'Sin folio') ?></td>
+        </tr>
+        <tr>
+            <td class="label">Subfolio</td>
+            <td class="value-half"><?= esc($subFolioEntrega !== '' ? $subFolioEntrega : 'Sin subfolio') ?></td>
+            <td class="label">Pax</td>
+            <td class="value-half"><?= esc((string) $paxEntrega) ?></td>
         </tr>
         <tr>
             <td class="label">Codigo QR</td>
