@@ -1587,9 +1587,15 @@ class Usuario extends BaseController
             }
         }
         $tarifaNocheHospedaje = $this->firstPositiveFloatFromSources($sources, ['tarifa_noche']);
-        $totalHospedaje = $this->firstPositiveFloatFromSources($sources, ['tarifa_total', 'monto_deposito_hotel']);
+        $nochesHospedaje = max(0, (int) ($data['noche'] ?? 0));
+        if ($nochesHospedaje <= 0 && $tarifaNocheHospedaje > 0 && $diasVigenciaHosp > 0) {
+            $nochesHospedaje = max(0, $diasVigenciaHosp - 1);
+        }
+        $totalHospedaje = ($tarifaNocheHospedaje > 0 && $nochesHospedaje > 0)
+            ? round($tarifaNocheHospedaje * $nochesHospedaje, 2)
+            : $this->firstPositiveFloatFromSources($sources, ['monto_deposito_hotel', 'tarifa_total']);
         if ($totalHospedaje <= 0 && $tarifaNocheHospedaje > 0 && $diasVigenciaHosp > 0) {
-            $totalHospedaje = round($tarifaNocheHospedaje * $diasVigenciaHosp, 2);
+            $totalHospedaje = round($tarifaNocheHospedaje * max(0, $diasVigenciaHosp - 1), 2);
         }
 
         $data['nombre_completo'] = $nombreCompleto !== '' ? $nombreCompleto : trim((string) ($viewData['nombre_completo'] ?? ''));

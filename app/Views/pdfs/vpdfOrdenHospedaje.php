@@ -11,6 +11,7 @@ $usuarioLogin = trim((string) $usuarioRaw);
 $folioEntrega = trim((string) ($folio_entrega ?? ($folio ?? '')));
 $subFolioEntrega = trim((string) ($sub_folio ?? ''));
 $paxEntrega = max(1, (int) ($pax_total ?? ($pax ?? 1)));
+$codigoQrImpreso = (int) ($id_usuario ?? 0) > 0 ? 'FIC-' . (int) $id_usuario . '-QR' : '';
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
 $vigenciaLabel = 'Sin vigencia';
 if (!empty($vigente_desde_hosp) && !empty($vigente_hasta_hosp)) {
@@ -71,8 +72,8 @@ $checkOutLabel = !empty($beneficios['fecha_check_out']) ? date('d/m/Y H:i', strt
             <td class="value-half"><?= esc((string) $paxEntrega) ?></td>
         </tr>
         <tr>
-            <td class="label">Codigo QR</td>
-            <td class="qr-value" colspan="3"><?= esc($codigoQr !== '' ? $codigoQr : 'Sin QR') ?></td>
+            <td class="label">Código QR</td>
+            <td class="qr-value" colspan="3"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></td>
         </tr>
         <tr>
             <td class="label">Beneficio asignado</td>
@@ -131,14 +132,14 @@ $checkOutLabel = !empty($beneficios['fecha_check_out']) ? date('d/m/Y H:i', strt
 
     <div class="note">
         Este documento acredita la orden de hospedaje asociada al beneficiario para su periodo de estancia autorizado.
-        Cualquier ajuste debera realizarse por SECTURI antes de la ocupacion.
+        Cualquier ajuste debera realizarse por SECTURI antes de la ocupación.
     </div>
 
     <div class="signature">
         <?php if ($firmaUsuarioUrl !== ''): ?>
             <img src="<?= esc($firmaUsuarioUrl) ?>" alt="Firma del usuario">
         <?php endif; ?>
-        <div class="signature-line">Recibi orden de hospedaje impresa</div>
+        <div class="signature-line">Recibí orden de hospedaje impresa</div>
     </div>
 </body>
 </html>

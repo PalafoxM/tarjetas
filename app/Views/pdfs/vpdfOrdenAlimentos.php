@@ -12,6 +12,7 @@ $usuarioLogin = trim((string) $usuarioRaw);
 $folioEntrega = trim((string) ($folio_entrega ?? ($folio ?? '')));
 $subFolioEntrega = trim((string) ($sub_folio ?? ''));
 $paxEntrega = max(1, (int) ($pax_total ?? ($pax ?? 1)));
+$codigoQrImpreso = (int) ($id_usuario ?? 0) > 0 ? 'FIC-' . (int) $id_usuario . '-QR' : '';
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
 $vigenciaLabel = 'Sin vigencia';
 if (!empty($vigente_desde) && !empty($vigente_hasta)) {
@@ -70,7 +71,7 @@ if (!empty($vigente_desde) && !empty($vigente_hasta)) {
         </tr>
         <tr>
             <td class="label">Código QR</td>
-            <td class="qr-value" colspan="3"><?= esc($codigoQr !== '' ? $codigoQr : 'Sin QR') ?></td>
+            <td class="qr-value" colspan="3"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></td>
         </tr>
         <tr>
             <td class="label">Beneficio asignado</td>

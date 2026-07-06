@@ -265,7 +265,9 @@ class DepositosProgramadosService
             $totalApplied = $saldoAnteriorReservado;
         }
 
-        $saldoNuevoAlimentos = round($saldoAnteriorAlimentos + $foodAmount, 2);
+        // El saldo de alimentos debe reflejar el monto del periodo activo,
+        // no acumular el valor base capturado en el alta.
+        $saldoNuevoAlimentos = round($foodAmount, 2);
         $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmount), 2);
         $saldoNuevoReservado = round(max(0.00, $saldoAnteriorReservado - $totalApplied), 2);
         $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
