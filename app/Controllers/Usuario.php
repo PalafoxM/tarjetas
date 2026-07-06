@@ -966,8 +966,8 @@ class Usuario extends BaseController
                 }
 
                 $insertData = [
-                    'id_proveedor' => 0,
-                    'id_tipo_proveedor' => 0,
+                    'id_proveedor' => null,
+                    'id_tipo_proveedor' => null,
                     'id_establecimiento' => $idEstablecimientoAlta,
                     'id_perfil' => $legacyProfile,
                     'nombre' => $persona['nombre'],
@@ -1009,8 +1009,8 @@ class Usuario extends BaseController
                     'folio_grupo' => $folioGrupo,
                     'sub_folio' => $subFolio !== '' ? $subFolio : null,
                     'ruta_foto_relativa' => null,
-                    'fecha_check_in' => $this->nullableString($data['fecha_check_in'] ?? ($vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null)),
-                    'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? ($vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null)),
+                    'fecha_check_in' => null,
+                    'fecha_check_out' => null,
                     'fec_vigencia_desde' => $vigenciaReservaDesde !== '' ? $vigenciaReservaDesde : null,
                     'fec_vigencia_hasta' => $vigenciaReservaHasta !== '' ? $vigenciaReservaHasta : null,
                     'fec_vigencia_desde_hos' => $vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null,
@@ -2910,7 +2910,15 @@ class Usuario extends BaseController
     {
         foreach ($keys as $key) {
             $value = env($key);
-            if ($value !== null && trim((string) $value) !== '') {
+            if ($value === null) {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                return $value ? 'true' : 'false';
+            }
+
+            if (trim((string) $value) !== '') {
                 return trim((string) $value);
             }
         }
