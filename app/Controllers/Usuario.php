@@ -464,6 +464,13 @@ class Usuario extends BaseController
             'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
             'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
             'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
+            'folio' => $this->nullableString($data['folio'] ?? $data['folio_ui'] ?? null),
+            'sub_folio' => $this->nullableString($data['sub_folio'] ?? $data['subf_ui'] ?? null),
+            'folio_grupo' => $this->nullableString($data['folio_grupo'] ?? $data['folio'] ?? $data['folio_ui'] ?? null),
+            'pax' => $this->nullableInt($data['pax'] ?? $data['pax_ui'] ?? null),
+            'pax_total' => max(1, (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1)),
+            'pax_secuencia' => (int) ($data['pax_secuencia'] ?? 1),
+            'es_titular_folio' => (int) ($data['es_titular_folio'] ?? 1),
             'monto_deposito' => $this->nullableNumeric($data['monto_deposito'] ?? null),
             'monto_deposito_hotel' => $this->nullableNumeric($data['monto_deposito_hotel'] ?? null),
             'monto_deposito_reservado' => 0.00,
@@ -588,6 +595,511 @@ class Usuario extends BaseController
         return $this->saveCajero();
     }
 
+
+    public function saveAltaUsuario()
+    {
+        $scriptName = 'Usuario.saveAltaUsuario';
+        $session = \Config\Services::session();
+        $actorContext = $this->getActorContext();
+
+        if (!$actorContext['can_edit_user_catalog']) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Tu perfil solo puede consultar usuarios.',
+            ]);
+        }
+
+        $data = $this->request->getPost();
+        $db = \Config\Database::connect();
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+        $idUsuario = (int) ($data['id_usuario'] ?? 0);
+        $usuarioActual = $idUsuario > 0 ? $this->getBaseUserRow($idUsuario) : null;
+
+        if ($idUsuario > 0 && !$usuarioActual) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'El usuario que intentas editar no existe.',
+            ]);
+        }
+
+        if (($data['grupo_usuario'] ?? '') === 'proveedor') {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Este flujo es exclusivo para usuarios institucionales.',
+            ]);
+        }
+
+        $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
+        $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
+        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
+        $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
+        $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
+        $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
+
+        if ($partidaUsuario === null) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes seleccionar una partida para este usuario.',
+            ]);
+        }
+
+        if ($idEstablecimientoAlta === null) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes seleccionar un establecimiento para este usuario.',
+            ]);
+        }
+
+        $folio = trim((string) ($data['folio'] ?? $data['folio_ui'] ?? ''));
+        $subFolioBase = trim((string) ($data['sub_folio'] ?? $data['subf_ui'] ?? ''));
+        $folioGrupo = trim((string) ($data['folio_grupo'] ?? $folio));
+        $paxTotal = (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1);
+        $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
+        $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? ''));
+        $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? ''));
+        $vigenciaDesdeHosp = trim((string) ($data['fec_vigencia_desde_hos'] ?? ''));
+        $vigenciaHastaHosp = trim((string) ($data['fec_vigencia_hasta_hos'] ?? ''));
+        $vigenciaReservaDesde = $vigenciaDesde !== '' ? $vigenciaDesde : $vigenciaDesdeHosp;
+        $vigenciaReservaHasta = $vigenciaHasta !== '' ? $vigenciaHasta : $vigenciaHastaHosp;
+        $montoDiarioAlimentos = round((float) ($data['monto_deposito'] ?? 0), 2);
+        if ($montoDiarioAlimentos <= 0) {
+            $montoDiarioAlimentos = $this->resolveNivelClienteMontoDeposito((int) ($data['id_nivel_cliente'] ?? 0));
+        }
+        if (!$tieneAlimentos) {
+            $montoDiarioAlimentos = 0.00;
+        }
+        $diasAlimentos = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
+        $tarifaNoche = round((float) ($data['tarifa_noche'] ?? 0), 2);
+        if (!$tieneHospedaje) {
+            $tarifaNoche = 0.00;
+        }
+        $noches = max(0, (int) ($data['noche'] ?? 0));
+        if (!$tieneHospedaje) {
+            $noches = 0;
+        }
+        if ($noches <= 0 && $vigenciaDesdeHosp !== '' && $vigenciaHastaHosp !== '') {
+            $noches = $this->calculateDateSpanDays($vigenciaDesdeHosp, $vigenciaHastaHosp) - 1;
+            if ($noches < 0) {
+                $noches = 0;
+            }
+        }
+        if ($tarifaNoche <= 0 && (float) ($data['monto_deposito_hotel'] ?? 0) > 0) {
+            $tarifaNoche = round((float) ($data['monto_deposito_hotel'] ?? 0), 2);
+        }
+
+        $personas = [];
+        $personas[] = [
+            'nombre' => trim((string) ($data['nombre'] ?? '')),
+            'primer_apellido' => trim((string) ($data['primer_apellido'] ?? '')),
+            'segundo_apellido' => trim((string) ($data['segundo_apellido'] ?? '')),
+            'correo' => trim((string) ($data['correo'] ?? '')),
+            'usuario' => $this->resolveUsuarioInput($data),
+            'contrasenia' => trim((string) ($data['contrasenia'] ?? '')),
+        ];
+
+        $usuariosExtra = $data['usuarios'] ?? [];
+        if (is_array($usuariosExtra)) {
+            foreach (array_values($usuariosExtra) as $personaExtra) {
+                if (!is_array($personaExtra)) {
+                    continue;
+                }
+
+                $persona = [
+                    'nombre' => trim((string) ($personaExtra['nombre'] ?? '')),
+                    'primer_apellido' => trim((string) ($personaExtra['primer_apellido'] ?? '')),
+                    'segundo_apellido' => trim((string) ($personaExtra['segundo_apellido'] ?? '')),
+                    'correo' => trim((string) ($personaExtra['correo'] ?? '')),
+                    'usuario' => strtolower(trim((string) ($personaExtra['usuario'] ?? ''))),
+                    'contrasenia' => trim((string) ($personaExtra['contrasenia'] ?? '')),
+                ];
+
+                $personaLlena = implode('', $persona) !== '';
+                if ($personaLlena) {
+                    $personas[] = $persona;
+                }
+            }
+        }
+
+        $personas = array_values(array_filter($personas, static function (array $persona): bool {
+            return trim((string) ($persona['nombre'] ?? '')) !== ''
+                || trim((string) ($persona['primer_apellido'] ?? '')) !== ''
+                || trim((string) ($persona['correo'] ?? '')) !== ''
+                || trim((string) ($persona['usuario'] ?? '')) !== '';
+        }));
+
+        if ($paxTotal <= 0) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes capturar un numero de pax valido.',
+            ]);
+        }
+
+        if ($idUsuario > 0 && $paxTotal > 1) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'La edicion multi-pax todavia se gestiona como un solo usuario desde este formulario.',
+            ]);
+        }
+
+        if ($paxTotal !== count($personas)) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'El numero de pax no coincide con los usuarios capturados.',
+            ]);
+        }
+
+        if ($folio === '') {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes capturar el folio.',
+            ]);
+        }
+
+        if ($folioGrupo === '') {
+            $folioGrupo = $folio;
+        }
+
+        if ($tieneAlimentos && ($vigenciaDesde === '' || $vigenciaHasta === '' || $diasAlimentos <= 0)) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes capturar la vigencia de alimentos completa.',
+            ]);
+        }
+
+        if ($tieneHospedaje && ($vigenciaDesdeHosp === '' || $vigenciaHastaHosp === '' || $tarifaNoche <= 0 || $noches <= 0)) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Debes capturar la vigencia y tarifa de hospedaje completas.',
+            ]);
+        }
+
+        $usuariosNormalizados = [];
+        foreach ($personas as $index => $persona) {
+            $persona['nombre'] = trim((string) ($persona['nombre'] ?? ''));
+            $persona['primer_apellido'] = trim((string) ($persona['primer_apellido'] ?? ''));
+            $persona['segundo_apellido'] = trim((string) ($persona['segundo_apellido'] ?? ''));
+            $persona['correo'] = strtolower(trim((string) ($persona['correo'] ?? '')));
+            $persona['usuario'] = strtolower(trim((string) ($persona['usuario'] ?? '')));
+            $persona['contrasenia'] = trim((string) ($persona['contrasenia'] ?? ''));
+
+            foreach (['nombre', 'primer_apellido', 'correo', 'usuario'] as $campoRequerido) {
+                if ($persona[$campoRequerido] === '') {
+                    return $this->respond([
+                        'error' => true,
+                        'respuesta' => sprintf('El campo %s es requerido para el pax %d.', $campoRequerido, $index + 1),
+                    ]);
+                }
+            }
+
+            if ($persona['contrasenia'] === '') {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => sprintf('La contrasena es requerida para el pax %d.', $index + 1),
+                ]);
+            }
+
+            if (isset($usuariosNormalizados[$persona['usuario']])) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => sprintf('El usuario %s esta repetido dentro del mismo folio.', $persona['usuario']),
+                ]);
+            }
+
+            $usuariosNormalizados[$persona['usuario']] = true;
+
+            if ($idUsuario <= 0 && $this->usuarioExists($persona['usuario'])) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => sprintf('El usuario %s ya existe. Elige otro nombre de usuario.', $persona['usuario']),
+                ]);
+            }
+
+            $personas[$index] = $persona;
+        }
+
+        $montoTotalAlimentosPax = $tieneAlimentos ? round($montoDiarioAlimentos * $diasAlimentos, 2) : 0.00;
+        $montoTotalHospedajePax = $tieneHospedaje ? round($tarifaNoche * $noches, 2) : 0.00;
+        $montoTotalPax = round($montoTotalAlimentosPax + $montoTotalHospedajePax, 2);
+        $montoTotalGrupo = round($montoTotalPax * $paxTotal, 2);
+
+        if ($idUsuario > 0) {
+            $fechaAhora = date('Y-m-d H:i:s');
+            $updateData = [
+                'nombre' => $personas[0]['nombre'],
+                'primer_apellido' => $personas[0]['primer_apellido'],
+                'segundo_apellido' => $personas[0]['segundo_apellido'],
+                'correo' => $personas[0]['correo'],
+                'usuario' => $personas[0]['usuario'],
+                'id_perfil' => $legacyProfile,
+                'id_establecimiento' => $idEstablecimientoAlta,
+                'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
+                'id_partida' => $partidaUsuario,
+                'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
+                'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
+                'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
+                'monto_deposito' => $montoDiarioAlimentos,
+                'monto_deposito_hotel' => $montoTotalHospedajePax,
+                'monto_deposito_reservado' => $montoTotalPax,
+                'monto_deposito_operativo' => 0.00,
+                'deposito_programado_estatus' => $montoTotalPax > 0 ? 'reservado' : 'sin_programa',
+                'tiene_alimentos' => $tieneAlimentos ? 1 : 0,
+                'tiene_hospedaje' => $tieneHospedaje ? 1 : 0,
+                'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
+                'id_tipo_habitacion' => $this->nullableInt($data['id_tipo_habitacion'] ?? null),
+                'fecha_check_in' => $this->nullableString($data['fecha_check_in'] ?? null),
+                'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? null),
+                'fec_vigencia_desde' => $vigenciaDesde !== '' ? $vigenciaDesde : null,
+                'fec_vigencia_hasta' => $vigenciaHasta !== '' ? $vigenciaHasta : null,
+                'fec_vigencia_desde_hos' => $vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null,
+                'fec_vigencia_hasta_hos' => $vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null,
+                'noche' => $noches > 0 ? $noches : null,
+                'tarifa_noche' => $tarifaNoche > 0 ? $tarifaNoche : null,
+                'tarifa_total' => $montoTotalPax,
+                'pax' => $paxTotal,
+                'pax_total' => $paxTotal,
+                'pax_secuencia' => 1,
+                'es_titular_folio' => 1,
+                'folio' => $folio,
+                'folio_grupo' => $folioGrupo,
+                'sub_folio' => $subFolioBase !== '' ? $subFolioBase : null,
+                'contrasenia' => password_hash($personas[0]['contrasenia'], PASSWORD_BCRYPT),
+                'fec_act' => $fechaAhora,
+                'usu_act' => $idSesionUsuario,
+            ];
+
+            if (!empty($data['contrasenia'])) {
+                $updateData['contrasenia'] = password_hash((string) $data['contrasenia'], PASSWORD_BCRYPT);
+            } else {
+                unset($updateData['contrasenia']);
+            }
+
+            $response = $this->globals->saveTabla(
+                $updateData,
+                [
+                    'tabla' => 'usuario',
+                    'editar' => 'true',
+                    'idEditar' => ['id_usuario' => $idUsuario],
+                ],
+                [
+                    'id_user' => $idSesionUsuario,
+                    'script' => $scriptName,
+                ]
+            );
+
+            if ($response->error) {
+                return $this->respond($response);
+            }
+
+            $apiTokenToUse = trim((string) ($usuarioActual['api_token'] ?? ''));
+            if ($apiTokenToUse === '') {
+                $apiTokenToUse = $this->generateUniquePlainToken('api_token', 32, false);
+                $this->globals->saveTabla(
+                    [
+                        'api_token' => $apiTokenToUse,
+                        'fec_act' => $fechaAhora,
+                        'usu_act' => $idSesionUsuario,
+                    ],
+                    [
+                        'tabla' => 'usuario',
+                        'editar' => true,
+                        'idEditar' => ['id_usuario' => $idUsuario],
+                    ],
+                    [
+                        'id_user' => $idSesionUsuario,
+                        'script' => $scriptName . '.api_token',
+                    ]
+                );
+            }
+
+            $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0]);
+            if ($qrPath !== null) {
+                $this->globals->saveTabla(
+                    [
+                        'qr' => $qrPath,
+                        'fec_act' => $fechaAhora,
+                        'usu_act' => $idSesionUsuario,
+                    ],
+                    [
+                        'tabla' => 'usuario',
+                        'editar' => true,
+                        'idEditar' => ['id_usuario' => $idUsuario],
+                    ],
+                    [
+                        'id_user' => $idSesionUsuario,
+                        'script' => $scriptName . '.qr',
+                    ]
+                );
+            }
+
+            return $this->respond([
+                'error' => false,
+                'respuesta' => 'Usuario guardado correctamente.',
+                'id_usuario' => $idUsuario,
+                'pax_total' => 1,
+                'monto_total_pax' => $montoTotalPax,
+                'monto_total_grupo' => $montoTotalPax,
+            ]);
+        }
+
+        if ($db->table('usuario')->select('id_usuario')->where('visible', 1)->groupStart()->where('folio_grupo', $folioGrupo)->orWhere('folio', $folio)->groupEnd()->limit(1)->get()->getRowArray()) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Ya existe un grupo de usuarios con ese folio.',
+            ]);
+        }
+
+        $depositosService = new DepositosProgramadosService($db, $this->resolver);
+        $fechaAhora = date('Y-m-d H:i:s');
+        $idsCreados = [];
+        $idUsuarioPadre = null;
+
+        $db->transBegin();
+        try {
+            foreach ($personas as $index => $persona) {
+                $sequence = $index + 1;
+                $apiToken = $this->generateUniquePlainToken('api_token', 32, false);
+                $nip = $this->generateUniquePlainToken('nip', 4, true);
+                $subFolio = $subFolioBase;
+                if ($paxTotal > 1) {
+                    $subFolio = trim($subFolioBase !== '' ? $subFolioBase . '-' . $sequence : (string) $sequence);
+                }
+
+                $insertData = [
+                    'id_proveedor' => 0,
+                    'id_tipo_proveedor' => 0,
+                    'id_establecimiento' => $idEstablecimientoAlta,
+                    'id_perfil' => $legacyProfile,
+                    'nombre' => $persona['nombre'],
+                    'primer_apellido' => $persona['primer_apellido'],
+                    'segundo_apellido' => $persona['segundo_apellido'],
+                    'correo' => $persona['correo'],
+                    'usuario' => $persona['usuario'],
+                    'contrasenia' => password_hash($persona['contrasenia'], PASSWORD_BCRYPT),
+                    'tiene_alimentos' => $tieneAlimentos ? 1 : 0,
+                    'tiene_hospedaje' => $tieneHospedaje ? 1 : 0,
+                    'activo_qr' => 0,
+                    'visible' => 1,
+                    'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
+                    'id_partida' => $partidaUsuario,
+                    'id_fic_perfil' => $this->nullableInt($assignment['id_fic_perfil'] ?? null),
+                    'id_ug_perfil' => $this->nullableInt($assignment['id_ug_perfil'] ?? null),
+                    'id_secul_perfil' => $this->nullableInt($assignment['id_secul_perfil'] ?? null),
+                    'id_secturi_perfil' => $this->nullableInt($assignment['id_secturi_perfil'] ?? null),
+                    'id_estatus_hotel' => null,
+                    'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
+                    'id_tipo_habitacion' => $this->nullableInt($data['id_tipo_habitacion'] ?? null),
+                    'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
+                    'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
+                    'id_diciplina' => $this->nullableInt($data['id_diciplina'] ?? null),
+                    'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
+                    'pax' => $paxTotal,
+                    'pax_total' => $paxTotal,
+                    'pax_secuencia' => $sequence,
+                    'es_titular_folio' => $sequence === 1 ? 1 : 0,
+                    'anf_gto' => trim((string) ($data['anf_gto'] ?? $data['anf_gto_ui'] ?? '')) ?: null,
+                    'monto_deposito' => $montoDiarioAlimentos,
+                    'monto_deposito_hotel' => $montoTotalHospedajePax,
+                    'monto_deposito_reservado' => $montoTotalPax,
+                    'monto_deposito_operativo' => 0.00,
+                    'deposito_programado_estatus' => $montoTotalPax > 0 ? 'reservado' : 'sin_programa',
+                    'qr' => null,
+                    'nip' => $nip,
+                    'folio' => $folio,
+                    'folio_grupo' => $folioGrupo,
+                    'sub_folio' => $subFolio !== '' ? $subFolio : null,
+                    'ruta_foto_relativa' => null,
+                    'fecha_check_in' => $this->nullableString($data['fecha_check_in'] ?? ($vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null)),
+                    'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? ($vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null)),
+                    'fec_vigencia_desde' => $vigenciaReservaDesde !== '' ? $vigenciaReservaDesde : null,
+                    'fec_vigencia_hasta' => $vigenciaReservaHasta !== '' ? $vigenciaReservaHasta : null,
+                    'fec_vigencia_desde_hos' => $vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null,
+                    'fec_vigencia_hasta_hos' => $vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null,
+                    'noche' => $noches > 0 ? $noches : null,
+                    'tarifa_noche' => $tarifaNoche > 0 ? $tarifaNoche : null,
+                    'tarifa_total' => $montoTotalPax,
+                    'api_token' => $apiToken,
+                    'api_token_expira' => null,
+                    'fec_reg' => $fechaAhora,
+                    'usu_reg' => $idSesionUsuario,
+                    'fec_act' => $fechaAhora,
+                    'usu_act' => $idSesionUsuario,
+                    'id_usuario_padre' => $sequence === 1 ? null : $idUsuarioPadre,
+                ];
+
+                $response = $depositosService->reserveNewUser($insertData, $idSesionUsuario, $scriptName . '.reserve');
+                if ($response->error || empty($response->idRegistro)) {
+                    throw new \RuntimeException((string) ($response->respuesta ?? 'No fue posible guardar el usuario.'));
+                }
+
+                $currentId = (int) $response->idRegistro;
+                if ($idUsuarioPadre === null) {
+                    $idUsuarioPadre = $currentId;
+                }
+
+                $updateData = [
+                    'monto_deposito' => number_format($montoDiarioAlimentos, 2, '.', ''),
+                    'monto_deposito_hotel' => number_format($montoTotalHospedajePax, 2, '.', ''),
+                    'monto_deposito_reservado' => number_format($montoTotalPax, 2, '.', ''),
+                    'monto_deposito_operativo' => number_format(0, 2, '.', ''),
+                    'deposito_programado_estatus' => $montoTotalPax > 0 ? 'reservado' : 'sin_programa',
+                    'pax' => $paxTotal,
+                    'pax_total' => $paxTotal,
+                    'pax_secuencia' => $sequence,
+                    'es_titular_folio' => $sequence === 1 ? 1 : 0,
+                    'folio' => $folio,
+                    'folio_grupo' => $folioGrupo,
+                    'sub_folio' => $subFolio !== '' ? $subFolio : null,
+                    'tarifa_noche' => $tarifaNoche > 0 ? number_format($tarifaNoche, 2, '.', '') : null,
+                    'tarifa_total' => number_format($montoTotalPax, 2, '.', ''),
+                    'id_usuario_padre' => $sequence === 1 ? null : $idUsuarioPadre,
+                    'fec_act' => $fechaAhora,
+                    'usu_act' => $idSesionUsuario,
+                ];
+
+                $db->table('usuario')->where('id_usuario', $currentId)->update($updateData);
+
+                $qrPath = $this->generateInstitutionalQrForUser($currentId, $apiToken, $persona);
+                if ($qrPath === null) {
+                    throw new \RuntimeException('No fue posible generar el QR del usuario ' . $persona['usuario'] . '.');
+                }
+
+                $db->table('usuario')->where('id_usuario', $currentId)->update([
+                    'qr' => $qrPath,
+                    'fec_act' => $fechaAhora,
+                    'usu_act' => $idSesionUsuario,
+                ]);
+
+                $idsCreados[] = $currentId;
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Error de transaccion al guardar el grupo de usuarios.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'error' => false,
+                'respuesta' => 'Usuarios guardados correctamente.',
+                'data' => [
+                    'ids' => $idsCreados,
+                    'folio_grupo' => $folioGrupo,
+                    'pax_total' => $paxTotal,
+                    'monto_total_pax' => $montoTotalPax,
+                    'monto_total_grupo' => $montoTotalGrupo,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            log_message('error', 'Usuario.saveAltaUsuario: ' . $e->getMessage());
+
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'No fue posible guardar el grupo de usuarios.',
+            ]);
+        }
+    }
     public function deleteUsuario()
     {
         $session = \Config\Services::session();
@@ -640,6 +1152,110 @@ class Usuario extends BaseController
         );
 
         return $this->respond($response);
+    }
+
+    public function subirIneFirmaCajero()
+    {
+        $session = \Config\Services::session();
+        $actorContext = $this->getActorContext();
+       
+
+        $idUsuario = (int) $this->request->getPost('id_usuario');
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Identificador de usuario no valido.',
+            ]);
+        }
+
+        $usuarioActual = $this->getBaseUserRow($idUsuario);
+        if (!$usuarioActual) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'error' => true,
+                'respuesta' => 'El usuario no existe o ya no esta disponible.',
+            ]);
+        }
+
+    
+
+        $archivo = $this->request->getFile('ine_firma_cajero');
+        if (!$archivo || !$archivo->isValid()) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona un PDF valido.',
+            ]);
+        }
+
+        $extension = strtolower((string) $archivo->getClientExtension());
+        $mimeType = strtolower((string) $archivo->getMimeType());
+        if ($extension !== 'pdf' && $mimeType !== 'application/pdf') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El archivo debe ser PDF.',
+            ]);
+        }
+
+        if ($archivo->getSize() > 10 * 1024 * 1024) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El PDF no debe pesar mas de 10 MB.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->fieldExists('ine_firma_cajero', 'usuario')) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'Falta la columna usuario.ine_firma_cajero en la base de datos.',
+            ]);
+        }
+
+        $tmpDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'cajero';
+        if (!is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0775, true);
+        }
+
+        if (!is_dir($tmpDir) || !is_writable($tmpDir)) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No se puede escribir el archivo temporal.',
+            ]);
+        }
+
+        $fileName = 'ine_firma_cajero_' . $idUsuario . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.pdf';
+        $archivo->move($tmpDir, $fileName, true);
+        $absolutePath = $tmpDir . DIRECTORY_SEPARATOR . $fileName;
+        $objectKey = 'ACTIVACIONESFIC/CAJERO/' . $fileName;
+        $s3Url = $this->uploadFileToS3($absolutePath, $objectKey, 'application/pdf');
+        @unlink($absolutePath);
+
+        if ($s3Url === null) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No fue posible subir el PDF a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+            ]);
+        }
+
+        $actualizado = $db->table('usuario')
+            ->where('id_usuario', $idUsuario)
+            ->update([
+                'ine_firma_cajero' => $s3Url,
+                'fec_act' => date('Y-m-d H:i:s'),
+                'usu_act' => (int) $session->get('id_usuario'),
+            ]);
+
+        if (!$actualizado) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'El PDF subio a S3, pero no se pudo guardar la ruta en usuario.',
+            ]);
+        }
+
+        return $this->respond([
+            'error' => false,
+            'respuesta' => 'PDF guardado correctamente.',
+            'ruta' => $s3Url,
+        ]);
     }
 
     public function getCatalogosCrud()
@@ -932,6 +1548,9 @@ class Usuario extends BaseController
         $data['nombre_completo'] = $nombreCompleto !== '' ? $nombreCompleto : trim((string) ($viewData['nombre_completo'] ?? ''));
         $data['usuario_login'] = trim((string) ($data['usuario'] ?? ''));
         $data['folio_entrega'] = $this->firstNonEmptyFromSources($sources, ['folio', 'sub_folio', 'folio_entrega', 'folio_hospedaje']);
+        $data['folio'] = $this->firstNonEmptyFromSources($sources, ['folio']);
+        $data['sub_folio'] = $this->firstNonEmptyFromSources($sources, ['sub_folio']);
+        $data['pax_total'] = max(1, (int) ($data['pax_total'] ?? $data['pax'] ?? 1));
         $data['codigo_qr'] = $this->firstNonEmptyFromSources($sources, ['qr', 'codigo_qr']);
         $data['vigente_desde'] = $vigenciaDesde;
         $data['vigente_hasta'] = $vigenciaHasta;
@@ -955,6 +1574,8 @@ class Usuario extends BaseController
             'tarifa_noche' => $tarifaNocheHospedaje,
             'tarifa_total_hospedaje' => $totalHospedaje,
             'folio_hospedaje' => $data['folio_entrega'],
+            'sub_folio' => $data['sub_folio'],
+            'pax_total' => $data['pax_total'],
             'observaciones_hospedaje' => $data['observaciones_hospedaje'] ?? '',
         ]);
 

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $session = \Config\Services::session();
 $contextoUsuario = $contextoUsuario ?? [];
 $catalogRoleOptions = $catalogRoleOptions ?? [];
@@ -206,7 +206,7 @@ $extractCatalogAmount = static function ($item) {
     data-id-usuario="<?= esc((string) $idUsuarioEditar, 'attr') ?>"
     data-list-url="<?= esc($regresarUrl, 'attr') ?>"
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
-    data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>">
+    data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>" data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $esNuevo ? 'Nuevo usuario' : 'Editar usuario' ?></h3>
@@ -255,24 +255,24 @@ $extractCatalogAmount = static function ($item) {
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="folio_ui">Folio</label>
-                        <input type="text" class="form-control" id="folio_ui" placeholder="folio" inputmode="numeric" pattern="[0-9]*" maxlength="20">
+                        <input type="text" class="form-control" name="folio" id="folio_ui" placeholder="folio" inputmode="numeric" pattern="[0-9]*" maxlength="20">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="subf_ui">Subfolio</label>
-                        <input type="text" class="form-control crud-ui-upper" id="subf_ui" placeholder="subf" inputmode="text" maxlength="20">
+                        <input type="text" class="form-control crud-ui-upper" name="sub_folio" id="subf_ui" placeholder="subf" inputmode="text" maxlength="20">
                     </div>
 
                     <div class="col-md-3">
                         <label class="form-label" for="pax_ui">Pax</label>
-                        <input type="number" class="form-control" id="pax_ui" placeholder="pax">
+                        <input type="number" class="form-control" name="pax" id="pax_ui" placeholder="pax" min="1" value="1">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="anf_gto_ui">Anfitri&oacute;n Guanajuato</label>
-                        <input type="text" class="form-control crud-ui-upper" id="anf_gto_ui" placeholder="anf gto" inputmode="text" maxlength="80">
+                        <input type="text" class="form-control crud-ui-upper" name="anf_gto" id="anf_gto_ui" placeholder="anf gto" inputmode="text" maxlength="80">
                     </div>
 
                     <div class="col-md-12">
-                        <label class="crud-ui-grid-label">Nombre</label>
+                        <label class="crud-ui-grid-label">Pax 1 / Titular</label>
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label" for="nombre">Nombre</label>
@@ -424,6 +424,95 @@ $extractCatalogAmount = static function ($item) {
                         <label class="form-label" for="id_partida_hospedaje_ui">Partida hospedaje</label>
                         <input type="text" class="form-control" id="id_partida_hospedaje_ui" readonly>
                     </div>
+                </div>
+            </div>
+            <div class="card-body pt-0">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="card border-secondary-subtle shadow-sm mt-2">
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                    <div>
+                                        <h5 class="mb-1 text-white">Pax adicionales</h5>
+                                        <p class="text-muted mb-0">Cuando el numero de pax sea mayor a 1, aqui se agregan las cuentas individuales.</p>
+                                    </div>
+                                    <span class="badge bg-primary-subtle text-primary-emphasis" id="paxResumenBadge">1 pax</span>
+                                </div>
+                                <div class="row g-3" id="paxPersonasExtras"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 mt-2">
+                        <div class="card border-secondary-subtle shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                    <div>
+                                        <h5 class="mb-1 text-white">Resumen de reserva</h5>
+                                        <p class="text-muted mb-0">El sistema calcula el monto por pax y el total del grupo antes de guardar.</p>
+                                    </div>
+                                </div>
+                                <div class="row g-3" id="altaUsuarioResumen">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Monto alimentos por pax</label>
+                                        <input type="text" class="form-control" id="altaResumenMontoAlimentosPax" readonly>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Monto hospedaje por pax</label>
+                                        <input type="text" class="form-control" id="altaResumenMontoHospedajePax" readonly>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Monto total por pax</label>
+                                        <input type="text" class="form-control" id="altaResumenMontoPax" readonly>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Monto total del grupo</label>
+                                        <input type="text" class="form-control" id="altaResumenMontoGrupo" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <template id="paxPersonaTemplate">
+                        <div class="col-12">
+                            <div class="card border-secondary-subtle bg-body-tertiary pax-persona-card" data-person-index="__INDEX__">
+                                <div class="card-body">
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                        <div>
+                                            <h6 class="mb-1 text-white">Pax __DISPLAY__</h6>
+                                            <p class="text-muted mb-0">Cuenta individual vinculada al mismo folio.</p>
+                                        </div>
+                                        <span class="badge bg-secondary">Cuenta individual</span>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Nombre</label>
+                                            <input class="form-control crud-ui-upper pax-person-field" name="usuarios[__INDEX__][nombre]" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Primer apellido</label>
+                                            <input class="form-control crud-ui-upper pax-person-field" name="usuarios[__INDEX__][primer_apellido]" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Segundo apellido</label>
+                                            <input class="form-control crud-ui-upper pax-person-field" name="usuarios[__INDEX__][segundo_apellido]">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Correo</label>
+                                            <input type="email" class="form-control crud-ui-lower pax-person-field" name="usuarios[__INDEX__][correo]" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Usuario</label>
+                                            <input class="form-control crud-ui-lower pax-person-field" name="usuarios[__INDEX__][usuario]" required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Contraseña</label>
+                                            <input type="password" class="form-control crud-ui-lower pax-person-field" name="usuarios[__INDEX__][contrasenia]" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
             <div class="card-footer d-flex flex-wrap justify-content-end gap-2">

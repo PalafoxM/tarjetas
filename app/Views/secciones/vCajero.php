@@ -151,6 +151,7 @@
 
 <script>
 const id_perfil = <?= json_encode($session->get('id_perfil')) ?>;
+const S3_PUBLIC_BASE_URL = 'https://sectur-audiovisuales-509634423753-us-east-1-an.s3.amazonaws.com/';
 window.cajeros = {
     modal: null,
     documentosModal: null,
@@ -166,9 +167,14 @@ window.cajeros = {
         }
 
         $('#cajerosTable').bootstrapTable({
+            search: true,
+            searchHighlight: true,
+            sidePagination: 'client',
             url: base_url + 'index.php/Usuario/getUsuarios',
             responseHandler: (response) => {
                 if (Array.isArray(response)) return response;
+                if (response && Array.isArray(response.data)) return response.data;
+                if (response && Array.isArray(response.rows)) return response.rows;
                 console.error('Respuesta inválida al cargar cajeros:', response);
                 return [];
             },
@@ -213,16 +219,57 @@ window.cajeros = {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
     },
 
-    estadoProgramaDeposito(value) {
-        var estado = String(value || '').trim().toLowerCase();
-        if (estado === 'reservado') return '<span class="badge bg-warning text-dark">Reservado</span>';
-        if (estado === 'operativo') return '<span class="badge bg-success">Operativo</span>';
-        if (estado === 'parcial') return '<span class="badge bg-info text-dark">Parcial</span>';
-        if (estado === 'aplicado') return '<span class="badge bg-primary">Aplicado</span>';
-        if (estado === 'error') return '<span class="badge bg-danger">Error</span>';
-        if (estado === 'cancelado') return '<span class="badge bg-secondary">Cancelado</span>';
-        if (estado === 'sin_programa') return '<span class="badge bg-light text-dark">Sin programa</span>';
-        return '<span class="badge bg-secondary">Sin definir</span>';
+    escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    },
+
+    normalizarUrlDocumento(value) {
+        let ruta = String(value || '').trim();
+        if (!ruta) return '';
+        if (/^https?:\/\//i.test(ruta)) return ruta;
+        if (/^\/\//.test(ruta)) return 'https:' + ruta;
+
+        ruta = ruta.replace(/^\/+/, '');
+        return S3_PUBLIC_BASE_URL + ruta.split('/').map(encodeURIComponent).join('/');
+    },
+
+    documentos(value, row) {
+        row = row || {};
+        const archivos = [
+            { campo: 'ine_frontal', titulo: 'INE frontal', icono: 'mdi-card-account-details' },
+            { campo: 'ine_trasera', titulo: 'INE trasera', icono: 'mdi-card-account-details-outline' },
+            { campo: 'firma', titulo: 'Firma', icono: 'mdi-draw-pen' }
+        ];
+
+        const botones = archivos.map((archivo) => {
+            const url = cajeros.normalizarUrlDocumento(row && row[archivo.campo] ? row[archivo.campo] : '');
+            if (!url) {
+                return `<button class="btn btn-outline-secondary" type="button" title="${archivo.titulo} no disponible" disabled>
+                    <i class="mdi ${archivo.icono}"></i>
+                </button>`;
+            }
+
+            const encodedUrl = encodeURIComponent(url);
+            return `<button class="btn btn-outline-info" type="button" title="${archivo.titulo}" onclick="cajeros.abrirDocumento(decodeURIComponent('${cajeros.escapeHtml(encodedUrl)}'))">
+                <i class="mdi ${archivo.icono}"></i>
+            </button>`;
+        });
+
+        return `<div class="cajero-documents">${botones.join('')}</div>`;
+    },
+
+    abrirDocumento(url) {
+        const documentoUrl = cajeros.normalizarUrlDocumento(url);
+        if (!documentoUrl) {
+            Swal.fire('Atención', 'No hay documento disponible.', 'warning');
+            return;
+        }
+        window.open(documentoUrl, '_blank', 'noopener');
     },
 
     documentos(value, row) {
@@ -320,26 +367,116 @@ window.cajeros = {
     },
 
     acciones(value, row) {
+        row = row || {};
+        const idUsuario = Number(row.id_usuario || 0);
+        const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
         let botones = `
-            <div class="btn-group btn-group-sm">
-                <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${row.id_usuario})">
+            <div class="cajero-actions">
+                <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${idUsuario})">
                     <i class="mdi mdi-account-edit"></i>
                 </button>
-                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${row.id_usuario})">
+                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
-                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${row.id_usuario})">
+                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${idUsuario})">
                     <i class="mdi mdi-file-pdf"></i>
-                </button>`;
+                </button>
+                <button class="btn btn-outline-light" type="button" title="Subir PDF firma cajero" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
+                    <i class="mdi mdi-file-upload-outline"></i>
+                </button>
+                ${qrActivo
+                    ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i></button>`
+                    : `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">Activar QR</button>`}`;
 
         if (Number(id_perfil) === 1) {
             botones += `
-                <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${row.id_usuario})">
+                <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${idUsuario})">
                     <i class="mdi mdi-account-remove"></i>
                 </button>`;
         }
 
         return botones + '</div>';
+    },
+
+    seleccionarFirmaCajero(idUsuario) {
+        if (!idUsuario) return;
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/pdf,.pdf';
+        input.onchange = () => {
+            const archivo = input.files && input.files[0] ? input.files[0] : null;
+            if (!archivo) return;
+            this.subirFirmaCajero(idUsuario, archivo);
+        };
+        input.click();
+    },
+
+    subirFirmaCajero(idUsuario, archivo) {
+        const nombreArchivo = archivo && archivo.name ? archivo.name : '';
+        const esPdf = archivo && (archivo.type === 'application/pdf' || /\.pdf$/i.test(nombreArchivo));
+
+        if (!esPdf) {
+            Swal.fire('Atención', 'Solo puedes subir archivos PDF.', 'warning');
+            return;
+        }
+
+        const data = new FormData();
+        data.append('id_usuario', idUsuario);
+        data.append('ine_firma_cajero', archivo);
+
+        $.ajax({
+            url: base_url + 'index.php/Usuario/subirIneFirmaCajero',
+            type: 'POST',
+            dataType: 'json',
+            data,
+            processData: false,
+            contentType: false
+        }).done((response) => {
+            if (!response || response.error) {
+                Swal.fire('Atención', response && response.respuesta ? response.respuesta : 'No fue posible subir el PDF.', 'warning');
+                return;
+            }
+
+            $('#cajerosTable').bootstrapTable('refresh');
+            Swal.fire('Correcto', response.respuesta || 'PDF guardado correctamente.', 'success');
+        }).fail((request) => {
+            const response = request.responseJSON || {};
+            Swal.fire('Error', response.respuesta || 'No fue posible subir el PDF.', 'error');
+        });
+    },
+
+    activarQr(idUsuario) {
+        if (!idUsuario) return;
+
+        Swal.fire({
+            title: '¿Estas seguro de activar QR?',
+            text: 'Se marcará el QR del usuario como activo.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, activar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            $.ajax({
+                url: base_url + 'index.php/Inicio/activarQrUsuarioFic',
+                type: 'POST',
+                dataType: 'json',
+                data: { id_usuario: idUsuario }
+            }).done((response) => {
+                if (!response || response.success !== true) {
+                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
+                    return;
+                }
+
+                Swal.fire('Correcto', response.message || 'QR activado correctamente.', 'success');
+                $('#cajerosTable').bootstrapTable('refresh');
+            }).fail((request) => {
+                const response = request.responseJSON || {};
+                Swal.fire('Error', response.message || 'No fue posible activar el QR.', 'error');
+            });
+        });
     },
 
     nuevo() {
