@@ -24,7 +24,7 @@
                    data-show-refresh="true">
                 <thead>
                     <tr>
-                        <th data-field="folio_hospedaje" data-sortable="true">Folio</th>
+                        <th data-field="id_usuario" data-sortable="true">Folio</th>
                         <th data-field="nombre_completo" data-sortable="true">Huesped</th>
                         <th data-field="fecha_check_in" data-formatter="establecimientos.fecha" data-sortable="true">Fecha check in</th>
                         <th data-field="fecha_check_out" data-formatter="establecimientos.fecha" data-sortable="true">Fecha check out</th>
