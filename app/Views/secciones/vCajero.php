@@ -74,7 +74,7 @@
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estado" data-align="center">Alimentos</th>
                         <th data-field="monto_deposito_reservado" data-formatter="cajeros.moneda" data-align="center">Saldo reservado</th>
                         <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo operativo</th>
-                        <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoProgramaDeposito" data-align="center">Estado del programa</th>
+
                         <th data-field="documentos" data-formatter="cajeros.documentos" data-align="center">Documentos</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center">Acciones</th>
                     </tr>
@@ -407,7 +407,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${idUsuario})">
                     <i class="mdi mdi-file-pdf"></i>
                 </button>
-                <button class="btn btn-outline-light" type="button" title="Subir documento" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
+                <button class="btn btn-outline-info" type="button" title="Subir documento" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
                 ${qrActivo

@@ -1435,7 +1435,7 @@ class Usuario extends BaseController
             ]);
         }
 
-        $fechaAhora = date('Y-m-d H:i:s');
+        $fechaAhora = $this->fechaHoraGuanajuato();
         $response = $this->globals->saveTabla(
             [
                 'fecha_check_in' => $fechaAhora,
@@ -1488,7 +1488,7 @@ class Usuario extends BaseController
             ]);
         }
 
-        $fechaAhora = date('Y-m-d H:i:s');
+        $fechaAhora = $this->fechaHoraGuanajuato();
         $response = $this->globals->saveTabla(
             [
                 'fecha_check_out' => $fechaAhora,
@@ -1531,6 +1531,11 @@ class Usuario extends BaseController
     {
         $session = \Config\Services::session();
         return $this->resolver->resolve($session->get());
+    }
+
+    private function fechaHoraGuanajuato(): string
+    {
+        return (new \DateTimeImmutable('now', new \DateTimeZone('America/Mexico_City')))->format('Y-m-d H:i:s');
     }
 
     private function getBaseUserRow(int $idUsuario): ?array
