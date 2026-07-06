@@ -1158,7 +1158,7 @@ class Usuario extends BaseController
     {
         $session = \Config\Services::session();
         $actorContext = $this->getActorContext();
-       
+     
 
         $idUsuario = (int) $this->request->getPost('id_usuario');
         if ($idUsuario <= 0) {
@@ -1178,35 +1178,80 @@ class Usuario extends BaseController
 
     
 
+        $tipoDocumento = trim((string) ($this->request->getPost('tipo_documento') ?? ''));
+        $documentosPermitidos = [
+            'ine_frontal' => [
+                'label' => 'INE frontal',
+                'prefix' => 'ACTIVACIONESFIC/INE',
+                'name' => 'ine_frontal',
+            ],
+            'ine_trasera' => [
+                'label' => 'INE trasera',
+                'prefix' => 'ACTIVACIONESFIC/INE',
+                'name' => 'ine_trasera',
+            ],
+            'firma' => [
+                'label' => 'Firma',
+                'prefix' => 'ACTIVACIONESFIC/FIRMAS',
+                'name' => 'firma',
+            ],
+            'ine_firma_cajero' => [
+                'label' => 'PDF firma cajero',
+                'prefix' => 'ACTIVACIONESFIC/CAJERO',
+                'name' => 'ine_firma_cajero',
+            ],
+        ];
+
+        if ($tipoDocumento === '') {
+            $tipoDocumento = 'ine_firma_cajero';
+        }
+
+        if (!isset($documentosPermitidos[$tipoDocumento])) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona un tipo de documento valido.',
+            ]);
+        }
+
+        $documentoConfig = $documentosPermitidos[$tipoDocumento];
+        $campoDocumento = $documentoConfig['name'];
         $archivo = $this->request->getFile('ine_firma_cajero');
         if (!$archivo || !$archivo->isValid()) {
             return $this->response->setStatusCode(422)->setJSON([
                 'error' => true,
-                'respuesta' => 'Selecciona un PDF valido.',
+                'respuesta' => 'Selecciona un archivo valido.',
             ]);
         }
 
         $extension = strtolower((string) $archivo->getClientExtension());
         $mimeType = strtolower((string) $archivo->getMimeType());
-        if ($extension !== 'pdf' && $mimeType !== 'application/pdf') {
+        $mimePermitidos = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+        ];
+
+        if (!isset($mimePermitidos[$extension])) {
             return $this->response->setStatusCode(422)->setJSON([
                 'error' => true,
-                'respuesta' => 'El archivo debe ser PDF.',
+                'respuesta' => 'El archivo debe ser PDF, JPG, PNG o WEBP.',
             ]);
         }
 
         if ($archivo->getSize() > 10 * 1024 * 1024) {
             return $this->response->setStatusCode(422)->setJSON([
                 'error' => true,
-                'respuesta' => 'El PDF no debe pesar mas de 10 MB.',
+                'respuesta' => 'El archivo no debe pesar mas de 10 MB.',
             ]);
         }
 
         $db = \Config\Database::connect();
-        if (!$db->fieldExists('ine_firma_cajero', 'usuario')) {
+        if (!$db->fieldExists($campoDocumento, 'usuario')) {
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
-                'respuesta' => 'Falta la columna usuario.ine_firma_cajero en la base de datos.',
+                'respuesta' => 'Falta la columna usuario.' . $campoDocumento . ' en la base de datos.',
             ]);
         }
 
@@ -1222,24 +1267,25 @@ class Usuario extends BaseController
             ]);
         }
 
-        $fileName = 'ine_firma_cajero_' . $idUsuario . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.pdf';
+        $fileName = $tipoDocumento . '_' . $idUsuario . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
         $archivo->move($tmpDir, $fileName, true);
         $absolutePath = $tmpDir . DIRECTORY_SEPARATOR . $fileName;
-        $objectKey = 'ACTIVACIONESFIC/CAJERO/' . $fileName;
-        $s3Url = $this->uploadFileToS3($absolutePath, $objectKey, 'application/pdf');
+        $objectKey = rtrim((string) $documentoConfig['prefix'], '/') . '/' . $fileName;
+        $contentType = $mimePermitidos[$extension] ?? ($mimeType !== '' ? $mimeType : 'application/octet-stream');
+        $s3Url = $this->uploadFileToS3($absolutePath, $objectKey, $contentType);
         @unlink($absolutePath);
 
         if ($s3Url === null) {
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
-                'respuesta' => 'No fue posible subir el PDF a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+                'respuesta' => 'No fue posible subir el archivo a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
             ]);
         }
 
         $actualizado = $db->table('usuario')
             ->where('id_usuario', $idUsuario)
             ->update([
-                'ine_firma_cajero' => $s3Url,
+                $campoDocumento => $s3Url,
                 'fec_act' => date('Y-m-d H:i:s'),
                 'usu_act' => (int) $session->get('id_usuario'),
             ]);
@@ -1253,8 +1299,9 @@ class Usuario extends BaseController
 
         return $this->respond([
             'error' => false,
-            'respuesta' => 'PDF guardado correctamente.',
+            'respuesta' => $documentoConfig['label'] . ' guardado correctamente.',
             'ruta' => $s3Url,
+            'campo' => $campoDocumento,
         ]);
     }
 

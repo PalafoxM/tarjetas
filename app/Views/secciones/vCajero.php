@@ -381,7 +381,7 @@ window.cajeros = {
                 <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${idUsuario})">
                     <i class="mdi mdi-file-pdf"></i>
                 </button>
-                <button class="btn btn-outline-light" type="button" title="Subir PDF firma cajero" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
+                <button class="btn btn-outline-light" type="button" title="Subir documento" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
                 ${qrActivo
@@ -401,29 +401,90 @@ window.cajeros = {
     seleccionarFirmaCajero(idUsuario) {
         if (!idUsuario) return;
 
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'application/pdf,.pdf';
-        input.onchange = () => {
-            const archivo = input.files && input.files[0] ? input.files[0] : null;
-            if (!archivo) return;
-            this.subirFirmaCajero(idUsuario, archivo);
-        };
-        input.click();
+        Swal.fire({
+            title: 'Subir documento',
+            html: `
+                <div class="text-start">
+                    <label class="form-label" for="swal_tipo_documento_cajero">Tipo de documento</label>
+                    <select id="swal_tipo_documento_cajero" class="form-select mb-3">
+                        <option value="ine_frontal">INE frontal</option>
+                        <option value="ine_trasera">INE trasera</option>
+                        <option value="firma">Firma</option>
+                    </select>
+                    <label class="form-label" for="swal_archivo_documento_cajero">Archivo</label>
+                    <input id="swal_archivo_documento_cajero" type="file" class="form-control" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp">
+                    <div class="form-text text-muted mt-2">Formatos permitidos: PDF, JPG, PNG o WEBP. Maximo 10 MB.</div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Subir',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const tipoDocumento = document.getElementById('swal_tipo_documento_cajero')?.value || '';
+                const inputArchivo = document.getElementById('swal_archivo_documento_cajero');
+                const archivo = inputArchivo && inputArchivo.files && inputArchivo.files[0] ? inputArchivo.files[0] : null;
+
+                if (!tipoDocumento) {
+                    Swal.showValidationMessage('Selecciona el tipo de documento.');
+                    return false;
+                }
+
+                if (!archivo) {
+                    Swal.showValidationMessage('Selecciona un archivo.');
+                    return false;
+                }
+
+                if (archivo.size > 10 * 1024 * 1024) {
+                    Swal.showValidationMessage('El archivo no debe pesar mas de 10 MB.');
+                    return false;
+                }
+
+                const nombre = archivo.name || '';
+                const tipo = archivo.type || '';
+                const permitido = /\.(pdf|jpg|jpeg|png|webp)$/i.test(nombre)
+                    || ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].indexOf(tipo) !== -1;
+
+                if (!permitido) {
+                    Swal.showValidationMessage('El archivo debe ser PDF, JPG, PNG o WEBP.');
+                    return false;
+                }
+
+                return { tipoDocumento, archivo };
+            }
+        }).then((result) => {
+            if (!result.isConfirmed || !result.value) return;
+            this.subirFirmaCajero(idUsuario, result.value.archivo, result.value.tipoDocumento);
+        });
     },
 
-    subirFirmaCajero(idUsuario, archivo) {
+    subirFirmaCajero(idUsuario, archivo, tipoDocumento) {
         const nombreArchivo = archivo && archivo.name ? archivo.name : '';
-        const esPdf = archivo && (archivo.type === 'application/pdf' || /\.pdf$/i.test(nombreArchivo));
+        const tipoArchivo = archivo && archivo.type ? archivo.type : '';
+        const esArchivoValido = archivo && (
+            ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].indexOf(tipoArchivo) !== -1
+            || /\.(pdf|jpg|jpeg|png|webp)$/i.test(nombreArchivo)
+        );
 
-        if (!esPdf) {
-            Swal.fire('Atención', 'Solo puedes subir archivos PDF.', 'warning');
+        if (!esArchivoValido) {
+            Swal.fire('Atencion', 'Solo puedes subir archivos PDF, JPG, PNG o WEBP.', 'warning');
             return;
         }
 
         const data = new FormData();
         data.append('id_usuario', idUsuario);
+        data.append('tipo_documento', tipoDocumento || 'firma');
         data.append('ine_firma_cajero', archivo);
+
+        Swal.fire({
+            title: 'Subiendo archivo',
+            text: 'Espera un momento...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
 
         $.ajax({
             url: base_url + 'index.php/Usuario/subirIneFirmaCajero',
@@ -434,15 +495,15 @@ window.cajeros = {
             contentType: false
         }).done((response) => {
             if (!response || response.error) {
-                Swal.fire('Atención', response && response.respuesta ? response.respuesta : 'No fue posible subir el PDF.', 'warning');
+                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible subir el archivo.', 'warning');
                 return;
             }
 
             $('#cajerosTable').bootstrapTable('refresh');
-            Swal.fire('Correcto', response.respuesta || 'PDF guardado correctamente.', 'success');
+            Swal.fire('Correcto', response.respuesta || 'Archivo guardado correctamente.', 'success');
         }).fail((request) => {
             const response = request.responseJSON || {};
-            Swal.fire('Error', response.respuesta || 'No fue posible subir el PDF.', 'error');
+            Swal.fire('Error', response.respuesta || 'No fue posible subir el archivo.', 'error');
         });
     },
 
