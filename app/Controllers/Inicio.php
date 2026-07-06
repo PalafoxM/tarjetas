@@ -203,24 +203,62 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
-    public function Establecimiento()
+    public function Establecimiento($idEstablecimiento = null)
     {        
         $session = \Config\Services::session();
-        $Mglobal = new Mglobal; 
         $data        = array();
-   
-            $establecimiento = $Mglobal->getTabla(['tabla' => "establecimiento", "where"=> ['visible' => 1, "no_proveedor" => $session->get('id_usuario')]]);
-            if(!empty($establecimiento->data)){
-                $data['datosEstablecimiento'] = $establecimiento->data ?? null;
-            }
-           
-            $vista= 'secciones/vEstablecimiento';
+        $idEstablecimiento = (int) $idEstablecimiento;
+
+        $establecimientos = $this->resolveSessionEstablecimientos($idEstablecimiento);
+        if (!empty($establecimientos)) {
+            $data['datosEstablecimiento'] = array_map(static function (array $row): object {
+                return (object) $row;
+            }, $establecimientos);
+        }
+
+        $vista = 'secciones/vEstablecimiento';
         
     
         $data['scripts'] = array('principal','agregar');
         $data['contentView'] = $vista;                
         $this->_renderView($data);
         
+    }
+
+    private function resolveSessionEstablecimientos(int $idEstablecimiento = 0): array
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('establecimiento e')
+            ->select('
+                e.id_establecimiento,
+                e.dsc_establecimiento,
+                e.id_tipo,
+                cte.dsc_tipo,
+                e.no_proveedor
+            ')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->join('usuario u', 'u.id_usuario = ' . $idUsuario, 'left')
+            ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'left')
+            ->join('usuario_establecimiento ue', 'ue.id_establecimiento = e.id_establecimiento AND ue.id_usuario = ' . $idUsuario . ' AND ue.visible = 1', 'left')
+            ->where('e.visible', 1)
+            ->groupStart()
+                ->where('e.no_proveedor = p.no_proveedor', null, false)
+                ->orWhere('e.no_proveedor', (string) $idUsuario)
+                ->orWhere('ue.id_usuario IS NOT NULL', null, false)
+            ->groupEnd()
+            ->orderBy('e.dsc_establecimiento', 'ASC');
+
+        if ($idEstablecimiento > 0) {
+            $builder->where('e.id_establecimiento', $idEstablecimiento);
+        }
+
+        return $builder->get()->getResultArray();
     }
 
     public function ProveedorFormatos()
@@ -237,6 +275,34 @@ class Inicio extends BaseController {
         $data['scripts'] = ['principal', 'agregar'];
         $data['contextoUsuario'] = $contextoUsuario;
         $data['contentView'] = 'secciones/vProveedorFormatos';
+        $this->_renderView($data);
+    }
+
+    public function ProveedorEstablecimiento($idEstablecimiento = null)
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $idUsuario = (int) $session->get('id_usuario');
+        $idEstablecimiento = (int) $idEstablecimiento;
+        if ($idUsuario <= 0 || $idEstablecimiento <= 0) {
+            return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
+        }
+
+        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        $data = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
+        if (empty($data['proveedorEstablecimientos'])) {
+            return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
+        }
+
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contextoUsuario'] = $contextoUsuario;
+        $data['contentView'] = 'secciones/vProveedor';
         $this->_renderView($data);
     }
 
@@ -1157,6 +1223,93 @@ class Inicio extends BaseController {
                 'estado_corte' => !empty($pagosRows) ? 'Con movimientos' : 'Sin movimientos',
             ],
         ];
+    }
+
+    private function filterProviderDashboardByEstablecimiento(array $dashboard, int $idEstablecimiento): array
+    {
+        if ($idEstablecimiento <= 0) {
+            return $dashboard;
+        }
+
+        $establecimientos = array_values(array_filter(
+            is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [],
+            static function ($item) use ($idEstablecimiento): bool {
+                $row = is_object($item) ? get_object_vars($item) : (array) $item;
+                return (int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento;
+            }
+        ));
+
+        if (empty($establecimientos)) {
+            return [];
+        }
+
+        $pagos = array_values(array_filter(
+            is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : [],
+            static function ($item) use ($idEstablecimiento): bool {
+                $row = is_object($item) ? get_object_vars($item) : (array) $item;
+                return (int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento;
+            }
+        ));
+
+        $solicitudes = array_values(array_filter(
+            is_array($dashboard['solicitudPago'] ?? null) ? $dashboard['solicitudPago'] : [],
+            static function ($item) use ($idEstablecimiento): bool {
+                $row = is_object($item) ? get_object_vars($item) : (array) $item;
+                return (int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento;
+            }
+        ));
+
+        $montoTotal = 0.0;
+        $montoPendiente = 0.0;
+        $fechas = [];
+        foreach ($pagos as $row) {
+            $item = is_object($row) ? get_object_vars($row) : (array) $row;
+            $monto = (float) ($item['monto_total'] ?? $item['monto_solicitado'] ?? 0);
+            $montoTotal += $monto;
+            $estatus = strtolower(trim((string) ($item['estatus'] ?? '')));
+            if ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
+                $montoPendiente += $monto;
+            }
+            foreach (['fec_reg', 'fecha_respuesta'] as $campoFecha) {
+                $valorFecha = trim((string) ($item[$campoFecha] ?? ''));
+                if ($valorFecha !== '') {
+                    $fechas[] = $valorFecha;
+                }
+            }
+        }
+
+        sort($fechas);
+
+        $dashboard['proveedorEstablecimientos'] = $establecimientos;
+        $dashboard['proveedorPagos'] = $pagos;
+        $dashboard['solicitudPago'] = $solicitudes;
+        $dashboard['datosProveedor'] = (object) ($establecimientos[0] ?? []);
+        $dashboard['establecimiento'] = count($establecimientos);
+        $dashboard['total'] = $montoTotal;
+        $dashboard['pendiente'] = [];
+        $dashboard['aprobados'] = [];
+        $dashboard['rechazado'] = [];
+        foreach ($pagos as $row) {
+            $item = is_object($row) ? get_object_vars($row) : (array) $row;
+            $estatus = strtolower(trim((string) ($item['estatus'] ?? '')));
+            if (in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
+                $dashboard['pendiente'][] = $estatus;
+            } elseif (in_array($estatus, ['aprobada', 'aprobado', 'aceptada', 'aceptado', 'aceptados', 'autorizada', 'autorizado', 'pagada', 'pagado', 'finalizada', 'finalizado'], true)) {
+                $dashboard['aprobados'][] = $estatus;
+            } elseif (in_array($estatus, ['rechazada', 'rechazado', 'rechazados', 'cancelada', 'cancelado'], true)) {
+                $dashboard['rechazado'][] = $estatus;
+            }
+        }
+        $dashboard['ventasCorteContexto'] = [
+            'monto_total' => $montoTotal,
+            'monto_pendiente' => $montoPendiente,
+            'total_registros' => count($pagos),
+            'fecha_corte_desde' => $fechas[0] ?? '',
+            'fecha_corte_hasta' => !empty($fechas) ? end($fechas) : '',
+            'estado_corte' => !empty($pagos) ? 'Con movimientos' : 'Sin movimientos',
+        ];
+
+        return $dashboard;
     }
 
 

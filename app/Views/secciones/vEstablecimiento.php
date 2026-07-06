@@ -211,6 +211,9 @@ window.establecimientos = {
 
         $('#RecepcionTable').bootstrapTable({
             data: [],
+            formatNoMatches: function () {
+                return 'Este hotel aún no tiene huéspedes asignados.';
+            },
             onRefresh: function () {
                 establecimientos.cargar();
             }
@@ -372,6 +375,7 @@ window.establecimientos = {
                     dataType: 'json',
                     data: {
                         id_usuario: idUsuario,
+                        id_establecimiento: establecimientos.idEstablecimiento,
                         observaciones: observaciones
                     }
                 }).then(function (response) {

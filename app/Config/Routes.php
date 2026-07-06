@@ -10,6 +10,8 @@ $routes->get('Login', 'Login::index');
 $routes->get('Login/cerrar', 'Login::cerrar');
 $routes->post('Login/validar_usuario', 'Login::validar_usuario');
 $routes->get('Inicio', 'Inicio::index');
+$routes->get('Inicio/ProveedorEstablecimiento/(:num)', 'Inicio::ProveedorEstablecimiento/$1');
+$routes->get('Inicio/Establecimiento/(:num)', 'Inicio::Establecimiento/$1');
 $routes->get('Inicio/ProveedorFormatos', 'Inicio::ProveedorFormatos');
 $routes->post('Inicio/guardarPagoSinQrProveedor', 'Inicio::guardarPagoSinQrProveedor');
 $routes->get('Inicio/pdfProveedorEncabezadoFactura/(:num)', 'Inicio::pdfProveedorEncabezadoFactura/$1');

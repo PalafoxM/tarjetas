@@ -142,6 +142,44 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
         border: 1px solid rgba(148, 163, 184, .16);
         border-radius: 12px;
         box-shadow: 0 14px 34px rgba(2, 6, 23, .18);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .provider-card-link {
+        color: inherit;
+        display: block;
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    }
+
+    .provider-card-link .provider-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(96, 165, 250, .34), rgba(34, 197, 94, .16) 48%, rgba(255, 255, 255, .08) 72%);
+        opacity: 0;
+        transition: opacity .2s ease;
+        pointer-events: none;
+    }
+
+    .provider-card-link:hover .provider-card {
+        background: rgba(30, 41, 59, .98);
+        border-color: rgba(125, 211, 252, .9);
+        box-shadow:
+            0 0 0 1px rgba(125, 211, 252, .26),
+            0 0 26px rgba(59, 130, 246, .38),
+            0 26px 56px rgba(2, 6, 23, .46);
+        transform: translateY(-7px) scale(1.025);
+    }
+
+    .provider-card-link:hover .provider-card::before {
+        opacity: 1;
+    }
+
+    .provider-card-link:hover {
+        color: inherit;
+        text-decoration: none;
+        filter: saturate(1.04);
     }
 
     .provider-stat {
@@ -449,15 +487,32 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                         <div class="row g-3">
                             <?php foreach ($proveedorEstablecimientos as $establecimiento): ?>
                                 <div class="col-12 col-md-6 col-xl-4">
-                                    <div class="card provider-card h-100">
-                                        <div class="card-body">
-                                            <div class="provider-stat-label">ID establecimiento</div>
-                                            <div class="provider-stat-value"><?= esc((string) ($establecimiento['id_establecimiento'] ?? '')) ?></div>
-                                            <div class="fw-semibold mt-2"><?= esc((string) ($establecimiento['dsc_establecimiento'] ?? 'Sin nombre')) ?></div>
-                                            <div class="provider-stat-note mt-1"><?= esc((string) ($establecimiento['dsc_tipo'] ?? 'Sin tipo')) ?></div>
-                                            <div class="provider-stat-note mt-1">No. proveedor: <?= esc((string) ($establecimiento['no_proveedor'] ?? '')) ?></div>
+                                    <?php
+                                        $idEstablecimientoCard = (int) ($establecimiento['id_establecimiento'] ?? 0);
+                                        $tipoEstablecimientoCard = strtolower(trim((string) ($establecimiento['dsc_tipo'] ?? '')));
+                                        $esHotelCard = (int) ($establecimiento['id_tipo'] ?? 0) === 2 || str_contains($tipoEstablecimientoCard, 'hotel');
+                                        $perfilEstablecimientoUrl = $esHotelCard
+                                            ? base_url('index.php/Inicio/Establecimiento/' . $idEstablecimientoCard)
+                                            : base_url('index.php/Inicio/ProveedorEstablecimiento/' . $idEstablecimientoCard);
+                                    ?>
+                                    <a href="<?= esc($perfilEstablecimientoUrl, 'attr') ?>" class="text-decoration-none d-block h-100">
+                                        <div class="card provider-card h-100 provider-card-link">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                                    <div>
+                                                        <div class="provider-stat-label">ID establecimiento</div>
+                                                        <div class="provider-stat-value"><?= esc((string) ($establecimiento['id_establecimiento'] ?? '')) ?></div>
+                                                    </div>
+                                                    <span class="provider-summary-pill">
+                                                        <?= $esHotelCard ? 'Recepción' : 'Cobros' ?>
+                                                    </span>
+                                                </div>
+                                                <div class="fw-semibold mt-2"><?= esc((string) ($establecimiento['dsc_establecimiento'] ?? 'Sin nombre')) ?></div>
+                                                <div class="provider-stat-note mt-1"><?= esc((string) ($establecimiento['dsc_tipo'] ?? 'Sin tipo')) ?></div>
+                                                <div class="provider-stat-note mt-1">No. proveedor: <?= esc((string) ($establecimiento['no_proveedor'] ?? '')) ?></div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </a>
                                 </div>
                             <?php endforeach; ?>
                         </div>

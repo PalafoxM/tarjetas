@@ -1394,23 +1394,13 @@ class Usuario extends BaseController
 
     public function getRecepcion()
     {
-        $session = \Config\Services::session();
         $idEstablecimiento = (int) $this->request->getGet('id_establecimiento');
 
         if ($idEstablecimiento <= 0) {
             return $this->respond([]);
         }
 
-        $establecimiento = $this->globals->getTabla([
-            'tabla' => 'establecimiento',
-            'where' => [
-                'visible' => 1,
-                'id_establecimiento' => $idEstablecimiento,
-                'no_proveedor' => (int) $session->get('id_usuario'),
-            ],
-        ]);
-
-        if ($establecimiento->error || empty($establecimiento->data)) {
+        if (empty($this->resolveSessionEstablecimiento($idEstablecimiento))) {
             return $this->respond([]);
         }
 
@@ -1426,12 +1416,43 @@ class Usuario extends BaseController
     {
         $session = \Config\Services::session();
         $idUsuario = (int) $this->request->getPost('id_usuario');
+        $idEstablecimiento = (int) $this->request->getPost('id_establecimiento');
         $observaciones = trim((string) $this->request->getPost('observaciones', FILTER_SANITIZE_STRING));
 
         if ($idUsuario <= 0) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Identificador de usuario no valido',
+            ]);
+        }
+
+        if ($idEstablecimiento <= 0 || empty($this->resolveSessionEstablecimiento($idEstablecimiento))) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'No tienes acceso al hotel seleccionado.',
+            ]);
+        }
+
+        $usuarioHospedaje = $this->globals->getTabla([
+            'tabla' => 'usuario',
+            'where' => [
+                'visible' => 1,
+                'id_usuario' => $idUsuario,
+            ],
+        ]);
+
+        if ($usuarioHospedaje->error || empty($usuarioHospedaje->data)) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'No fue posible localizar al huésped.',
+            ]);
+        }
+
+        $hotelAsignado = (int) ($usuarioHospedaje->data[0]->id_establecimiento_hotel ?? 0);
+        if ($hotelAsignado !== $idEstablecimiento) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Este huésped está asignado a otro hotel. No se puede registrar check in en este establecimiento.',
             ]);
         }
 
@@ -1473,6 +1494,33 @@ class Usuario extends BaseController
         }
 
         return $this->respond($response);
+    }
+
+    private function resolveSessionEstablecimiento(int $idEstablecimiento): array
+    {
+        $session = \Config\Services::session();
+        $idSesionUsuario = (int) $session->get('id_usuario');
+        if ($idSesionUsuario <= 0 || $idEstablecimiento <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $row = $db->table('establecimiento e')
+            ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
+            ->join('usuario u', 'u.id_usuario = ' . $idSesionUsuario, 'left')
+            ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'left')
+            ->join('usuario_establecimiento ue', 'ue.id_establecimiento = e.id_establecimiento AND ue.id_usuario = ' . $idSesionUsuario . ' AND ue.visible = 1', 'left')
+            ->where('e.visible', 1)
+            ->where('e.id_establecimiento', $idEstablecimiento)
+            ->groupStart()
+                ->where('e.no_proveedor = p.no_proveedor', null, false)
+                ->orWhere('e.no_proveedor', (string) $idSesionUsuario)
+                ->orWhere('ue.id_usuario IS NOT NULL', null, false)
+            ->groupEnd()
+            ->get()
+            ->getRowArray();
+
+        return is_array($row) ? $row : [];
     }
 
     public function checkOutHospedaje()
