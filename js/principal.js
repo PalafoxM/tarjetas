@@ -87,17 +87,167 @@ saeg.principal = (function () {
             return '<span class="badge bg-danger">No</span>';
         },
 
-        fecha: function (value) {
-            if (!value) return '';
-            var fecha = new Date(value);
-            var dia = String(fecha.getDate()).padStart(2, '0');
-            var mes = String(fecha.getMonth() + 1).padStart(2, '0');
-            var anio = fecha.getFullYear();
-            var hora = String(fecha.getHours()).padStart(2, '0');
-            var minuto = String(fecha.getMinutes()).padStart(2, '0');
-            return dia + '/' + mes + '/' + anio + ' ' + hora + ':' + minuto;
+    fecha: function (value) {
+        if (!value) return '';
+        var fecha = new Date(value);
+        var dia = String(fecha.getDate()).padStart(2, '0');
+        var mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        var anio = fecha.getFullYear();
+        var hora = String(fecha.getHours()).padStart(2, '0');
+        var minuto = String(fecha.getMinutes()).padStart(2, '0');
+        return dia + '/' + mes + '/' + anio + ' ' + hora + ':' + minuto;
+    },
+
+    normalizarFechaISO: function (value) {
+        if (!value) return '';
+
+        var texto = String(value).trim();
+        if (texto === '') return '';
+
+        var iso = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (iso) {
+            return iso[1];
         }
-    };
+
+        var fecha = new Date(texto);
+        if (isNaN(fecha.getTime())) {
+            return '';
+        }
+
+        return fecha.toISOString().slice(0, 10);
+    },
+
+    formatearFechaDiaLlegada: function (value) {
+        var iso = this.normalizarFechaISO(value);
+        if (!iso) return 'Sin fecha';
+
+        var partes = iso.split('-');
+        if (partes.length !== 3) {
+            return iso;
+        }
+
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    },
+
+    obtenerDiaLlegada: function (row) {
+        row = row || {};
+        return this.normalizarFechaISO(row.fec_vigencia_desde || '');
+    },
+
+    ordenarRegistrosPorDiaLlegada: function (rows) {
+        var lista = Array.isArray(rows) ? rows.slice() : [];
+
+        lista.sort(function (a, b) {
+            var diaA = saeg.principal.normalizarFechaISO(a && a.fec_vigencia_desde ? a.fec_vigencia_desde : '');
+            var diaB = saeg.principal.normalizarFechaISO(b && b.fec_vigencia_desde ? b.fec_vigencia_desde : '');
+            var ordenDiaA = diaA || '9999-12-31';
+            var ordenDiaB = diaB || '9999-12-31';
+
+            if (ordenDiaA < ordenDiaB) return -1;
+            if (ordenDiaA > ordenDiaB) return 1;
+
+            var folioA = String(a && a.folio !== undefined && a.folio !== null ? a.folio : '');
+            var folioB = String(b && b.folio !== undefined && b.folio !== null ? b.folio : '');
+            var folioCmp = folioA.localeCompare(folioB, 'es', { numeric: true, sensitivity: 'base' });
+            if (folioCmp !== 0) return folioCmp;
+
+            var subA = String(a && a.sub_folio !== undefined && a.sub_folio !== null ? a.sub_folio : '');
+            var subB = String(b && b.sub_folio !== undefined && b.sub_folio !== null ? b.sub_folio : '');
+            var subCmp = subA.localeCompare(subB, 'es', { numeric: true, sensitivity: 'base' });
+            if (subCmp !== 0) return subCmp;
+
+            return Number(a && a.id_usuario ? a.id_usuario : 0) - Number(b && b.id_usuario ? b.id_usuario : 0);
+        });
+
+        return lista;
+    },
+
+    filtrarRegistrosPorDiaLlegada: function (rows, diaFiltro) {
+        var lista = Array.isArray(rows) ? rows : [];
+        var diaNormalizado = this.normalizarFechaISO(diaFiltro);
+        var filtrados = !diaNormalizado
+            ? lista.slice()
+            : lista.filter(function (row) {
+                return saeg.principal.obtenerDiaLlegada(row) === diaNormalizado;
+            });
+
+        return this.ordenarRegistrosPorDiaLlegada(filtrados);
+    },
+
+    establecerRegistrosBaseDiaLlegada: function (rows) {
+        this.rowsBaseDiaLlegada = Array.isArray(rows) ? rows.slice() : [];
+    },
+
+    actualizarEstadoFiltroDiaLlegada: function () {
+        var input = $('#filtro_dia_llegada');
+        var estado = $('#filtro_dia_llegada_estado');
+        var boton = $('#limpiar_filtro_dia_llegada');
+
+        if (!input.length || !estado.length) {
+            return;
+        }
+
+        var dia = this.normalizarFechaISO(input.val());
+        if (!dia) {
+            estado.text('Mostrando todos los folios por día de llegada.');
+            if (boton.length) {
+                boton.prop('disabled', true);
+            }
+            return;
+        }
+
+        var totalBase = Array.isArray(this.rowsBaseDiaLlegada) ? this.rowsBaseDiaLlegada.length : 0;
+        var totalFiltrado = this.filtrarRegistrosPorDiaLlegada(this.rowsBaseDiaLlegada || [], dia).length;
+        estado.text('Mostrando ' + totalFiltrado + ' de ' + totalBase + ' folios para ' + this.formatearFechaDiaLlegada(dia) + '.');
+        if (boton.length) {
+            boton.prop('disabled', false);
+        }
+    },
+
+    aplicarFiltroDiaLlegada: function (rows) {
+        var lista = Array.isArray(rows) ? rows : [];
+        var input = $('#filtro_dia_llegada');
+        var dia = input.length ? this.normalizarFechaISO(input.val()) : '';
+
+        if (!input.length) {
+            return this.ordenarRegistrosPorDiaLlegada(lista);
+        }
+
+        return this.filtrarRegistrosPorDiaLlegada(lista, dia);
+    },
+
+    refrescarFiltroDiaLlegada: function () {
+        var tabla = $('#cajerosTable');
+        if (!tabla.length || typeof tabla.bootstrapTable !== 'function') {
+            return;
+        }
+
+        tabla.bootstrapTable('load', this.aplicarFiltroDiaLlegada(this.rowsBaseDiaLlegada || []));
+        this.actualizarEstadoFiltroDiaLlegada();
+    },
+
+    inicializarFiltroDiaLlegada: function () {
+        var input = $('#filtro_dia_llegada');
+        var boton = $('#limpiar_filtro_dia_llegada');
+
+        if (!input.length) {
+            return;
+        }
+
+        input.off('change.filtroDiaLlegada input.filtroDiaLlegada').on('change.filtroDiaLlegada input.filtroDiaLlegada', function () {
+            cajeros.refrescarFiltroDiaLlegada();
+        });
+
+        if (boton.length) {
+            boton.off('click.filtroDiaLlegada').on('click.filtroDiaLlegada', function () {
+                input.val('');
+                cajeros.refrescarFiltroDiaLlegada();
+            });
+        }
+
+        this.actualizarEstadoFiltroDiaLlegada();
+    }
+};
 })();
 
 window.cajeros = {
@@ -111,6 +261,7 @@ window.cajeros = {
     providerSelection: null,
     contexto: {},
     roleOptions: {},
+    rowsBaseDiaLlegada: [],
     catalogos: {
         categorias: [],
         disciplinas: [],
@@ -123,6 +274,80 @@ window.cajeros = {
         tipos_habitacion: [],
         establecimientos: [],
         proveedores: []
+    },
+
+    establecerRegistrosBaseDiaLlegada: function (rows) {
+        this.rowsBaseDiaLlegada = Array.isArray(rows) ? rows.slice() : [];
+    },
+
+    actualizarEstadoFiltroDiaLlegada: function () {
+        var input = $('#filtro_dia_llegada');
+        var estado = $('#filtro_dia_llegada_estado');
+        var boton = $('#limpiar_filtro_dia_llegada');
+
+        if (!input.length || !estado.length) {
+            return;
+        }
+
+        var dia = saeg.principal.normalizarFechaISO(input.val());
+        if (!dia) {
+            estado.text('Mostrando todos los folios por día de llegada.');
+            if (boton.length) {
+                boton.prop('disabled', true);
+            }
+            return;
+        }
+
+        var totalBase = Array.isArray(this.rowsBaseDiaLlegada) ? this.rowsBaseDiaLlegada.length : 0;
+        var totalFiltrado = saeg.principal.filtrarRegistrosPorDiaLlegada(this.rowsBaseDiaLlegada || [], dia).length;
+        estado.text('Mostrando ' + totalFiltrado + ' de ' + totalBase + ' folios para ' + saeg.principal.formatearFechaDiaLlegada(dia) + '.');
+        if (boton.length) {
+            boton.prop('disabled', false);
+        }
+    },
+
+    aplicarFiltroDiaLlegada: function (rows) {
+        var lista = Array.isArray(rows) ? rows : [];
+        var input = $('#filtro_dia_llegada');
+        var dia = input.length ? saeg.principal.normalizarFechaISO(input.val()) : '';
+
+        if (!input.length) {
+            return saeg.principal.ordenarRegistrosPorDiaLlegada(lista);
+        }
+
+        return saeg.principal.filtrarRegistrosPorDiaLlegada(lista, dia);
+    },
+
+    refrescarFiltroDiaLlegada: function () {
+        var tabla = $('#cajerosTable');
+        if (!tabla.length || typeof tabla.bootstrapTable !== 'function') {
+            return;
+        }
+
+        tabla.bootstrapTable('load', this.aplicarFiltroDiaLlegada(this.rowsBaseDiaLlegada || []));
+        this.actualizarEstadoFiltroDiaLlegada();
+    },
+
+    inicializarFiltroDiaLlegada: function () {
+        var input = $('#filtro_dia_llegada');
+        var boton = $('#limpiar_filtro_dia_llegada');
+
+        if (!input.length) {
+            return;
+        }
+
+        input.off('change.filtroDiaLlegada input.filtroDiaLlegada').on('change.filtroDiaLlegada input.filtroDiaLlegada', function () {
+            cajeros.refrescarFiltroDiaLlegada();
+        });
+
+        if (boton.length) {
+            boton.off('click.filtroDiaLlegada').on('click.filtroDiaLlegada', function () {
+                input.val('');
+                cajeros.refrescarFiltroDiaLlegada();
+            });
+        }
+
+        this.actualizarEstadoFiltroDiaLlegada();
     },
 
     iniciar: function () {
@@ -205,7 +430,11 @@ window.cajeros = {
         $('#cajerosTable').bootstrapTable({
             url: usuariosUrl,
             responseHandler: function (response) {
-                if (Array.isArray(response)) return response;
+                if (Array.isArray(response)) {
+                    cajeros.establecerRegistrosBaseDiaLlegada(response);
+                    cajeros.actualizarEstadoFiltroDiaLlegada();
+                    return cajeros.aplicarFiltroDiaLlegada(response);
+                }
                 console.error('Respuesta inválida al cargar usuarios:', response);
                 return [];
             },
@@ -214,6 +443,8 @@ window.cajeros = {
                 Swal.fire('Error', 'No fue posible consultar los usuarios.', 'error');
             }
         });
+
+        this.inicializarFiltroDiaLlegada();
 
     },
 

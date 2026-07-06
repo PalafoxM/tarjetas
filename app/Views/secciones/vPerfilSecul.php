@@ -53,6 +53,18 @@ $solicitudEstablecimientoId = (int) ($seculSolicitudEstablecimientoId ?? 0);
                     </a>
                 <?php endif; ?>
             </div>
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label class="form-label" for="filtro_dia_llegada">Día de llegada</label>
+                    <input type="date" class="form-control" id="filtro_dia_llegada">
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button type="button" class="btn btn-outline-light" id="limpiar_filtro_dia_llegada" disabled>Todos los días</button>
+                </div>
+                <div class="col-12 col-md">
+                    <div class="text-muted small" id="filtro_dia_llegada_estado">Mostrando todos los folios por día de llegada.</div>
+                </div>
+            </div>
             <table id="cajerosTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"

@@ -69,7 +69,7 @@ if (!empty($vigente_desde) && !empty($vigente_hasta)) {
             <td class="value-half"><?= esc((string) $paxEntrega) ?></td>
         </tr>
         <tr>
-            <td class="label">Codigo QR</td>
+            <td class="label">Código QR</td>
             <td class="qr-value" colspan="3"><?= esc($codigoQr !== '' ? $codigoQr : 'Sin QR') ?></td>
         </tr>
         <tr>
@@ -102,7 +102,7 @@ if (!empty($vigente_desde) && !empty($vigente_hasta)) {
             <tr>
                 <th>Concepto</th>
                 <th>Tarifa diaria</th>
-                <th>Dias</th>
+                <th>Días</th>
                 <th>Total</th>
             </tr>
         </thead>
@@ -118,14 +118,14 @@ if (!empty($vigente_desde) && !empty($vigente_hasta)) {
 
     <div class="note">
         Este documento acredita la orden de alimentos asociada al beneficiario para el periodo de vigencia autorizado.
-        El consumo debera realizarse unicamente conforme a las reglas operativas vigentes del programa.
+        El consumo debera realizarse únicamente conforme a las reglas operativas vigentes del programa.
     </div>
 
     <div class="signature">
         <?php if ($firmaUsuarioUrl !== ''): ?>
             <img src="<?= esc($firmaUsuarioUrl) ?>" alt="Firma del usuario">
         <?php endif; ?>
-        <div class="signature-line">Recibi orden de alimentos impresa</div>
+        <div class="signature-line">Recibí orden de alimentos impresa</div>
     </div>
 </body>
 </html>

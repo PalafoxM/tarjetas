@@ -2965,6 +2965,16 @@ class Usuario extends BaseController
         $token = '';
         $maxIndex = strlen($alphabet) - 1;
 
+        if ($length > 0 && $alphabet === '0123456789') {
+            // Evita que un token numérico arranque con cero.
+            $token .= $alphabet[random_int(1, $maxIndex)];
+            for ($i = 1; $i < $length; $i++) {
+                $token .= $alphabet[random_int(0, $maxIndex)];
+            }
+
+            return $token;
+        }
+
         for ($i = 0; $i < $length; $i++) {
             $token .= $alphabet[random_int(0, $maxIndex)];
         }

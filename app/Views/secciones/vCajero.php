@@ -42,6 +42,18 @@
 
     <div class="card">
         <div class="card-body">
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label class="form-label" for="filtro_dia_llegada">Día de llegada</label>
+                    <input type="date" class="form-control" id="filtro_dia_llegada">
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button type="button" class="btn btn-outline-light" id="limpiar_filtro_dia_llegada" disabled>Todos los días</button>
+                </div>
+                <div class="col-12 col-md">
+                    <div class="text-muted small" id="filtro_dia_llegada_estado">Mostrando todos los folios por día de llegada.</div>
+                </div>
+            </div>
             <table id="cajerosTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"
@@ -152,12 +164,14 @@
 <script>
 const id_perfil = <?= json_encode($session->get('id_perfil')) ?>;
 const S3_PUBLIC_BASE_URL = 'https://sectur-audiovisuales-509634423753-us-east-1-an.s3.amazonaws.com/';
-window.cajeros = {
+window.cajeros = Object.assign(window.cajeros || {}, {
     modal: null,
     documentosModal: null,
     documentoActualUrl: '',
     documentoUsuarioId: 0,
     documentosActuales: [],
+    rowsBaseDiaLlegada: [],
+    diaLlegadaActual: '',
 
     iniciar() {
         if (typeof $.fn.bootstrapTable !== 'function') {
@@ -172,17 +186,29 @@ window.cajeros = {
             sidePagination: 'client',
             url: base_url + 'index.php/Usuario/getUsuarios',
             responseHandler: (response) => {
-                if (Array.isArray(response)) return response;
-                if (response && Array.isArray(response.data)) return response.data;
-                if (response && Array.isArray(response.rows)) return response.rows;
-                console.error('Respuesta inválida al cargar cajeros:', response);
-                return [];
+                let rows = [];
+                if (Array.isArray(response)) {
+                    rows = response;
+                } else if (response && Array.isArray(response.data)) {
+                    rows = response.data;
+                } else if (response && Array.isArray(response.rows)) {
+                    rows = response.rows;
+                } else {
+                    console.error('Respuesta inválida al cargar cajeros:', response);
+                    return [];
+                }
+
+                this.establecerRegistrosBaseDiaLlegada(rows);
+                this.actualizarEstadoFiltroDiaLlegada();
+                return this.aplicarFiltroDiaLlegada(rows);
             },
             onLoadError: (status, request) => {
                 console.error('Error al cargar cajeros:', status, request.responseText);
                 Swal.fire('Error', 'No fue posible consultar los cajeros.', 'error');
             }
         });
+
+        this.inicializarFiltroDiaLlegada();
 
         if (window.bootstrap && bootstrap.Modal) {
             this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
@@ -607,7 +633,7 @@ window.cajeros = {
             }, 'json').fail(() => Swal.fire('Error', 'No fue posible eliminar el cajero.', 'error'));
         });
     }
-};
+});
 
 $(function () {
     cajeros.iniciar();
