@@ -98,6 +98,43 @@ class Usuario extends BaseController
         return $this->getUsuarios();
     }
 
+    public function verDocumentoUsuario()
+    {
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar documentos.');
+        }
+
+        $idUsuario = (int) ($this->request->getGet('id_usuario') ?? 0);
+        $campo = trim((string) ($this->request->getGet('campo') ?? ''));
+        $camposPermitidos = ['qr', 'ine_frontal', 'ine_trasera', 'firma'];
+
+        if ($idUsuario <= 0 || !in_array($campo, $camposPermitidos, true)) {
+            return $this->response->setStatusCode(422)->setBody('Solicitud invalida.');
+        }
+
+        $row = $this->getBaseUserRow($idUsuario);
+        if (!$row) {
+            return $this->response->setStatusCode(404)->setBody('Usuario no encontrado.');
+        }
+
+        if (!$this->resolver->canViewRow($actorContext, $row)) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar este usuario.');
+        }
+
+        $archivo = trim((string) ($row[$campo] ?? ''));
+        if ($archivo === '') {
+            return $this->response->setStatusCode(404)->setBody('Archivo no disponible.');
+        }
+
+        $url = $this->buildS3PresignedGetUrl($archivo, 300);
+        if ($url === '') {
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el acceso temporal al archivo.');
+        }
+
+        return redirect()->to($url);
+    }
+
     public function getUsuariosFic()
     {
         return $this->getUsuariosPorGrupo('fic');
@@ -2345,16 +2382,20 @@ class Usuario extends BaseController
             }
         }
 
-        $usuarioMetaIndex = [];
-        $db = \Config\Database::connect();
-        $usuarioMetaRows = $db->table('usuario')
-            ->select('id_usuario, folio, sub_folio, folio_grupo, pax, pax_total, pax_secuencia, es_titular_folio')
-            ->where('visible', 1)
-            ->get()
-            ->getResultArray();
-
-        foreach ($usuarioMetaRows as $metaRow) {
-            $usuarioMetaIndex[(int) ($metaRow['id_usuario'] ?? 0)] = $metaRow;
+        $documentIndex = [];
+        $documentResponse = $this->globals->getTabla([
+            'tabla' => 'usuario',
+            'where' => ['visible' => 1],
+        ]);
+        if (!$documentResponse->error && !empty($documentResponse->data)) {
+            foreach ($documentResponse->data as $row) {
+                $documentIndex[(int) ($row->id_usuario ?? 0)] = [
+                    'qr' => (string) ($row->qr ?? ''),
+                    'ine_frontal' => (string) ($row->ine_frontal ?? ''),
+                    'ine_trasera' => (string) ($row->ine_trasera ?? ''),
+                    'firma' => (string) ($row->firma ?? ''),
+                ];
+            }
         }
 
         $rows = [];
@@ -2379,8 +2420,8 @@ class Usuario extends BaseController
 
             $idUsuario = (int) ($baseRow['id_usuario'] ?? 0);
             $displayRow = $displayIndex[$idUsuario] ?? [];
-            $usuarioMeta = $usuarioMetaIndex[$idUsuario] ?? [];
-            $mergedRow = array_merge($displayRow, $baseRow, $usuarioMeta);
+            $documentRow = $documentIndex[$idUsuario] ?? [];
+            $mergedRow = array_merge($displayRow, $baseRow, $documentRow);
             $mergedRow['nombre_completo'] = trim(implode(' ', array_filter([
                 $mergedRow['nombre'] ?? '',
                 $mergedRow['primer_apellido'] ?? '',

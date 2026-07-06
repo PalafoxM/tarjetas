@@ -1,24 +1,33 @@
 <?php $session = \Config\Services::session(); ?>
 <style>
-    .cajero-documents,
-    .cajero-actions {
-        display: inline-flex;
-        flex-wrap: nowrap;
-        gap: .25rem;
-        white-space: nowrap;
+    .cajero-doc-preview {
+        min-height: 320px;
+        border: 1px solid rgba(148, 163, 184, .25);
+        border-radius: 10px;
+        background: #0f172a;
+        overflow: hidden;
     }
 
-    .cajero-documents .btn,
-    .cajero-actions .btn {
-        display: inline-flex;
-        min-width: 32px;
-        height: 30px;
-        align-items: center;
-        justify-content: center;
-        padding: 0 .45rem;
+    .cajero-doc-preview img,
+    .cajero-doc-preview iframe {
+        display: block;
+        width: 100%;
+        height: min(70vh, 620px);
+        border: 0;
+        object-fit: contain;
+    }
+
+    .cajero-doc-preview--firma {
+        background: #ffffff;
+        padding: 18px;
+    }
+
+    .cajero-doc-list .btn {
+        justify-content: flex-start;
+        text-align: left;
     }
 </style>
-<div class="container-fluid py-4">
+<div class="container-fluid py-4" id="cajeroPage" data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white">Administración de cajeros</h3>
@@ -53,6 +62,7 @@
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estado" data-align="center">Alimentos</th>
                         <th data-field="monto_deposito_reservado" data-formatter="cajeros.moneda" data-align="center">Saldo reservado</th>
                         <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo operativo</th>
+                        <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoProgramaDeposito" data-align="center">Estado del programa</th>
                         <th data-field="documentos" data-formatter="cajeros.documentos" data-align="center">Documentos</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center">Acciones</th>
                     </tr>
@@ -109,11 +119,45 @@
     </div>
 </div>
 
+<div class="modal fade" id="cajeroDocumentosModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary">
+                <div>
+                    <h5 class="modal-title" id="cajeroDocumentosModalTitle">Documentos</h5>
+                    <small class="text-muted" id="cajeroDocumentosModalSubtitle"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-12 col-lg-3">
+                        <div class="d-grid gap-2 cajero-doc-list" id="cajeroDocumentosList"></div>
+                    </div>
+                    <div class="col-12 col-lg-9">
+                        <div id="cajeroDocumentosPreview" class="cajero-doc-preview d-flex align-items-center justify-content-center text-muted p-3">
+                            Selecciona un documento.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <a href="#" id="cajeroDocumentosOpen" class="btn btn-outline-info disabled" target="_blank" rel="noopener">Abrir en nueva pestaña</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const id_perfil = <?= json_encode($session->get('id_perfil')) ?>;
 const S3_PUBLIC_BASE_URL = 'https://sectur-audiovisuales-509634423753-us-east-1-an.s3.amazonaws.com/';
 window.cajeros = {
     modal: null,
+    documentosModal: null,
+    documentoActualUrl: '',
+    documentoUsuarioId: 0,
+    documentosActuales: [],
 
     iniciar() {
         if (typeof $.fn.bootstrapTable !== 'function') {
@@ -142,12 +186,27 @@ window.cajeros = {
 
         if (window.bootstrap && bootstrap.Modal) {
             this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
+            this.documentosModal = new bootstrap.Modal(document.getElementById('cajeroDocumentosModal'));
         }
 
         $('#cajeroForm').on('submit', (event) => {
             event.preventDefault();
             this.guardar();
         });
+
+        $('#cajeroDocumentosList').on('click', '.js-cajero-doc-open', (event) => {
+            const field = String($(event.currentTarget).data('field') || '');
+            this.abrirDocumento(field);
+        });
+    },
+
+    escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     },
 
     estado(value) {
@@ -211,6 +270,100 @@ window.cajeros = {
             return;
         }
         window.open(documentoUrl, '_blank', 'noopener');
+    },
+
+    documentos(value, row) {
+        row = row || {};
+        const docs = cajeros.obtenerDocumentos(row);
+        const count = docs.filter((doc) => doc.path !== '').length;
+        if (!count) {
+            return '<span class="text-muted">Sin documentos</span>';
+        }
+
+        return `
+            <button class="btn btn-outline-info btn-sm" type="button" title="Ver documentos" onclick="cajeros.verDocumentos(${Number(row.id_usuario || 0)})">
+                <i class="mdi mdi-folder-eye me-1"></i>${count}
+            </button>`;
+    },
+
+    obtenerDocumentos(row) {
+        row = row || {};
+        return [
+            { field: 'qr', label: 'QR', path: String(row.qr || '') },
+            { field: 'ine_frontal', label: 'INE frontal', path: String(row.ine_frontal || '') },
+            { field: 'ine_trasera', label: 'INE trasera', path: String(row.ine_trasera || '') },
+            { field: 'firma', label: 'Firma', path: String(row.firma || '') }
+        ];
+    },
+
+    verDocumentos(idUsuario) {
+        const rows = $('#cajerosTable').bootstrapTable('getData', { useCurrentPage: false }) || [];
+        const row = rows.find((item) => Number(item.id_usuario || 0) === Number(idUsuario || 0));
+        if (!row) {
+            Swal.fire('Atención', 'No fue posible resolver los documentos del usuario.', 'warning');
+            return;
+        }
+
+        this.documentosActuales = this.obtenerDocumentos(row);
+        this.documentoUsuarioId = Number(row.id_usuario || 0);
+        $('#cajeroDocumentosModalTitle').text('Documentos de usuario');
+        $('#cajeroDocumentosModalSubtitle').text((row.nombre_completo || row.usuario || '') + ' | ID ' + String(row.id_usuario || ''));
+
+        const buttons = this.documentosActuales.map((doc) => {
+            const disabled = doc.path === '' ? ' disabled' : '';
+            const badge = doc.path === '' ? '<span class="badge bg-secondary ms-auto">Sin archivo</span>' : '<span class="badge bg-success ms-auto">Disponible</span>';
+            return '<button type="button" class="btn btn-outline-light d-flex align-items-center gap-2 js-cajero-doc-open"' + disabled + ' data-field="' + this.escapeHtml(doc.field) + '"><i class="mdi mdi-file-document-outline"></i><span>' + this.escapeHtml(doc.label) + '</span>' + badge + '</button>';
+        }).join('');
+
+        $('#cajeroDocumentosList').html(buttons);
+        $('#cajeroDocumentosPreview').attr('class', 'cajero-doc-preview d-flex align-items-center justify-content-center text-muted p-3').html('Selecciona un documento.');
+        $('#cajeroDocumentosOpen').attr('href', '#').addClass('disabled');
+        this.documentoActualUrl = '';
+
+        if (this.documentosModal) {
+            this.documentosModal.show();
+        }
+    },
+
+    abrirDocumento(field) {
+        const doc = (this.documentosActuales || []).find((item) => item.field === field);
+        if (!doc || doc.path === '') {
+            Swal.fire('Atención', 'No hay archivo disponible.', 'warning');
+            return;
+        }
+
+        const userId = String(this.documentoUsuarioId || '');
+        const baseUrl = $('#cajeroPage').data('documento-url') || '';
+        if (!baseUrl || !userId) {
+            Swal.fire('Error', 'No fue posible generar la ruta del documento.', 'error');
+            return;
+        }
+
+        const url = baseUrl + '?id_usuario=' + encodeURIComponent(userId) + '&campo=' + encodeURIComponent(doc.field);
+        const ext = this.obtenerExtension(doc.path);
+        const safeUrl = this.escapeHtml(url);
+        const safeLabel = this.escapeHtml(doc.label);
+        let preview = '';
+        let previewClass = 'cajero-doc-preview';
+
+        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].indexOf(ext) !== -1) {
+            previewClass += doc.field === 'firma' ? ' cajero-doc-preview--firma' : '';
+            preview = '<img src="' + safeUrl + '" alt="' + safeLabel + '">';
+        } else if (ext === 'pdf') {
+            preview = '<iframe src="' + safeUrl + '" title="' + safeLabel + '"></iframe>';
+        } else {
+            preview = '<div class="alert alert-info m-3">No hay vista previa para este tipo de archivo. Usa el botón para abrirlo en una nueva pestaña.</div>';
+        }
+
+        $('#cajeroDocumentosPreview').attr('class', previewClass).html(preview);
+        $('#cajeroDocumentosOpen').attr('href', url).removeClass('disabled');
+        this.documentoActualUrl = url;
+    },
+
+    obtenerExtension(path) {
+        const clean = String(path || '').split('?')[0].split('#')[0];
+        const parts = clean.split('.');
+        return parts.length > 1 ? String(parts.pop() || '').toLowerCase() : '';
     },
 
     acciones(value, row) {
