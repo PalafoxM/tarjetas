@@ -149,6 +149,26 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         text-align: left;
     }
 
+    .provider-formats-upload {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        width: 100%;
+        min-height: 70px;
+        padding: .85rem 1rem;
+        cursor: pointer;
+    }
+
+    .provider-formats-upload input[type="file"] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
     .provider-formats-link {
         display: inline-flex;
         align-items: center;
@@ -288,12 +308,22 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                         </div>
                                         <div class="col-12 col-xl-8">
                                             <div class="provider-formats-actions">
-                                                <button type="button" class="btn provider-formats-action" disabled>
-                                                    <i class="mdi mdi-file-document-outline me-1"></i> Encabezado factura
-                                                </button>
-                                                <button type="button" class="btn provider-formats-action" disabled>
-                                                    <i class="mdi mdi-file-table-box-outline me-1"></i> Formato PT
-                                                </button>
+                                                <label class="btn provider-formats-action provider-formats-upload" for="encabezado_factura_xml_<?= esc($idEst, 'attr') ?>">
+                                                    <i class="mdi mdi-file-xml-box me-1"></i> SUBIR XML
+                                                    <input
+                                                        id="encabezado_factura_xml_<?= esc($idEst, 'attr') ?>"
+                                                        name="encabezado_factura_xml[<?= esc($idEst, 'attr') ?>]"
+                                                        type="file"
+                                                        accept="application/xml,text/xml,.xml">
+                                                </label>
+                                                <label class="btn provider-formats-action provider-formats-upload" for="formato_pt_pdf_<?= esc($idEst, 'attr') ?>">
+                                                    <i class="mdi mdi-file-pdf-box me-1"></i> SUBIR PDF
+                                                    <input
+                                                        id="formato_pt_pdf_<?= esc($idEst, 'attr') ?>"
+                                                        name="formato_pt_pdf[<?= esc($idEst, 'attr') ?>]"
+                                                        type="file"
+                                                        accept="application/pdf,.pdf">
+                                                </label>
                                                 <button type="button" class="btn provider-formats-action" disabled>
                                                     <i class="mdi mdi-cash-check me-1"></i> Liberación de pago
                                                 </button>
