@@ -182,6 +182,7 @@ saeg.principal = (function () {
         var input = $('#filtro_dia_llegada');
         var estado = $('#filtro_dia_llegada_estado');
         var boton = $('#limpiar_filtro_dia_llegada');
+        var botonDescarga = $('#descargar_cajeros_xlsx');
 
         if (!input.length || !estado.length) {
             return;
@@ -193,6 +194,9 @@ saeg.principal = (function () {
             if (boton.length) {
                 boton.prop('disabled', true);
             }
+            if (botonDescarga.length) {
+                botonDescarga.addClass('d-none').prop('disabled', true);
+            }
             return;
         }
 
@@ -201,6 +205,9 @@ saeg.principal = (function () {
         estado.text('Mostrando ' + totalFiltrado + ' de ' + totalBase + ' folios para ' + this.formatearFechaDiaLlegada(dia) + '.');
         if (boton.length) {
             boton.prop('disabled', false);
+        }
+        if (botonDescarga.length) {
+            botonDescarga.removeClass('d-none').prop('disabled', false);
         }
     },
 
@@ -284,6 +291,7 @@ window.cajeros = {
         var input = $('#filtro_dia_llegada');
         var estado = $('#filtro_dia_llegada_estado');
         var boton = $('#limpiar_filtro_dia_llegada');
+        var botonDescarga = $('#descargar_cajeros_xlsx');
 
         if (!input.length || !estado.length) {
             return;
@@ -295,6 +303,9 @@ window.cajeros = {
             if (boton.length) {
                 boton.prop('disabled', true);
             }
+            if (botonDescarga.length) {
+                botonDescarga.addClass('d-none').prop('disabled', true);
+            }
             return;
         }
 
@@ -303,6 +314,9 @@ window.cajeros = {
         estado.text('Mostrando ' + totalFiltrado + ' de ' + totalBase + ' folios para ' + saeg.principal.formatearFechaDiaLlegada(dia) + '.');
         if (boton.length) {
             boton.prop('disabled', false);
+        }
+        if (botonDescarga.length) {
+            botonDescarga.removeClass('d-none').prop('disabled', false);
         }
     },
 
@@ -445,7 +459,53 @@ window.cajeros = {
         });
 
         this.inicializarFiltroDiaLlegada();
+        $('#descargar_cajeros_xlsx').off('click.exportarOrdenDia').on('click.exportarOrdenDia', function (event) {
+            event.preventDefault();
+            cajeros.descargarOrdenDiaXlsx();
+        });
 
+    },
+
+    descargarOrdenDiaXlsx: function () {
+        var pagina = document.getElementById('cajeroPage') || document.getElementById('usuariosPage');
+        var baseUrl = pagina ? String(pagina.dataset.exportXlsxUrl || '').trim() : '';
+        var dia = saeg.principal.normalizarFechaISO($('#filtro_dia_llegada').val());
+
+        if (!baseUrl || !dia) {
+            return;
+        }
+
+        this.descargarArchivoSinNavegar(baseUrl + '?dia_llegada=' + encodeURIComponent(dia));
+    },
+
+    descargarArchivoSinNavegar: function (url) {
+        url = String(url || '').trim();
+        if (!url) {
+            return;
+        }
+
+        if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+            window.FicLoading.hide();
+        }
+
+        var previousFrame = document.getElementById('ficDownloadFrame');
+        if (previousFrame && previousFrame.parentNode) {
+            previousFrame.setAttribute('src', 'about:blank');
+            previousFrame.parentNode.removeChild(previousFrame);
+        }
+
+        var iframe = document.createElement('iframe');
+        iframe.id = 'ficDownloadFrame';
+        iframe.style.display = 'none';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.src = url;
+        document.body.appendChild(iframe);
+
+        window.setTimeout(function () {
+            if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                window.FicLoading.hide();
+            }
+        }, 1000);
     },
 
     inicializarProveedorDashboard: function () {
@@ -455,6 +515,13 @@ window.cajeros = {
         this.inicializarSelect2();
         $('.crud-ui-upper').off('input.proveedor').on('input.proveedor', this.normalizarMayusculas.bind(this));
         $('.crud-ui-lower').off('input.proveedor').on('input.proveedor', this.normalizarMinusculas.bind(this));
+
+        $('#descargar_reporte_ventas_proveedor')
+            .off('click.reporteVentasProveedor')
+            .on('click.reporteVentasProveedor', function (event) {
+                event.preventDefault();
+                cajeros.descargarArchivoSinNavegar($(this).data('download-url') || this.href);
+            });
 
         $('#modalSolicitudPersonal')
             .off('show.bs.modal.proveedor hidden.bs.modal.proveedor')

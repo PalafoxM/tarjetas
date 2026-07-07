@@ -27,17 +27,25 @@
         text-align: left;
     }
 </style>
-<div class="container-fluid py-4" id="cajeroPage" data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>">
+<div class="container-fluid py-4"
+     id="cajeroPage"
+     data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>"
+     data-export-xlsx-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaXlsx'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white">Administración de cajeros</h3>
             <p class="text-muted mb-0">Consulta, registra, edita o elimina cajeros.</p>
         </div>
-       <?php if ($session->get('id_perfil') == 1): ?> 
-        <button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
-            <i class="mdi mdi-account-plus me-1"></i> Nuevo cajero
-        </button>
-        <?php endif; ?>
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx">
+                <i class="mdi mdi-download me-1"></i> Descargar orden del d&iacute;a
+            </button>
+            <?php if ($session->get('id_perfil') == 1): ?> 
+            <button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
+                <i class="mdi mdi-account-plus me-1"></i> Nuevo cajero
+            </button>
+            <?php endif; ?>
+        </div>
     </div>
 
     <div class="card">
@@ -209,6 +217,14 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         });
 
         this.inicializarFiltroDiaLlegada();
+        setTimeout(() => {
+            this.actualizarEstadoFiltroDiaLlegada();
+        }, 0);
+
+        $('#descargar_cajeros_xlsx').on('click', (event) => {
+            event.preventDefault();
+            this.descargarXlsx();
+        });
 
         if (window.bootstrap && bootstrap.Modal) {
             this.modal = new bootstrap.Modal(document.getElementById('cajeroModal'));
@@ -243,6 +259,45 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     moneda(value) {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
+    },
+
+    descargarXlsx() {
+        const pagina = document.getElementById('cajeroPage');
+        const baseUrl = pagina ? String(pagina.dataset.exportXlsxUrl || '').trim() : '';
+        if (!baseUrl) {
+            Swal.fire('Atención', 'No fue posible resolver la ruta de descarga.', 'warning');
+            return;
+        }
+
+        const dia = saeg.principal.normalizarFechaISO($('#filtro_dia_llegada').val());
+        const params = new URLSearchParams();
+        if (dia) {
+            params.set('dia_llegada', dia);
+        }
+
+        const href = params.toString() ? baseUrl + '?' + params.toString() : baseUrl;
+        if (typeof this.descargarArchivoSinNavegar === 'function') {
+            this.descargarArchivoSinNavegar(href);
+            return;
+        }
+
+        const previousFrame = document.getElementById('ficDownloadFrame');
+        if (previousFrame && previousFrame.parentNode) {
+            previousFrame.setAttribute('src', 'about:blank');
+            previousFrame.parentNode.removeChild(previousFrame);
+        }
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'ficDownloadFrame';
+        iframe.style.display = 'none';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.src = href;
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+            if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                window.FicLoading.hide();
+            }
+        }, 1000);
     },
 
     escapeHtml(value) {

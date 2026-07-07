@@ -6,10 +6,12 @@ use App\Libraries\Fechas;
 use App\Libraries\Funciones;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
+use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
 use stdClass;
 use CodeIgniter\API\ResponseTrait;
 require_once FCPATH . '/mpdf/autoload.php';
+require_once FCPATH . 'spout/src/Spout/Autoloader/autoload.php';
 class Inicio extends BaseController {
 
     use ResponseTrait;
@@ -302,6 +304,7 @@ class Inicio extends BaseController {
 
         $data['scripts'] = ['principal', 'agregar'];
         $data['contextoUsuario'] = $contextoUsuario;
+        $data['idEstablecimientoActual'] = $idEstablecimiento;
         $data['contentView'] = 'secciones/vProveedor';
         $this->_renderView($data);
     }
@@ -319,6 +322,68 @@ class Inicio extends BaseController {
     public function pdfProveedorLiberacionPago($idEstablecimiento = null)
     {
         return $this->renderProveedorFormatoPdf('liberacion_pago', (int) $idEstablecimiento);
+    }
+
+    public function exportarReporteVentasProveedorXlsx()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
+        }
+
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(401)->setBody('Sesión inválida.');
+        }
+
+        $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        if ($idEstablecimiento > 0) {
+            $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
+        }
+
+        $rows = array_values(is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : []);
+        $filename = 'reporte_ventas_proveedor_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.xlsx';
+
+        $writer = WriterEntityFactory::createXLSXWriter();
+        $writer->openToBrowser($filename);
+
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            'Folio',
+            'Establecimiento',
+            'Tipo',
+            'Método',
+            'Monto',
+            'Propina',
+            'Total',
+            'Estatus',
+            'Fecha',
+        ]));
+
+        foreach ($rows as $row) {
+            $fechaRegistro = trim((string) ($row['fec_reg'] ?? ''));
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                (string) ($row['folio_solicitud'] ?? ''),
+                (string) ($row['dsc_establecimiento'] ?? ''),
+                (string) ($row['dsc_tipo'] ?? ''),
+                (string) ($row['metodo_autorizacion'] ?? ''),
+                number_format((float) ($row['monto_consumo'] ?? $row['monto_solicitado'] ?? 0), 2, '.', ''),
+                number_format((float) ($row['propina'] ?? 0), 2, '.', ''),
+                number_format((float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0), 2, '.', ''),
+                (string) ($row['estatus'] ?? ''),
+                $fechaRegistro !== '' ? date('Y-m-d H:i:s', strtotime($fechaRegistro)) : '',
+            ]));
+        }
+
+        $writer->close();
+        exit;
     }
 
     public function Hospedaje()
