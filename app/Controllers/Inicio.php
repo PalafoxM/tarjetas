@@ -2661,13 +2661,13 @@ class Inicio extends BaseController {
         $ineFrontal = trim((string) ($usuario['ine_frontal'] ?? ''));
         $ineTrasera = trim((string) ($usuario['ine_trasera'] ?? ''));
         $firma = trim((string) ($usuario['firma'] ?? ''));
-        if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
+      /*   if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'El expediente está incompleto o falta el QR generado.',
             ]);
         }
-
+ */
         $service = new DepositosProgramadosService($db);
         $result = $service->activateQrAndApplyDeposits($idUsuario, (int) ($tiUsuario['id_usuario'] ?? 0));
         if (!empty($result->error)) {
