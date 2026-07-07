@@ -14,8 +14,14 @@ $routes->get('Inicio/ProveedorEstablecimiento/(:num)', 'Inicio::ProveedorEstable
 $routes->get('Inicio/Establecimiento/(:num)', 'Inicio::Establecimiento/$1');
 $routes->get('Inicio/Cajero', 'Inicio::Cajero');
 $routes->get('Inicio/ProveedorFormatos', 'Inicio::ProveedorFormatos');
+$routes->get('Inicio/FacturasFic', 'Inicio::FacturasFic');
+$routes->get('Inicio/getFacturasFic', 'Inicio::getFacturasFic');
+$routes->get('Inicio/verFacturaProveedorArchivo', 'Inicio::verFacturaProveedorArchivo');
+$routes->get('Inicio/pdfPagoTerceros', 'Inicio::pdfPagoTerceros');
+$routes->get('Inicio/pdfLiberacionPago', 'Inicio::pdfLiberacionPago');
 $routes->get('Inicio/exportarReporteVentasProveedorXlsx', 'Inicio::exportarReporteVentasProveedorXlsx');
 $routes->post('Inicio/guardarPagoSinQrProveedor', 'Inicio::guardarPagoSinQrProveedor');
+$routes->post('Inicio/enviarFacturaProveedor', 'Inicio::enviarFacturaProveedor');
 $routes->get('Inicio/pdfProveedorEncabezadoFactura/(:num)', 'Inicio::pdfProveedorEncabezadoFactura/$1');
 $routes->get('Inicio/pdfProveedorFormatoPT/(:num)', 'Inicio::pdfProveedorFormatoPT/$1');
 $routes->get('Inicio/pdfProveedorLiberacionPago/(:num)', 'Inicio::pdfProveedorLiberacionPago/$1');

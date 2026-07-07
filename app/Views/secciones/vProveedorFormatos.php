@@ -149,6 +149,26 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         text-align: left;
     }
 
+    .provider-formats-upload {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        width: 100%;
+        min-height: 70px;
+        padding: .85rem 1rem;
+        cursor: pointer;
+    }
+
+    .provider-formats-upload input[type="file"] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
     .provider-formats-link {
         display: inline-flex;
         align-items: center;
@@ -288,18 +308,32 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                         </div>
                                         <div class="col-12 col-xl-8">
                                             <div class="provider-formats-actions">
-                                                <button type="button" class="btn provider-formats-action" disabled>
-                                                    <i class="mdi mdi-file-document-outline me-1"></i> Encabezado factura
-                                                </button>
-                                                <button type="button" class="btn provider-formats-action" disabled>
-                                                    <i class="mdi mdi-file-table-box-outline me-1"></i> Formato PT
-                                                </button>
-                                                <button type="button" class="btn provider-formats-action" disabled>
-                                                    <i class="mdi mdi-cash-check me-1"></i> Liberación de pago
+                                                <label class="btn provider-formats-action provider-formats-upload" for="encabezado_factura_xml_<?= esc($idEst, 'attr') ?>">
+                                                    <i class="mdi mdi-file-xml-box me-1"></i> SUBIR XML
+                                                    <input
+                                                        id="encabezado_factura_xml_<?= esc($idEst, 'attr') ?>"
+                                                        name="encabezado_factura_xml[<?= esc($idEst, 'attr') ?>]"
+                                                        type="file"
+                                                        accept="application/xml,text/xml,.xml">
+                                                </label>
+                                                <label class="btn provider-formats-action provider-formats-upload" for="formato_pt_pdf_<?= esc($idEst, 'attr') ?>">
+                                                    <i class="mdi mdi-file-pdf-box me-1"></i> SUBIR PDF
+                                                    <input
+                                                        id="formato_pt_pdf_<?= esc($idEst, 'attr') ?>"
+                                                        name="formato_pt_pdf[<?= esc($idEst, 'attr') ?>]"
+                                                        type="file"
+                                                        accept="application/pdf,.pdf">
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    class="btn provider-formats-action js-enviar-factura"
+                                                    data-id-establecimiento="<?= esc($idEst, 'attr') ?>"
+                                                    disabled>
+                                                    <i class="mdi mdi-send-check-outline me-1"></i> Enviar factura
                                                 </button>
                                             </div>
                                             <div class="provider-formats-empty mt-3">
-                                                La estructura visual ya queda lista para enganchar los documentos PDF por establecimiento en el siguiente turno.
+                                                Selecciona el XML y el PDF de la factura para habilitar el envio.
                                             </div>
                                             <div class="provider-formats-actions mt-3">
                                                 <a
@@ -316,13 +350,6 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                     class="provider-formats-link">
                                                     <i class="mdi mdi-file-table-box-outline me-1"></i> Abrir formato PT
                                                 </a>
-                                                <a
-                                                    href="<?= esc(base_url('index.php/Inicio/pdfProveedorLiberacionPago/' . (int) $idEst), 'attr') ?>"
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                    class="provider-formats-link">
-                                                    <i class="mdi mdi-cash-check me-1"></i> Abrir liberacion de pago
-                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -337,3 +364,91 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         </section>
     </div>
 </div>
+
+<script>
+(function () {
+    function getFacturaInputs(idEstablecimiento) {
+        return {
+            xml: document.getElementById('encabezado_factura_xml_' + idEstablecimiento),
+            pdf: document.getElementById('formato_pt_pdf_' + idEstablecimiento),
+            button: document.querySelector('.js-enviar-factura[data-id-establecimiento="' + idEstablecimiento + '"]')
+        };
+    }
+
+    function fileMatches(file, extension, mimeTypes) {
+        if (!file) return false;
+        var name = String(file.name || '');
+        var type = String(file.type || '').toLowerCase();
+        return name.toLowerCase().endsWith(extension) || mimeTypes.indexOf(type) !== -1;
+    }
+
+    function updateEnviarFactura(idEstablecimiento) {
+        var controls = getFacturaInputs(idEstablecimiento);
+        if (!controls.button) return;
+
+        var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
+        var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+        var validXml = fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']);
+        var validPdf = fileMatches(pdfFile, '.pdf', ['application/pdf']);
+        controls.button.disabled = !(validXml && validPdf);
+    }
+
+    document.querySelectorAll('[id^="encabezado_factura_xml_"], [id^="formato_pt_pdf_"]').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var idEstablecimiento = this.id.replace('encabezado_factura_xml_', '').replace('formato_pt_pdf_', '');
+            updateEnviarFactura(idEstablecimiento);
+        });
+    });
+
+    document.querySelectorAll('.js-enviar-factura').forEach(function (button) {
+        button.addEventListener('click', function () {
+            var idEstablecimiento = this.getAttribute('data-id-establecimiento') || '';
+            var controls = getFacturaInputs(idEstablecimiento);
+            var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
+            var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+
+            if (!fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']) || !fileMatches(pdfFile, '.pdf', ['application/pdf'])) {
+                Swal.fire('Atencion', 'Selecciona un XML y un PDF validos.', 'warning');
+                return;
+            }
+
+            var data = new FormData();
+            data.append('id_establecimiento', idEstablecimiento);
+            data.append('xml', xmlFile);
+            data.append('pdf', pdfFile);
+
+            Swal.fire({
+                title: 'Enviando factura',
+                text: 'Espera un momento...',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: function () {
+                    Swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: '<?= esc(base_url('index.php/Inicio/enviarFacturaProveedor'), 'js') ?>',
+                type: 'POST',
+                dataType: 'json',
+                data: data,
+                processData: false,
+                contentType: false
+            }).done(function (response) {
+                if (!response || response.error) {
+                    Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible enviar la factura.', 'warning');
+                    return;
+                }
+
+                if (controls.xml) controls.xml.value = '';
+                if (controls.pdf) controls.pdf.value = '';
+                updateEnviarFactura(idEstablecimiento);
+                Swal.fire('Correcto', response.respuesta || 'Factura enviada correctamente.', 'success');
+            }).fail(function (request) {
+                var response = request.responseJSON || {};
+                Swal.fire('Error', response.respuesta || 'No fue posible enviar la factura.', 'error');
+            });
+        });
+    });
+})();
+</script>
