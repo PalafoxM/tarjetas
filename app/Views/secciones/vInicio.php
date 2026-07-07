@@ -75,9 +75,9 @@
             <div>
                 <span class="fic-access-card__category">Hospedaje</span>
                 <h2>Movimientos de hospedaje</h2>
-                <p>Consulta los movimientos de todos los hoteles con las mismas capacidades operativas del perfil de recepción.</p>
+                <p>Consulta los movimientos de los usuarios, llegadas, órdenes de hospedaje y alimentos.</p>
             </div>
-            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Hospedaje') ?>">
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Cajero') ?>">
                 Ver hospedajes
             </a>
         </article>

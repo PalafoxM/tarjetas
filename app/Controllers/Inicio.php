@@ -400,6 +400,22 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function Cajero()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+
+        if (empty($tiUsuario)) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['cajeroAccesoTiInicio'] = true;
+        $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
+        $data['contentView'] = 'secciones/vCajero';
+        $this->_renderView($data);
+    }
+
     public function PartidasFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();

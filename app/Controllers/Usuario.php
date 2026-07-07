@@ -1422,7 +1422,7 @@ class Usuario extends BaseController
         ]);
     }
 
-    public function generarPdfHospedaje($id_usuario)
+    public function generarPdfOrden($id_usuario)
     {
         $response = $this->globals->getTabla([
             'tabla' => 'vw_usuario',
@@ -1436,7 +1436,7 @@ class Usuario extends BaseController
         $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
         $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
 
-        $html = view('pdfs/vpdfOrdenHospedaje', $pdfData);
+        $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
         $mpdf = new \Mpdf\Mpdf([
             'format' => 'Letter',
             'margin_top' => 18,
@@ -1446,35 +1446,20 @@ class Usuario extends BaseController
             'default_font' => 'dejavusans',
             'tempDir' => $this->getMpdfOrdenesTempDir(),
         ]);
-        $mpdf->SetTitle('Orden de hospedaje');
+        $mpdf->SetTitle('Orden FIC');
         $mpdf->WriteHTML($html);
-        $mpdf->Output('orden-hospedaje-' . (int) $id_usuario . '.pdf', 'I');
+        $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
         exit;
+    }
+
+    public function generarPdfHospedaje($id_usuario)
+    {
+        return $this->generarPdfOrden($id_usuario);
     }
 
     public function generarPdfAlimentos($id_usuario)
     {
-        $response = $this->globals->getTabla([
-            'tabla' => 'vw_usuario',
-            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
-        ]);
-        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
-        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
-
-        $html = view('pdfs/vpdfOrdenAlimentos', $pdfData);
-        $mpdf = new \Mpdf\Mpdf([
-            'format' => 'Letter',
-            'margin_top' => 18,
-            'margin_bottom' => 18,
-            'margin_left' => 16,
-            'margin_right' => 16,
-            'default_font' => 'dejavusans',
-            'tempDir' => $this->getMpdfOrdenesTempDir(),
-        ]);
-        $mpdf->SetTitle('Orden de alimentos');
-        $mpdf->WriteHTML($html);
-        $mpdf->Output('orden-alimentos-' . (int) $id_usuario . '.pdf', 'I');
-        exit;
+        return $this->generarPdfOrden($id_usuario);
     }
 
     public function getRecepcion()

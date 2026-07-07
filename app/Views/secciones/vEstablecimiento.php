@@ -349,7 +349,7 @@ window.establecimientos = {
 
     verOrden: function (idUsuario) {
         if (!idUsuario) return;
-        window.open(base_url + 'index.php/Usuario/generarPdfHospedaje/' + idUsuario, '_blank');
+        window.open(base_url + 'index.php/Usuario/generarPdfOrden/' + idUsuario, '_blank');
     },
 
     confirmarCheckIn: function (idUsuario, nombre_completo) {

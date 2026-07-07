@@ -1,4 +1,8 @@
-<?php $session = \Config\Services::session(); ?>
+<?php
+$session = \Config\Services::session();
+$cajeroAccesoTiInicio = !empty($cajeroAccesoTiInicio);
+$cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
+?>
 <style>
     .cajero-doc-preview {
         min-height: 320px;
@@ -37,6 +41,11 @@
             <p class="text-muted mb-0">Consulta, registra, edita o elimina cajeros.</p>
         </div>
         <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <?php if ($cajeroAccesoTiInicio): ?>
+            <a href="<?= esc($cajeroRegresarUrl, 'attr') ?>" class="btn btn-outline-secondary">
+                <i class="mdi mdi-arrow-left me-1"></i> Atrás
+            </a>
+            <?php endif; ?>
             <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx">
                 <i class="mdi mdi-download me-1"></i> Descargar orden del d&iacute;a
             </button>
