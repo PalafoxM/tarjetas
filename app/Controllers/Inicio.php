@@ -590,6 +590,129 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function FacturasFic()
+    {
+        $session = \Config\Services::session();
+        if ((int) ($session->id_perfil ?? 0) !== 1) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['facturasListadoUrl'] = base_url('index.php/Inicio/getFacturasFic');
+        $data['facturasArchivoUrl'] = base_url('index.php/Inicio/verFacturaProveedorArchivo');
+        $data['contentView'] = 'secciones/vFacturasFic';
+        $this->_renderView($data);
+    }
+
+    public function getFacturasFic()
+    {
+        $session = \Config\Services::session();
+        if ((int) ($session->id_perfil ?? 0) !== 1) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'total' => 0,
+                'rows' => [],
+                'error' => true,
+                'respuesta' => 'No tienes permisos para consultar facturas.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('facturas')) {
+            return $this->response->setJSON([
+                'total' => 0,
+                'rows' => [],
+            ]);
+        }
+
+        $rows = $db->table('facturas f')
+            ->select('
+                f.id_factura,
+                f.xml,
+                f.pdf,
+                f.id_estableciemiento AS id_establecimiento,
+                f.id_estatus,
+                f.fec_reg,
+                f.usu_reg,
+                f.visible,
+                e.dsc_establecimiento,
+                e.no_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->join('establecimiento e', 'e.id_establecimiento = f.id_estableciemiento', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('f.visible', 1)
+            ->orderBy('f.fec_reg', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        $mapped = array_map(static function (array $row): array {
+            $idEstatus = (int) ($row['id_estatus'] ?? 0);
+            return [
+                'id_factura' => (int) ($row['id_factura'] ?? 0),
+                'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+                'establecimiento' => (string) ($row['dsc_establecimiento'] ?? 'Sin establecimiento'),
+                'no_proveedor' => (string) ($row['no_proveedor'] ?? ''),
+                'proveedor' => (string) ($row['razon_social'] ?? 'Sin proveedor'),
+                'rfc' => (string) ($row['rfc'] ?? ''),
+                'id_estatus' => $idEstatus,
+                'estatus' => $idEstatus === 1 ? 'Registrada' : 'Estatus ' . $idEstatus,
+                'fec_reg' => (string) ($row['fec_reg'] ?? ''),
+                'usu_reg' => (int) ($row['usu_reg'] ?? 0),
+                'tiene_xml' => trim((string) ($row['xml'] ?? '')) !== '' ? 1 : 0,
+                'tiene_pdf' => trim((string) ($row['pdf'] ?? '')) !== '' ? 1 : 0,
+            ];
+        }, $rows);
+
+        return $this->response->setJSON([
+            'total' => count($mapped),
+            'rows' => $mapped,
+        ]);
+    }
+
+    public function verFacturaProveedorArchivo()
+    {
+        $session = \Config\Services::session();
+        if ((int) ($session->id_perfil ?? 0) !== 1) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar facturas.');
+        }
+
+        $idFactura = (int) ($this->request->getGet('id_factura') ?? 0);
+        $tipo = strtolower(trim((string) ($this->request->getGet('tipo') ?? '')));
+        if ($idFactura <= 0 || !in_array($tipo, ['xml', 'pdf'], true)) {
+            return $this->response->setStatusCode(422)->setBody('Solicitud invalida.');
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('facturas')) {
+            return $this->response->setStatusCode(404)->setBody('No existe la tabla facturas.');
+        }
+
+        $factura = $db->table('facturas')
+            ->select('id_factura, xml, pdf, visible')
+            ->where('id_factura', $idFactura)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($factura)) {
+            return $this->response->setStatusCode(404)->setBody('Factura no encontrada.');
+        }
+
+        $archivo = trim((string) ($factura[$tipo] ?? ''));
+        if ($archivo === '') {
+            return $this->response->setStatusCode(404)->setBody('Archivo no disponible.');
+        }
+
+        $url = $this->buildS3PresignedGetUrl($archivo, 300);
+        if ($url === '') {
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el acceso temporal al archivo.');
+        }
+
+        return redirect()->to($url);
+    }
+
 
     public function PerfilFic()
     {
