@@ -257,7 +257,8 @@ class Mglobal extends Model {
         if ($result->error === false) {
             $response->error = false;
             $response->respuesta = $result->respuesta ?? 'Registro guardado correctamente';
-            $response->idRegistro = $result->idRegistro;
+            $idEditarValues = $config['editar'] ? array_values($config['idEditar']) : [];
+            $response->idRegistro = $result->idRegistro ?? ($idEditarValues[0] ?? null);
         } else {
             $response->respuesta = $result->respuesta ?? 'Error | No se pudo guardar el registro';
             if (isset($result->errorDB)) {

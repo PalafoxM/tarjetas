@@ -1032,24 +1032,28 @@ class Usuario extends BaseController
                 );
             }
 
-            $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0]);
-            if ($qrPath !== null) {
-                $this->globals->saveTabla(
-                    [
-                        'qr' => $qrPath,
-                        'fec_act' => $fechaAhora,
-                        'usu_act' => $idSesionUsuario,
-                    ],
-                    [
-                        'tabla' => 'usuario',
-                        'editar' => true,
-                        'idEditar' => ['id_usuario' => $idUsuario],
-                    ],
-                    [
-                        'id_user' => $idSesionUsuario,
-                        'script' => $scriptName . '.qr',
-                    ]
-                );
+            try {
+                $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0]);
+                if ($qrPath !== null) {
+                    $this->globals->saveTabla(
+                        [
+                            'qr' => $qrPath,
+                            'fec_act' => $fechaAhora,
+                            'usu_act' => $idSesionUsuario,
+                        ],
+                        [
+                            'tabla' => 'usuario',
+                            'editar' => true,
+                            'idEditar' => ['id_usuario' => $idUsuario],
+                        ],
+                        [
+                            'id_user' => $idSesionUsuario,
+                            'script' => $scriptName . '.qr',
+                        ]
+                    );
+                }
+            } catch (\Throwable $e) {
+                log_message('error', 'Usuario.saveAltaUsuario.qr: ' . $e->getMessage());
             }
 
             return $this->respond([
