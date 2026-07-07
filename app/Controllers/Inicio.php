@@ -21,6 +21,7 @@ class Inicio extends BaseController {
         'contentView' => 'vUndefined',
         'stylecss' => '',
     );
+    private $lastS3Error = '';
     public function __construct()
     {
         setlocale(LC_TIME, 'es_ES.utf8', 'es_MX.UTF-8', 'es_MX', 'esp_esp', 'Spanish'); // usar solo LC_TIME para evitar que los decimales los separe con coma en lugar de punto y fallen los inserts de peso y talla
@@ -278,6 +279,140 @@ class Inicio extends BaseController {
         $data['contextoUsuario'] = $contextoUsuario;
         $data['contentView'] = 'secciones/vProveedorFormatos';
         $this->_renderView($data);
+    }
+
+    public function enviarFacturaProveedor()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'No tienes permisos para enviar facturas.',
+            ]);
+        }
+
+        $idEstablecimiento = (int) ($this->request->getPost('id_establecimiento') ?? 0);
+        if ($idEstablecimiento <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona un establecimiento valido.',
+            ]);
+        }
+
+        $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
+        $establecimientosPermitidos = array_map(static function ($item): int {
+            $row = is_object($item) ? get_object_vars($item) : (array) $item;
+            return (int) ($row['id_establecimiento'] ?? 0);
+        }, is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []);
+
+        if (!in_array($idEstablecimiento, $establecimientosPermitidos, true)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'El establecimiento no pertenece al proveedor en sesion.',
+            ]);
+        }
+
+        $xml = $this->request->getFile('xml');
+        $pdf = $this->request->getFile('pdf');
+        if (!$xml || !$xml->isValid() || !$pdf || !$pdf->isValid()) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona el XML y el PDF de la factura.',
+            ]);
+        }
+
+        $xmlExtension = strtolower((string) $xml->getClientExtension());
+        $pdfExtension = strtolower((string) $pdf->getClientExtension());
+        if ($xmlExtension !== 'xml') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El archivo de encabezado debe ser XML.',
+            ]);
+        }
+
+        if ($pdfExtension !== 'pdf') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El formato PT debe ser PDF.',
+            ]);
+        }
+
+        if ($xml->getSize() > 10 * 1024 * 1024 || $pdf->getSize() > 10 * 1024 * 1024) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Cada archivo debe pesar maximo 10 MB.',
+            ]);
+        }
+
+        $tmpDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'facturas';
+        if (!is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0775, true);
+        }
+
+        if (!is_dir($tmpDir) || !is_writable($tmpDir)) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No se puede escribir el archivo temporal.',
+            ]);
+        }
+
+        $timestamp = date('YmdHis');
+        $suffix = bin2hex(random_bytes(4));
+        $xmlName = 'factura_' . $idEstablecimiento . '_' . $timestamp . '_' . $suffix . '.xml';
+        $pdfName = 'factura_' . $idEstablecimiento . '_' . $timestamp . '_' . $suffix . '.pdf';
+        $xml->move($tmpDir, $xmlName, true);
+        $pdf->move($tmpDir, $pdfName, true);
+
+        $xmlPath = $tmpDir . DIRECTORY_SEPARATOR . $xmlName;
+        $pdfPath = $tmpDir . DIRECTORY_SEPARATOR . $pdfName;
+        $prefix = 'ACTIVAVIONESFIC/FACTURAS';
+        $xmlUrl = $this->uploadFileToS3($xmlPath, $prefix . '/' . $xmlName, 'application/xml');
+        $pdfUrl = $this->uploadFileToS3($pdfPath, $prefix . '/' . $pdfName, 'application/pdf');
+        @unlink($xmlPath);
+        @unlink($pdfPath);
+
+        if ($xmlUrl === null || $pdfUrl === null) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No fue posible subir la factura a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('facturas')) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No existe la tabla facturas.',
+            ]);
+        }
+
+        $guardado = $db->table('facturas')->insert([
+            'xml' => $xmlUrl,
+            'pdf' => $pdfUrl,
+            'id_estableciemiento' => $idEstablecimiento,
+            'id_estatus' => 1,
+            'fec_reg' => date('Y-m-d H:i:s'),
+            'usu_reg' => (int) ($session->get('id_usuario') ?? 0),
+            'visible' => 1,
+        ]);
+
+        if (!$guardado) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'Los archivos subieron a S3, pero no se pudo guardar la factura.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'error' => false,
+            'respuesta' => 'Factura enviada correctamente.',
+            'id_factura' => (int) $db->insertID(),
+            'xml' => $xmlUrl,
+            'pdf' => $pdfUrl,
+        ]);
     }
 
     public function ProveedorEstablecimiento($idEstablecimiento = null)
@@ -2829,6 +2964,183 @@ class Inicio extends BaseController {
         }
 
         return redirect()->to($url);
+    }
+
+    private function uploadFileToS3(string $absolutePath, string $objectKey, string $contentType): ?string
+    {
+        $this->lastS3Error = '';
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            $this->lastS3Error = 'No se puede leer el archivo temporal.';
+            log_message('error', 'Inicio.uploadFileToS3: local file is not readable: ' . $absolutePath);
+            return null;
+        }
+
+        $bucket = $this->envFirst(['AWS_BUCKET', 'AWS_S3_BUCKET', 'S3_BUCKET', 'S3_BUCKET_NAME']);
+        $region = $this->envFirst(['AWS_REGION', 'AWS_DEFAULT_REGION', 'S3_REGION'], 'us-east-1');
+        $accessKey = $this->envFirst(['AWS_ACCESS_KEY_ID', 'AWS_ACCESS_KEY', 'S3_ACCESS_KEY', 'S3_KEY']);
+        $secretKey = $this->envFirst(['AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'S3_SECRET_KEY', 'S3_SECRET']);
+        $sessionToken = $this->envFirst(['AWS_SESSION_TOKEN', 'S3_SESSION_TOKEN']);
+        $acl = $this->envFirst(['AWS_S3_ACL', 'S3_ACL']);
+
+        if ($bucket === '' || $accessKey === '' || $secretKey === '') {
+            $this->lastS3Error = 'Faltan variables de S3 en .env: bucket, access key o secret key.';
+            log_message('error', 'Inicio.uploadFileToS3: missing S3 env vars.');
+            return null;
+        }
+
+        $body = file_get_contents($absolutePath);
+        if ($body === false) {
+            $this->lastS3Error = 'No se pudo leer el contenido del archivo temporal.';
+            log_message('error', 'Inicio.uploadFileToS3: could not read local file body.');
+            return null;
+        }
+
+        $encodedKey = $this->encodeS3Key($objectKey);
+        $host = $region === 'us-east-1'
+            ? $bucket . '.s3.amazonaws.com'
+            : $bucket . '.s3.' . $region . '.amazonaws.com';
+        $url = 'https://' . $host . '/' . $encodedKey;
+
+        $payloadHash = hash('sha256', $body);
+        $amzDate = gmdate('Ymd\THis\Z');
+        $dateStamp = gmdate('Ymd');
+
+        $headers = [
+            'content-type' => $contentType,
+            'host' => $host,
+            'x-amz-content-sha256' => $payloadHash,
+            'x-amz-date' => $amzDate,
+        ];
+
+        if ($acl !== '') {
+            $headers['x-amz-acl'] = $acl;
+        }
+
+        if ($sessionToken !== '') {
+            $headers['x-amz-security-token'] = $sessionToken;
+        }
+
+        ksort($headers);
+        $canonicalHeaders = '';
+        foreach ($headers as $name => $value) {
+            $canonicalHeaders .= $name . ':' . trim((string) $value) . "\n";
+        }
+        $signedHeaders = implode(';', array_keys($headers));
+
+        $canonicalRequest = implode("\n", [
+            'PUT',
+            '/' . $encodedKey,
+            '',
+            $canonicalHeaders,
+            $signedHeaders,
+            $payloadHash,
+        ]);
+
+        $credentialScope = $dateStamp . '/' . $region . '/s3/aws4_request';
+        $stringToSign = implode("\n", [
+            'AWS4-HMAC-SHA256',
+            $amzDate,
+            $credentialScope,
+            hash('sha256', $canonicalRequest),
+        ]);
+
+        $signingKey = $this->getAwsSignatureKey($secretKey, $dateStamp, $region, 's3');
+        $signature = hash_hmac('sha256', $stringToSign, $signingKey);
+        $authorization = 'AWS4-HMAC-SHA256 Credential=' . $accessKey . '/' . $credentialScope . ', SignedHeaders=' . $signedHeaders . ', Signature=' . $signature;
+
+        $requestHeaders = [];
+        foreach ($headers as $name => $value) {
+            $requestHeaders[] = $name . ': ' . $value;
+        }
+        $requestHeaders[] = 'Authorization: ' . $authorization;
+        $requestHeaders[] = 'Content-Length: ' . strlen($body);
+
+        if (!function_exists('curl_init')) {
+            $this->lastS3Error = 'La extension cURL de PHP no esta disponible.';
+            log_message('error', 'Inicio.uploadFileToS3: cURL extension is not available.');
+            return null;
+        }
+
+        $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
+        $sslVerify = !in_array($sslVerifyValue, ['0', 'false', 'no'], true);
+        $curlOptions = [
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => $requestHeaders,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+        ];
+
+        $caInfo = $this->resolveCurlCaInfo();
+        if ($sslVerify && $caInfo !== '') {
+            $curlOptions[CURLOPT_CAINFO] = $caInfo;
+        }
+
+        $curl = curl_init($url);
+        curl_setopt_array($curl, $curlOptions);
+
+        $rawResponse = curl_exec($curl);
+        $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($curl);
+        curl_close($curl);
+
+        if ($rawResponse === false || $httpCode < 200 || $httpCode >= 300) {
+            $this->lastS3Error = trim('HTTP ' . $httpCode . ' ' . $curlError . ' ' . $this->extractS3ErrorMessage((string) $rawResponse));
+            log_message('error', 'Inicio.uploadFileToS3: upload failed. HTTP ' . $httpCode . ' ' . $curlError . ' Response: ' . substr((string) $rawResponse, 0, 500));
+            return null;
+        }
+
+        $publicBaseUrl = rtrim($this->envFirst(['AWS_S3_PUBLIC_URL', 'S3_PUBLIC_URL']), '/');
+        if ($publicBaseUrl !== '') {
+            return $publicBaseUrl . '/' . $encodedKey;
+        }
+
+        return $url;
+    }
+
+    private function extractS3ErrorMessage(string $rawResponse): string
+    {
+        if ($rawResponse === '') {
+            return '';
+        }
+
+        if (preg_match('/<Code>([^<]+)<\/Code>.*<Message>([^<]+)<\/Message>/s', $rawResponse, $matches)) {
+            return trim($matches[1] . ': ' . html_entity_decode($matches[2], ENT_QUOTES | ENT_XML1, 'UTF-8'));
+        }
+
+        return '';
+    }
+
+    private function resolveCurlCaInfo(): string
+    {
+        $configured = $this->envFirst(['AWS_CA_BUNDLE', 'CURL_CA_BUNDLE', 'SSL_CERT_FILE']);
+        if ($configured !== '' && is_file($configured)) {
+            return $configured;
+        }
+
+        $iniCandidates = [ini_get('curl.cainfo'), ini_get('openssl.cafile')];
+        foreach ($iniCandidates as $candidate) {
+            if (is_string($candidate) && $candidate !== '' && is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        $fileCandidates = [
+            ROOTPATH . 'cacert.pem',
+            WRITEPATH . 'cacert.pem',
+            'C:\wamp64\apps\phpmyadmin5.2.1\vendor\composer\ca-bundle\res\cacert.pem',
+        ];
+
+        foreach ($fileCandidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 
     private function buildS3PresignedGetUrl(string $storedPath, int $expires = 300): string
