@@ -126,7 +126,7 @@ $facturasArchivoUrl = (string) ($facturasArchivoUrl ?? base_url('index.php/Inici
 window.facturasFic = {
     archivoUrl: '<?= esc($facturasArchivoUrl, 'js') ?>',
     pdfPagoTercerosUrl: '<?= esc(base_url('index.php/Inicio/pdfPagoTerceros'), 'js') ?>',
-    liberacionPagoUrl: '<?= esc(base_url('index.php/Inicio/liberacionPago'), 'js') ?>',
+    liberacionPagoUrl: '<?= esc(base_url('index.php/Inicio/pdfLiberacionPago'), 'js') ?>',
 
     responseHandler: function (response) {
         if (Array.isArray(response)) return response;
@@ -155,11 +155,17 @@ window.facturasFic = {
 
         var xmlDisabled = Number(row.tiene_xml || 0) === 1 ? '' : ' disabled';
         var pdfDisabled = Number(row.tiene_pdf || 0) === 1 ? '' : ' disabled';
+        var pagoTercerosButton = Number(row.tiene_pdf || 0) === 1
+            ? '<a target="_blank" href="' + facturasFic.pdfPagoTercerosUrl + '?id_factura=' + encodeURIComponent(id) + '" class="btn btn-outline-info" title="Hoja Azul"><i class="mdi mdi-file-pdf-box"></i></a>'
+            : '<button type="button" class="btn btn-outline-info" title="Hoja Azul" disabled><i class="mdi mdi-file-pdf-box"></i></button>';
+        var liberacionButton = Number(row.tiene_pdf || 0) === 1
+            ? '<a target="_blank" href="' + facturasFic.liberacionPagoUrl + '?id_factura=' + encodeURIComponent(id) + '" class="btn btn-outline-primary" title="Liberacion de Pago"><i class="mdi mdi-file-check-outline"></i></a>'
+            : '<button type="button" class="btn btn-outline-primary" title="Liberacion de Pago" disabled><i class="mdi mdi-file-check-outline"></i></button>';
         return '<div class="btn-group btn-group-sm" role="group">' +
             '<button type="button" class="btn btn-outline-info" title="Ver XML"' + xmlDisabled + ' onclick="facturasFic.abrirArchivo(' + id + ', \'xml\')"><i class="mdi mdi-file-xml-box"></i></button>' +
             '<button type="button" class="btn btn-outline-danger" title="Ver PDF"' + pdfDisabled + ' onclick="facturasFic.abrirArchivo(' + id + ', \'pdf\')"><i class="mdi mdi-file-pdf-box"></i></button>' +
-            '<a href="' + facturasFic.pdfPagoTercerosUrl + '?id_factura=' + encodeURIComponent(id) + '" class="btn btn-outline-info" title="Hoja Azul"' + pdfDisabled + '><i class="mdi mdi-file-pdf-box"></i></a>' +
-            '<a href="' + facturasFic.liberacionPagoUrl + '?id_factura=' + encodeURIComponent(id) + '" class="btn btn-outline-primary" title="Liberación de Pago"' + pdfDisabled + '><i class="mdi mdi-file-pdf-box"></i></a>' +
+            pagoTercerosButton +
+            liberacionButton +
             '</div>';
     },
 

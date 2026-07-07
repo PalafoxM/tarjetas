@@ -2746,6 +2746,259 @@ class Inicio extends BaseController {
         ]);
     }
 
+    public function pdfPagoTerceros()
+    {
+        $id = (int) ($this->request->getGet('id_factura') ?? $this->request->getGet('id') ?? 0);
+        $data = $this->buildFacturaFormatoData($id);
+        if ($data === null) {
+            return $this->response->setStatusCode(404)->setBody('Factura no encontrada.');
+        }
+
+        $html = view('pdfs/vPdfFormatoPT', $data);
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_top' => 10,
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_bottom' => 10,
+            'format' => 'Letter',
+            'tempDir' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'mpdf'
+        ]);
+        
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('FormatPagoTerceros_' . $id . '.pdf', 'I');
+        exit;
+    }
+
+    public function pdfLiberacionPago()
+    {
+        $id = (int) ($this->request->getGet('id_factura') ?? $this->request->getGet('id') ?? 0);
+        $data = $this->buildFacturaFormatoData($id);
+        if ($data === null) {
+            return $this->response->setStatusCode(404)->setBody('Factura no encontrada.');
+        }
+
+        $data['norma'] = FCPATH . 'assets/Norma.png';
+        $html = view('pdfs/vPdfLiberacionPago', $data);
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_top' => 10,
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_bottom' => 10,
+            'format' => 'Letter',
+            'tempDir' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'mpdf'
+        ]);
+        
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('LiberacionPago_' . $id . '.pdf', 'I');
+        exit;
+      
+    }
+
+    private function buildFacturaFormatoData(int $idFactura): ?array
+    {
+        if ($idFactura <= 0) {
+            return null;
+        }
+
+        $session = \Config\Services::session();
+        if ((int) ($session->id_perfil ?? 0) !== 1) {
+            return null;
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('facturas')) {
+            return null;
+        }
+
+        $factura = $db->table('facturas f')
+            ->select('
+                f.id_factura,
+                f.xml,
+                f.pdf,
+                f.id_estableciemiento AS id_establecimiento,
+                f.id_estatus,
+                f.fec_reg,
+                f.usu_reg,
+                e.dsc_establecimiento,
+                e.no_proveedor,
+                p.id_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->join('establecimiento e', 'e.id_establecimiento = f.id_estableciemiento', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('f.id_factura', $idFactura)
+            ->where('f.visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($factura)) {
+            return null;
+        }
+
+        $xmlInfo = $this->extractFacturaXmlInfo((string) ($factura['xml'] ?? ''));
+        $fecha = $xmlInfo['fecha'] !== '' ? $xmlInfo['fecha'] : (string) ($factura['fec_reg'] ?? date('Y-m-d H:i:s'));
+        $folio = $xmlInfo['folio'] !== '' ? $xmlInfo['folio'] : ('FAC-' . $idFactura);
+        $total = $xmlInfo['total'] > 0 ? $xmlInfo['total'] : 0.00;
+        $proveedorNombre = $xmlInfo['emisor_nombre'] !== '' ? $xmlInfo['emisor_nombre'] : (string) ($factura['razon_social'] ?? 'Proveedor');
+        $proveedorRfc = $xmlInfo['emisor_rfc'] !== '' ? $xmlInfo['emisor_rfc'] : (string) ($factura['rfc'] ?? '');
+        $concepto = $xmlInfo['concepto'] !== '' ? $xmlInfo['concepto'] : 'Servicios registrados en factura';
+        $partida = '3390';
+        $proyecto = 'FIC';
+
+        $registro = (object) [
+            'fecha_tramite' => $fecha,
+            'no_consecutivo' => $folio,
+            'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
+            'rfc_proveedor' => $proveedorRfc,
+            'nombre_proveedor_1' => $proveedorNombre,
+            'no_cuenta' => '',
+            'banco' => '',
+            'clabe' => '',
+            'no_convenio' => 'NO APLICA',
+            'no_reserva' => '',
+            'importe_total_num' => number_format($total, 2, '.', ','),
+            'importe_letra' => $total > 0 ? ('IMPORTE POR $' . number_format($total, 2, '.', ',') . ' M.N.') : '',
+            'nombre_autoriza' => '',
+            'cargo_autoriza' => '',
+            'nombre_responsable' => '',
+            'cargo_responsable' => '',
+            'nombre_responsable_2' => 'RESPONSABLE ADMINISTRATIVO',
+            'cargo_responsable_2' => 'COMISION DE ALIMENTOS Y HOSPEDAJES',
+            'clausula' => 'NO APLICA',
+            'concepto' => $concepto,
+            'id_factura' => $idFactura,
+            'id_establecimiento' => (int) ($factura['id_establecimiento'] ?? 0),
+            'establecimiento' => (string) ($factura['dsc_establecimiento'] ?? ''),
+        ];
+
+        $row = (object) [
+            'no_comprobante' => $folio,
+            'proyecto' => $proyecto,
+            'dsc_proyecto' => 'Festival Internacional Cervantino',
+            'partida' => $partida,
+            'dsc_partida' => 'Servicios integrales',
+            'importe' => number_format($total, 2, '.', ','),
+            'nombre_proveedor_1' => $proveedorNombre,
+        ];
+
+        return [
+            'registro_pt' => $registro,
+            'periodo_factura_rows' => [$row],
+            'proveedor' => (object) [
+                'id_proveedor' => (int) ($factura['id_proveedor'] ?? 0),
+                'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
+                'razon_social' => $proveedorNombre,
+                'rfc' => $proveedorRfc,
+            ],
+            'factura' => (object) $factura,
+            'edit' => 1,
+            'logo' => FCPATH . 'assets/logo-guanajuato.png',
+        ];
+    }
+
+    private function extractFacturaXmlInfo(string $storedXml): array
+    {
+        $info = [
+            'folio' => '',
+            'fecha' => '',
+            'total' => 0.00,
+            'emisor_nombre' => '',
+            'emisor_rfc' => '',
+            'concepto' => '',
+        ];
+
+        $xmlBody = $this->readStoredFileContents($storedXml);
+        if ($xmlBody === '') {
+            return $info;
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($xmlBody);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$xml) {
+            return $info;
+        }
+
+        $attrs = $xml->attributes();
+        $serie = trim((string) ($attrs['Serie'] ?? ''));
+        $folio = trim((string) ($attrs['Folio'] ?? ''));
+        $info['folio'] = trim($serie . ($serie !== '' && $folio !== '' ? '-' : '') . $folio);
+        $info['fecha'] = trim((string) ($attrs['Fecha'] ?? ''));
+        $info['total'] = (float) ($attrs['Total'] ?? 0);
+
+        $namespaces = $xml->getNamespaces(true);
+        $cfdiNs = $namespaces['cfdi'] ?? null;
+        $root = $cfdiNs ? $xml->children($cfdiNs) : $xml;
+        $emisor = $root->Emisor ?? null;
+        if ($emisor) {
+            $emisorAttrs = $emisor->attributes();
+            $info['emisor_nombre'] = trim((string) ($emisorAttrs['Nombre'] ?? ''));
+            $info['emisor_rfc'] = trim((string) ($emisorAttrs['Rfc'] ?? ''));
+        }
+
+        $conceptos = [];
+        if (isset($root->Conceptos)) {
+            foreach ($root->Conceptos->Concepto as $concepto) {
+                $conceptoAttrs = $concepto->attributes();
+                $descripcion = trim((string) ($conceptoAttrs['Descripcion'] ?? ''));
+                if ($descripcion !== '') {
+                    $conceptos[] = $descripcion;
+                }
+            }
+        }
+        $info['concepto'] = implode(', ', array_unique($conceptos));
+
+        if ($info['folio'] === '') {
+            $info['folio'] = 'XML-' . substr(sha1($xmlBody), 0, 8);
+        }
+
+        return $info;
+    }
+
+    private function readStoredFileContents(string $storedPath): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '') {
+            return '';
+        }
+
+        $url = $this->buildS3PresignedGetUrl($storedPath, 300);
+        if ($url === '') {
+            return '';
+        }
+
+        if (!function_exists('curl_init')) {
+            $body = @file_get_contents($url);
+            return is_string($body) ? $body : '';
+        }
+
+        $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
+        $sslVerify = !in_array($sslVerifyValue, ['0', 'false', 'no'], true);
+        $curl = curl_init($url);
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+        ];
+        $caInfo = $this->resolveCurlCaInfo();
+        if ($sslVerify && $caInfo !== '') {
+            $options[CURLOPT_CAINFO] = $caInfo;
+        }
+        curl_setopt_array($curl, $options);
+        $body = curl_exec($curl);
+        $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        return is_string($body) && $httpCode >= 200 && $httpCode < 300 ? $body : '';
+    }
+
+
     public function SolicitudesUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
