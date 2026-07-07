@@ -454,9 +454,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
         let botones = `
             <div class="cajero-actions">
-                <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${idUsuario})">
-                    <i class="mdi mdi-account-edit"></i>
-                </button>
+              
                 <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
