@@ -12,6 +12,11 @@ $solicitudPago = array_values(array_map(static function ($item) {
     return is_object($item) ? get_object_vars($item) : (array) $item;
 }, is_array($solicitudPago ?? null) ? $solicitudPago : []));
 $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars($ventasCorteContexto) : (is_array($ventasCorteContexto ?? null) ? $ventasCorteContexto : []);
+$idEstablecimientoActual = (int) ($idEstablecimientoActual ?? 0);
+$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorXlsx');
+if ($idEstablecimientoActual > 0) {
+    $reporteVentasUrl .= '?id_establecimiento=' . $idEstablecimientoActual;
+}
 
 $pagosTotales = count($proveedorPagos);
 $pagosPendientes = 0;
@@ -581,12 +586,19 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
 
         <section class="provider-section">
             <div class="card provider-card">
-                <div class="provider-section-header">
+                <div class="provider-section-header d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3">
                     <div>
                         <span class="provider-summary-pill"><i class="mdi mdi-history"></i> Historial de pagos</span>
                         <h5 class="provider-section-title mt-2">Cortes y autorizaciones</h5>
                         <p class="provider-section-copy">Revisa folios, método, estatus y fecha de cada solicitud de pago.</p>
                     </div>
+                    <a
+                        id="descargar_reporte_ventas_proveedor"
+                        class="btn btn-outline-info btn-sm text-nowrap"
+                        data-download-url="<?= esc($reporteVentasUrl, 'attr') ?>"
+                        href="<?= esc($reporteVentasUrl, 'attr') ?>">
+                        descargar reporte de ventas
+                    </a>
                 </div>
                 <div class="provider-status-strip">
                     <div class="provider-status-item">

@@ -13,6 +13,7 @@ $routes->get('Inicio', 'Inicio::index');
 $routes->get('Inicio/ProveedorEstablecimiento/(:num)', 'Inicio::ProveedorEstablecimiento/$1');
 $routes->get('Inicio/Establecimiento/(:num)', 'Inicio::Establecimiento/$1');
 $routes->get('Inicio/ProveedorFormatos', 'Inicio::ProveedorFormatos');
+$routes->get('Inicio/exportarReporteVentasProveedorXlsx', 'Inicio::exportarReporteVentasProveedorXlsx');
 $routes->post('Inicio/guardarPagoSinQrProveedor', 'Inicio::guardarPagoSinQrProveedor');
 $routes->get('Inicio/pdfProveedorEncabezadoFactura/(:num)', 'Inicio::pdfProveedorEncabezadoFactura/$1');
 $routes->get('Inicio/pdfProveedorFormatoPT/(:num)', 'Inicio::pdfProveedorFormatoPT/$1');
@@ -21,6 +22,8 @@ $routes->post('Inicio/getSolicitudesActivacionQrFic', 'Inicio::getSolicitudesAct
 $routes->post('Inicio/activarQrUsuarioFic', 'Inicio::activarQrUsuarioFic');
 $routes->post('Inicio/rechazarActivacionQrUsuarioFic', 'Inicio::rechazarActivacionQrUsuarioFic');
 $routes->post('Inicio/activarQrDepositosProgramados', 'Inicio::activarQrDepositosProgramados');
+$routes->get('Usuario/exportarCajerosXlsx', 'Usuario::exportarCajerosXlsx');
+$routes->get('Usuario/exportarCajerosOrdenDiaXlsx', 'Usuario::exportarCajerosOrdenDiaXlsx');
 $routes->post('Usuario/subirIneFirmaCajero', 'Usuario::subirIneFirmaCajero');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 

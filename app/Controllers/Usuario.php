@@ -8,11 +8,13 @@ use CodeIgniter\API\ResponseTrait;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelMedium;
+use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
 require_once FCPATH . 'app/Libraries/PHPMailer/Exception.php';
 require_once FCPATH . 'app/Libraries/PHPMailer/PHPMailer.php';
 require_once FCPATH . 'app/Libraries/PHPMailer/SMTP.php';
 require_once FCPATH . '/mpdf/autoload.php';
+require_once FCPATH . 'spout/src/Spout/Autoloader/autoload.php';
 require_once FCPATH . "qr_code/autoload.php";
 
 class Usuario extends BaseController
@@ -96,6 +98,124 @@ class Usuario extends BaseController
     public function getVistaUsuario()
     {
         return $this->getUsuarios();
+    }
+
+    public function exportarCajerosXlsx()
+    {
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar usuarios.');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $catalog = $this->buildCatalogRows($actorContext);
+        if (!empty($catalog['error'])) {
+            return $this->response->setStatusCode(502)->setBody((string) ($catalog['respuesta'] ?? 'No fue posible consultar usuarios.'));
+        }
+
+        $diaLlegada = $this->normalizeExportDate((string) ($this->request->getGet('dia_llegada') ?? ''));
+        $rows = $this->filterRowsByDiaLlegada((array) ($catalog['data'] ?? []), $diaLlegada);
+
+        $filename = 'cajeros_' . ($diaLlegada !== '' ? $diaLlegada : 'todos') . '.XLSX';
+        $writer = WriterEntityFactory::createXLSXWriter();
+        $writer->openToBrowser($filename);
+
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            'ID',
+            'Usuario',
+            'Nombre completo',
+            'Folio',
+            'Día de llegada',
+            'Vigencia hasta',
+            'Perfil',
+            'Hospedaje',
+            'Alimentos',
+            'Saldo reservado',
+            'Saldo operativo',
+            'Estado del programa',
+        ]));
+
+        foreach ($rows as $row) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                (int) ($row['id_usuario'] ?? 0),
+                (string) ($row['usuario'] ?? ''),
+                (string) ($row['nombre_completo'] ?? ''),
+                (string) ($row['folio'] ?? ''),
+                (string) ($row['fec_vigencia_desde'] ?? ''),
+                (string) ($row['fec_vigencia_hasta'] ?? ''),
+                (string) ($row['dsc_perfil'] ?? ''),
+                ((int) ($row['tiene_hospedaje'] ?? 0) === 1) ? 'Sí' : 'No',
+                ((int) ($row['tiene_alimentos'] ?? 0) === 1) ? 'Sí' : 'No',
+                number_format((float) ($row['monto_deposito_reservado'] ?? 0), 2, '.', ''),
+                number_format((float) ($row['monto_deposito_operativo'] ?? 0), 2, '.', ''),
+                $this->labelDepositoProgramado((string) ($row['deposito_programado_estatus'] ?? '')),
+            ]));
+        }
+
+        $writer->close();
+        exit;
+    }
+
+    public function exportarCajerosOrdenDiaXlsx()
+    {
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar usuarios.');
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $catalog = $this->buildCatalogRows($actorContext);
+        if (!empty($catalog['error'])) {
+            return $this->response->setStatusCode(502)->setBody((string) ($catalog['respuesta'] ?? 'No fue posible consultar usuarios.'));
+        }
+
+        $diaLlegada = $this->normalizeExportDate((string) ($this->request->getGet('dia_llegada') ?? ''));
+        $rows = $this->filterRowsByDiaLlegada((array) ($catalog['data'] ?? []), $diaLlegada);
+
+        $filename = 'cajeros_' . ($diaLlegada !== '' ? $diaLlegada : 'todos') . '.xlsx';
+        $writer = WriterEntityFactory::createXLSXWriter();
+        $writer->openToBrowser($filename);
+
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            'ID',
+            'Usuario',
+            'Nombre completo',
+            'Folio',
+            'Vigencia desde',
+            'Vigencia hasta',
+            'Perfil',
+            'Hospedaje',
+            'Alimentos',
+            'Saldo reservado',
+            'Saldo operativo',
+            'Documentos',
+        ]));
+
+        foreach ($rows as $row) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray([
+                (int) ($row['id_usuario'] ?? 0),
+                (string) ($row['usuario'] ?? ''),
+                (string) ($row['nombre_completo'] ?? ''),
+                (string) ($row['folio'] ?? ''),
+                (string) ($row['fec_vigencia_desde'] ?? ''),
+                (string) ($row['fec_vigencia_hasta'] ?? ''),
+                (string) ($row['dsc_perfil'] ?? ''),
+                ((int) ($row['tiene_hospedaje'] ?? 0) === 1) ? 'Sí' : 'No',
+                ((int) ($row['tiene_alimentos'] ?? 0) === 1) ? 'Sí' : 'No',
+                number_format((float) ($row['monto_deposito_reservado'] ?? 0), 2, '.', ''),
+                number_format((float) ($row['monto_deposito_operativo'] ?? 0), 2, '.', ''),
+                $this->summarizeDocumentosExport((array) $row),
+            ]));
+        }
+
+        $writer->close();
+        exit;
     }
 
     public function verDocumentoUsuario()
@@ -1455,6 +1575,93 @@ class Usuario extends BaseController
         }
 
         return $this->respond($response);
+    }
+
+    private function normalizeExportDate(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $value, $matches)) {
+            return $matches[1];
+        }
+
+        try {
+            return (new \DateTimeImmutable($value, new \DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    private function filterRowsByDiaLlegada(array $rows, string $diaLlegada): array
+    {
+        $diaLlegada = $this->normalizeExportDate($diaLlegada);
+        $filtered = array_filter($rows, function (array $row) use ($diaLlegada): bool {
+            if ($diaLlegada === '') {
+                return true;
+            }
+
+            return $this->normalizeExportDate((string) ($row['fec_vigencia_desde'] ?? '')) === $diaLlegada;
+        });
+
+        return $this->sortRowsByDiaLlegada(array_values($filtered));
+    }
+
+    private function sortRowsByDiaLlegada(array $rows): array
+    {
+        usort($rows, function (array $a, array $b): int {
+            $diaA = $this->normalizeExportDate((string) ($a['fec_vigencia_desde'] ?? '')) ?: '9999-12-31';
+            $diaB = $this->normalizeExportDate((string) ($b['fec_vigencia_desde'] ?? '')) ?: '9999-12-31';
+
+            if ($diaA < $diaB) {
+                return -1;
+            }
+
+            if ($diaA > $diaB) {
+                return 1;
+            }
+
+            $folioA = (string) ($a['folio'] ?? '');
+            $folioB = (string) ($b['folio'] ?? '');
+            $folioCmp = strnatcasecmp($folioA, $folioB);
+            if ($folioCmp !== 0) {
+                return $folioCmp;
+            }
+
+            return (int) ($a['id_usuario'] ?? 0) <=> (int) ($b['id_usuario'] ?? 0);
+        });
+
+        return $rows;
+    }
+
+    private function labelDepositoProgramado(string $value): string
+    {
+        $value = strtolower(trim($value));
+        return match ($value) {
+            'reservado' => 'Reservado',
+            'operativo' => 'Operativo',
+            'parcial' => 'Parcial',
+            'aplicado' => 'Aplicado',
+            'error' => 'Error',
+            'cancelado' => 'Cancelado',
+            'sin_programa' => 'Sin programa',
+            default => 'Sin definir',
+        };
+    }
+
+    private function summarizeDocumentosExport(array $row): string
+    {
+        $fields = ['qr', 'ine_frontal', 'ine_trasera', 'firma'];
+        $count = 0;
+        foreach ($fields as $field) {
+            if (trim((string) ($row[$field] ?? '')) !== '') {
+                $count++;
+            }
+        }
+
+        return $count > 0 ? (string) $count : 'Sin documentos';
     }
 
     private function resolveSessionEstablecimiento(int $idEstablecimiento): array
