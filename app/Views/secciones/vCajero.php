@@ -316,6 +316,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         row = row || {};
         return [
             { field: 'qr', label: 'QR', path: String(row.qr || '') },
+            { field: 'ine_firma_cajero', label: 'PDF INE y firma', path: String(row.ine_firma_cajero || '') },
             { field: 'ine_frontal', label: 'INE frontal', path: String(row.ine_frontal || '') },
             { field: 'ine_trasera', label: 'INE trasera', path: String(row.ine_trasera || '') },
             { field: 'firma', label: 'Firma', path: String(row.firma || '') }
@@ -407,7 +408,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${idUsuario})">
                     <i class="mdi mdi-file-pdf"></i>
                 </button>
-                <button class="btn btn-outline-info" type="button" title="Subir documento" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
+                <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
                 ${qrActivo
@@ -428,18 +429,12 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         if (!idUsuario) return;
 
         Swal.fire({
-            title: 'Subir documento',
+            title: 'Subir PDF INE y firma',
             html: `
                 <div class="text-start">
-                    <label class="form-label" for="swal_tipo_documento_cajero">Tipo de documento</label>
-                    <select id="swal_tipo_documento_cajero" class="form-select mb-3">
-                        <option value="ine_frontal">INE frontal</option>
-                        <option value="ine_trasera">INE trasera</option>
-                        <option value="firma">Firma</option>
-                    </select>
-                    <label class="form-label" for="swal_archivo_documento_cajero">Archivo</label>
-                    <input id="swal_archivo_documento_cajero" type="file" class="form-control" accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp">
-                    <div class="form-text text-muted mt-2">Formatos permitidos: PDF, JPG, PNG o WEBP. Maximo 10 MB.</div>
+                    <label class="form-label" for="swal_archivo_documento_cajero">Archivo PDF</label>
+                    <input id="swal_archivo_documento_cajero" type="file" class="form-control" accept="application/pdf,.pdf">
+                    <div class="form-text text-muted mt-2">El PDF debe integrar INE y firma en una sola hoja. Maximo 10 MB.</div>
                 </div>
             `,
             focusConfirm: false,
@@ -447,17 +442,11 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             confirmButtonText: 'Subir',
             cancelButtonText: 'Cancelar',
             preConfirm: () => {
-                const tipoDocumento = document.getElementById('swal_tipo_documento_cajero')?.value || '';
                 const inputArchivo = document.getElementById('swal_archivo_documento_cajero');
                 const archivo = inputArchivo && inputArchivo.files && inputArchivo.files[0] ? inputArchivo.files[0] : null;
 
-                if (!tipoDocumento) {
-                    Swal.showValidationMessage('Selecciona el tipo de documento.');
-                    return false;
-                }
-
                 if (!archivo) {
-                    Swal.showValidationMessage('Selecciona un archivo.');
+                    Swal.showValidationMessage('Selecciona un PDF.');
                     return false;
                 }
 
@@ -468,42 +457,40 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
                 const nombre = archivo.name || '';
                 const tipo = archivo.type || '';
-                const permitido = /\.(pdf|jpg|jpeg|png|webp)$/i.test(nombre)
-                    || ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].indexOf(tipo) !== -1;
+                const permitido = /\.pdf$/i.test(nombre) || tipo === 'application/pdf';
 
                 if (!permitido) {
-                    Swal.showValidationMessage('El archivo debe ser PDF, JPG, PNG o WEBP.');
+                    Swal.showValidationMessage('El archivo debe ser PDF.');
                     return false;
                 }
 
-                return { tipoDocumento, archivo };
+                return { archivo };
             }
         }).then((result) => {
             if (!result.isConfirmed || !result.value) return;
-            this.subirFirmaCajero(idUsuario, result.value.archivo, result.value.tipoDocumento);
+            this.subirFirmaCajero(idUsuario, result.value.archivo);
         });
     },
 
-    subirFirmaCajero(idUsuario, archivo, tipoDocumento) {
+    subirFirmaCajero(idUsuario, archivo) {
         const nombreArchivo = archivo && archivo.name ? archivo.name : '';
         const tipoArchivo = archivo && archivo.type ? archivo.type : '';
         const esArchivoValido = archivo && (
-            ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].indexOf(tipoArchivo) !== -1
-            || /\.(pdf|jpg|jpeg|png|webp)$/i.test(nombreArchivo)
+            tipoArchivo === 'application/pdf'
+            || /\.pdf$/i.test(nombreArchivo)
         );
 
         if (!esArchivoValido) {
-            Swal.fire('Atencion', 'Solo puedes subir archivos PDF, JPG, PNG o WEBP.', 'warning');
+            Swal.fire('Atencion', 'Solo puedes subir archivos PDF.', 'warning');
             return;
         }
 
         const data = new FormData();
         data.append('id_usuario', idUsuario);
-        data.append('tipo_documento', tipoDocumento || 'firma');
         data.append('ine_firma_cajero', archivo);
 
         Swal.fire({
-            title: 'Subiendo archivo',
+            title: 'Subiendo PDF',
             text: 'Espera un momento...',
             allowOutsideClick: false,
             allowEscapeKey: false,

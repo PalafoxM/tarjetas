@@ -107,7 +107,7 @@ class Usuario extends BaseController
 
         $idUsuario = (int) ($this->request->getGet('id_usuario') ?? 0);
         $campo = trim((string) ($this->request->getGet('campo') ?? ''));
-        $camposPermitidos = ['qr', 'ine_frontal', 'ine_trasera', 'firma'];
+        $camposPermitidos = ['qr', 'ine_firma_cajero', 'ine_frontal', 'ine_trasera', 'firma'];
 
         if ($idUsuario <= 0 || !in_array($campo, $camposPermitidos, true)) {
             return $this->response->setStatusCode(422)->setBody('Solicitud invalida.');
@@ -1178,43 +1178,8 @@ class Usuario extends BaseController
 
     
 
-        $tipoDocumento = trim((string) ($this->request->getPost('tipo_documento') ?? ''));
-        $documentosPermitidos = [
-            'ine_frontal' => [
-                'label' => 'INE frontal',
-                'prefix' => 'ACTIVACIONESFIC/INE',
-                'name' => 'ine_frontal',
-            ],
-            'ine_trasera' => [
-                'label' => 'INE trasera',
-                'prefix' => 'ACTIVACIONESFIC/INE',
-                'name' => 'ine_trasera',
-            ],
-            'firma' => [
-                'label' => 'Firma',
-                'prefix' => 'ACTIVACIONESFIC/FIRMAS',
-                'name' => 'firma',
-            ],
-            'ine_firma_cajero' => [
-                'label' => 'PDF firma cajero',
-                'prefix' => 'ACTIVACIONESFIC/CAJERO',
-                'name' => 'ine_firma_cajero',
-            ],
-        ];
-
-        if ($tipoDocumento === '') {
-            $tipoDocumento = 'ine_firma_cajero';
-        }
-
-        if (!isset($documentosPermitidos[$tipoDocumento])) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'error' => true,
-                'respuesta' => 'Selecciona un tipo de documento valido.',
-            ]);
-        }
-
-        $documentoConfig = $documentosPermitidos[$tipoDocumento];
-        $campoDocumento = $documentoConfig['name'];
+        $campoDocumento = 'ine_firma_cajero';
+        $objectPrefix = 'ACTIVACIONESFIC/CAJERO';
         $archivo = $this->request->getFile('ine_firma_cajero');
         if (!$archivo || !$archivo->isValid()) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -1227,16 +1192,12 @@ class Usuario extends BaseController
         $mimeType = strtolower((string) $archivo->getMimeType());
         $mimePermitidos = [
             'pdf' => 'application/pdf',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'webp' => 'image/webp',
         ];
 
         if (!isset($mimePermitidos[$extension])) {
             return $this->response->setStatusCode(422)->setJSON([
                 'error' => true,
-                'respuesta' => 'El archivo debe ser PDF, JPG, PNG o WEBP.',
+                'respuesta' => 'El archivo debe ser PDF.',
             ]);
         }
 
@@ -1267,10 +1228,10 @@ class Usuario extends BaseController
             ]);
         }
 
-        $fileName = $tipoDocumento . '_' . $idUsuario . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $fileName = $campoDocumento . '_' . $idUsuario . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
         $archivo->move($tmpDir, $fileName, true);
         $absolutePath = $tmpDir . DIRECTORY_SEPARATOR . $fileName;
-        $objectKey = rtrim((string) $documentoConfig['prefix'], '/') . '/' . $fileName;
+        $objectKey = rtrim($objectPrefix, '/') . '/' . $fileName;
         $contentType = $mimePermitidos[$extension] ?? ($mimeType !== '' ? $mimeType : 'application/octet-stream');
         $s3Url = $this->uploadFileToS3($absolutePath, $objectKey, $contentType);
         @unlink($absolutePath);
@@ -1299,7 +1260,7 @@ class Usuario extends BaseController
 
         return $this->respond([
             'error' => false,
-            'respuesta' => $documentoConfig['label'] . ' guardado correctamente.',
+            'respuesta' => 'PDF INE y firma guardado correctamente.',
             'ruta' => $s3Url,
             'campo' => $campoDocumento,
         ]);
@@ -2497,6 +2458,7 @@ class Usuario extends BaseController
             foreach ($documentResponse->data as $row) {
                 $documentIndex[(int) ($row->id_usuario ?? 0)] = [
                     'qr' => (string) ($row->qr ?? ''),
+                    'ine_firma_cajero' => (string) ($row->ine_firma_cajero ?? ''),
                     'ine_frontal' => (string) ($row->ine_frontal ?? ''),
                     'ine_trasera' => (string) ($row->ine_trasera ?? ''),
                     'firma' => (string) ($row->firma ?? ''),
