@@ -6,6 +6,8 @@ use App\Libraries\Fechas;
 use App\Libraries\Funciones;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
+use Box\Spout\Common\Entity\Style\CellAlignment;
+use Box\Spout\Writer\Common\Creator\Style\StyleBuilder;
 use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
 use stdClass;
@@ -350,40 +352,129 @@ class Inicio extends BaseController {
         }
 
         $rows = array_values(is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : []);
-        $filename = 'reporte_ventas_proveedor_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.xlsx';
+        $filename = 'reporte_consumos_facturados_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.xlsx';
 
         $writer = WriterEntityFactory::createXLSXWriter();
         $writer->openToBrowser($filename);
 
-        $writer->addRow(WriterEntityFactory::createRowFromArray([
-            'Folio',
-            'Establecimiento',
-            'Tipo',
-            'Método',
-            'Monto',
-            'Propina',
-            'Total',
-            'Estatus',
-            'Fecha',
-        ]));
+        $titleStyle = (new StyleBuilder())
+            ->setFontBold()
+            ->setFontSize(11)
+            ->setCellAlignment(CellAlignment::CENTER)
+            ->build();
+        $headerStyle = (new StyleBuilder())
+            ->setFontBold()
+            ->setFontColor('FFFFFF')
+            ->setBackgroundColor('7F7F7F')
+            ->setCellAlignment(CellAlignment::CENTER)
+            ->build();
+        $totalStyle = (new StyleBuilder())
+            ->setFontBold()
+            ->build();
 
+        $writer->addRow(WriterEntityFactory::createRowFromArray(['SECRETARÍA DE TURISMO E IDENTIDAD', '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray(['53 FESTIVAL INTERNACIONAL CERVANTINO', '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray(['REPORTE DE CONSUMOS FACTURADOS', '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray([$this->buildReporteVentasPeriodoLabel($rows), '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray(['', '', '', '', '', '']));
+        $writer->addRow(WriterEntityFactory::createRowFromArray([
+            'Orden Pago',
+            'Fecha',
+            'Restaurante',
+            'Item',
+            'Transaccion',
+            'Importe',
+        ], $headerStyle));
+
+        $rowsByOrdenPago = [];
         foreach ($rows as $row) {
-            $fechaRegistro = trim((string) ($row['fec_reg'] ?? ''));
+            $ordenPago = $this->resolveReporteVentasOrdenPago($row);
+            $rowsByOrdenPago[$ordenPago][] = $row;
+        }
+
+        ksort($rowsByOrdenPago, SORT_NATURAL);
+
+        if (empty($rowsByOrdenPago)) {
+            $writer->addRow(WriterEntityFactory::createRowFromArray(['Sin consumos facturados', '', '', '', '', '']));
+        }
+
+        foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
+            usort($ordenRows, static function ($a, $b) {
+                $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
+                $fechaB = strtotime((string) ($b['fec_reg'] ?? $b['fecha_respuesta'] ?? '')) ?: 0;
+
+                return $fechaA <=> $fechaB;
+            });
+
+            $totalOrden = 0;
+            foreach ($ordenRows as $row) {
+                $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
+                $totalOrden += $importe;
+
+                $writer->addRow(WriterEntityFactory::createRowFromArray([
+                    $ordenPago,
+                    $this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''),
+                    (string) ($row['dsc_establecimiento'] ?? ''),
+                    'Consumo',
+                    (string) ($row['id_solicitud_pago'] ?? ''),
+                    '$ ' . number_format($importe, 2, '.', ','),
+                ]));
+            }
+
             $writer->addRow(WriterEntityFactory::createRowFromArray([
-                (string) ($row['folio_solicitud'] ?? ''),
-                (string) ($row['dsc_establecimiento'] ?? ''),
-                (string) ($row['dsc_tipo'] ?? ''),
-                (string) ($row['metodo_autorizacion'] ?? ''),
-                number_format((float) ($row['monto_consumo'] ?? $row['monto_solicitado'] ?? 0), 2, '.', ''),
-                number_format((float) ($row['propina'] ?? 0), 2, '.', ''),
-                number_format((float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0), 2, '.', ''),
-                (string) ($row['estatus'] ?? ''),
-                $fechaRegistro !== '' ? date('Y-m-d H:i:s', strtotime($fechaRegistro)) : '',
-            ]));
+                'Total de orden de pago ' . $ordenPago,
+                '',
+                '',
+                '',
+                '',
+                '$ ' . number_format($totalOrden, 2, '.', ','),
+            ], $totalStyle));
         }
 
         $writer->close();
         exit;
+    }
+
+    private function resolveReporteVentasOrdenPago(array $row): string
+    {
+        $folioSolicitud = trim((string) ($row['folio_solicitud'] ?? ''));
+        if ($folioSolicitud !== '') {
+            return $folioSolicitud;
+        }
+
+        $idSolicitudPago = trim((string) ($row['id_solicitud_pago'] ?? ''));
+
+        return $idSolicitudPago !== '' ? $idSolicitudPago : 'Sin orden';
+    }
+
+    private function buildReporteVentasPeriodoLabel(array $rows): string
+    {
+        $timestamps = [];
+        foreach ($rows as $row) {
+            $fecha = trim((string) ($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''));
+            $timestamp = $fecha !== '' ? strtotime($fecha) : false;
+            if ($timestamp !== false) {
+                $timestamps[] = $timestamp;
+            }
+        }
+
+        if (empty($timestamps)) {
+            return 'Periodo sin movimientos';
+        }
+
+        return 'Periodo del ' . date('d/m/Y', min($timestamps)) . ' al ' . date('d/m/Y', max($timestamps));
+    }
+
+    private function formatReporteVentasFecha($fecha): string
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '') {
+            return '';
+        }
+
+        $timestamp = strtotime($fecha);
+
+        return $timestamp !== false ? date('d/m/Y', $timestamp) : $fecha;
     }
 
     public function Hospedaje()
@@ -3393,7 +3484,6 @@ class Inicio extends BaseController {
             'estatus' => 'aprobada',
             'comentario_ti' => null,
             'id_usuario_creado' => $idUsuarioCreado,
-            'fecha_respuesta' => $fechaAhora,
             'fec_act' => $fechaAhora,
             'usu_act' => $idSesionUsuario,
         ], [
@@ -3468,7 +3558,6 @@ class Inicio extends BaseController {
         $updateOk = $db->table('solicitud_usuario')->update([
             'estatus' => 'rechazada',
             'comentario_ti' => $motivo,
-            'fecha_respuesta' => $fechaAhora,
             'fec_act' => $fechaAhora,
             'usu_act' => $idSesionUsuario,
         ], [
