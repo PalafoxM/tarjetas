@@ -62,9 +62,10 @@ class UsuarioPerfilResolver
         $row = is_object($source) ? get_object_vars($source) : (array) $source;
         $idPerfil = $this->intValue($row['id_perfil'] ?? null);
         $idProveedor = $this->intValue($row['id_proveedor'] ?? null);
+        $hasProviderTypeField = array_key_exists('id_tipo_proveedor', $row);
         $providerType = $this->intValue($row['id_tipo_proveedor'] ?? null);
 
-        if ($providerType <= 0) {
+        if ($providerType <= 0 && !$hasProviderTypeField) {
             $providerType = $this->resolveProviderTypeFromLocalUser($row);
         }
         if ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) {
@@ -112,6 +113,7 @@ class UsuarioPerfilResolver
         $isGroupAdmin = $activeGroup !== null && $groupRole === 1;
         $isGroupCapturista = $activeGroup !== null && $groupRole === 2;
         $isSecturiCajero = $activeGroup === 'secturi' && $groupRole === 4;
+        $isSecturiAdminMaster = $activeGroup === 'secturi' && $groupRole === 1;
 
         return [
             'id_perfil' => $idPerfil,
@@ -130,9 +132,9 @@ class UsuarioPerfilResolver
             'is_group_capturista' => $isGroupCapturista,
             'is_group_backoffice' => $isGroupAdmin || $isGroupCapturista,
             'is_secturi_cajero' => $isSecturiCajero,
-            'is_ti_master' => $idPerfil === 1 && $providerType === 0 && $idProveedor === 0,
-            'can_access_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
-            'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isGroupAdmin,
+            'is_ti_master' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster,
+            'can_access_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
+            'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin,
         ];
     }
 

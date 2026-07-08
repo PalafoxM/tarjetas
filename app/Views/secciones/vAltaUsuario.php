@@ -210,6 +210,7 @@ $extractCatalogAmount = static function ($item) {
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-solicitud-folio-mode="<?= $modoSolicitudFolio ? '1' : '0' ?>"
+    data-folio-suggestions-url="<?= esc(base_url('index.php/Inicio/getSugerenciasFolioInstitucional'), 'attr') ?>"
     data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
@@ -268,6 +269,17 @@ $extractCatalogAmount = static function ($item) {
                     <div class="col-md-3">
                         <label class="form-label" for="subf_ui">Subfolio</label>
                         <input type="text" class="form-control crud-ui-upper" name="sub_folio" id="subf_ui" placeholder="subf" inputmode="text" maxlength="20">
+                    </div>
+                    <div class="col-12 d-none" id="folioSugerenciasWrapper">
+                        <div class="alert alert-info solicitud-folio-suggestions mb-0">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <div>
+                                    <strong>Sugerencias de folio</strong>
+                                    <div class="small" id="folioSugerenciasEstado">Consultando ultimo folio disponible...</div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2" id="folioSugerenciasChips"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-md-3">
@@ -363,7 +375,7 @@ $extractCatalogAmount = static function ($item) {
                         <input type="number" step="0.01" class="form-control" id="monto_total_alimentos_ui" readonly>
                     </div>
                     <input type="hidden" name="id_partida" id="id_partida">
-                    <div class="col-md-3" id="partidaManualWrapper">
+                    <div class="col-md-3 solicitud-partida-visual" id="partidaManualWrapper">
                         <label class="form-label" for="id_partida_ui">Partida</label>
                         <select class="form-control js-select2-catalog" id="id_partida_ui" data-placeholder="Buscar partida">
                             <option value="">Seleccione</option>
@@ -378,7 +390,7 @@ $extractCatalogAmount = static function ($item) {
                         </select>
                         <small class="text-muted">FIC y UG se asignan autom&aacute;ticamente a 3390A o 3390B seg&uacute;n el beneficio.</small>
                     </div>
-                    <div class="col-md-3 alimentos-field" id="partidaAlimentosWrapper">
+                    <div class="col-md-3 alimentos-field solicitud-partida-visual" id="partidaAlimentosWrapper">
                         <label class="form-label" for="id_partida_alimentos_ui">Partida alimentos</label>
                         <input type="text" class="form-control" id="id_partida_alimentos_ui" readonly>
                     </div>
@@ -428,7 +440,7 @@ $extractCatalogAmount = static function ($item) {
                         <label class="form-label" for="tarifa_total">Tarifa total</label>
                         <input type="number" step="0.01" class="form-control" name="tarifa_total" id="tarifa_total">
                     </div>
-                    <div class="col-md-3 hospedaje-field" id="partidaHospedajeWrapper">
+                    <div class="col-md-3 hospedaje-field solicitud-partida-visual" id="partidaHospedajeWrapper">
                         <label class="form-label" for="id_partida_hospedaje_ui">Partida hospedaje</label>
                         <input type="text" class="form-control" id="id_partida_hospedaje_ui" readonly>
                     </div>

@@ -12,6 +12,7 @@
         folioDetailUrl: '',
         folioCancelUrl: '',
         folioApproveUrl: '',
+        folioEditUrl: '',
         folioRejectUrl: '',
         previewModal: null,
         previewModalEl: null
@@ -340,7 +341,12 @@
         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-fic-panel-ver" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Ver"><i class="mdi mdi-eye"></i></button>');
 
         if (String(row.estatus || '').toLowerCase() === 'pendiente') {
-            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
+            if (Number(row.tiene_payload_completo || 0) === 1) {
+                buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
+                buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
+            } else {
+                buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Solicitud sin formulario completo"><i class="mdi mdi-alert-circle-outline"></i></button>');
+            }
             buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-fic-panel-rechazar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
         }
 
@@ -369,6 +375,59 @@
                         title: 'Solicitud de folio',
                         html: '<div class="text-start"><strong>Grupo:</strong> ' + esc(String(data.catalogo_grupo || '').toUpperCase()) + '<br><strong>Perfil:</strong> ' + esc(data.perfil_solicitado || '') + '<br><strong>Usuario:</strong> ' + (String(data.usuario || '').trim() !== '' ? esc(data.usuario || '') : 'Por asignar') + '<br><strong>Nombre:</strong> ' + esc(data.nombre_completo || '') + '<br><strong>Correo:</strong> ' + esc(data.correo || '') + '<br><strong>Estatus:</strong> ' + esc(data.estatus || '') + comentarioHtml + '</div>',
                         confirmButtonText: 'Cerrar'
+                    });
+                });
+            })
+            .on('click.solicitudesFicPanel', '.js-fic-panel-editar', function () {
+                var idSolicitud = Number($(this).data('id-solicitud') || 0);
+                if (!idSolicitud || !state.folioEditUrl) return;
+
+                loadFolioDetail(idSolicitud, function (data) {
+                    var payload = data && data.payload_solicitud ? data.payload_solicitud : null;
+                    if (!payload || Number(data.tiene_payload_completo || 0) !== 1) {
+                        Swal.fire('Atención', 'Esta solicitud no contiene formulario completo editable.', 'warning');
+                        return;
+                    }
+
+                    Swal.fire({
+                        title: 'Editar solicitud de folio',
+                        html: '<div class="text-start mb-2 small text-muted">Ajusta el formulario JSON. La partida se recalculará automáticamente al guardar.</div><textarea id="solicitudFolioPayloadEditor" class="form-control" rows="18" style="font-family:monospace;font-size:.82rem;">' + esc(JSON.stringify(payload, null, 2)) + '</textarea>',
+                        width: 'min(980px, 96vw)',
+                        showCancelButton: true,
+                        confirmButtonText: 'Guardar cambios',
+                        cancelButtonText: 'Cancelar',
+                        preConfirm: function () {
+                            var raw = $('#solicitudFolioPayloadEditor').val() || '';
+                            try {
+                                JSON.parse(raw);
+                                return raw;
+                            } catch (error) {
+                                Swal.showValidationMessage('El JSON no es válido: ' + error.message);
+                                return false;
+                            }
+                        }
+                    }).then(function (result) {
+                        if (!result.isConfirmed) return;
+
+                        $.ajax({
+                            url: state.folioEditUrl,
+                            method: 'POST',
+                            dataType: 'json',
+                            data: $.extend({
+                                id_solicitud_usuario: idSolicitud,
+                                payload_json: result.value
+                            }, getCsrfPayload())
+                        }).done(function (response) {
+                            if (!response || response.ok !== true) {
+                                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible actualizar la solicitud.', 'warning');
+                                return;
+                            }
+
+                            Swal.fire('Listo', response.message || 'Solicitud actualizada.', 'success');
+                            refreshTable(state.folioTable);
+                        }).fail(function () {
+                            Swal.fire('Error', 'No fue posible actualizar la solicitud.', 'error');
+                        });
                     });
                 });
             })
@@ -569,6 +628,7 @@
             state.folioDetailUrl = root.data('folio-detail-url') || '';
             state.folioCancelUrl = root.data('folio-cancel-url') || '';
             state.folioApproveUrl = root.data('folio-approve-url') || '';
+            state.folioEditUrl = root.data('folio-edit-url') || '';
             state.folioRejectUrl = root.data('folio-reject-url') || '';
             state.qrTable = $('#tablaSolicitudesActivacionQrFic');
             state.folioTable = $('#tablaSolicitudesFoliosFic');

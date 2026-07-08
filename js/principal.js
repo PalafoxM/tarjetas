@@ -386,6 +386,7 @@ window.cajeros = {
         this.listUrl = contenedor.dataset.listUrl || (base_url + 'index.php/Inicio/Usuarios');
         this.altaUrl = contenedor.dataset.altaUrl || (base_url + 'index.php/Inicio/AltaUsuario');
         this.saveUrl = contenedor.dataset.saveUrl || (base_url + 'index.php/Usuario/saveAltaUsuario');
+        this.folioSuggestionsUrl = contenedor.dataset.folioSuggestionsUrl || (base_url + 'index.php/Inicio/getSugerenciasFolioInstitucional');
         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
         this.isSolicitudFolioMode = this.isAltaPage && String(contenedor.dataset.solicitudFolioMode || '') === '1';
 
@@ -430,6 +431,9 @@ window.cajeros = {
             $('#folio_ui').on('input', this.normalizarFolio.bind(this));
             $('#subf_ui, #anf_gto_ui').on('input', this.normalizarSoloLetrasMayusculas.bind(this));
             $('#pax_ui').on('input change', this.redibujarAltaUsuarioPax.bind(this));
+            $('#folioSugerenciasChips').on('click', '.js-aplicar-folio-sugerido', function () {
+                cajeros.aplicarFolioSugerido($(this).data('folio'), $(this).data('subfolio'));
+            });
 
             $('#cajeroForm').off('submit.altaUsuario').on('submit.altaUsuario', function (event) {
                 event.preventDefault();
@@ -437,6 +441,10 @@ window.cajeros = {
             });
 
             this.inicializarAltaUsuarioMultiPax();
+            if (this.isSolicitudFolioMode) {
+                this.aplicarModoSolicitudFolioUI();
+                this.cargarSugerenciasFolioInstitucional();
+            }
             return;
         }
 
@@ -802,6 +810,64 @@ window.cajeros = {
         input.value = String(input.value || '')
             .replace(/[^\p{L}\s]/gu, '')
             .toUpperCase();
+    },
+
+    aplicarModoSolicitudFolioUI: function () {
+        if (!this.isSolicitudFolioMode) {
+            return;
+        }
+
+        $('.solicitud-partida-visual').addClass('d-none').hide();
+        $('#folioSugerenciasWrapper').removeClass('d-none');
+    },
+
+    cargarSugerenciasFolioInstitucional: function () {
+        if (!this.isSolicitudFolioMode || !this.folioSuggestionsUrl) {
+            return;
+        }
+
+        var wrapper = $('#folioSugerenciasWrapper');
+        var estado = $('#folioSugerenciasEstado');
+        var chips = $('#folioSugerenciasChips');
+        var grupo = String(this.contexto.active_group || $('#grupo_usuario').val() || '').toLowerCase();
+
+        wrapper.removeClass('d-none');
+        estado.text('Consultando ultimo folio disponible...');
+        chips.empty();
+
+        $.getJSON(this.folioSuggestionsUrl, { grupo: grupo })
+            .done(function (response) {
+                var data = response && response.data ? response.data : {};
+                var sugerencias = Array.isArray(data.sugerencias) ? data.sugerencias : [];
+
+                chips.empty();
+                if (!sugerencias.length) {
+                    estado.text(data.mensaje || 'Sin folio previo para sugerir.');
+                    return;
+                }
+
+                estado.text(data.ultimo_label ? ('Ultimo folio detectado: ' + data.ultimo_label) : 'Selecciona una sugerencia o captura manualmente.');
+                sugerencias.forEach(function (item) {
+                    var folio = String(item.folio || '');
+                    var subfolio = String(item.sub_folio || '');
+                    var etiqueta = String(item.label || (folio + subfolio));
+                    var button = $('<button type="button" class="btn btn-outline-info btn-sm js-aplicar-folio-sugerido"></button>');
+                    button.text(etiqueta);
+                    button.attr('title', 'Llenar folio ' + folio + ' subfolio ' + subfolio);
+                    button.data('folio', folio);
+                    button.data('subfolio', subfolio);
+                    chips.append(button);
+                });
+            })
+            .fail(function () {
+                estado.text('No fue posible cargar sugerencias de folio.');
+                chips.empty();
+            });
+    },
+
+    aplicarFolioSugerido: function (folio, subfolio) {
+        $('#folio_ui').val(String(folio || '').replace(/\D+/g, ''));
+        $('#subf_ui').val(String(subfolio || '').replace(/[^\p{L}\s]/gu, '').toUpperCase());
     },
 
     inicializarSelect2: function () {
@@ -1520,6 +1586,7 @@ window.cajeros = {
         if (this.isAltaPage) {
             this.actualizarResumenAltaUsuario();
         }
+        this.aplicarModoSolicitudFolioUI();
     },
 
 

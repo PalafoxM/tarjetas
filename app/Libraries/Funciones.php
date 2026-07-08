@@ -6,6 +6,7 @@ use DateTime;
 use stdClass;
 
 class Funciones {    
+    private $globals;
     private $secretKey;
     public function __construct()
     {

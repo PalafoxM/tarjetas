@@ -663,11 +663,9 @@ class Inicio extends BaseController {
 
     public function PagosFic()
     {
-        $session = \Config\Services::session();
+        $tiUsuario = $this->resolveTiMasterUsuario();
 
-        $tiUsuario = $session->id_perfil;
-
-        if ($tiUsuario != 1) {
+        if (empty($tiUsuario)) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
@@ -683,8 +681,7 @@ class Inicio extends BaseController {
 
     public function FacturasFic()
     {
-        $session = \Config\Services::session();
-        if ((int) ($session->id_perfil ?? 0) !== 1) {
+        if (empty($this->resolveTiMasterUsuario())) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
@@ -698,8 +695,7 @@ class Inicio extends BaseController {
 
     public function getFacturasFic()
     {
-        $session = \Config\Services::session();
-        if ((int) ($session->id_perfil ?? 0) !== 1) {
+        if (empty($this->resolveTiMasterUsuario())) {
             return $this->response->setStatusCode(403)->setJSON([
                 'total' => 0,
                 'rows' => [],
@@ -764,8 +760,7 @@ class Inicio extends BaseController {
 
     public function verFacturaProveedorArchivo()
     {
-        $session = \Config\Services::session();
-        if ((int) ($session->id_perfil ?? 0) !== 1) {
+        if (empty($this->resolveTiMasterUsuario())) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar facturas.');
         }
 
@@ -946,6 +941,197 @@ class Inicio extends BaseController {
 
         $this->_renderView($data);
     }
+
+    public function getSugerenciasFolioInstitucional()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $grupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? '')));
+
+        if ($grupo === '') {
+            $grupo = strtolower((string) ($contextoUsuario['active_group'] ?? ''));
+        }
+
+        if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+            return $this->response->setJSON([
+                'ok' => true,
+                'data' => [
+                    'sugerencias' => [],
+                    'mensaje' => 'Sin folio previo para sugerir.',
+                ],
+            ]);
+        }
+
+        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
+        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
+        if (empty($tiUsuario) && (!$esGrupo || $rolGrupo !== 1)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar sugerencias de folio.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $pares = $this->collectFolioInstitucionalPairs($db);
+        $ultimo = $this->resolveUltimoFolioInstitucional($pares);
+
+        if (empty($ultimo)) {
+            return $this->response->setJSON([
+                'ok' => true,
+                'data' => [
+                    'sugerencias' => [],
+                    'mensaje' => 'Sin folio previo para sugerir.',
+                ],
+            ]);
+        }
+
+        $sugerencias = $this->buildSugerenciasFolioInstitucional($ultimo, $pares);
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'data' => [
+                'ultimo' => $ultimo,
+                'ultimo_label' => $ultimo['folio'] . $ultimo['sub_folio'],
+                'sugerencias' => $sugerencias,
+                'mensaje' => empty($sugerencias) ? 'Sin folio previo para sugerir.' : '',
+            ],
+        ]);
+    }
+
+    private function collectFolioInstitucionalPairs($db): array
+    {
+        $pares = [];
+        $usuarioRows = $db->table('usuario')
+            ->select('folio, sub_folio')
+            ->where('visible', 1)
+            ->where('folio IS NOT NULL', null, false)
+            ->where('folio <>', '')
+            ->get()
+            ->getResultArray();
+
+        foreach ($usuarioRows as $row) {
+            $this->appendFolioInstitucionalPair($pares, $row['folio'] ?? '', $row['sub_folio'] ?? '');
+        }
+
+        $solicitudes = $db->table('solicitud_usuario')
+            ->select('comentario_ti')
+            ->where('visible', 1)
+            ->where('estatus', 'pendiente')
+            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug'])
+            ->get()
+            ->getResultArray();
+
+        foreach ($solicitudes as $solicitud) {
+            $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
+            $payload = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
+            if (!empty($payload)) {
+                $this->appendFolioInstitucionalPair(
+                    $pares,
+                    $payload['folio_grupo'] ?? $payload['folio'] ?? $payload['folio_ui'] ?? '',
+                    $payload['sub_folio'] ?? $payload['subf_ui'] ?? ''
+                );
+            }
+        }
+
+        return $pares;
+    }
+
+    private function appendFolioInstitucionalPair(array &$pares, $folio, $subFolio): void
+    {
+        $folio = preg_replace('/\D+/', '', (string) $folio);
+        $subFolio = strtoupper(trim((string) $subFolio));
+        $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
+
+        if ($folio === '') {
+            return;
+        }
+
+        $pares[] = [
+            'folio' => (int) $folio,
+            'sub_folio' => $subFolio !== '' ? substr($subFolio, 0, 1) : '',
+        ];
+    }
+
+    private function resolveUltimoFolioInstitucional(array $pares): array
+    {
+        $ultimo = [];
+        foreach ($pares as $par) {
+            $folio = (int) ($par['folio'] ?? 0);
+            if ($folio <= 0) {
+                continue;
+            }
+
+            $subFolio = strtoupper((string) ($par['sub_folio'] ?? ''));
+            $subOrden = preg_match('/^[A-Z]$/', $subFolio) ? (ord($subFolio) - ord('A') + 1) : 0;
+            $ultimoOrden = preg_match('/^[A-Z]$/', (string) ($ultimo['sub_folio'] ?? '')) ? (ord($ultimo['sub_folio']) - ord('A') + 1) : 0;
+
+            if (empty($ultimo) || $folio > (int) $ultimo['folio'] || ($folio === (int) $ultimo['folio'] && $subOrden > $ultimoOrden)) {
+                $ultimo = [
+                    'folio' => $folio,
+                    'sub_folio' => $subFolio,
+                ];
+            }
+        }
+
+        return $ultimo;
+    }
+
+    private function buildSugerenciasFolioInstitucional(array $ultimo, array $pares): array
+    {
+        $folio = (int) ($ultimo['folio'] ?? 0);
+        $subFolio = strtoupper((string) ($ultimo['sub_folio'] ?? ''));
+        $usados = [];
+        foreach ($pares as $par) {
+            $usados[(int) ($par['folio'] ?? 0) . '|' . strtoupper((string) ($par['sub_folio'] ?? ''))] = true;
+        }
+
+        $sugerencias = [];
+        if ($folio <= 0) {
+            return $sugerencias;
+        }
+
+        if (!preg_match('/^[A-Z]$/', $subFolio)) {
+            $continuarSub = 'A';
+        } elseif ($subFolio !== 'Z') {
+            $continuarSub = chr(ord($subFolio) + 1);
+        } else {
+            $continuarSub = '';
+        }
+
+        if ($continuarSub !== '') {
+            while ($continuarSub <= 'Z' && isset($usados[$folio . '|' . $continuarSub])) {
+                $continuarSub = chr(ord($continuarSub) + 1);
+            }
+
+            if ($continuarSub <= 'Z') {
+                $sugerencias[] = [
+                    'tipo' => 'continuar',
+                    'label' => 'Continuar folio: ' . $folio . $continuarSub,
+                    'folio' => (string) $folio,
+                    'sub_folio' => $continuarSub,
+                ];
+            }
+        }
+
+        $nuevoFolio = $folio + 1;
+        $intentos = 0;
+        while (isset($usados[$nuevoFolio . '|A']) && $intentos < 1000) {
+            $nuevoFolio++;
+            $intentos++;
+        }
+
+        $sugerencias[] = [
+            'tipo' => 'nuevo',
+            'label' => 'Nuevo folio: ' . $nuevoFolio . 'A',
+            'folio' => (string) $nuevoFolio,
+            'sub_folio' => 'A',
+        ];
+
+        return $sugerencias;
+    }
+
     public function getSolicitudesUsuarioFicPerfil()
     {
         $session = \Config\Services::session();
@@ -1348,6 +1534,7 @@ class Inicio extends BaseController {
             'estatus' => (string) ($row['estatus'] ?? ''),
             'comentario_ti' => $payloadInfo['summary'] !== '' ? $payloadInfo['summary'] : (string) ($row['comentario_ti'] ?? ''),
             'payload_solicitud' => $payloadInfo['payload'],
+            'tiene_payload_completo' => !empty($payloadInfo['payload']) ? 1 : 0,
             'catalogo_grupo' => $grupoSolicitud !== '' ? $grupoSolicitud : 'fic',
             'fec_reg' => (string) ($row['fec_reg'] ?? ''),
             'visible' => (int) ($row['visible'] ?? 0),
@@ -1369,7 +1556,11 @@ class Inicio extends BaseController {
         $db = \Config\Database::connect();
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
         $tipoSolicitud = $grupo === 'fic' ? 'alta_usuario_fic' : (string) ($cfg['tipo_solicitud'] ?? ('alta_usuario_' . $grupo));
-        $idPerfilSolicitado = (int) ($post['id_perfil_catalogo'] ?? $post['id_perfil_solicitado'] ?? $post['id_perfil'] ?? 0);
+        $idPerfilBase = (int) ($post['id_perfil_catalogo'] ?? $post['id_perfil'] ?? 0);
+        if ($idPerfilBase <= 0) {
+            $idPerfilBase = $this->getSolicitudPerfilBaseId($grupo);
+        }
+        $idPerfilSolicitado = $this->resolveSolicitudPerfilGrupo($grupo, $post);
         $usuario = strtolower(trim((string) ($post['usuario'] ?? '')));
         $nombre = trim((string) ($post['nombre'] ?? ''));
         $primerApellido = trim((string) ($post['primer_apellido'] ?? ''));
@@ -1406,18 +1597,20 @@ class Inicio extends BaseController {
         }
 
         $payload = $post;
-        $payload['grupo_usuario'] = 'institucional';
-        $payload['perfil_grupo'] = $grupo;
-        $payload['id_perfil_catalogo'] = $idPerfilSolicitado;
+        $payload['grupo_usuario'] = $grupo;
+        $payload['id_perfil_catalogo'] = $idPerfilBase;
+        $payload['id_perfil_solicitado'] = $idPerfilSolicitado;
+        $payload['perfil_grupo'] = $idPerfilSolicitado;
         $payload['folio'] = $folio !== '' ? $folio : $folioGrupo;
         $payload['folio_grupo'] = $folioGrupo;
         $payload['pax_total'] = (int) ($payload['pax_total'] ?? $payload['pax'] ?? $payload['pax_ui'] ?? 1);
+        $payload = $this->normalizeSolicitudFolioPayload($grupo, $payload);
 
         $comentario = $this->encodeSolicitudFolioPayload($grupo, $payload);
         $fechaAhora = date('Y-m-d H:i:s');
         $insertOk = $db->table('solicitud_usuario')->insert([
             'tipo_solicitud' => $tipoSolicitud,
-            'id_proveedor' => null,
+            'id_proveedor' => 0,
             'id_establecimiento' => (int) ($post['id_establecimiento'] ?? $session->get('id_establecimiento') ?? 0),
             'id_perfil_solicitado' => $idPerfilSolicitado,
             'usuario' => $usuario,
@@ -1457,12 +1650,13 @@ class Inicio extends BaseController {
 
     private function decodeSolicitudFolioPayload(string $comentario): array
     {
-        $prefix = "__SOLICITUD_FOLIO_PAYLOAD__\n";
+        $comentario = ltrim($comentario);
+        $prefix = '__SOLICITUD_FOLIO_PAYLOAD__';
         if (strpos($comentario, $prefix) !== 0) {
             return ['grupo' => '', 'payload' => [], 'summary' => ''];
         }
 
-        $decoded = json_decode(substr($comentario, strlen($prefix)), true);
+        $decoded = json_decode(ltrim(substr($comentario, strlen($prefix))), true);
         if (!is_array($decoded)) {
             return ['grupo' => '', 'payload' => [], 'summary' => ''];
         }
@@ -1514,6 +1708,156 @@ class Inicio extends BaseController {
                     unset($usuario['contrasenia']);
                     $payload['usuarios'][$index] = $usuario;
                 }
+            }
+        }
+
+        return $payload;
+    }
+
+    private function getSolicitudPerfilBaseId(string $grupo): int
+    {
+        $map = [
+            'fic' => 9,
+            'secul' => 8,
+            'ug' => 10,
+            'secturi' => 4,
+        ];
+
+        return (int) ($map[strtolower(trim($grupo))] ?? 0);
+    }
+
+    private function getSolicitudDefaultPerfilGrupo(string $grupo): int
+    {
+        $map = [
+            'fic' => 3,
+            'secul' => 3,
+            'ug' => 3,
+            'secturi' => 5,
+        ];
+
+        return (int) ($map[strtolower(trim($grupo))] ?? 0);
+    }
+
+    private function isSolicitudPerfilGrupoValido(string $grupo, int $perfilGrupo): bool
+    {
+        $roles = [
+            'fic' => [1, 2, 3, 4],
+            'secul' => [1, 2, 3, 4],
+            'ug' => [1, 2, 3, 4],
+            'secturi' => [1, 2, 4, 5],
+        ];
+        $grupo = strtolower(trim($grupo));
+
+        return in_array($perfilGrupo, $roles[$grupo] ?? [], true);
+    }
+
+    private function resolveSolicitudPerfilGrupo(string $grupo, array $payload, ?array $solicitud = null): int
+    {
+        $grupo = strtolower(trim($grupo));
+        $basePerfil = $this->getSolicitudPerfilBaseId($grupo);
+        $candidatos = [
+            $payload['perfil_grupo'] ?? null,
+            $payload['id_perfil_solicitado'] ?? null,
+            $solicitud['id_perfil_solicitado'] ?? null,
+            $payload['id_perfil_catalogo'] ?? null,
+        ];
+
+        foreach ($candidatos as $candidato) {
+            if (!is_numeric($candidato)) {
+                continue;
+            }
+
+            $perfilGrupo = (int) $candidato;
+            if ($perfilGrupo === $basePerfil) {
+                continue;
+            }
+            if ($this->isSolicitudPerfilGrupoValido($grupo, $perfilGrupo)) {
+                return $perfilGrupo;
+            }
+        }
+
+        return $this->getSolicitudDefaultPerfilGrupo($grupo);
+    }
+
+    private function resolveSolicitudFolioGrupo(array $solicitud, string $grupo = '', array $payload = []): string
+    {
+        $candidatos = [
+            $grupo,
+            $payload['grupo_usuario'] ?? '',
+        ];
+        $tipoSolicitud = strtolower((string) ($solicitud['tipo_solicitud'] ?? ''));
+        if (strpos($tipoSolicitud, 'alta_usuario_') === 0) {
+            $candidatos[] = substr($tipoSolicitud, strlen('alta_usuario_'));
+        }
+
+        foreach ($candidatos as $candidato) {
+            $candidato = strtolower(trim((string) $candidato));
+            if (in_array($candidato, ['fic', 'ug', 'secul', 'secturi'], true)) {
+                return $candidato;
+            }
+        }
+
+        return '';
+    }
+
+    private function normalizeSolicitudFolioPayload(string $grupo, array $payload): array
+    {
+        $grupo = strtolower(trim($grupo));
+        $grupo = $grupo !== '' ? $grupo : strtolower((string) ($payload['grupo_usuario'] ?? ''));
+        if (!in_array($grupo, ['fic', 'ug', 'secul', 'secturi'], true)) {
+            $grupo = strtolower((string) ($payload['perfil_grupo_key'] ?? ''));
+        }
+        $payload['grupo_usuario'] = $grupo;
+        if (empty($payload['id_perfil_catalogo']) || !is_numeric($payload['id_perfil_catalogo'])) {
+            $payload['id_perfil_catalogo'] = $this->getSolicitudPerfilBaseId($grupo);
+        }
+        $perfilGrupo = $this->resolveSolicitudPerfilGrupo($grupo, $payload);
+        if ($perfilGrupo > 0) {
+            $payload['perfil_grupo'] = $perfilGrupo;
+            $payload['id_perfil_solicitado'] = $perfilGrupo;
+        }
+        $payload['pax_total'] = max(1, (int) ($payload['pax_total'] ?? $payload['pax'] ?? $payload['pax_ui'] ?? 1));
+
+        $tieneHospedaje = (int) ($payload['tiene_hospedaje'] ?? 0) === 1;
+        $tieneAlimentos = (int) ($payload['tiene_alimentos'] ?? 0) === 1;
+
+        if ($tieneHospedaje) {
+            $payload['id_partida'] = 2;
+        } elseif ($tieneAlimentos) {
+            $payload['id_partida'] = 3;
+        } else {
+            $partida = (int) ($payload['id_partida'] ?? 0);
+            $payload['id_partida'] = in_array($partida, [1, 2, 3], true) ? $partida : 3;
+        }
+
+        if (isset($payload['folio'])) {
+            $payload['folio'] = preg_replace('/\D+/', '', (string) $payload['folio']);
+        }
+        if (isset($payload['folio_grupo'])) {
+            $payload['folio_grupo'] = preg_replace('/\D+/', '', (string) $payload['folio_grupo']);
+        }
+        if (empty($payload['folio_grupo']) && !empty($payload['folio'])) {
+            $payload['folio_grupo'] = $payload['folio'];
+        }
+        if (empty($payload['folio']) && !empty($payload['folio_grupo'])) {
+            $payload['folio'] = $payload['folio_grupo'];
+        }
+
+        if (isset($payload['sub_folio'])) {
+            $payload['sub_folio'] = strtoupper(trim((string) $payload['sub_folio']));
+        }
+        if (isset($payload['subf_ui']) && empty($payload['sub_folio'])) {
+            $payload['sub_folio'] = strtoupper(trim((string) $payload['subf_ui']));
+        }
+
+        foreach (['nombre', 'primer_apellido', 'segundo_apellido', 'anf_gto'] as $campo) {
+            if (isset($payload[$campo])) {
+                $payload[$campo] = function_exists('mb_strtoupper') ? mb_strtoupper(trim((string) $payload[$campo]), 'UTF-8') : strtoupper(trim((string) $payload[$campo]));
+            }
+        }
+        foreach (['usuario', 'correo'] as $campo) {
+            if (isset($payload[$campo])) {
+                $payload[$campo] = function_exists('mb_strtolower') ? mb_strtolower(trim((string) $payload[$campo]), 'UTF-8') : strtolower(trim((string) $payload[$campo]));
             }
         }
 
@@ -3086,8 +3430,7 @@ class Inicio extends BaseController {
             return null;
         }
 
-        $session = \Config\Services::session();
-        if ((int) ($session->id_perfil ?? 0) !== 1) {
+        if (empty($this->resolveTiMasterUsuario())) {
             return null;
         }
 
@@ -4056,7 +4399,7 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $usuario = $db->table('usuario')
-            ->select('id_usuario, id_perfil, id_proveedor, id_tipo_proveedor, visible')
+            ->select('id_usuario, id_perfil, id_proveedor, id_tipo_proveedor, id_fic_perfil, id_ug_perfil, id_secul_perfil, id_secturi_perfil, visible')
             ->where('id_usuario', $idUsuario)
             ->where('visible', 1)
             ->get()
@@ -4066,13 +4409,9 @@ class Inicio extends BaseController {
             return [];
         }
 
-        $idProveedor = $usuario['id_proveedor'] ?? null;
-        $idTipoProveedor = $usuario['id_tipo_proveedor'] ?? null;
-
-        $sinProveedor = $idProveedor === null || $idProveedor === '' || (int) $idProveedor === 0;
-        $sinTipoProveedor = $idTipoProveedor === null || $idTipoProveedor === '' || (int) $idTipoProveedor === 0;
-
-        if ((int) ($usuario['id_perfil'] ?? 0) !== 1 || !$sinProveedor || !$sinTipoProveedor) {
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($usuario);
+        if (empty($contextoUsuario['is_ti_master'])) {
             return [];
         }
 
@@ -4625,7 +4964,18 @@ class Inicio extends BaseController {
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
         $payload = $payloadInfo['payload'];
         if (empty($payload)) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'La solicitud no contiene el formulario completo para crear el folio.']);
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'Esta solicitud fue capturada con el formato anterior y no contiene los datos completos para crear el folio. Recházala y solicita que se capture nuevamente desde Solicitud de nuevo folio.',
+            ]);
+        }
+        $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
+        $payload = $this->normalizeSolicitudFolioPayload($grupoSolicitud, $payload);
+        if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'La solicitud no tiene un perfil visible valido. Edita la solicitud y selecciona un perfil visible antes de aprobarla.',
+            ]);
         }
 
         $session = \Config\Services::session();
@@ -4649,12 +4999,76 @@ class Inicio extends BaseController {
         $db->table('solicitud_usuario')->where('id_solicitud_usuario', $idSolicitud)->update([
             'estatus' => 'aprobada',
             'id_usuario_creado' => $idUsuarioCreado > 0 ? $idUsuarioCreado : null,
-            'comentario_ti' => $this->encodeSolicitudFolioPayload((string) ($payloadInfo['grupo'] ?? ''), $payloadLimpio),
+            'comentario_ti' => $this->encodeSolicitudFolioPayload($grupoSolicitud, $payloadLimpio),
             'fec_act' => $fechaAhora,
             'usu_act' => (int) ($session->get('id_usuario') ?? 0),
         ]);
 
         return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y folio creado correctamente.']);
+    }
+
+    public function actualizarSolicitudNuevoFolioTi()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para editar solicitudes.']);
+        }
+
+        $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+        $payloadJson = trim((string) ($this->request->getPost('payload_json') ?? ''));
+        if ($idSolicitud <= 0 || $payloadJson === '') {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud o formulario no válido.']);
+        }
+
+        $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
+        if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden editar solicitudes pendientes.']);
+        }
+
+        $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
+        if (empty($payloadInfo['payload'])) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Esta solicitud no contiene formulario completo editable.']);
+        }
+
+        $payloadEditado = json_decode($payloadJson, true);
+        if (!is_array($payloadEditado)) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'El formulario editado no tiene formato JSON válido.']);
+        }
+
+        $grupo = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payloadEditado);
+        $payload = $this->normalizeSolicitudFolioPayload($grupo, $payloadEditado);
+        $perfilGrupo = (int) ($payload['perfil_grupo'] ?? 0);
+        $idPerfilSolicitado = $perfilGrupo;
+        $usuario = strtolower(trim((string) ($payload['usuario'] ?? '')));
+        $nombre = trim((string) ($payload['nombre'] ?? ''));
+        $primerApellido = trim((string) ($payload['primer_apellido'] ?? ''));
+        $segundoApellido = trim((string) ($payload['segundo_apellido'] ?? ''));
+        $correo = strtolower(trim((string) ($payload['correo'] ?? '')));
+
+        if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || empty($payload['folio_grupo'])) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Completa perfil, usuario, nombre, primer apellido y folio antes de guardar cambios.']);
+        }
+        if ($perfilGrupo <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Captura perfil_grupo como valor numerico antes de guardar cambios.']);
+        }
+
+        $db = \Config\Database::connect();
+        $fechaAhora = date('Y-m-d H:i:s');
+        $db->table('solicitud_usuario')
+            ->where('id_solicitud_usuario', $idSolicitud)
+            ->update([
+                'id_perfil_solicitado' => $idPerfilSolicitado,
+                'usuario' => $usuario,
+                'nombre' => $nombre,
+                'primer_apellido' => $primerApellido,
+                'segundo_apellido' => $segundoApellido,
+                'correo' => $correo,
+                'comentario_ti' => $this->encodeSolicitudFolioPayload($grupo, $payload),
+                'fec_act' => $fechaAhora,
+                'usu_act' => (int) (\Config\Services::session()->get('id_usuario') ?? 0),
+            ]);
+
+        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud actualizada correctamente.']);
     }
 
     public function rechazarSolicitudNuevoFolioTi()
@@ -4799,6 +5213,16 @@ class Inicio extends BaseController {
         return $this->renderPerfilSeculHub('admin');
     }
 
+    public function PerfilSecturi()
+    {
+        return $this->renderPerfilSecturiHub('admin');
+    }
+
+    public function PerfilSecturiConsulta()
+    {
+        return $this->renderPerfilSecturiHub('consulta');
+    }
+
     public function PerfilSeculConsulta()
     {
         return $this->renderPerfilSeculHub('consulta');
@@ -4822,6 +5246,25 @@ class Inicio extends BaseController {
     private function renderPerfilUgHub(string $modo = 'admin')
     {
         return $this->renderPerfilCatalogoHub('ug', $modo);
+    }
+
+    private function renderPerfilSecturiHub(string $modo = 'admin')
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_ti_master']) && !(($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true))) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['hubTitle'] = 'Centro de Acceso SECTURI';
+        $data['hubSubtitle'] = 'Acceso institucional SECTURI con capacidades operativas equivalentes al perfil TI.';
+        $data['inicioModoConsulta'] = $modo === 'consulta';
+        $data['contentView'] = 'secciones/vPerfilSecturi';
+        $this->_renderView($data);
     }
 
     private function renderPerfilCatalogoHub(string $grupo, string $modo = 'admin')
@@ -5128,7 +5571,7 @@ class Inicio extends BaseController {
         $fechaAhora = date('Y-m-d H:i:s');
         $insertOk = $db->table('solicitud_usuario')->insert([
             'tipo_solicitud' => $cfg['tipo_solicitud'],
-            'id_proveedor' => null,
+            'id_proveedor' => 0,
             'id_establecimiento' => (int) ($session->get('id_establecimiento') ?? 0),
             'id_perfil_solicitado' => $idPerfilSolicitado,
             'usuario' => $usuario,

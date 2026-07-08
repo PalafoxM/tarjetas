@@ -551,7 +551,7 @@ class Usuario extends BaseController
 
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
-        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
+        $legacyProfile = $this->resolveLegacyProfileAlta($selectedProfile, $assignment, $usuarioActual ?? []);
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
         $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
@@ -754,7 +754,7 @@ class Usuario extends BaseController
 
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
-        $legacyProfile = $selectedProfile ?: $this->resolver->inferLegacyProfile($assignment, $usuarioActual ?? []);
+        $legacyProfile = $this->resolveLegacyProfileAlta($selectedProfile, $assignment, $usuarioActual ?? []);
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
         $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
@@ -2378,6 +2378,16 @@ class Usuario extends BaseController
         return '';
     }
 
+    private function resolveLegacyProfileAlta(?int $selectedProfile, array $assignment, array $existingRow = []): int
+    {
+        $selectedProfile = (int) ($selectedProfile ?? 0);
+        if ($selectedProfile > 0 && !in_array($selectedProfile, [4, 8, 9, 10], true)) {
+            return $selectedProfile;
+        }
+
+        return $this->resolver->inferLegacyProfile($assignment, $existingRow);
+    }
+
     private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int
     {
         $idPartidaActual = $this->nullableInt($data['id_partida'] ?? null);
@@ -2621,53 +2631,56 @@ class Usuario extends BaseController
 
     private function buildCatalogRows(array $actorContext, ?string $catalogoGrupo = null): array
     {
-        $baseResponse = $this->globals->getTabla([
-            'tabla' => 'vw_usuario',
-            'where' => ['visible' => 1],
-        ]);
+        $localRows = $this->getLocalCatalogRows();
+        $baseRows = [];
 
-        if ($baseResponse->error) {
-            return [
-                'error' => true,
-                'respuesta' => $baseResponse->respuesta,
-                'data' => [],
-            ];
-        }
+        if (!empty($localRows)) {
+            foreach ($localRows as $row) {
+                $idUsuario = (int) ($row['id_usuario'] ?? 0);
+                if ($idUsuario <= 0) {
+                    continue;
+                }
 
-        
-        
-            $displayResponse = $this->globals->getTabla([
+                $baseRows[$idUsuario] = $row;
+            }
+        } else {
+            $baseResponse = $this->globals->getTabla([
                 'tabla' => 'vw_usuario',
                 'where' => ['visible' => 1],
             ]);
 
-        $displayIndex = [];
-        if (!$displayResponse->error && !empty($displayResponse->data)) {
-            foreach ($displayResponse->data as $row) {
-                $displayIndex[(int) ($row->id_usuario ?? 0)] = (array) $row;
+            if ($baseResponse->error) {
+                return [
+                    'error' => true,
+                    'respuesta' => $baseResponse->respuesta,
+                    'data' => [],
+                ];
             }
+
+            foreach (($baseResponse->data ?? []) as $row) {
+                $baseRows[(int) ($row->id_usuario ?? 0)] = (array) $row;
+            }
+        }
+
+        $displayIndex = [];
+        foreach ($baseRows as $idUsuario => $row) {
+            $displayIndex[(int) $idUsuario] = (array) $row;
         }
 
         $documentIndex = [];
-        $documentResponse = $this->globals->getTabla([
-            'tabla' => 'usuario',
-            'where' => ['visible' => 1],
-        ]);
-        if (!$documentResponse->error && !empty($documentResponse->data)) {
-            foreach ($documentResponse->data as $row) {
-                $documentIndex[(int) ($row->id_usuario ?? 0)] = [
-                    'qr' => (string) ($row->qr ?? ''),
-                    'ine_firma_cajero' => (string) ($row->ine_firma_cajero ?? ''),
-                    'ine_frontal' => (string) ($row->ine_frontal ?? ''),
-                    'ine_trasera' => (string) ($row->ine_trasera ?? ''),
-                    'firma' => (string) ($row->firma ?? ''),
-                ];
-            }
+        foreach ($localRows as $row) {
+            $documentIndex[(int) ($row['id_usuario'] ?? 0)] = [
+                'qr' => (string) ($row['qr'] ?? ''),
+                'ine_firma_cajero' => (string) ($row['ine_firma_cajero'] ?? ''),
+                'ine_frontal' => (string) ($row['ine_frontal'] ?? ''),
+                'ine_trasera' => (string) ($row['ine_trasera'] ?? ''),
+                'firma' => (string) ($row['firma'] ?? ''),
+            ];
         }
 
         $rows = [];
-        foreach (($baseResponse->data ?? []) as $row) {
-            $baseRow = (array) $row;
+        foreach (array_values($baseRows) as $baseRow) {
+            $baseRow = (array) $baseRow;
             if (!$this->resolver->canViewRow($actorContext, $baseRow)) {
                 continue;
             }
@@ -2694,7 +2707,14 @@ class Usuario extends BaseController
                 $mergedRow['primer_apellido'] ?? '',
                 $mergedRow['segundo_apellido'] ?? '',
             ])));
-            $rows[] = $this->resolver->decorateRow($mergedRow, $actorContext);
+            $decoratedRow = $this->resolver->decorateRow($mergedRow, $actorContext);
+            if (trim((string) ($decoratedRow['dsc_perfil'] ?? '')) === '') {
+                $decoratedRow['dsc_perfil'] = trim(implode(' - ', array_filter([
+                    (string) ($decoratedRow['grupo_visible'] ?? ''),
+                    (string) ($decoratedRow['rol_visible'] ?? ''),
+                ])));
+            }
+            $rows[] = $decoratedRow;
         }
 
         return [
@@ -2702,6 +2722,40 @@ class Usuario extends BaseController
             'respuesta' => 'Consulta exitosa',
             'data' => $rows,
         ];
+    }
+
+    private function getLocalCatalogRows(): array
+    {
+        try {
+            $db = \Config\Database::connect();
+            $rows = $db->table('usuario u')
+                ->select('u.*')
+                ->where('u.visible', 1)
+                ->get()
+                ->getResultArray();
+        } catch (\Throwable $e) {
+            log_message('error', 'Usuario.getLocalCatalogRows: ' . $e->getMessage());
+            return [];
+        }
+
+        return array_map(function (array $row): array {
+            $row['id'] = $row['id'] ?? ($row['id_usuario'] ?? null);
+            $row['nombre_completo'] = trim(implode(' ', array_filter([
+                (string) ($row['nombre'] ?? ''),
+                (string) ($row['primer_apellido'] ?? ''),
+                (string) ($row['segundo_apellido'] ?? ''),
+            ])));
+            $row['codigo_qr'] = $row['codigo_qr'] ?? ($row['qr'] ?? '');
+            $row['monto'] = $row['monto'] ?? ($row['monto_deposito'] ?? 0);
+            $row['monto_hotel'] = $row['monto_hotel'] ?? ($row['monto_deposito_hotel'] ?? 0);
+            $row['tarifa_hotel'] = $row['tarifa_hotel'] ?? ($row['tarifa_noche'] ?? 0);
+            $row['saldo_disponible'] = $row['saldo_disponible'] ?? ($row['monto_deposito_operativo'] ?? 0);
+            $row['current_balance'] = $row['current_balance'] ?? ($row['monto_deposito_operativo'] ?? 0);
+            $row['created_at'] = $row['created_at'] ?? ($row['fec_reg'] ?? null);
+            $row['updated_at'] = $row['updated_at'] ?? ($row['fec_act'] ?? null);
+
+            return $row;
+        }, $rows);
     }
 
     private function getCatalogData(string $table, array $where = [], ?string $order = null): array
@@ -2944,18 +2998,53 @@ class Usuario extends BaseController
         $keyPrefix = $this->envFirst(['AWS_S3_PREFIX', 'S3_PREFIX', 'AWS_BUCKET_PREFIX'], 'qr_fic');
         $objectKey = trim($keyPrefix, '/');
         $objectKey = ($objectKey !== '' ? $objectKey . '/' : '') . $fileName;
-        $qrUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png');
+        $qrUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
+        if ($qrUrl === null) {
+            $qrUrl = $this->persistInstitutionalQrLocalFallback($absolutePath, $fileName);
+        }
         @unlink($absolutePath);
 
         return $qrUrl;
     }
 
-    private function uploadFileToS3(string $absolutePath, string $objectKey, string $contentType): ?string
+    private function persistInstitutionalQrLocalFallback(string $absolutePath, string $fileName): ?string
+    {
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            return null;
+        }
+
+        $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '', $fileName);
+        if ($safeFileName === '') {
+            $safeFileName = 'usuario-qr-' . time() . '.png';
+        }
+
+        $relativeDir = 'uploads/qr_fic';
+        $targetDir = rtrim(FCPATH, '\\/') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
+        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+            $this->lastS3Error = trim($this->lastS3Error . ' Fallback local no pudo crear directorio QR.');
+            log_message('error', 'Usuario.generateInstitutionalQrForUser: local fallback dir unavailable: ' . $targetDir);
+            return null;
+        }
+
+        $targetPath = $targetDir . DIRECTORY_SEPARATOR . $safeFileName;
+        if (!copy($absolutePath, $targetPath)) {
+            $this->lastS3Error = trim($this->lastS3Error . ' Fallback local no pudo copiar QR.');
+            log_message('error', 'Usuario.generateInstitutionalQrForUser: local fallback copy failed: ' . $targetPath);
+            return null;
+        }
+
+        log_message('warning', 'Usuario.generateInstitutionalQrForUser: S3 no disponible, QR guardado localmente en ' . $targetPath);
+        $relativePath = $relativeDir . '/' . $safeFileName;
+
+        return function_exists('base_url') ? base_url($relativePath) : $relativePath;
+    }
+
+    private function uploadFileToS3(string $absolutePath, string $objectKey, string $contentType, bool $logFailureAsError = true): ?string
     {
         $this->lastS3Error = '';
         if (!is_file($absolutePath) || !is_readable($absolutePath)) {
             $this->lastS3Error = 'No se puede leer el archivo temporal del QR.';
-            log_message('error', 'Usuario.uploadFileToS3: local file is not readable: ' . $absolutePath);
+            log_message($logFailureAsError ? 'error' : 'warning', 'Usuario.uploadFileToS3: local file is not readable: ' . $absolutePath);
             return null;
         }
 
@@ -2968,14 +3057,14 @@ class Usuario extends BaseController
 
         if ($bucket === '' || $accessKey === '' || $secretKey === '') {
             $this->lastS3Error = 'Faltan variables de S3 en .env: bucket, access key o secret key.';
-            log_message('error', 'Usuario.uploadFileToS3: missing S3 env vars.');
+            log_message($logFailureAsError ? 'error' : 'warning', 'Usuario.uploadFileToS3: missing S3 env vars.');
             return null;
         }
 
         $body = file_get_contents($absolutePath);
         if ($body === false) {
             $this->lastS3Error = 'No se pudo leer el contenido del QR temporal.';
-            log_message('error', 'Usuario.uploadFileToS3: could not read local file body.');
+            log_message($logFailureAsError ? 'error' : 'warning', 'Usuario.uploadFileToS3: could not read local file body.');
             return null;
         }
 
@@ -3040,7 +3129,7 @@ class Usuario extends BaseController
 
         if (!function_exists('curl_init')) {
             $this->lastS3Error = 'La extension cURL de PHP no esta disponible.';
-            log_message('error', 'Usuario.uploadFileToS3: cURL extension is not available.');
+            log_message($logFailureAsError ? 'error' : 'warning', 'Usuario.uploadFileToS3: cURL extension is not available.');
             return null;
         }
 
@@ -3072,7 +3161,7 @@ class Usuario extends BaseController
 
         if ($rawResponse === false || $httpCode < 200 || $httpCode >= 300) {
             $this->lastS3Error = trim('HTTP ' . $httpCode . ' ' . $curlError . ' ' . $this->extractS3ErrorMessage((string) $rawResponse));
-            log_message('error', 'Usuario.uploadFileToS3: upload failed. HTTP ' . $httpCode . ' ' . $curlError . ' Response: ' . substr((string) $rawResponse, 0, 500));
+            log_message($logFailureAsError ? 'error' : 'warning', 'Usuario.uploadFileToS3: upload failed. HTTP ' . $httpCode . ' ' . $curlError . ' Response: ' . substr((string) $rawResponse, 0, 500));
             return null;
         }
 

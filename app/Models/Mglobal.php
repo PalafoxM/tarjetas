@@ -10,6 +10,7 @@ use App\Libraries\Funciones;
 class Mglobal extends Model {
 
     public $errorConexion = false;
+    protected $session;
     
 
     //protected $table = 'zeus_usuarios';

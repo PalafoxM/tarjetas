@@ -3,6 +3,7 @@ $ficSolicitudListadoUrl = (string) ($ficSolicitudListadoUrl ?? base_url('index.p
 $ficSolicitudDetalleUrl = (string) ($ficSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil'));
 $ficSolicitudCancelarUrl = (string) ($ficSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil'));
 $ficSolicitudAprobarUrl = (string) ($ficSolicitudAprobarUrl ?? base_url('index.php/Inicio/aprobarSolicitudNuevoFolioTi'));
+$ficSolicitudEditarUrl = (string) ($ficSolicitudEditarUrl ?? base_url('index.php/Inicio/actualizarSolicitudNuevoFolioTi'));
 $ficSolicitudRechazarUrl = (string) ($ficSolicitudRechazarUrl ?? base_url('index.php/Inicio/rechazarSolicitudNuevoFolioTi'));
 $qrSolicitudListadoUrl = (string) ($qrSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesActivacionQrFic'));
 $operativoSolicitudListadoUrl = (string) ($operativoSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioOperativo'));
@@ -189,6 +190,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
     data-folio-detail-url="<?= esc($ficSolicitudDetalleUrl, 'attr') ?>"
     data-folio-cancel-url="<?= esc($ficSolicitudCancelarUrl, 'attr') ?>"
     data-folio-approve-url="<?= esc($ficSolicitudAprobarUrl, 'attr') ?>"
+    data-folio-edit-url="<?= esc($ficSolicitudEditarUrl, 'attr') ?>"
     data-folio-reject-url="<?= esc($ficSolicitudRechazarUrl, 'attr') ?>"
     data-qr-list-url="<?= esc($qrSolicitudListadoUrl, 'attr') ?>"
     data-qr-file-url="<?= esc(base_url('index.php/Inicio/verArchivoSolicitudQrFic'), 'attr') ?>"

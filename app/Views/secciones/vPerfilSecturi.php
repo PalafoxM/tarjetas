@@ -77,10 +77,21 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
             <div>
                 <span class="fic-access-card__category">Hospedaje</span>
                 <h2>Movimientos de hospedaje</h2>
-                <p>Consulta los movimientos de todos los hoteles con las mismas capacidades operativas del perfil de recepción.</p>
+                <p>Consulta los movimientos de los usuarios, llegadas, órdenes de hospedaje y alimentos.</p>
             </div>
-            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Hospedaje') ?>">
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Cajero') ?>">
                 Ver hospedajes
+            </a>
+        </article>
+
+        <article class="fic-access-card fic-access-card--amber">
+            <div>
+                <span class="fic-access-card__category">Facturacion</span>
+                <h2>Facturas</h2>
+                <p>Consulta los XML y PDF enviados por los proveedores para seguimiento administrativo.</p>
+            </div>
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/FacturasFic') ?>">
+                Ver facturas
             </a>
         </article>
     </section>
@@ -179,6 +190,7 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
     .fic-access-card--purple { --card-accent: #7377f4; }
     .fic-access-card--green { --card-accent: #10cba1; }
     .fic-access-card--outline { --card-accent: #7c83ff; }
+    .fic-access-card--amber { --card-accent: #f6b73c; }
 
     @media (max-width: 1199.98px) {
         .fic-access-grid {
