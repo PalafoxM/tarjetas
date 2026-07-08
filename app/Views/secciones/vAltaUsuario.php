@@ -5,6 +5,8 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
 $idUsuarioEditar = (int) ($idUsuarioEditar ?? 0);
 $esNuevo = $idUsuarioEditar <= 0;
 $modoAltaProveedor = !empty($modoAltaProveedor);
+$modoSolicitudFolio = !empty($modoSolicitudFolio);
+$solicitudFolioGrupo = strtoupper((string) ($solicitudFolioGrupo ?? ''));
 $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
 $partidaOptions = is_array($partidaOptions ?? null) ? $partidaOptions : [];
 $extractCatalogAmount = static function ($item) {
@@ -206,11 +208,17 @@ $extractCatalogAmount = static function ($item) {
     data-id-usuario="<?= esc((string) $idUsuarioEditar, 'attr') ?>"
     data-list-url="<?= esc($regresarUrl, 'attr') ?>"
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
-    data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>" data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
+    data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>"
+    data-solicitud-folio-mode="<?= $modoSolicitudFolio ? '1' : '0' ?>"
+    data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $esNuevo ? 'Nuevo usuario' : 'Editar usuario' ?></h3>
-            <p class="text-muted mb-0">Captura la informacion del usuario en una vista completa para trabajar mas comodo.</p>
+            <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $modoSolicitudFolio ? 'Solicitud de nuevo folio' : ($esNuevo ? 'Nuevo usuario' : 'Editar usuario') ?></h3>
+            <p class="text-muted mb-0">
+                <?= $modoSolicitudFolio
+                    ? 'Captura la información completa del folio ' . esc($solicitudFolioGrupo) . '; TI la revisará antes de crear el usuario.'
+                    : 'Captura la información del usuario en una vista completa para trabajar más cómodo.' ?>
+            </p>
         </div>
         <a href="<?= esc($regresarUrl, 'attr') ?>" class="btn btn-outline-secondary">
             <i class="mdi mdi-arrow-left me-1"></i> Regresar
@@ -516,9 +524,9 @@ $extractCatalogAmount = static function ($item) {
                 </div>
             </div>
             <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
-                <a href="<?= base_url('index.php/Inicio/Usuarios') ?>" class="btn btn-secondary">Cancelar</a>
+                <a href="<?= esc($regresarUrl, 'attr') ?>" class="btn btn-secondary">Cancelar</a>
                 <?php if (!empty($contextoUsuario['can_edit_user_catalog'])): ?>
-                <button type="submit" class="btn btn-primary" id="guardarCajero">Guardar</button>
+                <button type="submit" class="btn btn-primary" id="guardarCajero"><?= $modoSolicitudFolio ? 'Enviar solicitud' : 'Guardar' ?></button>
                 <?php endif; ?>
             </div>
         </div>

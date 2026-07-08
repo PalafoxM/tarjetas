@@ -881,18 +881,8 @@ class Inicio extends BaseController {
         $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
         $cfg = $grupo === 'fic' ? [] : $this->getSolicitudCatalogoConfig($grupo);
 
-        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
+        if (empty($tiUsuario) && (!$esGrupo || $rolGrupo !== 1)) {
             return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        if ($grupo === 'fic' && empty($tiUsuario) && $esGrupo && $rolGrupo !== 1) {
-            return redirect()->to(base_url('index.php/Inicio/PerfilFicConsulta'));
-        }
-        if ($grupo !== 'fic' && empty($tiUsuario) && $esGrupo && $rolGrupo === 1) {
-            return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo)));
-        }
-        if ($grupo !== 'fic' && empty($tiUsuario) && $esGrupo && in_array($rolGrupo, [2, 4], true)) {
-            return redirect()->to(base_url('index.php/Inicio/' . ucfirst($grupo) . 'Consulta'));
         }
 
         $backUrl = $grupo === 'fic'
@@ -903,9 +893,15 @@ class Inicio extends BaseController {
             ? base_url('index.php/Inicio/guardarSolicitudUsuarioFicPerfil')
             : base_url('index.php/Inicio/guardarSolicitudUsuario' . ucfirst($grupo) . 'Perfil');
 
-        $data = [];
-        $data['scripts'] = ['principal', 'solicitud_alta'];
-        $data['contentView'] = 'secciones/vSolicitudAlta';
+        $data = $this->buildAltaUsuarioFormData($contextoUsuario, $resolver);
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contentView'] = 'secciones/vAltaUsuario';
+        $data['idUsuarioEditar'] = 0;
+        $data['modoAltaProveedor'] = false;
+        $data['modoSolicitudFolio'] = true;
+        $data['solicitudFolioGrupo'] = strtoupper($grupo);
+        $data['regresarUrl'] = $backUrl;
+        $data['saveUrl'] = $saveUrl;
         $data['solicitudAlta'] = [
             'grupo' => $grupo,
             'title' => 'Solicitud de folio de usuario',
@@ -1097,6 +1093,10 @@ class Inicio extends BaseController {
                 'ok' => false,
                 'message' => 'M?todo no permitido.',
             ]);
+        }
+
+        if ($this->isSolicitudFolioAltaPayload($this->request->getPost())) {
+            return $this->guardarSolicitudFolioDesdeAlta('fic');
         }
         $idClave = (int) ($this->request->getPost('id_clave') ?? 0);
         $categoriaLabel = trim((string) ($this->request->getPost('categoria_label') ?? ''));
@@ -1322,6 +1322,10 @@ class Inicio extends BaseController {
 
     private function mapSolicitudUsuarioFicPerfilRow(array $row): array
     {
+        $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($row['comentario_ti'] ?? ''));
+        $grupoSolicitud = $payloadInfo['grupo'] !== ''
+            ? $payloadInfo['grupo']
+            : str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? 'fic'));
         $nombreCompleto = trim(implode(' ', array_filter([
             trim((string) ($row['nombre'] ?? '')),
             trim((string) ($row['primer_apellido'] ?? '')),
@@ -1342,10 +1346,199 @@ class Inicio extends BaseController {
             'correo' => (string) ($row['correo'] ?? ''),
             'nombre_completo' => $nombreCompleto,
             'estatus' => (string) ($row['estatus'] ?? ''),
-            'comentario_ti' => (string) ($row['comentario_ti'] ?? ''),
+            'comentario_ti' => $payloadInfo['summary'] !== '' ? $payloadInfo['summary'] : (string) ($row['comentario_ti'] ?? ''),
+            'payload_solicitud' => $payloadInfo['payload'],
+            'catalogo_grupo' => $grupoSolicitud !== '' ? $grupoSolicitud : 'fic',
             'fec_reg' => (string) ($row['fec_reg'] ?? ''),
             'visible' => (int) ($row['visible'] ?? 0),
         ];
+    }
+
+    private function isSolicitudFolioAltaPayload(array $post): bool
+    {
+        return isset($post['perfil_grupo'])
+            || isset($post['id_perfil_catalogo'])
+            || isset($post['folio_ui'])
+            || isset($post['pax_ui']);
+    }
+
+    private function guardarSolicitudFolioDesdeAlta(string $grupo, array $cfg = [])
+    {
+        $session = \Config\Services::session();
+        $post = $this->request->getPost();
+        $db = \Config\Database::connect();
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+        $tipoSolicitud = $grupo === 'fic' ? 'alta_usuario_fic' : (string) ($cfg['tipo_solicitud'] ?? ('alta_usuario_' . $grupo));
+        $idPerfilSolicitado = (int) ($post['id_perfil_catalogo'] ?? $post['id_perfil_solicitado'] ?? $post['id_perfil'] ?? 0);
+        $usuario = strtolower(trim((string) ($post['usuario'] ?? '')));
+        $nombre = trim((string) ($post['nombre'] ?? ''));
+        $primerApellido = trim((string) ($post['primer_apellido'] ?? ''));
+        $segundoApellido = trim((string) ($post['segundo_apellido'] ?? ''));
+        $correo = strtolower(trim((string) ($post['correo'] ?? '')));
+        $folio = trim((string) ($post['folio'] ?? $post['folio_ui'] ?? ''));
+        $folioGrupo = trim((string) ($post['folio_grupo'] ?? $folio));
+
+        if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'Completa perfil, usuario, nombre, primer apellido y folio.',
+            ]);
+        }
+
+        $duplicada = $db->table('solicitud_usuario')
+            ->select('id_solicitud_usuario')
+            ->where('visible', 1)
+            ->where('estatus', 'pendiente')
+            ->where('tipo_solicitud', $tipoSolicitud)
+            ->groupStart()
+                ->where('usuario', $usuario)
+                ->orWhere('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%')
+            ->groupEnd()
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if (!empty($duplicada)) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => 'Ya existe una solicitud pendiente para este usuario o folio.',
+            ]);
+        }
+
+        $payload = $post;
+        $payload['grupo_usuario'] = 'institucional';
+        $payload['perfil_grupo'] = $grupo;
+        $payload['id_perfil_catalogo'] = $idPerfilSolicitado;
+        $payload['folio'] = $folio !== '' ? $folio : $folioGrupo;
+        $payload['folio_grupo'] = $folioGrupo;
+        $payload['pax_total'] = (int) ($payload['pax_total'] ?? $payload['pax'] ?? $payload['pax_ui'] ?? 1);
+
+        $comentario = $this->encodeSolicitudFolioPayload($grupo, $payload);
+        $fechaAhora = date('Y-m-d H:i:s');
+        $insertOk = $db->table('solicitud_usuario')->insert([
+            'tipo_solicitud' => $tipoSolicitud,
+            'id_proveedor' => null,
+            'id_establecimiento' => (int) ($post['id_establecimiento'] ?? $session->get('id_establecimiento') ?? 0),
+            'id_perfil_solicitado' => $idPerfilSolicitado,
+            'usuario' => $usuario,
+            'nombre' => $nombre,
+            'primer_apellido' => $primerApellido,
+            'segundo_apellido' => $segundoApellido,
+            'correo' => $correo,
+            'estatus' => 'pendiente',
+            'comentario_ti' => $comentario,
+            'id_usuario_creado' => null,
+            'fec_reg' => $fechaAhora,
+            'usu_reg' => $idSesionUsuario,
+            'fec_act' => $fechaAhora,
+            'usu_act' => $idSesionUsuario,
+            'visible' => 1,
+        ]);
+
+        if (!$insertOk) {
+            return $this->response->setStatusCode(500)->setJSON(['ok' => false, 'message' => 'No fue posible guardar la solicitud.']);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'message' => 'Solicitud enviada correctamente.',
+            'data' => ['id_solicitud_usuario' => (int) $db->insertID()],
+        ]);
+    }
+
+    private function encodeSolicitudFolioPayload(string $grupo, array $payload): string
+    {
+        return "__SOLICITUD_FOLIO_PAYLOAD__\n" . json_encode([
+            'grupo' => $grupo,
+            'payload' => $payload,
+            'summary' => $this->buildSolicitudFolioSummary($payload),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function decodeSolicitudFolioPayload(string $comentario): array
+    {
+        $prefix = "__SOLICITUD_FOLIO_PAYLOAD__\n";
+        if (strpos($comentario, $prefix) !== 0) {
+            return ['grupo' => '', 'payload' => [], 'summary' => ''];
+        }
+
+        $decoded = json_decode(substr($comentario, strlen($prefix)), true);
+        if (!is_array($decoded)) {
+            return ['grupo' => '', 'payload' => [], 'summary' => ''];
+        }
+
+        return [
+            'grupo' => (string) ($decoded['grupo'] ?? ''),
+            'payload' => is_array($decoded['payload'] ?? null) ? $decoded['payload'] : [],
+            'summary' => (string) ($decoded['summary'] ?? ''),
+        ];
+    }
+
+    private function buildSolicitudFolioSummary(array $payload): string
+    {
+        $lines = [];
+        foreach ([
+            'perfil_grupo' => 'Grupo',
+            'folio_grupo' => 'Folio',
+            'sub_folio' => 'Subfolio',
+            'pax_total' => 'Pax',
+            'tiene_alimentos' => 'Alimentos',
+            'tiene_hospedaje' => 'Hospedaje',
+            'id_nivel_cliente' => 'Nivel',
+            'id_partida' => 'Partida',
+            'fec_vigencia_desde' => 'Vigencia desde',
+            'fec_vigencia_hasta' => 'Vigencia hasta',
+            'fec_vigencia_desde_hos' => 'Hospedaje desde',
+            'fec_vigencia_hasta_hos' => 'Hospedaje hasta',
+            'motivo_rechazo' => 'Motivo de rechazo',
+        ] as $key => $label) {
+            if (isset($payload[$key]) && $payload[$key] !== '') {
+                $value = $payload[$key];
+                if (in_array($key, ['tiene_alimentos', 'tiene_hospedaje'], true)) {
+                    $value = (int) $value === 1 ? 'Sí' : 'No';
+                }
+                $lines[] = $label . ': ' . $value;
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function removeSensitiveSolicitudFolioPayload(array $payload): array
+    {
+        unset($payload['contrasenia']);
+
+        if (isset($payload['usuarios']) && is_array($payload['usuarios'])) {
+            foreach ($payload['usuarios'] as $index => $usuario) {
+                if (is_array($usuario)) {
+                    unset($usuario['contrasenia']);
+                    $payload['usuarios'][$index] = $usuario;
+                }
+            }
+        }
+
+        return $payload;
+    }
+
+    private function findSolicitudNuevoFolioTi(int $idSolicitud): array
+    {
+        if ($idSolicitud <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $row = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+            ->where('su.id_solicitud_usuario', $idSolicitud)
+            ->where('su.visible', 1)
+            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug'])
+            ->get()
+            ->getRowArray();
+
+        return is_array($row) ? $row : [];
     }
     private function buildPartidasDashboardSeed(): array
     {
@@ -3105,9 +3298,11 @@ class Inicio extends BaseController {
         $data = [];
         $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_operativo', 'solicitudes_usuario_fic_panel'];
         $data['contextoUsuario'] = $contextoUsuario;
-        $data['ficSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil');
-        $data['ficSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil');
+        $data['ficSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesNuevoFolioTi');
+        $data['ficSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudNuevoFolioTi');
         $data['ficSolicitudCancelarUrl'] = base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil');
+        $data['ficSolicitudAprobarUrl'] = base_url('index.php/Inicio/aprobarSolicitudNuevoFolioTi');
+        $data['ficSolicitudRechazarUrl'] = base_url('index.php/Inicio/rechazarSolicitudNuevoFolioTi');
         $data['qrSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesActivacionQrFic');
         $data['operativoSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioOperativo');
         $data['operativoSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioOperativo');
@@ -4329,8 +4524,183 @@ class Inicio extends BaseController {
             return;
         }
 
-        $Mglobal = new Mglobal();
+        $data = array_merge($data, $this->buildAltaUsuarioFormData($contextoUsuario, $resolver));
 
+        $this->_renderView($data);
+    }
+
+    public function getSolicitudesNuevoFolioTi()
+    {
+        if (empty($this->resolveTiMasterUsuario())) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'total' => 0,
+                'rows' => [],
+                'message' => 'No tienes permisos para consultar esta bandeja.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+            ->where('su.visible', 1)
+            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+
+        $search = trim((string) ($this->request->getGet('search') ?? ''));
+        if ($search !== '') {
+            $builder->groupStart()
+                ->like('su.usuario', $search)
+                ->orLike('su.nombre', $search)
+                ->orLike('su.primer_apellido', $search)
+                ->orLike('su.segundo_apellido', $search)
+                ->orLike('su.correo', $search)
+                ->orLike('su.estatus', $search)
+                ->orLike('su.tipo_solicitud', $search)
+                ->groupEnd();
+        }
+
+        $estatus = trim((string) ($this->request->getGet('estatus') ?? ''));
+        if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
+            $builder->where('su.estatus', $estatus);
+        }
+
+        $total = (clone $builder)->countAllResults();
+        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
+        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+        $rows = $builder
+            ->orderBy('su.fec_reg', 'DESC')
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'total' => $total,
+            'rows' => array_map(function (array $row): array {
+                return $this->mapSolicitudUsuarioFicPerfilRow($row);
+            }, $rows),
+        ]);
+    }
+
+    public function getSolicitudNuevoFolioTi()
+    {
+        if (empty($this->resolveTiMasterUsuario())) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar esta solicitud.']);
+        }
+
+        $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+        }
+
+        $row = $this->findSolicitudNuevoFolioTi($idSolicitud);
+        if (empty($row)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la solicitud.']);
+        }
+
+        return $this->response->setJSON(['ok' => true, 'data' => $this->mapSolicitudUsuarioFicPerfilRow($row)]);
+    }
+
+    public function aprobarSolicitudNuevoFolioTi()
+    {
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para aprobar solicitudes.']);
+        }
+
+        $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+        }
+
+        $db = \Config\Database::connect();
+        $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
+        if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden aprobar solicitudes pendientes.']);
+        }
+
+        $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
+        $payload = $payloadInfo['payload'];
+        if (empty($payload)) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'La solicitud no contiene el formulario completo para crear el folio.']);
+        }
+
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $usuarioController = new Usuario();
+        $usuarioController->initController($this->request, $this->response, \Config\Services::logger());
+        $saveResponse = $usuarioController->saveAltaUsuarioPayload($payload, $resolver->resolve($session->get()), (int) ($session->get('id_usuario') ?? 0), 'Inicio.aprobarSolicitudNuevoFolioTi');
+        $saveBody = json_decode((string) $saveResponse->getBody(), true);
+
+        if (!is_array($saveBody) || !empty($saveBody['error'])) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => (string) ($saveBody['respuesta'] ?? 'No fue posible crear el usuario desde la solicitud.'),
+            ]);
+        }
+
+        $ids = $saveBody['data']['ids'] ?? [];
+        $idUsuarioCreado = is_array($ids) && !empty($ids) ? (int) reset($ids) : (int) ($saveBody['id_usuario'] ?? 0);
+        $payloadLimpio = $this->removeSensitiveSolicitudFolioPayload($payload);
+        $fechaAhora = date('Y-m-d H:i:s');
+        $db->table('solicitud_usuario')->where('id_solicitud_usuario', $idSolicitud)->update([
+            'estatus' => 'aprobada',
+            'id_usuario_creado' => $idUsuarioCreado > 0 ? $idUsuarioCreado : null,
+            'comentario_ti' => $this->encodeSolicitudFolioPayload((string) ($payloadInfo['grupo'] ?? ''), $payloadLimpio),
+            'fec_act' => $fechaAhora,
+            'usu_act' => (int) ($session->get('id_usuario') ?? 0),
+        ]);
+
+        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y folio creado correctamente.']);
+    }
+
+    public function rechazarSolicitudNuevoFolioTi()
+    {
+        if (empty($this->resolveTiMasterUsuario())) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para rechazar solicitudes.']);
+        }
+
+        $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+        $motivo = trim((string) ($this->request->getPost('motivo') ?? ''));
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+        }
+        if ($motivo === '') {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Captura el motivo de rechazo.']);
+        }
+
+        $db = \Config\Database::connect();
+        $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
+        if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden rechazar solicitudes pendientes.']);
+        }
+
+        $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
+        $comentario = (string) ($solicitud['comentario_ti'] ?? '');
+        if (!empty($payloadInfo['payload'])) {
+            $payload = $this->removeSensitiveSolicitudFolioPayload($payloadInfo['payload']);
+            $payload['motivo_rechazo'] = $motivo;
+            $comentario = $this->encodeSolicitudFolioPayload((string) ($payloadInfo['grupo'] ?? ''), $payload);
+        } else {
+            $comentario .= "\n\nMotivo de rechazo:\n" . $motivo;
+        }
+
+        $db->table('solicitud_usuario')->where('id_solicitud_usuario', $idSolicitud)->update([
+            'estatus' => 'rechazada',
+            'comentario_ti' => $comentario,
+            'fec_act' => date('Y-m-d H:i:s'),
+            'usu_act' => (int) (\Config\Services::session()->get('id_usuario') ?? 0),
+        ]);
+
+        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud rechazada correctamente.']);
+    }
+
+    private function buildAltaUsuarioFormData(array $contextoUsuario, UsuarioPerfilResolver $resolver): array
+    {
+        $Mglobal = new Mglobal();
         $hotelOptions = $Mglobal->getTabla([
             'tabla' => 'establecimiento',
             'where' => [
@@ -4354,13 +4724,14 @@ class Inicio extends BaseController {
             'order' => 'id_partida ASC',
         ]);
 
-        $data['hotelOptions'] = $hotelOptions->data ?? [];
-        $data['catTipoHabitacion'] = $catTipoHabitacion->data ?? [];
-        $data['partidaOptions'] = $catPartida->data ?? [];
-        $data['catalogRoleOptions'] = $resolver->getAllowedRoleOptions($contextoUsuario);
-        $data['providerTypeOptions'] = $resolver->getProviderTypes();
-
-        $this->_renderView($data);
+        return [
+            'contextoUsuario' => $contextoUsuario,
+            'hotelOptions' => $hotelOptions->data ?? [],
+            'catTipoHabitacion' => $catTipoHabitacion->data ?? [],
+            'partidaOptions' => $catPartida->data ?? [],
+            'catalogRoleOptions' => $resolver->getAllowedRoleOptions($contextoUsuario),
+            'providerTypeOptions' => $resolver->getProviderTypes(),
+        ];
     }
 
     public function activarQrDepositosProgramados()
@@ -4669,11 +5040,16 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'M?todo no permitido.']);
         }
 
+        if ($this->isSolicitudFolioAltaPayload($this->request->getPost())) {
+            return $this->guardarSolicitudFolioDesdeAlta($grupo, $cfg);
+        }
+
         $idPerfilSolicitado = (int) ($this->request->getPost('id_perfil_solicitado') ?? 0);
         $nombre = trim((string) ($this->request->getPost('nombre') ?? ''));
         $primerApellido = trim((string) ($this->request->getPost('primer_apellido') ?? ''));
         $segundoApellido = trim((string) ($this->request->getPost('segundo_apellido') ?? ''));
         $correo = trim((string) ($this->request->getPost('correo') ?? ''));
+        $beneficios = trim((string) ($this->request->getPost('beneficios') ?? 'ninguno'));
         $observaciones = trim((string) ($this->request->getPost('observaciones') ?? ''));
 
         $nombre = function_exists('mb_strtoupper') ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);

@@ -2,6 +2,8 @@
 $ficSolicitudListadoUrl = (string) ($ficSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil'));
 $ficSolicitudDetalleUrl = (string) ($ficSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioFicPerfil'));
 $ficSolicitudCancelarUrl = (string) ($ficSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil'));
+$ficSolicitudAprobarUrl = (string) ($ficSolicitudAprobarUrl ?? base_url('index.php/Inicio/aprobarSolicitudNuevoFolioTi'));
+$ficSolicitudRechazarUrl = (string) ($ficSolicitudRechazarUrl ?? base_url('index.php/Inicio/rechazarSolicitudNuevoFolioTi'));
 $qrSolicitudListadoUrl = (string) ($qrSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesActivacionQrFic'));
 $operativoSolicitudListadoUrl = (string) ($operativoSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioOperativo'));
 $operativoSolicitudDetalleUrl = (string) ($operativoSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioOperativo'));
@@ -186,6 +188,8 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
     data-folio-list-url="<?= esc($ficSolicitudListadoUrl, 'attr') ?>"
     data-folio-detail-url="<?= esc($ficSolicitudDetalleUrl, 'attr') ?>"
     data-folio-cancel-url="<?= esc($ficSolicitudCancelarUrl, 'attr') ?>"
+    data-folio-approve-url="<?= esc($ficSolicitudAprobarUrl, 'attr') ?>"
+    data-folio-reject-url="<?= esc($ficSolicitudRechazarUrl, 'attr') ?>"
     data-qr-list-url="<?= esc($qrSolicitudListadoUrl, 'attr') ?>"
     data-qr-file-url="<?= esc(base_url('index.php/Inicio/verArchivoSolicitudQrFic'), 'attr') ?>"
     data-qr-approve-url="<?= esc(base_url('index.php/Inicio/activarQrUsuarioFic'), 'attr') ?>"
@@ -302,6 +306,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                     <thead>
                         <tr>
                             <th data-field="id_solicitud_usuario" data-sortable="true">ID solicitud</th>
+                            <th data-field="catalogo_grupo" data-sortable="true">Grupo</th>
                             <th data-field="perfil_solicitado" data-sortable="true">Perfil solicitado</th>
                             <th data-field="usuario" data-formatter="solicitudesFicPanelUsuarioFormatter">Usuario</th>
                             <th data-field="nombre_completo" data-sortable="true">Nombre completo</th>

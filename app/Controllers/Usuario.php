@@ -729,9 +729,12 @@ class Usuario extends BaseController
             ]);
         }
 
-        $data = $this->request->getPost();
+        return $this->saveAltaUsuarioPayload($this->request->getPost(), $actorContext, (int) ($session->get('id_usuario') ?? 0), $scriptName);
+    }
+
+    public function saveAltaUsuarioPayload(array $data, array $actorContext, int $idSesionUsuario, string $scriptName = 'Usuario.saveAltaUsuario')
+    {
         $db = \Config\Database::connect();
-        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
         $idUsuario = (int) ($data['id_usuario'] ?? 0);
         $usuarioActual = $idUsuario > 0 ? $this->getBaseUserRow($idUsuario) : null;
 

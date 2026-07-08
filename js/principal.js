@@ -387,6 +387,7 @@ window.cajeros = {
         this.altaUrl = contenedor.dataset.altaUrl || (base_url + 'index.php/Inicio/AltaUsuario');
         this.saveUrl = contenedor.dataset.saveUrl || (base_url + 'index.php/Usuario/saveAltaUsuario');
         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
+        this.isSolicitudFolioMode = this.isAltaPage && String(contenedor.dataset.solicitudFolioMode || '') === '1';
 
         if (this.isAltaPage) {
             this.inicializarSelect2();
@@ -1602,7 +1603,7 @@ window.cajeros = {
         $('#id_partida').val(partida);
         this.actualizarResumenAltaUsuario();
 
-        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
+        boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>' + (this.isSolicitudFolioMode ? 'Enviando...' : 'Guardando...'));
 
         $.ajax({
             url: this.saveUrl || (base_url + 'index.php/Usuario/saveAltaUsuario'),
@@ -1610,17 +1611,20 @@ window.cajeros = {
             dataType: 'json',
             data: $('#cajeroForm').serialize()
         }).done(function (response) {
-            if (response.error) {
-                Swal.fire('Atencion', response.respuesta, 'warning');
+            if (response.error || response.ok === false) {
+                Swal.fire('Atención', response.respuesta || response.message || 'No fue posible guardar la información.', 'warning');
                 return;
             }
 
             var paxCount = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
-            Swal.fire('Correcto', paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.', 'success').then(function () {
+            var mensaje = cajeros.isSolicitudFolioMode
+                ? (response.message || 'Solicitud enviada correctamente.')
+                : (paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.');
+            Swal.fire('Correcto', mensaje, 'success').then(function () {
                 window.location.href = cajeros.listUrl;
             });
         }).fail(function () {
-            Swal.fire('Error', 'No fue posible guardar el usuario.', 'error');
+            Swal.fire('Error', cajeros.isSolicitudFolioMode ? 'No fue posible enviar la solicitud.' : 'No fue posible guardar el usuario.', 'error');
         }).always(function () {
             boton.prop('disabled', false).html(textoOriginal);
         });
