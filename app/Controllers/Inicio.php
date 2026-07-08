@@ -40,6 +40,12 @@ class Inicio extends BaseController {
         $Mglobal = new Mglobal;   
 
         $data = array_merge($this->defaultData, $data);
+        if (!isset($data['scripts']) || !is_array($data['scripts'])) {
+            $data['scripts'] = [];
+        }
+        if (!in_array('notificaciones', $data['scripts'], true)) {
+            $data['scripts'][] = 'notificaciones';
+        }
         echo view($data['layout'], $data); 
                       
     }
@@ -895,14 +901,17 @@ class Inicio extends BaseController {
         $data['modoAltaProveedor'] = false;
         $data['modoSolicitudFolio'] = true;
         $data['solicitudFolioGrupo'] = strtoupper($grupo);
+        $data['solicitudFolioId'] = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         $data['regresarUrl'] = $backUrl;
         $data['saveUrl'] = $saveUrl;
+        $data['solicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudFolioEditable');
         $data['solicitudAlta'] = [
             'grupo' => $grupo,
             'title' => 'Solicitud de folio de usuario',
             'subtitle' => 'Captura los datos del usuario y el perfil solicitado dentro del catálogo ' . strtoupper($grupo) . '.',
             'back_url' => $backUrl,
             'save_url' => $saveUrl,
+            'detail_url' => base_url('index.php/Inicio/getSolicitudFolioEditable'),
             'catalogos_url' => base_url('index.php/Usuario/getCatalogosCrud'),
             'establecimiento_id' => (int) ($session->get('id_establecimiento') ?? 0),
         ];
@@ -1132,6 +1141,73 @@ class Inicio extends BaseController {
         return $sugerencias;
     }
 
+    public function getNotificacionesUsuario()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes una sesión válida.']);
+        }
+
+        $limit = max(1, min(20, (int) ($this->request->getGet('limit') ?? 10)));
+        $db = \Config\Database::connect();
+
+        $rows = $db->table('notification')
+            ->where('visible', 1)
+            ->where('id_usuario', $idUsuario)
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
+
+        $unread = $db->table('notification')
+            ->where('visible', 1)
+            ->where('id_usuario', $idUsuario)
+            ->where('read_at IS NULL', null, false)
+            ->countAllResults();
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'total' => count($rows),
+            'unread' => (int) $unread,
+            'rows' => array_map(function (array $row): array {
+                return $this->mapNotificationRow($row);
+            }, $rows),
+        ]);
+    }
+
+    public function marcarNotificacionLeida()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes una sesión válida.']);
+        }
+
+        $idNotification = (int) ($this->request->getGet('id_notification') ?? $this->request->getPost('id_notification') ?? 0);
+        if ($idNotification <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Notificación no válida.']);
+        }
+
+        $db = \Config\Database::connect();
+        $notification = $db->table('notification')
+            ->where('visible', 1)
+            ->where('id_notification', $idNotification)
+            ->where('id_usuario', $idUsuario)
+            ->get()
+            ->getRowArray();
+
+        if (empty($notification)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la notificación.']);
+        }
+
+        $db->table('notification')->where('id_notification', $idNotification)->update([
+            'read_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->response->setJSON(['ok' => true, 'message' => 'Notificación marcada como leída.']);
+    }
+
     public function getSolicitudesUsuarioFicPerfil()
     {
         $session = \Config\Services::session();
@@ -1255,6 +1331,60 @@ class Inicio extends BaseController {
             'ok' => true,
             'data' => $this->mapSolicitudUsuarioFicPerfilRow($row),
         ]);
+    }
+
+    public function getSolicitudFolioEditable()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+        $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
+        $grupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? '')));
+
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('solicitud_usuario su')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, su.usu_reg, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+            ->where('su.id_solicitud_usuario', $idSolicitud)
+            ->where('su.visible', 1)
+            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+
+        if ($grupo !== '' && in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+            $builder->where('su.tipo_solicitud', 'alta_usuario_' . $grupo);
+        }
+
+        $row = $builder->get()->getRowArray();
+        if (empty($row)) {
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la solicitud.']);
+        }
+
+        $esPropietario = (int) ($row['usu_reg'] ?? 0) === $idSesionUsuario;
+        if (empty($tiUsuario) && !$esPropietario) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar esta solicitud.']);
+        }
+
+        $grupoRow = str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? ''));
+        if ($grupo !== '' && $grupo !== $grupoRow) {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud no corresponde al grupo solicitado.']);
+        }
+
+        if (!in_array((string) ($row['estatus'] ?? ''), ['rechazada', 'pendiente', 'aprobada'], true)) {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud no se puede editar en este estado.']);
+        }
+
+        $data = $this->mapSolicitudUsuarioFicPerfilRow($row);
+        $data['solicitud_propietario'] = $esPropietario ? 1 : 0;
+        $data['grupo_solicitud'] = $grupoRow;
+
+        return $this->response->setJSON(['ok' => true, 'data' => $data]);
     }
 
     public function guardarSolicitudUsuarioFicPerfil()
@@ -1385,15 +1515,15 @@ class Inicio extends BaseController {
         ][$beneficiosKey] ?? 'Ninguno';
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Hospedaje: sÃ­';
+            $detalleSolicitud[] = 'Hospedaje: sí­';
             $detalleSolicitud[] = 'Partida automática hospedaje: 3390A';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Alimentos: sÃ­';
+            $detalleSolicitud[] = 'Alimentos: sí­';
             $detalleSolicitud[] = 'Partida automática alimentos: 3390B';
         }
-        if ($categoriaLabel !== '') $detalleSolicitud[] = 'CategorÃ­a: ' . $categoriaLabel;
-        if ($paisLabel !== '') $detalleSolicitud[] = 'PaÃ­s o región: ' . $paisLabel;
+        if ($categoriaLabel !== '') $detalleSolicitud[] = 'Categorí­a: ' . $categoriaLabel;
+        if ($paisLabel !== '') $detalleSolicitud[] = 'Paí­s o región: ' . $paisLabel;
         if ($disciplinaLabel !== '') $detalleSolicitud[] = 'Disciplina: ' . $disciplinaLabel;
         if ($clave !== '') $detalleSolicitud[] = 'Clave: ' . $clave;
         if ($folio !== '') $detalleSolicitud[] = 'Folio: ' . $folio;
@@ -1541,6 +1671,43 @@ class Inicio extends BaseController {
         ];
     }
 
+    private function mapNotificationRow(array $row): array
+    {
+        $dataJson = trim((string) ($row['data_json'] ?? ''));
+        $data = [];
+        if ($dataJson !== '') {
+            $decoded = json_decode($dataJson, true);
+            if (is_array($decoded)) {
+                $data = $decoded;
+            }
+        }
+
+        $tipo = (string) ($row['tipo'] ?? '');
+        $mensaje = (string) ($row['mensaje'] ?? '');
+        $grupo = strtolower(trim((string) ($data['grupo'] ?? '')));
+        $actionUrl = trim((string) ($data['url'] ?? ''));
+        if ($tipo === 'SOLICITUD_ALTA_RECHAZADA') {
+            $idSolicitud = (int) ($data['id_solicitud_usuario'] ?? 0);
+            if ($grupo !== '' && $idSolicitud > 0) {
+                $actionUrl = base_url('index.php/Inicio/SolicitudAlta/' . $grupo . '?id_solicitud_usuario=' . $idSolicitud);
+            }
+        }
+
+        return [
+            'id_notification' => (int) ($row['id_notification'] ?? 0),
+            'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+            'titulo' => (string) ($row['titulo'] ?? ''),
+            'mensaje' => $mensaje,
+            'tipo' => $tipo,
+            'data_json' => $data,
+            'action_url' => $actionUrl,
+            'visible' => (int) ($row['visible'] ?? 0),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'read_at' => (string) ($row['read_at'] ?? ''),
+            'is_read' => !empty($row['read_at']) ? 1 : 0,
+        ];
+    }
+
     private function isSolicitudFolioAltaPayload(array $post): bool
     {
         return isset($post['perfil_grupo'])
@@ -1568,6 +1735,7 @@ class Inicio extends BaseController {
         $correo = strtolower(trim((string) ($post['correo'] ?? '')));
         $folio = trim((string) ($post['folio'] ?? $post['folio_ui'] ?? ''));
         $folioGrupo = trim((string) ($post['folio_grupo'] ?? $folio));
+        $subFolio = strtoupper(trim((string) ($post['sub_folio'] ?? $post['subf_ui'] ?? '')));
 
         if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
             return $this->response->setStatusCode(422)->setJSON([
@@ -1582,9 +1750,16 @@ class Inicio extends BaseController {
             ->where('estatus', 'pendiente')
             ->where('tipo_solicitud', $tipoSolicitud)
             ->groupStart()
-                ->where('usuario', $usuario)
-                ->orWhere('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%')
-            ->groupEnd()
+                ->where('usuario', $usuario);
+        if ($subFolio !== '') {
+            $duplicada->orGroupStart()
+                ->where('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%')
+                ->where('comentario_ti LIKE', '%"sub_folio":"' . $db->escapeLikeString($subFolio) . '"%')
+            ->groupEnd();
+        } else {
+            $duplicada->orWhere('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%');
+        }
+        $duplicada->groupEnd()
             ->limit(1)
             ->get()
             ->getRowArray();
@@ -5109,7 +5284,55 @@ class Inicio extends BaseController {
             'usu_act' => (int) (\Config\Services::session()->get('id_usuario') ?? 0),
         ]);
 
+        $this->createSolicitudRechazadaNotification($solicitud, $motivo, $comentario);
+
         return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud rechazada correctamente.']);
+    }
+
+    private function createSolicitudRechazadaNotification(array $solicitud, string $motivo, string $comentario = ''): bool
+    {
+        $idUsuarioDestino = (int) ($solicitud['usu_reg'] ?? 0);
+        $idSolicitud = (int) ($solicitud['id_solicitud_usuario'] ?? 0);
+        if ($idUsuarioDestino <= 0 || $idSolicitud <= 0) {
+            return false;
+        }
+
+        $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($comentario !== '' ? $comentario : ($solicitud['comentario_ti'] ?? '')));
+        $payload = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
+        $grupo = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
+        $grupoLabel = strtoupper($grupo !== '' ? $grupo : 'FIC');
+        $fechaAhora = date('Y-m-d H:i:s');
+        $urlEdicion = base_url('index.php/Inicio/SolicitudAlta/' . ($grupo !== '' ? $grupo : 'fic')) . '?id_solicitud_usuario=' . $idSolicitud;
+
+        $notificationData = [
+            'type' => 'SOLICITUD_ALTA_RECHAZADA',
+            'grupo' => $grupo !== '' ? $grupo : 'fic',
+            'id_solicitud_usuario' => $idSolicitud,
+            'tipo_solicitud' => (string) ($solicitud['tipo_solicitud'] ?? ''),
+            'estatus' => 'rechazada',
+            'motivo' => $motivo,
+            'url' => $urlEdicion,
+            'created_at' => $fechaAhora,
+        ];
+
+        try {
+            $db = \Config\Database::connect();
+            $db->table('notification')->insert([
+                'id_usuario' => $idUsuarioDestino,
+                'titulo' => 'Solicitud rechazada',
+                'mensaje' => 'Tu solicitud ' . $grupoLabel . ' fue rechazada.',
+                'tipo' => 'SOLICITUD_ALTA_RECHAZADA',
+                'data_json' => json_encode($notificationData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'visible' => 1,
+                'created_at' => $fechaAhora,
+                'read_at' => null,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            log_message('error', 'Inicio.createSolicitudRechazadaNotification: ' . $e->getMessage());
+            return false;
+        }
     }
 
     private function buildAltaUsuarioFormData(array $contextoUsuario, UsuarioPerfilResolver $resolver): array
@@ -5557,10 +5780,10 @@ class Inicio extends BaseController {
         ][$beneficiosKey] ?? 'Ninguno';
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Hospedaje: sÃ­';
+            $detalleSolicitud[] = 'Hospedaje: sí­';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Alimentos: sÃ­';
+            $detalleSolicitud[] = 'Alimentos: sí­';
         }
         if ($observaciones !== '') {
             $detalleSolicitud[] = '';

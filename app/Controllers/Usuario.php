@@ -777,6 +777,14 @@ class Usuario extends BaseController
         $subFolioBase = trim((string) ($data['sub_folio'] ?? $data['subf_ui'] ?? ''));
         $folioGrupo = trim((string) ($data['folio_grupo'] ?? $folio));
         $paxTotal = (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1);
+        $subFoliosComparar = [];
+        if ($paxTotal > 1) {
+            for ($sequence = 1; $sequence <= $paxTotal; $sequence++) {
+                $subFoliosComparar[] = trim($subFolioBase !== '' ? $subFolioBase . '-' . $sequence : (string) $sequence);
+            }
+        } elseif ($subFolioBase !== '') {
+                $subFoliosComparar[] = $subFolioBase;
+        }
         $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
         $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
         $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? ''));
@@ -1069,7 +1077,34 @@ class Usuario extends BaseController
             ]);
         }
 
-        if ($db->table('usuario')->select('id_usuario')->where('visible', 1)->groupStart()->where('folio_grupo', $folioGrupo)->orWhere('folio', $folio)->groupEnd()->limit(1)->get()->getRowArray()) {
+        $duplicadoQuery = $db->table('usuario')
+            ->select('id_usuario')
+            ->where('visible', 1);
+
+        if (!empty($subFoliosComparar)) {
+            $duplicadoQuery->groupStart();
+            foreach ($subFoliosComparar as $index => $subFolioComparable) {
+                if ($index === 0) {
+                    $duplicadoQuery->groupStart()
+                        ->where('folio_grupo', $folioGrupo)
+                        ->where('sub_folio', $subFolioComparable)
+                    ->groupEnd();
+                } else {
+                    $duplicadoQuery->orGroupStart()
+                        ->where('folio_grupo', $folioGrupo)
+                        ->where('sub_folio', $subFolioComparable)
+                    ->groupEnd();
+                }
+            }
+            $duplicadoQuery->groupEnd();
+        } else {
+            $duplicadoQuery->groupStart()
+                ->where('folio_grupo', $folioGrupo)
+                ->orWhere('folio', $folio)
+            ->groupEnd();
+        }
+
+        if ($duplicadoQuery->limit(1)->get()->getRowArray()) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Ya existe un grupo de usuarios con ese folio.',

@@ -210,11 +210,13 @@ $extractCatalogAmount = static function ($item) {
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-solicitud-folio-mode="<?= $modoSolicitudFolio ? '1' : '0' ?>"
+    data-solicitud-id="<?= esc((string) ($solicitudFolioId ?? 0), 'attr') ?>"
     data-folio-suggestions-url="<?= esc(base_url('index.php/Inicio/getSugerenciasFolioInstitucional'), 'attr') ?>"
+    data-solicitud-detail-url="<?= esc((string) ($solicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudFolioEditable')), 'attr') ?>"
     data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $modoSolicitudFolio ? 'Solicitud de nuevo folio' : ($esNuevo ? 'Nuevo usuario' : 'Editar usuario') ?></h3>
+            <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $modoSolicitudFolio ? (!empty($solicitudFolioId) ? 'Editar solicitud rechazada' : 'Solicitud de nuevo folio') : ($esNuevo ? 'Nuevo usuario' : 'Editar usuario') ?></h3>
             <p class="text-muted mb-0">
                 <?= $modoSolicitudFolio
                     ? 'Captura la información completa del folio ' . esc($solicitudFolioGrupo) . '; TI la revisará antes de crear el usuario.'

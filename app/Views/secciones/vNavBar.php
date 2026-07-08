@@ -29,13 +29,101 @@
     .neon:hover {
     text-shadow: 0 0 10px rgba(255,255,255,1) , 0 0 20px rgba(255,255,255,1) , 0 0 30px rgba(255,255,255,1) , 0 0 40px #00ffff , 0 0 70px #00ffff , 0 0 80px #00ffff , 0 0 100px #00ffff ;
     }
-   
 
-   
+    .notification-bell-btn {
+        position: relative;
+        min-width: 42px;
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+    }
+
+    .notification-bell-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        transform: translate(30%, -30%);
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .68rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .notification-tray {
+        width: min(380px, calc(100vw - 24px));
+        max-height: 430px;
+        overflow: hidden;
+    }
+
+    .notification-tray__list {
+        max-height: 320px;
+        overflow-y: auto;
+    }
+
+    .notification-tray__item {
+        display: block;
+        padding: .75rem .9rem;
+        border-bottom: 1px solid rgba(148, 163, 184, .12);
+        color: #e2e8f0;
+        text-decoration: none;
+    }
+
+    .notification-tray__item:hover {
+        background: rgba(59, 130, 246, .12);
+        color: #fff;
+    }
+
+    .notification-tray__item.is-unread {
+        background: rgba(14, 165, 233, .08);
+    }
+
+    .notification-tray__title {
+        font-size: .9rem;
+        font-weight: 700;
+        margin-bottom: .15rem;
+    }
+
+    .notification-tray__message {
+        font-size: .82rem;
+        color: #cbd5e1;
+        margin-bottom: .15rem;
+        line-height: 1.3;
+    }
+
+    .notification-tray__meta {
+        font-size: .72rem;
+        color: #94a3b8;
+    }
 </style>
 <div class="navbar-custom topnav-navbar-dark">
     <ul class="list-unstyled topbar-menu float-end mb-0">      
         
+        <li class="dropdown notification-list">
+            <a class="nav-link dropdown-toggle text-white notification-bell-btn" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" id="notificationBellDropdown">
+                <i class="mdi mdi-bell-outline fs-4"></i>
+                <span class="badge bg-danger rounded-pill notification-bell-badge d-none" id="notificationBellBadge">0</span>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated topbar-dropdown-menu notification-tray p-0" aria-labelledby="notificationBellDropdown">
+                <div class="px-3 py-2 border-bottom border-secondary">
+                    <div class="fw-semibold text-white">Notificaciones</div>
+                    <div class="small text-muted" id="notificationTraySubtitle">Cargando...</div>
+                </div>
+                <div class="notification-tray__list" id="notificationTrayList">
+                    <div class="px-3 py-4 text-muted small">Consultando notificaciones...</div>
+                </div>
+                <div class="px-3 py-2 border-top border-secondary text-end">
+                    <a href="#" class="small text-info text-decoration-none" id="notificationTrayRefresh">Actualizar</a>
+                </div>
+            </div>
+        </li>
+
         <li class="dropdown notification-list d-lg-none">
             <div id="titulo">
                 <h3><?= esc($nombreCompleto) ?></h3>

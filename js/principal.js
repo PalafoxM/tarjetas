@@ -387,6 +387,8 @@ window.cajeros = {
         this.altaUrl = contenedor.dataset.altaUrl || (base_url + 'index.php/Inicio/AltaUsuario');
         this.saveUrl = contenedor.dataset.saveUrl || (base_url + 'index.php/Usuario/saveAltaUsuario');
         this.folioSuggestionsUrl = contenedor.dataset.folioSuggestionsUrl || (base_url + 'index.php/Inicio/getSugerenciasFolioInstitucional');
+        this.solicitudFolioDetailUrl = contenedor.dataset.solicitudDetailUrl || (base_url + 'index.php/Inicio/getSolicitudFolioEditable');
+        this.solicitudFolioId = Number(contenedor.dataset.solicitudId || 0);
         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
         this.isSolicitudFolioMode = this.isAltaPage && String(contenedor.dataset.solicitudFolioMode || '') === '1';
 
@@ -413,7 +415,9 @@ window.cajeros = {
             }
 
             this.cargarCatalogosBase(function () {
-                if (idUsuario > 0) {
+                if (cajeros.isSolicitudFolioMode && cajeros.solicitudFolioId > 0) {
+                    cajeros.cargarSolicitudFolioEditable(cajeros.solicitudFolioId);
+                } else if (idUsuario > 0) {
                     cajeros.cargarUsuario(idUsuario);
                 } else {
                     cajeros.prepararNuevoFormulario();
@@ -863,6 +867,88 @@ window.cajeros = {
                 estado.text('No fue posible cargar sugerencias de folio.');
                 chips.empty();
             });
+    },
+
+    cargarSolicitudFolioEditable: function (idSolicitud) {
+        if (!this.isSolicitudFolioMode || !this.solicitudFolioDetailUrl || !idSolicitud) {
+            return;
+        }
+
+        var url = this.solicitudFolioDetailUrl;
+        var grupo = String(this.contexto.active_group || $('#grupo_usuario').val() || '').toLowerCase();
+        var params = { id_solicitud_usuario: idSolicitud };
+        if (grupo !== '') {
+            params.grupo = grupo;
+        }
+
+        $('#cajeroPageTitle').text('Cargando solicitud...');
+
+        $.getJSON(url, params)
+            .done(function (response) {
+                var data = response && response.data ? response.data : null;
+                if (!response || response.ok !== true || !data) {
+                    Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cargar la solicitud.', 'warning');
+                    return;
+                }
+
+                cajeros.aplicarSolicitudFolioEditable(data);
+                $('#cajeroPageTitle').text('Editar solicitud rechazada');
+                $('#guardarCajero').text('Enviar nuevamente');
+            })
+            .fail(function () {
+                Swal.fire('Error', 'No fue posible cargar la solicitud.', 'error');
+            })
+            .always(function () {
+                cajeros.aplicarModoSolicitudFolioUI();
+                cajeros.cargarSugerenciasFolioInstitucional();
+            });
+    },
+
+    aplicarSolicitudFolioEditable: function (data) {
+        data = data || {};
+        var payload = data.payload_solicitud || {};
+        var values = $.extend(true, {}, payload, data);
+
+        $('#grupo_usuario').val(String(values.grupo_usuario || data.grupo_solicitud || data.catalogo_grupo || '').toLowerCase());
+        $('#id_perfil_catalogo').val(values.id_perfil_catalogo || values.id_perfil || values.id_perfil_solicitado || '').trigger('change.select2');
+        $('#perfil_grupo').val(values.perfil_grupo || values.id_perfil_solicitado || '').trigger('change.select2');
+        $('#id_establecimiento').val(values.id_establecimiento || '').trigger('change.select2');
+        $('#usuario').val(values.usuario || '');
+        $('#nombre').val(values.nombre || '');
+        $('#primer_apellido').val(values.primer_apellido || '');
+        $('#segundo_apellido').val(values.segundo_apellido || '');
+        $('#correo').val(values.correo || '');
+        $('#contrasenia').val(values.contrasenia || '');
+        $('#folio_ui').val(values.folio || values.folio_grupo || '');
+        $('#subf_ui').val(values.sub_folio || values.subf_ui || '');
+        $('#pax_ui').val(Number(values.pax_total || values.pax || 1) || 1);
+        $('#anf_gto_ui').val(values.anf_gto || '');
+        $('#tiene_alimentos').val(String(values.tiene_alimentos === 1 || values.tiene_alimentos === '1' ? '1' : (values.tiene_alimentos === 0 || values.tiene_alimentos === '0' ? '0' : ''))).trigger('change');
+        $('#tiene_hospedaje').val(String(values.tiene_hospedaje === 1 || values.tiene_hospedaje === '1' ? '1' : (values.tiene_hospedaje === 0 || values.tiene_hospedaje === '0' ? '0' : ''))).trigger('change');
+        $('#id_nivel_cliente').val(values.id_nivel_cliente || '').trigger('change.select2');
+        $('#fec_vigencia_desde').val(this.normalizarFechaInput(values.fec_vigencia_desde || ''));
+        $('#fec_vigencia_hasta').val(this.normalizarFechaInput(values.fec_vigencia_hasta || ''));
+        $('#id_establecimiento_hotel').val(values.id_establecimiento_hotel || '').trigger('change.select2');
+        $('#id_tipo_habitacion').val(values.id_tipo_habitacion || '').trigger('change.select2');
+        $('#fec_vigencia_desde_hos').val(this.normalizarFechaInput(values.fec_vigencia_desde_hos || ''));
+        $('#fec_vigencia_hasta_hos').val(this.normalizarFechaInput(values.fec_vigencia_hasta_hos || ''));
+        $('#id_partida').val(values.id_partida || '');
+        $('#id_partida_ui').val(values.id_partida || '').trigger('change.select2');
+        $('#monto_deposito').val(values.monto_deposito || '');
+        $('#monto_total_alimentos_ui').val(values.monto_total_alimentos_ui || values.monto_deposito || '');
+        $('#tarifa_noche').val(values.tarifa_noche || '');
+        $('#tarifa_total').val(values.tarifa_total || '');
+        $('#id_clave').val(values.id_clave || '');
+        $('#categoria_ui').val(values.id_clave || '').trigger('change.select2');
+        $('#id_pais').val(values.id_pais || '').trigger('change.select2');
+        $('#id_estado').val(values.id_estado || '').trigger('change.select2');
+
+        this.onCategoriaChange();
+        this.onPerfilBaseChange(values.perfil_grupo || values.id_perfil_solicitado || '');
+        this.onPaisChange();
+        this.actualizarFlujoBeneficios();
+        this.redibujarAltaUsuarioPax();
+        this.actualizarResumenAltaUsuario();
     },
 
     aplicarFolioSugerido: function (folio, subfolio) {
