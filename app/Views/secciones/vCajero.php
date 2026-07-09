@@ -461,6 +461,12 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         row = row || {};
         const idUsuario = Number(row.id_usuario || 0);
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
+        const expedienteCompleto = this.tieneExpedienteCompleto(row);
+        const botonActivarQr = qrActivo
+            ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i></button>`
+            : expedienteCompleto
+                ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">Activar QR</button>`
+                : `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin expediente completo" disabled>Activar QR</button>`;
         let botones = `
             <div class="cajero-actions">
               
@@ -473,9 +479,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
-                ${qrActivo
-                    ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i></button>`
-                    : `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">Activar QR</button>`}`;
+                ${botonActivarQr}`;
 
         if (Number(id_perfil) === 1) {
             botones += `
@@ -485,6 +489,18 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         }
 
         return botones + '</div>';
+    },
+
+    tieneExpedienteCompleto(row) {
+        row = row || {};
+        if (row.expediente_completo === true || row.expediente_completo === 1 || row.expediente_completo === '1') {
+            return true;
+        }
+
+        return String(row.qr || '').trim() !== ''
+            && String(row.ine_frontal || '').trim() !== ''
+            && String(row.ine_trasera || '').trim() !== ''
+            && String(row.firma || '').trim() !== '';
     },
 
     seleccionarFirmaCajero(idUsuario) {
@@ -584,6 +600,13 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     activarQr(idUsuario) {
         if (!idUsuario) return;
+
+        const rows = $('#cajerosTable').bootstrapTable('getData', { useCurrentPage: false, includeHiddenRows: true }) || [];
+        const row = rows.find((item) => Number(item.id_usuario || item.ID_USUARIO || 0) === Number(idUsuario || 0));
+        if (!this.tieneExpedienteCompleto(row || {})) {
+            Swal.fire('Atencion', 'No se puede activar el usuario porque su expediente esta incompleto.', 'warning');
+            return;
+        }
 
         Swal.fire({
             title: '¿Estas seguro de activar QR?',

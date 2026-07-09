@@ -84,6 +84,13 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
         <button type="button" class="btn btn-outline-primary" id="personalEstablecimiento">
             <i class="mdi mdi-account-group me-1"></i> Personal del establecimiento
         </button>
+        <button
+            type="button"
+            class="btn btn-outline-info"
+            id="descargar_reporte_ventas_hotel"
+            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato'), 'attr') ?>">
+            <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
+        </button>
     </div>
     <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
         <i class="mdi mdi-arrow-left me-1"></i> Atrás
@@ -207,6 +214,20 @@ window.establecimientos = {
 
         document.getElementById('personalEstablecimiento').addEventListener('click', function () {
             document.querySelector('.hotel-table-shell').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        document.getElementById('descargar_reporte_ventas_hotel').addEventListener('click', function () {
+            var baseUrl = String(this.dataset.downloadBaseUrl || '').trim();
+            if (!baseUrl || !establecimientos.idEstablecimiento) {
+                return;
+            }
+
+            if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
+                window.cajeros.descargarArchivoSinNavegar(baseUrl + '?id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento));
+                return;
+            }
+
+            window.location.href = baseUrl + '?id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento);
         });
 
         $('#RecepcionTable').bootstrapTable({

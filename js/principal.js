@@ -909,6 +909,7 @@ window.cajeros = {
         var payload = data.payload_solicitud || {};
         var values = $.extend(true, {}, payload, data);
 
+        $('#id_solicitud_usuario').val(Number(data.id_solicitud_usuario || 0) || '');
         $('#grupo_usuario').val(String(values.grupo_usuario || data.grupo_solicitud || data.catalogo_grupo || '').toLowerCase());
         $('#id_perfil_catalogo').val(values.id_perfil_catalogo || values.id_perfil || values.id_perfil_solicitado || '').trigger('change.select2');
         $('#perfil_grupo').val(values.perfil_grupo || values.id_perfil_solicitado || '').trigger('change.select2');

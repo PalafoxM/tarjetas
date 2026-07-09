@@ -22,11 +22,16 @@ $routes->get('Inicio/verFacturaProveedorArchivo', 'Inicio::verFacturaProveedorAr
 $routes->get('Inicio/pdfPagoTerceros', 'Inicio::pdfPagoTerceros');
 $routes->get('Inicio/pdfLiberacionPago', 'Inicio::pdfLiberacionPago');
 $routes->get('Inicio/exportarReporteVentasProveedorXlsx', 'Inicio::exportarReporteVentasProveedorXlsx');
+$routes->get('Inicio/exportarReporteVentasProveedorPdf', 'Inicio::exportarReporteVentasProveedorPdf');
+$routes->get('Inicio/exportarReporteVentasProveedorPdfFormato', 'Inicio::exportarReporteVentasProveedorPdfFormato');
 $routes->get('Inicio/getSugerenciasFolioInstitucional', 'Inicio::getSugerenciasFolioInstitucional');
 $routes->get('Inicio/getSolicitudFolioEditable', 'Inicio::getSolicitudFolioEditable');
 $routes->get('Inicio/getNotificacionesUsuario', 'Inicio::getNotificacionesUsuario');
+$routes->get('Inicio/getNotificacionesNoLeidas', 'Inicio::getNotificacionesNoLeidas');
 $routes->get('Inicio/marcarNotificacionLeida', 'Inicio::marcarNotificacionLeida');
 $routes->post('Inicio/marcarNotificacionLeida', 'Inicio::marcarNotificacionLeida');
+$routes->get('Inicio/resolverUrlEdicionSolicitud', 'Inicio::resolverUrlEdicionSolicitud');
+$routes->post('Inicio/resolverUrlEdicionSolicitud', 'Inicio::resolverUrlEdicionSolicitud');
 $routes->post('Inicio/actualizarSolicitudNuevoFolioTi', 'Inicio::actualizarSolicitudNuevoFolioTi');
 $routes->post('Inicio/guardarPagoSinQrProveedor', 'Inicio::guardarPagoSinQrProveedor');
 $routes->post('Inicio/enviarFacturaProveedor', 'Inicio::enviarFacturaProveedor');

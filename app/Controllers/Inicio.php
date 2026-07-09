@@ -35,6 +35,42 @@ class Inicio extends BaseController {
         }
     }
 
+    private function isNotificationDbRetryableError(\Throwable $error): bool
+    {
+        $message = strtolower((string) $error->getMessage());
+        $code = (int) $error->getCode();
+
+        return in_array($code, [2006, 2013, 2055], true)
+            || str_contains($message, 'server has gone away')
+            || str_contains($message, 'lost connection')
+            || str_contains($message, 'error connecting to the database');
+    }
+
+    private function runNotificationDbWithRetry(callable $callback, string $context = '')
+    {
+        $attempts = 0;
+
+        while ($attempts < 2) {
+            $attempts++;
+            $db = \Config\Database::connect(null, false);
+
+            try {
+                return $callback($db);
+            } catch (\Throwable $error) {
+                if ($attempts >= 2 || !$this->isNotificationDbRetryableError($error)) {
+                    throw $error;
+                }
+
+                log_message(
+                    'warning',
+                    'Inicio.notificaciones: reintentando conexion para ' . $context . ' tras error: ' . $error->getMessage()
+                );
+            }
+        }
+
+        throw new \RuntimeException('No fue posible ejecutar la operacion de notificaciones.');
+    }
+
     private function _renderView($data = array()) { 
         $session = \Config\Services::session();
         $Mglobal = new Mglobal;   
@@ -278,7 +314,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
@@ -473,7 +509,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
         }
 
@@ -492,7 +528,7 @@ class Inicio extends BaseController {
             $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
 
-        $rows = array_values(is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : []);
+        $rows = $this->buildReporteVentasProveedorRows($dashboard);
         $filename = 'reporte_consumos_facturados_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.xlsx';
 
         $writer = WriterEntityFactory::createXLSXWriter();
@@ -522,6 +558,7 @@ class Inicio extends BaseController {
             'Orden Pago',
             'Fecha',
             'Restaurante',
+            'Partida',
             'Item',
             'Transaccion',
             'Importe',
@@ -556,6 +593,7 @@ class Inicio extends BaseController {
                     $ordenPago,
                     $this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''),
                     (string) ($row['dsc_establecimiento'] ?? ''),
+                    $this->resolveReporteVentasPartida($row),
                     'Consumo',
                     (string) ($row['id_solicitud_pago'] ?? ''),
                     '$ ' . number_format($importe, 2, '.', ','),
@@ -576,6 +614,63 @@ class Inicio extends BaseController {
         exit;
     }
 
+    public function exportarReporteVentasProveedorPdf()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
+        }
+
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(401)->setBody('SesiÃ³n invÃ¡lida.');
+        }
+
+        $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        if ($idEstablecimiento > 0) {
+            $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
+        }
+
+        $rows = $this->buildReporteVentasProveedorRows($dashboard);
+        $periodoLabel = $this->buildReporteVentasPeriodoLabel($rows);
+        $filename = 'reporte_consumos_facturados_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.pdf';
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'orientation' => 'L',
+                'tempDir' => $tempDir,
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 12,
+                'margin_bottom' => 12,
+            ]);
+
+            $mpdf->SetTitle('Reporte de consumos facturados');
+            $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtml($rows, $periodoLabel));
+            $mpdf->Output($filename, 'D');
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
+        }
+
+        exit;
+    }
+
     private function resolveReporteVentasOrdenPago(array $row): string
     {
         $folioSolicitud = trim((string) ($row['folio_solicitud'] ?? ''));
@@ -586,6 +681,194 @@ class Inicio extends BaseController {
         $idSolicitudPago = trim((string) ($row['id_solicitud_pago'] ?? ''));
 
         return $idSolicitudPago !== '' ? $idSolicitudPago : 'Sin orden';
+    }
+
+    private function resolveReporteVentasPartida(array $row): string
+    {
+        $partida = trim((string) ($row['partida_usuario'] ?? ''));
+        if ($partida !== '') {
+            return $partida;
+        }
+
+        $idPartida = trim((string) ($row['id_partida_usuario'] ?? ''));
+        if ($idPartida !== '') {
+            return $idPartida;
+        }
+
+        return 'Sin partida';
+    }
+
+    private function buildReporteVentasProveedorRows(array $dashboard): array
+    {
+        return array_values(is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : []);
+    }
+
+    private function buildReporteVentasProveedorExportPayload(): ?array
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
+            return null;
+        }
+
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return null;
+        }
+
+        $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        if ($idEstablecimiento > 0) {
+            $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
+        }
+
+        return [
+            'dashboard' => $dashboard,
+            'rows' => $this->buildReporteVentasProveedorRows($dashboard),
+            'id_establecimiento' => $idEstablecimiento,
+        ];
+    }
+
+    private function resolveReporteVentasLayout(array $dashboard, int $idEstablecimiento): array
+    {
+        $layout = [
+            'slug' => 'general',
+            'titulo' => 'Reporte de consumos facturados',
+            'subtitulo' => 'Proveedor',
+            'etiqueta_establecimiento' => 'Restaurante / hotel',
+            'accent' => '#4b5563',
+            'accent_soft' => '#e5e7eb',
+        ];
+
+        $establecimientos = array_values(array_map(
+            static function ($item): array {
+                return is_object($item) ? get_object_vars($item) : (array) $item;
+            },
+            is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []
+        ));
+        $tipoDetectado = '';
+        $nombreDetectado = '';
+
+        foreach ($establecimientos as $establecimiento) {
+            if ((int) ($establecimiento['id_establecimiento'] ?? 0) !== $idEstablecimiento) {
+                continue;
+            }
+
+            $tipoDetectado = strtolower(trim((string) ($establecimiento['dsc_tipo'] ?? '')));
+            $nombreDetectado = trim((string) ($establecimiento['dsc_establecimiento'] ?? ''));
+            break;
+        }
+
+        if ($tipoDetectado === '' && count($establecimientos) === 1) {
+            $unico = $establecimientos[0];
+            $tipoDetectado = strtolower(trim((string) ($unico['dsc_tipo'] ?? '')));
+            $nombreDetectado = trim((string) ($unico['dsc_establecimiento'] ?? ''));
+        }
+
+        if ($tipoDetectado !== '' && (str_contains($tipoDetectado, 'hotel') || str_contains($tipoDetectado, 'recep'))) {
+            $layout['slug'] = 'hotel';
+            $layout['titulo'] = 'Reporte de hoteles';
+            $layout['subtitulo'] = $nombreDetectado !== '' ? $nombreDetectado : 'Recepción';
+            $layout['etiqueta_establecimiento'] = 'Hotel';
+            $layout['accent'] = '#1d4ed8';
+            $layout['accent_soft'] = '#dbeafe';
+            return $layout;
+        }
+
+        if ($tipoDetectado !== '' && (str_contains($tipoDetectado, 'rest') || str_contains($tipoDetectado, 'comida') || str_contains($tipoDetectado, 'alimento'))) {
+            $layout['slug'] = 'restaurante';
+            $layout['titulo'] = 'Reporte de restaurantes';
+            $layout['subtitulo'] = $nombreDetectado !== '' ? $nombreDetectado : 'Cobros';
+            $layout['etiqueta_establecimiento'] = 'Restaurante';
+            $layout['accent'] = '#0f766e';
+            $layout['accent_soft'] = '#ccfbf1';
+            return $layout;
+        }
+
+        if ($nombreDetectado !== '') {
+            $layout['subtitulo'] = $nombreDetectado;
+        }
+
+        return $layout;
+    }
+
+    private function buildReporteVentasProveedorPdfHtml(array $rows, string $periodoLabel, array $layout = []): string
+    {
+        $layout = is_array($layout) ? $layout : [];
+        $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
+        $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
+        $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / hotel');
+        $accent = (string) ($layout['accent'] ?? '#4b5563');
+        $accentSoft = (string) ($layout['accent_soft'] ?? '#e5e7eb');
+
+        $rowsByOrdenPago = [];
+        foreach ($rows as $row) {
+            $ordenPago = $this->resolveReporteVentasOrdenPago($row);
+            $rowsByOrdenPago[$ordenPago][] = $row;
+        }
+
+        ksort($rowsByOrdenPago, SORT_NATURAL);
+
+        $html = '
+            <style>
+                body { font-family: DejaVu Sans, Arial, sans-serif; color: #111827; }
+                .title { text-align: center; font-weight: bold; font-size: 13pt; margin: 0 0 4px; }
+                .subtitle { text-align: center; font-weight: bold; font-size: 11pt; margin: 0 0 2px; }
+                .period { text-align: center; font-size: 10pt; margin: 0 0 10px; }
+                table { width: 100%; border-collapse: collapse; font-size: 8.8pt; }
+                th, td { border: 1px solid #6b7280; padding: 5px 6px; vertical-align: top; }
+                th { background: #4b5563; color: #ffffff; text-align: center; }
+                .order-total td { font-weight: bold; background: #e5e7eb; }
+                .empty { padding: 12px; text-align: center; border: 1px solid #d1d5db; background: #f9fafb; }
+                .spacer { height: 8px; }
+            </style>
+            <div class="title">SECRETARÃA DE TURISMO E IDENTIDAD</div>
+            <div class="subtitle">53 FESTIVAL INTERNACIONAL CERVANTINO</div>
+            <div class="subtitle">REPORTE DE CONSUMOS FACTURADOS</div>
+            <div class="period">' . esc($periodoLabel, 'html') . '</div>';
+
+        if (empty($rowsByOrdenPago)) {
+            $html .= '<div class="empty">Sin consumos facturados</div>';
+            return $html;
+        }
+
+        foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
+            usort($ordenRows, static function ($a, $b) {
+                $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
+                $fechaB = strtotime((string) ($b['fec_reg'] ?? $b['fecha_respuesta'] ?? '')) ?: 0;
+
+                return $fechaA <=> $fechaB;
+            });
+
+            $html .= '<table>';
+            $html .= '<thead><tr><th>Orden Pago</th><th>Fecha</th><th>Restaurante</th><th>Partida</th><th>Item</th><th>Transaccion</th><th>Importe</th></tr></thead><tbody>';
+
+            $totalOrden = 0.0;
+            foreach ($ordenRows as $row) {
+                $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
+                $totalOrden += $importe;
+                $html .= '<tr>'
+                    . '<td>' . esc($ordenPago, 'html') . '</td>'
+                    . '<td>' . esc($this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''), 'html') . '</td>'
+                    . '<td>' . esc((string) ($row['dsc_establecimiento'] ?? ''), 'html') . '</td>'
+                    . '<td>' . esc($this->resolveReporteVentasPartida($row), 'html') . '</td>'
+                    . '<td>Consumo</td>'
+                    . '<td>' . esc((string) ($row['id_solicitud_pago'] ?? ''), 'html') . '</td>'
+                    . '<td>$ ' . number_format($importe, 2, '.', ',') . '</td>'
+                    . '</tr>';
+            }
+
+            $html .= '<tr class="order-total"><td>Total de orden de pago ' . esc($ordenPago, 'html') . '</td><td></td><td></td><td></td><td></td><td></td><td>$ ' . number_format($totalOrden, 2, '.', ',') . '</td></tr>';
+            $html .= '</tbody></table><div class="spacer"></div>';
+        }
+
+        return $html;
     }
 
     private function buildReporteVentasPeriodoLabel(array $rows): string
@@ -616,6 +899,131 @@ class Inicio extends BaseController {
         $timestamp = strtotime($fecha);
 
         return $timestamp !== false ? date('d/m/Y', $timestamp) : $fecha;
+    }
+
+    public function exportarReporteVentasProveedorPdfFormato()
+    {
+        $payload = $this->buildReporteVentasProveedorExportPayload();
+        if ($payload === null) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
+        }
+
+        $rows = $payload['rows'];
+        $periodoLabel = $this->buildReporteVentasPeriodoLabel($rows);
+        $layout = $this->resolveReporteVentasLayout($payload['dashboard'], (int) $payload['id_establecimiento']);
+        $filename = 'reporte_consumos_facturados_' . ($layout['slug'] ?? 'general') . '_' . ($payload['id_establecimiento'] > 0 ? $payload['id_establecimiento'] : 'general') . '.pdf';
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'orientation' => 'L',
+                'tempDir' => $tempDir,
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 12,
+                'margin_bottom' => 12,
+            ]);
+
+            $mpdf->SetTitle((string) ($layout['titulo'] ?? 'Reporte de consumos facturados'));
+            $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtmlHomologado($rows, $periodoLabel, $layout));
+            $mpdf->Output($filename, 'D');
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
+        }
+
+        exit;
+    }
+
+    private function buildReporteVentasProveedorPdfHtmlHomologado(array $rows, string $periodoLabel, array $layout = []): string
+    {
+        $layout = is_array($layout) ? $layout : [];
+        $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
+        $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
+        $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Establecimiento');
+        $accent = (string) ($layout['accent'] ?? '#1d4ed8');
+        $accentSoft = (string) ($layout['accent_soft'] ?? '#dbeafe');
+
+        $rowsByOrdenPago = [];
+        foreach ($rows as $row) {
+            $ordenPago = $this->resolveReporteVentasOrdenPago($row);
+            $rowsByOrdenPago[$ordenPago][] = $row;
+        }
+
+        ksort($rowsByOrdenPago, SORT_NATURAL);
+
+        $html = '
+            <style>
+                body { font-family: DejaVu Sans, Arial, sans-serif; color: #172033; }
+                .header { border-bottom: 2px solid ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; padding-bottom: 10px; margin-bottom: 16px; }
+                .title { font-size: 20px; font-weight: bold; color: #0f172a; text-align: center; }
+                .subtitle { font-size: 11px; color: #475569; margin-top: 4px; text-align: center; }
+                .chip { display: inline-block; margin: 8px auto 0; padding: 4px 12px; border-radius: 999px; background: ' . htmlspecialchars($accentSoft, ENT_QUOTES, 'UTF-8') . '; color: ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; font-size: 9px; font-weight: bold; }
+                .section-title { font-size: 13px; font-weight: bold; color: #0f172a; margin: 18px 0 8px; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #d7dee8; padding: 8px; }
+                th { background: #e2e8f0; color: #0f172a; text-align: left; }
+                .label { width: 22%; background: #f8fafc; font-weight: bold; color: #334155; white-space: nowrap; }
+                .value-wide { width: 78%; }
+                .value-half { width: 28%; }
+                .money { text-align: right; font-weight: bold; }
+                .summary { margin-bottom: 14px; }
+                .summary td { vertical-align: top; }
+                .note { margin-top: 18px; padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc; }
+                .order-total td { font-weight: bold; background: #e5e7eb; }
+                .empty { padding: 12px; text-align: center; border: 1px solid #d1d5db; background: #f9fafb; }
+                .spacer { height: 10px; }
+            </style>
+            <div class="header">
+                <div class="title">SECRETARIA DE TURISMO E IDENTIDAD</div>
+                <div class="subtitle">53 FESTIVAL INTERNACIONAL CERVANTINO</div>
+                <div class="subtitle">' . htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
+                <div style="text-align:center;"><span class="chip">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</span></div>
+            </div>
+            <div class="subtitle">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>';
+
+        if (empty($rowsByOrdenPago)) {
+            $html .= '<div class="empty">Sin consumos facturados</div>';
+            return $html;
+        }
+
+        foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
+            usort($ordenRows, static function ($a, $b) {
+                $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
+                $fechaB = strtotime((string) ($b['fec_reg'] ?? $b['fecha_respuesta'] ?? '')) ?: 0;
+                return $fechaA <=> $fechaB;
+            });
+
+            $html .= '<table>';
+            $html .= '<thead><tr><th>Orden Pago</th><th>Fecha</th><th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th><th>Partida</th><th>Item</th><th>Transaccion</th><th>Importe</th></tr></thead><tbody>';
+
+            $totalOrden = 0.0;
+            foreach ($ordenRows as $row) {
+                $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
+                $totalOrden += $importe;
+                $html .= '<tr>'
+                    . '<td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>'
+                    . '<td>' . htmlspecialchars($this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
+                    . '<td>' . htmlspecialchars((string) ($row['dsc_establecimiento'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
+                    . '<td>' . htmlspecialchars($this->resolveReporteVentasPartida($row), ENT_QUOTES, 'UTF-8') . '</td>'
+                    . '<td>Consumo</td>'
+                    . '<td>' . htmlspecialchars((string) ($row['id_solicitud_pago'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
+                    . '<td class="money">$ ' . number_format($importe, 2, '.', ',') . '</td>'
+                    . '</tr>';
+            }
+
+            $html .= '<tr class="order-total"><td>Total de orden de pago ' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td><td></td><td></td><td></td><td></td><td></td><td class="money">$ ' . number_format($totalOrden, 2, '.', ',') . '</td></tr>';
+            $html .= '</tbody></table><div class="spacer"></div>';
+        }
+
+        return $html;
     }
 
     public function Hospedaje()
@@ -1141,6 +1549,51 @@ class Inicio extends BaseController {
         return $sugerencias;
     }
 
+    private function resolveSiguienteFolioInstitucionalDisponible(array $pares, int $folio, string $subFolio): array
+    {
+        $usados = [];
+        foreach ($pares as $par) {
+            $folioExistente = (int) ($par['folio'] ?? 0);
+            if ($folioExistente <= 0) {
+                continue;
+            }
+
+            $subExistente = strtoupper(trim((string) ($par['sub_folio'] ?? '')));
+            $subExistente = preg_replace('/[^A-Z]/', '', $subExistente);
+            $usados[$folioExistente . '|' . ($subExistente !== '' ? substr($subExistente, 0, 1) : '')] = true;
+        }
+
+        $folio = max(1, (int) $folio);
+        $subFolio = strtoupper(trim((string) $subFolio));
+        $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
+        $subFolio = $subFolio !== '' ? substr($subFolio, 0, 1) : 'A';
+
+        $intentos = 0;
+        while ($intentos < 1000) {
+            $clave = $folio . '|' . $subFolio;
+            if (!isset($usados[$clave])) {
+                return [
+                    'folio' => $folio,
+                    'sub_folio' => $subFolio,
+                ];
+            }
+
+            if ($subFolio !== 'Z') {
+                $subFolio = chr(ord($subFolio) + 1);
+            } else {
+                $folio++;
+                $subFolio = 'A';
+            }
+
+            $intentos++;
+        }
+
+        return [
+            'folio' => $folio,
+            'sub_folio' => $subFolio,
+        ];
+    }
+
     public function getNotificacionesUsuario()
     {
         $session = \Config\Services::session();
@@ -1149,31 +1602,72 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes una sesión válida.']);
         }
 
-        $limit = max(1, min(20, (int) ($this->request->getGet('limit') ?? 10)));
-        $db = \Config\Database::connect();
+        try {
+            $limit = max(1, min(20, (int) ($this->request->getGet('limit') ?? 10)));
+            $result = $this->runNotificationDbWithRetry(function ($db) use ($idUsuario, $limit) {
+                $rows = $db->table('notification')
+                    ->where('visible', 1)
+                    ->where('id_usuario', $idUsuario)
+                    ->orderBy('created_at', 'DESC')
+                    ->limit($limit)
+                    ->get()
+                    ->getResultArray();
 
-        $rows = $db->table('notification')
-            ->where('visible', 1)
-            ->where('id_usuario', $idUsuario)
-            ->orderBy('created_at', 'DESC')
-            ->limit($limit)
-            ->get()
-            ->getResultArray();
+                $unread = $db->table('notification')
+                    ->where('visible', 1)
+                    ->where('id_usuario', $idUsuario)
+                    ->where('read_at IS NULL', null, false)
+                    ->countAllResults();
 
-        $unread = $db->table('notification')
-            ->where('visible', 1)
-            ->where('id_usuario', $idUsuario)
-            ->where('read_at IS NULL', null, false)
-            ->countAllResults();
+                return [
+                    'rows' => $rows,
+                    'unread' => $unread,
+                ];
+            }, 'getNotificacionesUsuario');
 
-        return $this->response->setJSON([
-            'ok' => true,
-            'total' => count($rows),
-            'unread' => (int) $unread,
-            'rows' => array_map(function (array $row): array {
-                return $this->mapNotificationRow($row);
-            }, $rows),
-        ]);
+            return $this->response->setJSON([
+                'ok' => true,
+                'total' => count($result['rows']),
+                'unread' => (int) $result['unread'],
+                'rows' => array_map(function (array $row): array {
+                    return $this->mapNotificationRow($row);
+                }, $result['rows']),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'message' => $e->getMessage() ?: 'Error consultando notificaciones.',
+            ]);
+        }
+    }
+
+    public function getNotificacionesNoLeidas()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes una sesión válida.']);
+        }
+
+        try {
+            $unread = $this->runNotificationDbWithRetry(function ($db) use ($idUsuario) {
+                return $db->table('notification')
+                    ->where('visible', 1)
+                    ->where('id_usuario', $idUsuario)
+                    ->where('read_at IS NULL', null, false)
+                    ->countAllResults();
+            }, 'getNotificacionesNoLeidas');
+
+            return $this->response->setJSON([
+                'ok' => true,
+                'unread' => (int) $unread,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'ok' => false,
+                'message' => $e->getMessage() ?: 'Error consultando notificaciones no leidas.',
+            ]);
+        }
     }
 
     public function marcarNotificacionLeida()
@@ -1189,7 +1683,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Notificación no válida.']);
         }
 
-        $db = \Config\Database::connect();
+        $db = \Config\Database::connect(null, false);
         $notification = $db->table('notification')
             ->where('visible', 1)
             ->where('id_notification', $idNotification)
@@ -1206,6 +1700,32 @@ class Inicio extends BaseController {
         ]);
 
         return $this->response->setJSON(['ok' => true, 'message' => 'Notificación marcada como leída.']);
+    }
+
+    public function resolverUrlEdicionSolicitud()
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes una sesión válida.']);
+        }
+
+        $grupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? $this->request->getPost('grupo') ?? '')));
+        $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? $this->request->getPost('id_solicitud_usuario') ?? 0);
+        if ($idSolicitud <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+        }
+
+        if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Grupo no válido.']);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'grupo' => $grupo,
+            'id_solicitud_usuario' => $idSolicitud,
+            'url' => $this->buildSolicitudFolioEditUrl($grupo, $idSolicitud),
+        ]);
     }
 
     public function getSolicitudesUsuarioFicPerfil()
@@ -1229,10 +1749,12 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $builder = $db->table('solicitud_usuario su')
-            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, cf.dsc_perfil AS perfil_solicitado')
-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado', 'left')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
             ->where('su.visible', 1)
-            ->where('su.tipo_solicitud', 'alta_usuario_fic');
+            ->whereIn('su.tipo_solicitud', empty($tiUsuario) ? ['alta_usuario_fic'] : ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
 
         if (empty($tiUsuario)) {
             $builder->where('su.usu_reg', $idSesionUsuario);
@@ -1248,6 +1770,8 @@ class Inicio extends BaseController {
                 ->orLike('su.correo', $search)
                 ->orLike('su.estatus', $search)
                 ->orLike('cf.dsc_perfil', $search)
+                ->orLike('cs.des_perfil', $search)
+                ->orLike('cu.dsc_perfil', $search)
                 ->groupEnd();
         }
 
@@ -1347,7 +1871,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
 
-        $db = \Config\Database::connect();
+        $db = \Config\Database::connect(null, false);
         $builder = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, su.usu_reg, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
             ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
@@ -1366,12 +1890,18 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la solicitud.']);
         }
 
+        $grupoRow = str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? ''));
+        $estatusRow = strtolower(trim((string) ($row['estatus'] ?? '')));
         $esPropietario = (int) ($row['usu_reg'] ?? 0) === $idSesionUsuario;
-        if (empty($tiUsuario) && !$esPropietario) {
+        $esAdminDelGrupo = empty($tiUsuario)
+            && (string) ($contextoUsuario['active_group'] ?? '') === $grupoRow
+            && (int) ($contextoUsuario['group_role'] ?? 0) === 1
+            && $estatusRow === 'rechazada';
+
+        if (empty($tiUsuario) && !$esPropietario && !$esAdminDelGrupo) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar esta solicitud.']);
         }
 
-        $grupoRow = str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? ''));
         if ($grupo !== '' && $grupo !== $grupoRow) {
             return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud no corresponde al grupo solicitado.']);
         }
@@ -1689,7 +2219,7 @@ class Inicio extends BaseController {
         if ($tipo === 'SOLICITUD_ALTA_RECHAZADA') {
             $idSolicitud = (int) ($data['id_solicitud_usuario'] ?? 0);
             if ($grupo !== '' && $idSolicitud > 0) {
-                $actionUrl = base_url('index.php/Inicio/SolicitudAlta/' . $grupo . '?id_solicitud_usuario=' . $idSolicitud);
+                $actionUrl = $this->buildSolicitudFolioEditUrl($grupo, $idSolicitud);
             }
         }
 
@@ -1708,6 +2238,59 @@ class Inicio extends BaseController {
         ];
     }
 
+    private function buildSolicitudFolioEditUrl(string $grupo, int $idSolicitud): string
+    {
+        $grupo = strtolower(trim($grupo));
+        $idSolicitud = (int) $idSolicitud;
+        if (!in_array($grupo, ['fic', 'secul', 'ug'], true) || $idSolicitud <= 0) {
+            return '';
+        }
+
+        return base_url('index.php/Inicio/SolicitudAlta/' . $grupo) . '?id_solicitud_usuario=' . $idSolicitud;
+    }
+
+    private function getNotificationAudienceRecipients(string $grupo): array
+    {
+        $grupo = strtolower(trim($grupo));
+        $fieldMap = [
+            'fic' => 'id_fic_perfil',
+            'secul' => 'id_secul_perfil',
+            'ug' => 'id_ug_perfil',
+            'secturi' => 'id_secturi_perfil',
+        ];
+
+        if (!isset($fieldMap[$grupo])) {
+            return [];
+        }
+
+        $db = \Config\Database::connect(null, false);
+        $rows = $db->table('usuario')
+            ->select('id_usuario')
+            ->where('visible', 1)
+            ->whereIn($fieldMap[$grupo], [1, 2])
+            ->get()
+            ->getResultArray();
+
+        $ids = [];
+        foreach ($rows as $row) {
+            $idUsuario = (int) ($row['id_usuario'] ?? 0);
+            if ($idUsuario > 0) {
+                $ids[$idUsuario] = $idUsuario;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    /**
+     * Campos usados por el módulo de notificaciones:
+     * notification.id_notification, notification.id_usuario, notification.titulo,
+     * notification.mensaje, notification.tipo, notification.data_json,
+     * notification.visible, notification.created_at y notification.read_at.
+     * En data_json se usan keys como type, grupo, id_solicitud_usuario,
+     * tipo_solicitud, estatus, motivo, url y created_at.
+     */
+
     private function isSolicitudFolioAltaPayload(array $post): bool
     {
         return isset($post['perfil_grupo'])
@@ -1719,9 +2302,13 @@ class Inicio extends BaseController {
     private function guardarSolicitudFolioDesdeAlta(string $grupo, array $cfg = [])
     {
         $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
         $post = $this->request->getPost();
         $db = \Config\Database::connect();
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
+        $idSolicitudEdicion = (int) ($post['id_solicitud_usuario'] ?? 0);
         $tipoSolicitud = $grupo === 'fic' ? 'alta_usuario_fic' : (string) ($cfg['tipo_solicitud'] ?? ('alta_usuario_' . $grupo));
         $idPerfilBase = (int) ($post['id_perfil_catalogo'] ?? $post['id_perfil'] ?? 0);
         if ($idPerfilBase <= 0) {
@@ -1744,30 +2331,112 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $duplicada = $db->table('solicitud_usuario')
+        $solicitudEdicion = [];
+        if ($idSolicitudEdicion > 0) {
+            $solicitudEdicion = $db->table('solicitud_usuario')
+                ->select('id_solicitud_usuario, tipo_solicitud, estatus, visible, usu_reg')
+                ->where('id_solicitud_usuario', $idSolicitudEdicion)
+                ->where('visible', 1)
+                ->where('tipo_solicitud', $tipoSolicitud)
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+
+            $estatusEdicion = strtolower(trim((string) ($solicitudEdicion['estatus'] ?? '')));
+            $esPropietario = (int) ($solicitudEdicion['usu_reg'] ?? 0) === $idSesionUsuario;
+            $esAdminGrupo = empty($tiUsuario)
+                && (string) ($contextoUsuario['active_group'] ?? '') === $grupo
+                && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true);
+
+            if (empty($solicitudEdicion) || !in_array($estatusEdicion, ['rechazada', 'pendiente'], true)) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'ok' => false,
+                    'message' => 'La solicitud ya no está pendiente o rechazada para reenviarse.',
+                ]);
+            }
+
+            if (empty($tiUsuario) && !$esPropietario && !$esAdminGrupo) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'ok' => false,
+                    'message' => 'No tienes permisos para reenviar esta solicitud.',
+                ]);
+            }
+        }
+
+        $paresInstitucionales = $this->collectFolioInstitucionalPairs($db);
+        $folioDisponible = $this->resolveSiguienteFolioInstitucionalDisponible(
+            $paresInstitucionales,
+            (int) $folioGrupo,
+            $subFolio !== '' ? $subFolio : 'A'
+        );
+
+        if ((int) $folioGrupo !== (int) ($folioDisponible['folio'] ?? 0) || $subFolio !== (string) ($folioDisponible['sub_folio'] ?? '')) {
+            $folioGrupo = (string) ($folioDisponible['folio'] ?? $folioGrupo);
+            $folio = $folioGrupo;
+            $subFolio = (string) ($folioDisponible['sub_folio'] ?? $subFolio);
+        }
+
+        $solicitudUsuarioDuplicada = $db->table('solicitud_usuario')
             ->select('id_solicitud_usuario')
             ->where('visible', 1)
             ->where('estatus', 'pendiente')
             ->where('tipo_solicitud', $tipoSolicitud)
-            ->groupStart()
-                ->where('usuario', $usuario);
-        if ($subFolio !== '') {
-            $duplicada->orGroupStart()
-                ->where('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%')
-                ->where('comentario_ti LIKE', '%"sub_folio":"' . $db->escapeLikeString($subFolio) . '"%')
-            ->groupEnd();
-        } else {
-            $duplicada->orWhere('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%');
-        }
-        $duplicada->groupEnd()
+            ->where('usuario', $usuario)
+            ->where('id_solicitud_usuario !=', $idSolicitudEdicion)
             ->limit(1)
             ->get()
             ->getRowArray();
 
+        if (!empty($solicitudUsuarioDuplicada)) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'ok' => false,
+                'message' => 'Ya existe una solicitud pendiente para este usuario.',
+            ]);
+        }
+
+        $intentosFolio = 0;
+        do {
+            $solicitudFolioDuplicada = $db->table('solicitud_usuario')
+                ->select('id_solicitud_usuario')
+                ->where('visible', 1)
+                ->where('estatus', 'pendiente')
+                ->where('tipo_solicitud', $tipoSolicitud)
+                ->where('id_solicitud_usuario !=', $idSolicitudEdicion);
+            if ($subFolio !== '') {
+                $solicitudFolioDuplicada
+                    ->where('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%')
+                    ->where('comentario_ti LIKE', '%"sub_folio":"' . $db->escapeLikeString($subFolio) . '"%');
+            } else {
+                $solicitudFolioDuplicada->where('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%');
+            }
+            $duplicada = $solicitudFolioDuplicada
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+
+            if (empty($duplicada)) {
+                break;
+            }
+
+            $paresInstitucionales[] = [
+                'folio' => (int) $folioGrupo,
+                'sub_folio' => $subFolio,
+            ];
+            $folioDisponible = $this->resolveSiguienteFolioInstitucionalDisponible(
+                $paresInstitucionales,
+                (int) $folioGrupo,
+                $subFolio !== '' ? $subFolio : 'A'
+            );
+            $folioGrupo = (string) ($folioDisponible['folio'] ?? $folioGrupo);
+            $folio = $folioGrupo;
+            $subFolio = (string) ($folioDisponible['sub_folio'] ?? $subFolio);
+            $intentosFolio++;
+        } while ($intentosFolio < 1000);
+
         if (!empty($duplicada)) {
             return $this->response->setStatusCode(409)->setJSON([
                 'ok' => false,
-                'message' => 'Ya existe una solicitud pendiente para este usuario o folio.',
+                'message' => 'No fue posible encontrar un folio disponible. Intenta nuevamente.',
             ]);
         }
 
@@ -1776,14 +2445,16 @@ class Inicio extends BaseController {
         $payload['id_perfil_catalogo'] = $idPerfilBase;
         $payload['id_perfil_solicitado'] = $idPerfilSolicitado;
         $payload['perfil_grupo'] = $idPerfilSolicitado;
+        $payload['id_solicitud_usuario'] = $idSolicitudEdicion > 0 ? $idSolicitudEdicion : '';
         $payload['folio'] = $folio !== '' ? $folio : $folioGrupo;
         $payload['folio_grupo'] = $folioGrupo;
+        $payload['sub_folio'] = $subFolio;
         $payload['pax_total'] = (int) ($payload['pax_total'] ?? $payload['pax'] ?? $payload['pax_ui'] ?? 1);
         $payload = $this->normalizeSolicitudFolioPayload($grupo, $payload);
 
         $comentario = $this->encodeSolicitudFolioPayload($grupo, $payload);
         $fechaAhora = date('Y-m-d H:i:s');
-        $insertOk = $db->table('solicitud_usuario')->insert([
+        $persistData = [
             'tipo_solicitud' => $tipoSolicitud,
             'id_proveedor' => 0,
             'id_establecimiento' => (int) ($post['id_establecimiento'] ?? $session->get('id_establecimiento') ?? 0),
@@ -1796,11 +2467,30 @@ class Inicio extends BaseController {
             'estatus' => 'pendiente',
             'comentario_ti' => $comentario,
             'id_usuario_creado' => null,
-            'fec_reg' => $fechaAhora,
-            'usu_reg' => $idSesionUsuario,
             'fec_act' => $fechaAhora,
             'usu_act' => $idSesionUsuario,
             'visible' => 1,
+        ];
+
+        if (!empty($solicitudEdicion)) {
+            $updateOk = $db->table('solicitud_usuario')
+                ->where('id_solicitud_usuario', $idSolicitudEdicion)
+                ->update($persistData);
+
+            if (!$updateOk) {
+                return $this->response->setStatusCode(500)->setJSON(['ok' => false, 'message' => 'No fue posible reenviar la solicitud.']);
+            }
+
+            return $this->response->setJSON([
+                'ok' => true,
+                'message' => 'Solicitud reenviada correctamente.',
+                'data' => ['id_solicitud_usuario' => $idSolicitudEdicion],
+            ]);
+        }
+
+        $insertOk = $db->table('solicitud_usuario')->insert($persistData + [
+            'fec_reg' => $fechaAhora,
+            'usu_reg' => $idSesionUsuario,
         ]);
 
         if (!$insertOk) {
@@ -2285,6 +2975,8 @@ class Inicio extends BaseController {
                     sp.folio_solicitud,
                     sp.id_usuario,
                     sp.id_establecimiento,
+                    u.id_partida AS id_partida_usuario,
+                    cp.partida AS partida_usuario,
                     sp.monto_solicitado,
                     sp.estatus,
                     sp.fecha_respuesta,
@@ -2293,6 +2985,8 @@ class Inicio extends BaseController {
                     e.dsc_establecimiento,
                     cte.dsc_tipo
                 ')
+                ->join('usuario u', 'u.id_usuario = sp.id_usuario', 'left')
+                ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
                 ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
                 ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
                 ->where('sp.visible', 1)
@@ -3939,7 +4633,7 @@ class Inicio extends BaseController {
                 'ine_frontal' => $ineFrontal,
                 'ine_trasera' => $ineTrasera,
                 'firma' => $firma,
-                'expediente_completo' => ($ineFrontal !== '' && $ineTrasera !== '' && $firma !== ''),
+                'expediente_completo' => ($qr !== '' && $ineFrontal !== '' && $ineTrasera !== '' && $firma !== ''),
                 'activo_qr' => $activoQr,
                 'qr_activo' => $activoQr,
                 'fec_reg' => (string) ($row['fec_reg'] ?? ''),
@@ -3999,6 +4693,12 @@ class Inicio extends BaseController {
             ]);
         }
  */
+        if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'El expediente esta incompleto o falta el QR generado.',
+            ]);
+        }
         $service = new DepositosProgramadosService($db);
         $result = $service->activateQrAndApplyDeposits($idUsuario, (int) ($tiUsuario['id_usuario'] ?? 0));
         if (!empty($result->error)) {
@@ -4936,7 +5636,7 @@ class Inicio extends BaseController {
         $db->transBegin();
 
         $solicitud = $db->query(
-            'SELECT id_solicitud_usuario, estatus, visible
+            'SELECT id_solicitud_usuario, tipo_solicitud, estatus, visible
              FROM solicitud_usuario
              WHERE id_solicitud_usuario = ?
              FOR UPDATE',
@@ -4970,6 +5670,11 @@ class Inicio extends BaseController {
         }
 
         $db->transCommit();
+        if (!empty($solicitud)) {
+            if (!$this->createSolicitudRechazadaNotification($solicitud, $motivo, $motivo)) {
+                log_message('warning', 'Inicio.rechazarSolicitudUsuarioOperativo: no se pudo crear la notificación para la solicitud ' . $idSolicitud);
+            }
+        }
 
         return $this->response->setJSON([
             'ok' => true,
@@ -5133,7 +5838,8 @@ class Inicio extends BaseController {
         $db = \Config\Database::connect();
         $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
         if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
-            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden aprobar solicitudes pendientes.']);
+            $estatusActual = trim((string) ($solicitud['estatus'] ?? 'desconocido'));
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud institucional ya no está pendiente. Estatus actual: ' . $estatusActual . '.']);
         }
 
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
@@ -5196,8 +5902,8 @@ class Inicio extends BaseController {
         }
 
         $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
-        if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
-            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden editar solicitudes pendientes.']);
+        if (empty($solicitud) || !in_array((string) ($solicitud['estatus'] ?? ''), ['pendiente', 'rechazada'], true)) {
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Solo se pueden editar solicitudes pendientes o rechazadas.']);
         }
 
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
@@ -5229,6 +5935,8 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $fechaAhora = date('Y-m-d H:i:s');
+        $estatusActual = strtolower(trim((string) ($solicitud['estatus'] ?? '')));
+        $nuevoEstatus = $estatusActual === 'rechazada' ? 'pendiente' : (string) ($solicitud['estatus'] ?? 'pendiente');
         $db->table('solicitud_usuario')
             ->where('id_solicitud_usuario', $idSolicitud)
             ->update([
@@ -5238,12 +5946,18 @@ class Inicio extends BaseController {
                 'primer_apellido' => $primerApellido,
                 'segundo_apellido' => $segundoApellido,
                 'correo' => $correo,
+                'estatus' => $nuevoEstatus,
                 'comentario_ti' => $this->encodeSolicitudFolioPayload($grupo, $payload),
                 'fec_act' => $fechaAhora,
                 'usu_act' => (int) (\Config\Services::session()->get('id_usuario') ?? 0),
             ]);
 
-        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud actualizada correctamente.']);
+        return $this->response->setJSON([
+            'ok' => true,
+            'message' => $nuevoEstatus === 'pendiente'
+                ? 'Solicitud actualizada y reabierta correctamente.'
+                : 'Solicitud actualizada correctamente.',
+        ]);
     }
 
     public function rechazarSolicitudNuevoFolioTi()
@@ -5291,9 +6005,8 @@ class Inicio extends BaseController {
 
     private function createSolicitudRechazadaNotification(array $solicitud, string $motivo, string $comentario = ''): bool
     {
-        $idUsuarioDestino = (int) ($solicitud['usu_reg'] ?? 0);
         $idSolicitud = (int) ($solicitud['id_solicitud_usuario'] ?? 0);
-        if ($idUsuarioDestino <= 0 || $idSolicitud <= 0) {
+        if ($idSolicitud <= 0) {
             return false;
         }
 
@@ -5302,7 +6015,13 @@ class Inicio extends BaseController {
         $grupo = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
         $grupoLabel = strtoupper($grupo !== '' ? $grupo : 'FIC');
         $fechaAhora = date('Y-m-d H:i:s');
-        $urlEdicion = base_url('index.php/Inicio/SolicitudAlta/' . ($grupo !== '' ? $grupo : 'fic')) . '?id_solicitud_usuario=' . $idSolicitud;
+        $urlEdicion = $this->buildSolicitudFolioEditUrl($grupo !== '' ? $grupo : 'fic', $idSolicitud);
+        $destinatarios = $this->getNotificationAudienceRecipients($grupo);
+
+        if (empty($destinatarios)) {
+            log_message('warning', 'Inicio.createSolicitudRechazadaNotification: sin destinatarios para grupo ' . ($grupo !== '' ? $grupo : 'fic') . ' solicitud ' . $idSolicitud);
+            return false;
+        }
 
         $notificationData = [
             'type' => 'SOLICITUD_ALTA_RECHAZADA',
@@ -5313,20 +6032,25 @@ class Inicio extends BaseController {
             'motivo' => $motivo,
             'url' => $urlEdicion,
             'created_at' => $fechaAhora,
+            'scope' => 'group_admin_capturista',
+            'roles' => [1, 2],
         ];
 
         try {
-            $db = \Config\Database::connect();
-            $db->table('notification')->insert([
-                'id_usuario' => $idUsuarioDestino,
+            $db = \Config\Database::connect(null, false);
+            $insertData = [
                 'titulo' => 'Solicitud rechazada',
-                'mensaje' => 'Tu solicitud ' . $grupoLabel . ' fue rechazada.',
+                'mensaje' => 'Hay una solicitud ' . $grupoLabel . ' rechazada pendiente de revisión.',
                 'tipo' => 'SOLICITUD_ALTA_RECHAZADA',
                 'data_json' => json_encode($notificationData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'visible' => 1,
                 'created_at' => $fechaAhora,
                 'read_at' => null,
-            ]);
+            ];
+
+            foreach ($destinatarios as $idUsuarioDestino) {
+                $db->table('notification')->insert($insertData + ['id_usuario' => (int) $idUsuarioDestino]);
+            }
 
             return true;
         } catch (\Throwable $e) {

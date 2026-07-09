@@ -3,7 +3,9 @@ var notificaciones = (function () {
         listUrl: '',
         readUrl: '',
         refreshTimer: null,
-        lastItems: []
+        lastItems: [],
+        lastUnread: 0,
+        filter: 'all'
     };
 
     function esc(value) {
@@ -21,6 +23,64 @@ var notificaciones = (function () {
             return saeg.principal.fecha(value);
         }
         return value;
+    }
+
+    function getData(item) {
+        item = item || {};
+        return item.data_json && typeof item.data_json === 'object' ? item.data_json : {};
+    }
+
+    function normalizeType(item) {
+        var data = getData(item);
+        var tipo = String(item.tipo || data.type || '').trim().toUpperCase();
+        var estatus = String(data.estatus || '').trim().toLowerCase();
+
+        if (tipo.indexOf('RECHAZ') !== -1 || estatus === 'rechazada') {
+            return 'rejected';
+        }
+        if (tipo.indexOf('PEND') !== -1 || estatus === 'pendiente') {
+            return 'pending';
+        }
+        if (tipo.indexOf('APROB') !== -1 || estatus === 'aprobada') {
+            return 'approved';
+        }
+        return 'general';
+    }
+
+    function getTypeLabel(item) {
+        var type = normalizeType(item);
+        if (type === 'rejected') return 'Rechazada';
+        if (type === 'pending') return 'Pendiente';
+        if (type === 'approved') return 'Aprobada';
+        return String(item && item.tipo ? item.tipo : 'Notificacion').replace(/_/g, ' ');
+    }
+
+    function getGroupLabel(item) {
+        var data = getData(item);
+        var group = String(data.grupo || '').trim();
+        if (!group) return '';
+        return group.toUpperCase();
+    }
+
+    function getFilterLabel(filter) {
+        if (filter === 'unread') return 'sin leer';
+        if (filter === 'rejected') return 'rechazadas';
+        return 'recientes';
+    }
+
+    function getFilteredItems(items) {
+        items = Array.isArray(items) ? items : [];
+        if (state.filter === 'unread') {
+            return items.filter(function (item) {
+                return Number(item.is_read || 0) !== 1;
+            });
+        }
+        if (state.filter === 'rejected') {
+            return items.filter(function (item) {
+                return normalizeType(item) === 'rejected';
+            });
+        }
+        return items;
     }
 
     function renderEmpty(message) {
@@ -41,12 +101,43 @@ var notificaciones = (function () {
         }
     }
 
+    function updateFilterButtons() {
+        $('.notification-tray__filter').each(function () {
+            var filter = String($(this).data('filter') || 'all');
+            $(this).toggleClass('is-active', filter === state.filter);
+        });
+    }
+
+    function countItems(items) {
+        items = Array.isArray(items) ? items : [];
+        return {
+            all: items.length,
+            unread: items.filter(function (item) {
+                return Number(item.is_read || 0) !== 1;
+            }).length,
+            rejected: items.filter(function (item) {
+                return normalizeType(item) === 'rejected';
+            }).length
+        };
+    }
+
+    function updateCounters(counts) {
+        counts = counts || { all: 0, unread: 0, rejected: 0 };
+        $('[data-count-for="all"]').text(String(counts.all || 0));
+        $('[data-count-for="unread"]').text(String(counts.unread || 0));
+        $('[data-count-for="rejected"]').text(String(counts.rejected || 0));
+    }
+
     function buildItem(item) {
         item = item || {};
-        var unreadClass = Number(item.is_read || 0) === 1 ? '' : ' is-unread';
+        var isUnread = Number(item.is_read || 0) !== 1;
+        var isRejected = normalizeType(item) === 'rejected';
+        var unreadClass = isUnread ? ' is-unread' : '';
+        var rejectedClass = isRejected ? ' is-rejected' : '';
         var url = String(item.action_url || '').trim();
-        var typeLabel = String(item.tipo || '').replace(/_/g, ' ');
-        var title = String(item.titulo || 'Notificación');
+        var typeLabel = getTypeLabel(item);
+        var groupLabel = getGroupLabel(item);
+        var title = String(item.titulo || 'Notificacion');
         var message = String(item.mensaje || '');
         var created = formatFecha(item.created_at || '');
         var meta = typeLabel + (created !== '' ? ' · ' + created : '');
@@ -55,7 +146,9 @@ var notificaciones = (function () {
             attrs = 'href="' + esc(url) + '" data-id="' + esc(item.id_notification || '') + '" data-url="' + esc(url) + '"';
         }
 
-        return '<a class="notification-tray__item' + unreadClass + ' js-notification-item" ' + attrs + '>' +
+        return '<a class="notification-tray__item' + unreadClass + rejectedClass + ' js-notification-item" ' + attrs + '>' +
+            (isRejected ? '<div class="notification-tray__pill notification-tray__pill--rejected">Rechazada</div>' : (isUnread ? '<div class="notification-tray__pill notification-tray__pill--unread">Sin leer</div>' : '')) +
+            (groupLabel !== '' ? '<div class="notification-tray__pill notification-tray__pill--group">' + esc(groupLabel) + '</div>' : '') +
             '<div class="notification-tray__title">' + esc(title) + '</div>' +
             '<div class="notification-tray__message">' + esc(message) + '</div>' +
             '<div class="notification-tray__meta">' + esc(meta) + '</div>' +
@@ -64,16 +157,29 @@ var notificaciones = (function () {
 
     function render(items, unread) {
         state.lastItems = Array.isArray(items) ? items : [];
-        updateBadge(unread);
+        state.lastUnread = Number(unread || 0);
 
-        if (!state.lastItems.length) {
-            renderEmpty('No hay notificaciones para mostrar.');
-            $('#notificationTraySubtitle').text('Sin actividad reciente.');
+        updateBadge(state.lastUnread);
+        updateFilterButtons();
+        updateCounters(countItems(state.lastItems));
+
+        var visibleItems = getFilteredItems(state.lastItems);
+        if (!visibleItems.length) {
+            renderEmpty(state.lastItems.length ? 'No hay notificaciones para este filtro.' : 'No hay notificaciones para mostrar.');
+            $('#notificationTraySubtitle').text(state.lastItems.length ? ('Sin resultados para ' + getFilterLabel(state.filter)) : 'Sin actividad reciente.');
             return;
         }
 
-        $('#notificationTraySubtitle').text(unread > 0 ? (unread + ' sin leer') : 'Todo al día');
-        $('#notificationTrayList').html(state.lastItems.map(buildItem).join(''));
+        var rejectedCount = state.lastItems.filter(function (item) {
+            return normalizeType(item) === 'rejected';
+        }).length;
+        var subtitle = visibleItems.length + ' ' + getFilterLabel(state.filter);
+        if (state.filter === 'all') {
+            subtitle = (state.lastUnread > 0 ? (state.lastUnread + ' sin leer') : 'Todo al dia') + ' · ' + rejectedCount + ' rechazadas';
+        }
+
+        $('#notificationTraySubtitle').text(subtitle);
+        $('#notificationTrayList').html(visibleItems.map(buildItem).join(''));
     }
 
     function load() {
@@ -130,6 +236,16 @@ var notificaciones = (function () {
             event.preventDefault();
             load();
         });
+
+        $(document)
+            .off('click.notificaciones', '.notification-tray__filter')
+            .on('click.notificaciones', '.notification-tray__filter', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                state.filter = String($(this).data('filter') || 'all');
+                updateFilterButtons();
+                render(state.lastItems, state.lastUnread);
+            });
 
         $(document)
             .off('click.notificaciones', '.js-notification-item')

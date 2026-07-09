@@ -308,11 +308,16 @@
         if (!row) return '';
 
         var activo = Number(row.activo_qr || row.qr_activo || 0) === 1;
+        var expedienteCompleto = row.expediente_completo === true || row.expediente_completo === 1 || row.expediente_completo === '1';
         var buttons = [];
         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-qr-fic-preview" data-field="qr" data-title="QR" data-id-usuario="' + esc(row.id_usuario || '') + '" data-archivo="' + esc(row.qr || '') + '" title="Ver QR"><i class="mdi mdi-eye"></i></button>');
 
         if (!activo) {
-            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-qr-fic-activar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Aceptar / activar QR"><i class="mdi mdi-check"></i></button>');
+            if (expedienteCompleto) {
+                buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-qr-fic-activar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Aceptar / activar QR"><i class="mdi mdi-check"></i></button>');
+            } else {
+                buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" title="No se puede activar sin expediente completo" disabled><i class="mdi mdi-check"></i></button>');
+            }
             buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-qr-fic-rechazar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
         } else {
             buttons.push('<span class="badge bg-success align-self-center">QR activo</span>');
@@ -338,15 +343,22 @@
         if (!row) return '';
 
         var buttons = [];
+        var estatus = String(row.estatus || '').toLowerCase();
+        var tienePayloadCompleto = Number(row.tiene_payload_completo || 0) === 1;
         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-fic-panel-ver" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Ver"><i class="mdi mdi-eye"></i></button>');
 
-        if (String(row.estatus || '').toLowerCase() === 'pendiente') {
-            if (Number(row.tiene_payload_completo || 0) === 1) {
+        if (estatus === 'pendiente' || estatus === 'rechazada') {
+            if (tienePayloadCompleto) {
                 buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
-                buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
+                if (estatus === 'pendiente') {
+                    buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
+                }
             } else {
                 buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Solicitud sin formulario completo"><i class="mdi mdi-alert-circle-outline"></i></button>');
             }
+        }
+
+        if (estatus === 'pendiente') {
             buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-fic-panel-rechazar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
         }
 

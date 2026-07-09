@@ -1043,6 +1043,7 @@ class Usuario extends BaseController
                 );
             }
 
+            $qrPath = null;
             try {
                 $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0]);
                 if ($qrPath !== null) {
@@ -1066,6 +1067,15 @@ class Usuario extends BaseController
             } catch (\Throwable $e) {
                 log_message('error', 'Usuario.saveAltaUsuario.qr: ' . $e->getMessage());
             }
+
+            $mirrorData = $updateData;
+            $mirrorData['api_token'] = $apiTokenToUse;
+            if (!empty($qrPath)) {
+                $mirrorData['qr'] = $qrPath;
+            }
+            $db->table('usuario')
+                ->where('id_usuario', $idUsuario)
+                ->update($mirrorData);
 
             return $this->respond([
                 'error' => false,
@@ -2737,6 +2747,10 @@ class Usuario extends BaseController
             $displayRow = $displayIndex[$idUsuario] ?? [];
             $documentRow = $documentIndex[$idUsuario] ?? [];
             $mergedRow = array_merge($displayRow, $baseRow, $documentRow);
+            $mergedRow['expediente_completo'] = trim((string) ($mergedRow['qr'] ?? '')) !== ''
+                && trim((string) ($mergedRow['ine_frontal'] ?? '')) !== ''
+                && trim((string) ($mergedRow['ine_trasera'] ?? '')) !== ''
+                && trim((string) ($mergedRow['firma'] ?? '')) !== '';
             $mergedRow['nombre_completo'] = trim(implode(' ', array_filter([
                 $mergedRow['nombre'] ?? '',
                 $mergedRow['primer_apellido'] ?? '',

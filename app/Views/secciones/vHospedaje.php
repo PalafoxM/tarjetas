@@ -1,9 +1,24 @@
-<?php $session = \Config\Services::session(); ?>
+<?php
+$session = \Config\Services::session();
+$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato');
+$reporteVentasEstablecimientoId = (int) ($session->get('id_establecimiento') ?? 0);
+?>
 <div class="container-fluid py-4">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white">Administracion de hospedaje</h3>
             <p class="text-muted mb-0">Consulta hospedaje.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button
+                type="button"
+                class="btn btn-outline-info"
+                id="descargar_reporte_hospedaje"
+                data-download-base-url="<?= esc($reporteVentasUrl, 'attr') ?>"
+                data-id-establecimiento="<?= esc((string) $reporteVentasEstablecimientoId, 'attr') ?>"
+                <?= $reporteVentasEstablecimientoId <= 0 ? 'disabled' : '' ?>>
+                <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
+            </button>
         </div>
     </div>
 
@@ -79,6 +94,26 @@ window.establecimientos = {
                 Swal.fire('Error', 'No fue posible consultar los hospedajes.', 'error');
             }
         });
+
+        var descargarReporteButton = document.getElementById('descargar_reporte_hospedaje');
+        if (descargarReporteButton) {
+            descargarReporteButton.addEventListener('click', function () {
+                var baseUrl = String(this.dataset.downloadBaseUrl || '').trim();
+                var idEstablecimiento = String(this.dataset.idEstablecimiento || '').trim();
+
+                if (!baseUrl || !idEstablecimiento) {
+                    return;
+                }
+
+                var downloadUrl = baseUrl + '?id_establecimiento=' + encodeURIComponent(idEstablecimiento);
+                if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
+                    window.cajeros.descargarArchivoSinNavegar(downloadUrl);
+                    return;
+                }
+
+                window.location.href = downloadUrl;
+            });
+        }
     },
 
     valorHospedaje: function (value) {

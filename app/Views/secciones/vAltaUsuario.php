@@ -233,6 +233,7 @@ $extractCatalogAmount = static function ($item) {
             <div class="card-body">
                 <input type="hidden" name="id_usuario" id="id_usuario" value="<?= esc((string) $idUsuarioEditar, 'attr') ?>">
                 <input type="hidden" name="grupo_usuario" id="grupo_usuario">
+                <input type="hidden" name="id_solicitud_usuario" id="id_solicitud_usuario" value="<?= esc((string) ($solicitudFolioId ?? 0), 'attr') ?>">
 
                 <div class="row g-3">
                     <div class="col-md-3">

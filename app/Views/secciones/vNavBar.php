@@ -62,6 +62,37 @@
         overflow: hidden;
     }
 
+    .notification-tray__filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .45rem;
+        margin-top: .55rem;
+    }
+
+    .notification-tray__filter {
+        border: 1px solid rgba(148, 163, 184, .22);
+        background: rgba(15, 23, 42, .75);
+        color: #cbd5e1;
+        border-radius: 999px;
+        padding: .33rem .7rem;
+        font-size: .72rem;
+        line-height: 1;
+        transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+    }
+
+    .notification-tray__filter:hover {
+        color: #fff;
+        border-color: rgba(59, 130, 246, .45);
+        transform: translateY(-1px);
+    }
+
+    .notification-tray__filter.is-active {
+        background: linear-gradient(135deg, rgba(59, 130, 246, .95), rgba(14, 165, 233, .9));
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(14, 165, 233, .24);
+    }
+
     .notification-tray__list {
         max-height: 320px;
         overflow-y: auto;
@@ -73,6 +104,7 @@
         border-bottom: 1px solid rgba(148, 163, 184, .12);
         color: #e2e8f0;
         text-decoration: none;
+        border-left: 3px solid transparent;
     }
 
     .notification-tray__item:hover {
@@ -82,6 +114,54 @@
 
     .notification-tray__item.is-unread {
         background: rgba(14, 165, 233, .08);
+        border-left-color: rgba(56, 189, 248, .9);
+    }
+
+    .notification-tray__item.is-rejected {
+        border-left-color: rgba(248, 113, 113, .95);
+    }
+
+    .notification-tray__pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        margin-bottom: .45rem;
+        padding: .18rem .5rem;
+        border-radius: 999px;
+        font-size: .68rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+        color: #fff;
+        background: rgba(100, 116, 139, .7);
+    }
+
+    .notification-tray__pill--rejected {
+        background: linear-gradient(135deg, rgba(239, 68, 68, .95), rgba(244, 63, 94, .9));
+    }
+
+    .notification-tray__pill--unread {
+        background: linear-gradient(135deg, rgba(14, 165, 233, .95), rgba(59, 130, 246, .9));
+    }
+
+    .notification-tray__pill--group {
+        background: rgba(148, 163, 184, .22);
+        color: #e2e8f0;
+    }
+
+    .notification-tray__count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        margin-left: .35rem;
+        padding: 0 .35rem;
+        border-radius: 999px;
+        font-size: .68rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, .14);
+        color: #fff;
     }
 
     .notification-tray__title {
@@ -114,6 +194,17 @@
                 <div class="px-3 py-2 border-bottom border-secondary">
                     <div class="fw-semibold text-white">Notificaciones</div>
                     <div class="small text-muted" id="notificationTraySubtitle">Cargando...</div>
+                    <div class="notification-tray__filters" role="tablist" aria-label="Filtrar notificaciones">
+                        <button type="button" class="notification-tray__filter is-active" data-filter="all">
+                            <span>Todas</span><span class="notification-tray__count" data-count-for="all">0</span>
+                        </button>
+                        <button type="button" class="notification-tray__filter" data-filter="unread">
+                            <span>Sin leer</span><span class="notification-tray__count" data-count-for="unread">0</span>
+                        </button>
+                        <button type="button" class="notification-tray__filter" data-filter="rejected">
+                            <span>Rechazadas</span><span class="notification-tray__count" data-count-for="rejected">0</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="notification-tray__list" id="notificationTrayList">
                     <div class="px-3 py-4 text-muted small">Consultando notificaciones...</div>

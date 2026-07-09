@@ -13,7 +13,7 @@ $solicitudPago = array_values(array_map(static function ($item) {
 }, is_array($solicitudPago ?? null) ? $solicitudPago : []));
 $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars($ventasCorteContexto) : (is_array($ventasCorteContexto ?? null) ? $ventasCorteContexto : []);
 $idEstablecimientoActual = (int) ($idEstablecimientoActual ?? 0);
-$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorXlsx');
+$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato');
 if ($idEstablecimientoActual > 0) {
     $reporteVentasUrl .= '?id_establecimiento=' . $idEstablecimientoActual;
 }
