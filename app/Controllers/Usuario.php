@@ -732,6 +732,43 @@ class Usuario extends BaseController
         return $this->saveAltaUsuarioPayload($this->request->getPost(), $actorContext, (int) ($session->get('id_usuario') ?? 0), $scriptName);
     }
 
+    private function normalizeHospedajePlanJson($value): ?string
+    {
+        if (is_array($value)) {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return is_string($encoded) && $encoded !== '' ? $encoded : null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $encoded = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return is_string($encoded) && $encoded !== '' ? $encoded : null;
+    }
+
+    private function normalizeHospedajeSobrerreserva($value, ?string $planJson = null): int
+    {
+        if (is_numeric($value)) {
+            return (int) $value === 1 ? 1 : 0;
+        }
+
+        if ($planJson !== null && $planJson !== '') {
+            $decoded = json_decode($planJson, true);
+            if (is_array($decoded) && isset($decoded['sobrerreserva'])) {
+                return (int) $decoded['sobrerreserva'] === 1 ? 1 : 0;
+            }
+        }
+
+        return 0;
+    }
+
     public function saveAltaUsuarioPayload(array $data, array $actorContext, int $idSesionUsuario, string $scriptName = 'Usuario.saveAltaUsuario')
     {
         $db = \Config\Database::connect();
@@ -962,6 +999,8 @@ class Usuario extends BaseController
         $montoTotalHospedajePax = $tieneHospedaje ? round($tarifaNoche * $noches, 2) : 0.00;
         $montoTotalPax = round($montoTotalAlimentosPax + $montoTotalHospedajePax, 2);
         $montoTotalGrupo = round($montoTotalPax * $paxTotal, 2);
+        $hospedajePlanJson = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? null);
+        $hospedajeSobrerreserva = $this->normalizeHospedajeSobrerreserva($data['hospedaje_sobrerreserva'] ?? null, $hospedajePlanJson);
 
         if ($idUsuario > 0) {
             $fechaAhora = date('Y-m-d H:i:s');
@@ -989,6 +1028,8 @@ class Usuario extends BaseController
                 'id_tipo_habitacion' => $this->nullableInt($data['id_tipo_habitacion'] ?? null),
                 'fecha_check_in' => $this->nullableString($data['fecha_check_in'] ?? null),
                 'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? null),
+                'hospedaje_plan_json' => $hospedajePlanJson,
+                'hospedaje_sobrerreserva' => $hospedajeSobrerreserva,
                 'fec_vigencia_desde' => $vigenciaDesde !== '' ? $vigenciaDesde : null,
                 'fec_vigencia_hasta' => $vigenciaHasta !== '' ? $vigenciaHasta : null,
                 'fec_vigencia_desde_hos' => $vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null,
@@ -1170,6 +1211,8 @@ class Usuario extends BaseController
                     'id_estatus_hotel' => null,
                     'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
                     'id_tipo_habitacion' => $this->nullableInt($data['id_tipo_habitacion'] ?? null),
+                    'hospedaje_plan_json' => $hospedajePlanJson,
+                    'hospedaje_sobrerreserva' => $hospedajeSobrerreserva,
                     'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
                     'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
                     'id_diciplina' => $this->nullableInt($data['id_diciplina'] ?? null),

@@ -1,7 +1,7 @@
 <?php
 $session = \Config\Services::session();
-$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato');
-$reporteVentasEstablecimientoId = (int) ($session->get('id_establecimiento') ?? 0);
+$reporteHospedajeUrl = base_url('index.php/Inicio/exportarReporteHospedajePdf');
+$reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') ?? 0);
 ?>
 <div class="container-fluid py-4">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -14,9 +14,9 @@ $reporteVentasEstablecimientoId = (int) ($session->get('id_establecimiento') ?? 
                 type="button"
                 class="btn btn-outline-info"
                 id="descargar_reporte_hospedaje"
-                data-download-base-url="<?= esc($reporteVentasUrl, 'attr') ?>"
-                data-id-establecimiento="<?= esc((string) $reporteVentasEstablecimientoId, 'attr') ?>"
-                <?= $reporteVentasEstablecimientoId <= 0 ? 'disabled' : '' ?>>
+                data-download-base-url="<?= esc($reporteHospedajeUrl, 'attr') ?>"
+                data-id-establecimiento="<?= esc((string) $reporteHospedajeEstablecimientoId, 'attr') ?>"
+                <?= $reporteHospedajeEstablecimientoId <= 0 ? 'disabled' : '' ?>>
                 <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
             </button>
         </div>

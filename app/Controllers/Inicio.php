@@ -943,6 +943,44 @@ class Inicio extends BaseController {
         exit;
     }
 
+    public function exportarReporteHospedajePdf()
+    {
+        $payload = $this->buildHospedajeReporteExportPayload();
+        if ($payload === null) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de hospedaje.');
+        }
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        $idEstablecimiento = (int) ($payload['id_establecimiento'] ?? 0);
+        $filename = 'reporte_hospedaje_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.pdf';
+
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'orientation' => 'L',
+                'tempDir' => $tempDir,
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 12,
+                'margin_bottom' => 12,
+            ]);
+
+            $mpdf->SetTitle('Reporte de hospedaje');
+            $mpdf->WriteHTML(view('pdfs/vpdfReporteHospedaje', $payload));
+            $mpdf->Output($filename, 'D');
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF de reporte de hospedaje: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de hospedaje solicitado.');
+        }
+
+        exit;
+    }
+
     private function buildReporteVentasProveedorPdfHtmlHomologado(array $rows, string $periodoLabel, array $layout = []): string
     {
         $layout = is_array($layout) ? $layout : [];
@@ -1026,6 +1064,102 @@ class Inicio extends BaseController {
         }
 
         return $html;
+    }
+
+    private function buildHospedajeReporteExportPayload(): ?array
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        $usuarioAutorizado = $this->resolveSecturiDashboardUsuario();
+        $puedeExportarHospedaje = !empty($usuarioAutorizado)
+            || !empty($session->get('id_proveedor'))
+            || !empty($contextoUsuario['is_provider_flow'])
+            || !empty($contextoUsuario['is_recepcion_flow'])
+            || !empty($contextoUsuario['is_ti_master']);
+
+        if (!$puedeExportarHospedaje) {
+            return null;
+        }
+
+        $Mglobal = new Mglobal();
+        $usuario = $Mglobal->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => [
+                'visible' => 1,
+                'id_usuario' => (int) $session->get('id_usuario'),
+            ],
+        ]);
+
+        if ($usuario->error || empty($usuario->data)) {
+            return null;
+        }
+
+        $usuarioRow = (array) $usuario->data[0];
+        $idEstablecimiento = (int) ($usuarioRow['id_establecimiento'] ?? 0);
+        if ($idEstablecimiento <= 0) {
+            $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        }
+        if ($idEstablecimiento <= 0) {
+            return null;
+        }
+
+        $hospedaje = $Mglobal->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => [
+                'visible' => 1,
+                'id_establecimiento_hotel' => $idEstablecimiento,
+            ],
+            'order' => 'fecha_check_in ASC, id_usuario ASC',
+        ]);
+
+        $rows = [];
+        if (!empty($hospedaje->data)) {
+            foreach ($hospedaje->data as $row) {
+                $rows[] = is_object($row) ? get_object_vars($row) : (array) $row;
+            }
+        }
+
+        $fechas = [];
+        $totalTarifa = 0.0;
+        $checkInCount = 0;
+        $checkOutCount = 0;
+        foreach ($rows as $row) {
+            $fechaCheckIn = trim((string) ($row['fecha_check_in'] ?? ''));
+            $fechaCheckOut = trim((string) ($row['fecha_check_out'] ?? ''));
+            if ($fechaCheckIn !== '') {
+                $fechas[] = $fechaCheckIn;
+                $checkInCount++;
+            }
+            if ($fechaCheckOut !== '') {
+                $fechas[] = $fechaCheckOut;
+                $checkOutCount++;
+            }
+            $totalTarifa += (float) ($row['tarifa_noche'] ?? 0);
+        }
+
+        sort($fechas);
+        $periodoLabel = empty($fechas)
+            ? 'Sin registros de hospedaje'
+            : 'Periodo del ' . $this->formatReporteVentasFecha((string) reset($fechas)) . ' al ' . $this->formatReporteVentasFecha((string) end($fechas));
+
+        return [
+            'titulo' => 'Reporte de hospedaje',
+            'subtitulo' => trim((string) ($usuarioRow['dsc_establecimiento'] ?? '')) !== ''
+                ? trim((string) ($usuarioRow['dsc_establecimiento'] ?? ''))
+                : 'Establecimiento',
+            'id_establecimiento' => $idEstablecimiento,
+            'establecimiento' => trim((string) ($usuarioRow['dsc_establecimiento'] ?? '')),
+            'periodo_label' => $periodoLabel,
+            'rows' => $rows,
+            'resumen' => [
+                'total_registros' => count($rows),
+                'check_in' => $checkInCount,
+                'check_out' => $checkOutCount,
+                'total_tarifa' => $totalTarifa,
+            ],
+        ];
     }
 
     public function Hospedaje()
@@ -2569,7 +2703,7 @@ class Inicio extends BaseController {
             'pax_total' => 'Pax',
             'tiene_alimentos' => 'Alimentos',
             'tiene_hospedaje' => 'Hospedaje',
-            'id_nivel_cliente' => 'Nivel',
+            'id_nivel_cliente' => 'Tarifa diaria',
             'id_partida' => 'Partida',
             'fec_vigencia_desde' => 'Vigencia desde',
             'fec_vigencia_hasta' => 'Vigencia hasta',
@@ -2583,6 +2717,16 @@ class Inicio extends BaseController {
                     $value = (int) $value === 1 ? 'Sí' : 'No';
                 }
                 $lines[] = $label . ': ' . $value;
+            }
+        }
+
+        $hospedajePlanJson = trim((string) ($payload['hospedaje_plan_json'] ?? ''));
+        if ($hospedajePlanJson !== '') {
+            $plan = json_decode($hospedajePlanJson, true);
+            if (is_array($plan)) {
+                $habitaciones = is_array($plan['habitaciones'] ?? null) ? count($plan['habitaciones']) : 0;
+                $lines[] = 'Plan de hospedaje: ' . $habitaciones . ' habitaciones';
+                $lines[] = 'Sobre-reserva: ' . ((int) ($plan['sobrerreserva'] ?? 0) === 1 ? 'Sí' : 'No');
             }
         }
 
