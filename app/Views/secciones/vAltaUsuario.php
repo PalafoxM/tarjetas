@@ -216,7 +216,7 @@ $extractCatalogAmount = static function ($item) {
     data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $modoSolicitudFolio ? (!empty($solicitudFolioId) ? 'Editar solicitud rechazada' : 'Solicitud de nuevo folio') : ($esNuevo ? 'Nuevo usuario' : 'Editar usuario') ?></h3>
+            <h3 class="mb-1 text-white" id="cajeroPageTitle"><?= $modoSolicitudFolio ? (!empty($solicitudFolioId) ? 'Editar solicitud de folio' : 'Solicitud de nuevo folio') : ($esNuevo ? 'Nuevo usuario' : 'Editar usuario') ?></h3>
             <p class="text-muted mb-0">
                 <?= $modoSolicitudFolio
                     ? 'Captura la información completa del folio ' . esc($solicitudFolioGrupo) . '; TI la revisará antes de crear el usuario.'
@@ -227,6 +227,13 @@ $extractCatalogAmount = static function ($item) {
             <i class="mdi mdi-arrow-left me-1"></i> Regresar
         </a>
     </div>
+
+    <?php if ($modoSolicitudFolio && !empty($solicitudFolioId)): ?>
+        <div class="alert alert-info border-info mb-3" role="status">
+            <i class="mdi mdi-file-document-edit-outline me-1"></i>
+            Estás editando la solicitud #<?= esc((string) $solicitudFolioId) ?>. Guardar actualizará la solicitud para revisión; no crea ni aprueba usuarios.
+        </div>
+    <?php endif; ?>
 
     <form id="cajeroForm">
         <div class="card">
@@ -541,7 +548,7 @@ $extractCatalogAmount = static function ($item) {
             <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
                 <a href="<?= esc($regresarUrl, 'attr') ?>" class="btn btn-secondary">Cancelar</a>
                 <?php if (!empty($contextoUsuario['can_edit_user_catalog'])): ?>
-                <button type="submit" class="btn btn-primary" id="guardarCajero"><?= $modoSolicitudFolio ? 'Enviar solicitud' : 'Guardar' ?></button>
+                <button type="submit" class="btn btn-primary" id="guardarCajero"><?= $modoSolicitudFolio ? (!empty($solicitudFolioId) ? 'Guardar cambios en la solicitud' : 'Enviar solicitud') : 'Guardar' ?></button>
                 <?php endif; ?>
             </div>
         </div>

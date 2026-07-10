@@ -4,12 +4,18 @@ $ficSolicitudDetalleUrl = (string) ($ficSolicitudDetalleUrl ?? base_url('index.p
 $ficSolicitudCancelarUrl = (string) ($ficSolicitudCancelarUrl ?? base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil'));
 $ficSolicitudAprobarUrl = (string) ($ficSolicitudAprobarUrl ?? base_url('index.php/Inicio/aprobarSolicitudNuevoFolioTi'));
 $ficSolicitudEditarUrl = (string) ($ficSolicitudEditarUrl ?? base_url('index.php/Inicio/actualizarSolicitudNuevoFolioTi'));
+$ficSolicitudEditorMode = (string) ($ficSolicitudEditorMode ?? 'json');
+$ficSolicitudEditorVisualBaseUrl = (string) ($ficSolicitudEditorVisualBaseUrl ?? base_url('index.php/Inicio/SolicitudAlta'));
 $ficSolicitudRechazarUrl = (string) ($ficSolicitudRechazarUrl ?? base_url('index.php/Inicio/rechazarSolicitudNuevoFolioTi'));
 $qrSolicitudListadoUrl = (string) ($qrSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesActivacionQrFic'));
 $operativoSolicitudListadoUrl = (string) ($operativoSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioOperativo'));
 $operativoSolicitudDetalleUrl = (string) ($operativoSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioOperativo'));
 $operativoSolicitudAprobarUrl = (string) ($operativoSolicitudAprobarUrl ?? base_url('index.php/Inicio/aprobarSolicitudUsuarioOperativo'));
 $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? base_url('index.php/Inicio/rechazarSolicitudUsuarioOperativo'));
+$solicitudesPuedeEditarFolios = !empty($solicitudesPuedeEditarFolios);
+$solicitudesPuedeDecidirFolios = !empty($solicitudesPuedeDecidirFolios);
+$solicitudesPuedeGestionarQr = !empty($solicitudesPuedeGestionarQr);
+$solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo);
 ?>
 <style>
     .solicitudes-card {
@@ -191,6 +197,11 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
     data-folio-cancel-url="<?= esc($ficSolicitudCancelarUrl, 'attr') ?>"
     data-folio-approve-url="<?= esc($ficSolicitudAprobarUrl, 'attr') ?>"
     data-folio-edit-url="<?= esc($ficSolicitudEditarUrl, 'attr') ?>"
+    data-folio-editor-mode="<?= esc($ficSolicitudEditorMode, 'attr') ?>"
+    data-folio-editor-visual-base-url="<?= esc($ficSolicitudEditorVisualBaseUrl, 'attr') ?>"
+    data-can-edit-folios="<?= $solicitudesPuedeEditarFolios ? '1' : '0' ?>"
+    data-can-decide-folios="<?= $solicitudesPuedeDecidirFolios ? '1' : '0' ?>"
+    data-can-manage-qr="<?= $solicitudesPuedeGestionarQr ? '1' : '0' ?>"
     data-folio-reject-url="<?= esc($ficSolicitudRechazarUrl, 'attr') ?>"
     data-qr-list-url="<?= esc($qrSolicitudListadoUrl, 'attr') ?>"
     data-qr-file-url="<?= esc(base_url('index.php/Inicio/verArchivoSolicitudQrFic'), 'attr') ?>"
@@ -206,7 +217,13 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
         </a>
     </div>
 
-        <div class="card solicitudes-card mb-4">
+    <?php if (!$solicitudesPuedeGestionarQr && !$solicitudesPuedeGestionarOperativo): ?>
+        <div class="alert alert-info mb-4" role="status">
+            Modo consulta SECTURI: puedes revisar todas las bandejas y decidir solicitudes institucionales de folio. QR y altas de gerente/recepción permanecen en consulta.
+        </div>
+    <?php endif; ?>
+
+    <div class="card solicitudes-card mb-4">
         <div class="card-body">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                 <div>
@@ -223,7 +240,7 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
                     </select>
                 </div>
                 <div class="col-12 col-md-8 col-lg-9">
-                    <div class="alert solicitudes-note mb-0" role="alert">Revisa QR, INE frontal, INE trasera y firma antes de activar o rechazar la solicitud.</div>
+                    <div class="alert solicitudes-note mb-0" role="alert"><?= $solicitudesPuedeGestionarQr ? 'Revisa QR, INE frontal, INE trasera y firma antes de activar o rechazar la solicitud.' : 'Consulta QR, INE frontal, INE trasera y firma. Este perfil no puede cambiar el estatus del QR.' ?></div>
                 </div>
             </div>
             <div class="solicitudes-table-wrap">
@@ -328,13 +345,14 @@ $operativoSolicitudRechazarUrl = (string) ($operativoSolicitudRechazarUrl ?? bas
         data-list-url="<?= esc($operativoSolicitudListadoUrl, 'attr') ?>"
         data-detail-url="<?= esc($operativoSolicitudDetalleUrl, 'attr') ?>"
         data-approve-url="<?= esc($operativoSolicitudAprobarUrl, 'attr') ?>"
-        data-reject-url="<?= esc($operativoSolicitudRechazarUrl, 'attr') ?>">
+        data-reject-url="<?= esc($operativoSolicitudRechazarUrl, 'attr') ?>"
+        data-can-manage="<?= $solicitudesPuedeGestionarOperativo ? '1' : '0' ?>">
         <div class="card solicitudes-card mb-4">
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                     <div>
                         <h4 class="solicitudes-section-title">Solicitudes de gerente y recepción</h4>
-                        <p class="solicitudes-section-copy">Bandeja operativa para altas de personal por establecimiento.</p>
+                        <p class="solicitudes-section-copy"><?= $solicitudesPuedeGestionarOperativo ? 'Bandeja operativa para altas de personal por establecimiento.' : 'Consulta de altas de gerente y recepción por establecimiento.' ?></p>
                     </div>
                 </div>
                 <div class="row g-3 align-items-end mb-3">

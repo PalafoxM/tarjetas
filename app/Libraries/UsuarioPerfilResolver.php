@@ -87,6 +87,8 @@ class UsuarioPerfilResolver
                 'is_group_backoffice' => true,
                 'is_secturi_cajero' => false,
                 'is_ti_master' => true,
+                'can_access_secturi_dashboard' => true,
+                'can_decide_institutional_folios' => true,
                 'can_access_user_catalog' => true,
                 'can_edit_user_catalog' => true,
             ];
@@ -114,6 +116,7 @@ class UsuarioPerfilResolver
         $isGroupCapturista = $activeGroup !== null && $groupRole === 2;
         $isSecturiCajero = $activeGroup === 'secturi' && $groupRole === 4;
         $isSecturiAdminMaster = $activeGroup === 'secturi' && $groupRole === 1;
+        $canAccessSecturiDashboard = $isSecturiAdminMaster || ($activeGroup === 'secturi' && $groupRole === 2);
 
         return [
             'id_perfil' => $idPerfil,
@@ -133,6 +136,8 @@ class UsuarioPerfilResolver
             'is_group_backoffice' => $isGroupAdmin || $isGroupCapturista,
             'is_secturi_cajero' => $isSecturiCajero,
             'is_ti_master' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster,
+            'can_access_secturi_dashboard' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $canAccessSecturiDashboard,
+            'can_decide_institutional_folios' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $canAccessSecturiDashboard,
             'can_access_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
             'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin,
         ];
@@ -151,6 +156,10 @@ class UsuarioPerfilResolver
     public function canViewRow(array $actorContext, $row): bool
     {
         if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
+            return true;
+        }
+
+        if (!empty($actorContext['can_access_secturi_dashboard'])) {
             return true;
         }
 

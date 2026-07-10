@@ -773,9 +773,18 @@ class Usuario extends BaseController
             ]);
         }
 
-        $folio = trim((string) ($data['folio'] ?? $data['folio_ui'] ?? ''));
+        $folioFuente = trim((string) ($data['folio'] ?? ''));
+        if ($folioFuente === '') {
+            $folioFuente = trim((string) ($data['folio_ui'] ?? ''));
+        }
+        if ($folioFuente === '') {
+            $folioFuente = trim((string) ($data['folio_grupo'] ?? ''));
+        }
+        $folio = preg_replace('/\D+/', '', $folioFuente);
         $subFolioBase = trim((string) ($data['sub_folio'] ?? $data['subf_ui'] ?? ''));
-        $folioGrupo = trim((string) ($data['folio_grupo'] ?? $folio));
+        $folioGrupo = in_array($grupoUsuario, ['fic', 'ug', 'secul', 'secturi'], true)
+            ? $folio
+            : preg_replace('/\D+/', '', (string) ($data['folio_grupo'] ?? $folio));
         $paxTotal = (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1);
         $subFoliosComparar = [];
         if ($paxTotal > 1) {

@@ -13,6 +13,11 @@
         folioCancelUrl: '',
         folioApproveUrl: '',
         folioEditUrl: '',
+        folioEditorMode: 'json',
+        folioEditorVisualBaseUrl: '',
+        canEditFolios: true,
+        canDecideFolios: true,
+        canManageQr: true,
         folioRejectUrl: '',
         previewModal: null,
         previewModalEl: null
@@ -313,12 +318,14 @@
         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-qr-fic-preview" data-field="qr" data-title="QR" data-id-usuario="' + esc(row.id_usuario || '') + '" data-archivo="' + esc(row.qr || '') + '" title="Ver QR"><i class="mdi mdi-eye"></i></button>');
 
         if (!activo) {
-            if (expedienteCompleto) {
-                buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-qr-fic-activar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Aceptar / activar QR"><i class="mdi mdi-check"></i></button>');
-            } else {
-                buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" title="No se puede activar sin expediente completo" disabled><i class="mdi mdi-check"></i></button>');
+            if (state.canManageQr) {
+                if (expedienteCompleto) {
+                    buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-qr-fic-activar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Aceptar / activar QR"><i class="mdi mdi-check"></i></button>');
+                } else {
+                    buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" title="No se puede activar sin expediente completo" disabled><i class="mdi mdi-check"></i></button>');
+                }
+                buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-qr-fic-rechazar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
             }
-            buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-qr-fic-rechazar" data-id-usuario="' + esc(row.id_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
         } else {
             buttons.push('<span class="badge bg-success align-self-center">QR activo</span>');
         }
@@ -348,17 +355,15 @@
         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-fic-panel-ver" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Ver"><i class="mdi mdi-eye"></i></button>');
 
         if (estatus === 'pendiente' || estatus === 'rechazada') {
-            if (tienePayloadCompleto) {
+            if (tienePayloadCompleto && state.canEditFolios) {
                 buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
-                if (estatus === 'pendiente') {
-                    buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
-                }
-            } else {
+            } else if (!tienePayloadCompleto) {
                 buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Solicitud sin formulario completo"><i class="mdi mdi-alert-circle-outline"></i></button>');
             }
         }
 
-        if (estatus === 'pendiente') {
+        if (estatus === 'pendiente' && tienePayloadCompleto && state.canDecideFolios) {
+            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
             buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-fic-panel-rechazar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
         }
 
@@ -398,6 +403,19 @@
                     var payload = data && data.payload_solicitud ? data.payload_solicitud : null;
                     if (!payload || Number(data.tiene_payload_completo || 0) !== 1) {
                         Swal.fire('Atención', 'Esta solicitud no contiene formulario completo editable.', 'warning');
+                        return;
+                    }
+
+                    if (state.folioEditorMode === 'visual' && state.folioEditorVisualBaseUrl) {
+                        var grupo = String(data.catalogo_grupo || data.grupo_solicitud || payload.grupo_usuario || '').toLowerCase();
+                        if (['fic', 'secul', 'ug'].indexOf(grupo) === -1) {
+                            Swal.fire('Atención', 'No fue posible identificar el grupo de la solicitud.', 'warning');
+                            return;
+                        }
+                        window.location.href = String(state.folioEditorVisualBaseUrl).replace(/\/+$/, '')
+                            + '/' + encodeURIComponent(grupo)
+                            + '?id_solicitud_usuario=' + encodeURIComponent(idSolicitud)
+                            + '&origen=revision';
                         return;
                     }
 
@@ -641,6 +659,11 @@
             state.folioCancelUrl = root.data('folio-cancel-url') || '';
             state.folioApproveUrl = root.data('folio-approve-url') || '';
             state.folioEditUrl = root.data('folio-edit-url') || '';
+            state.folioEditorMode = String(root.data('folio-editor-mode') || 'json').toLowerCase();
+            state.folioEditorVisualBaseUrl = root.data('folio-editor-visual-base-url') || '';
+            state.canEditFolios = String(root.data('can-edit-folios') || '0') === '1';
+            state.canDecideFolios = String(root.data('can-decide-folios') || '0') === '1';
+            state.canManageQr = String(root.data('can-manage-qr') || '0') === '1';
             state.folioRejectUrl = root.data('folio-reject-url') || '';
             state.qrTable = $('#tablaSolicitudesActivacionQrFic');
             state.folioTable = $('#tablaSolicitudesFoliosFic');

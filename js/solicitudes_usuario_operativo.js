@@ -6,6 +6,7 @@ var solicitudesUsuarioOperativo = (function () {
         detailUrl: '',
         approveUrl: '',
         rejectUrl: '',
+        canManage: true,
         currentSolicitud: null
     };
 
@@ -183,6 +184,7 @@ var solicitudesUsuarioOperativo = (function () {
             state.detailUrl = root.data('detail-url') || '';
             state.approveUrl = root.data('approve-url') || '';
             state.rejectUrl = root.data('reject-url') || '';
+            state.canManage = String(root.data('can-manage') || '0') === '1';
 
             this.inicializarTabla();
             this.bindEvents();
@@ -383,6 +385,24 @@ var solicitudesUsuarioOperativo = (function () {
             });
         },
 
+        abrirConsulta: function (idSolicitud) {
+            cargarSolicitud(idSolicitud, function (data) {
+                data = data || {};
+                Swal.fire({
+                    title: 'Detalle de solicitud',
+                    html: '<div class="text-start">'
+                        + '<strong>Proveedor:</strong> ' + esc(data.proveedor_razon_social || data.proveedor_solicitante || '') + '<br>'
+                        + '<strong>Establecimiento:</strong> ' + esc(data.dsc_establecimiento || '') + '<br>'
+                        + '<strong>Tipo:</strong> ' + esc(data.tipo_usuario_solicitado || '') + '<br>'
+                        + '<strong>Nombre:</strong> ' + esc(data.nombre_completo || '') + '<br>'
+                        + '<strong>Correo:</strong> ' + esc(data.correo || '') + '<br>'
+                        + '<strong>Estatus:</strong> ' + esc(data.estatus || '')
+                        + '</div>',
+                    confirmButtonText: 'Cerrar'
+                });
+            });
+        },
+
         abrirAprobacion: function (idSolicitud) {
             this.abrirRevision(idSolicitud, 'aprobar');
         },
@@ -483,7 +503,8 @@ var solicitudesUsuarioOperativo = (function () {
         escapeHtml: esc,
         formatFecha: formatFecha,
         resolveLabelTipoUsuario: resolveLabelTipoUsuario,
-        getEstatusBadge: getEstatusBadge
+        getEstatusBadge: getEstatusBadge,
+        puedeGestionar: function () { return state.canManage; }
     };
 })();
 
@@ -519,11 +540,13 @@ window.formatterSolicitudUsuarioOperativoAcciones = function (value, row) {
     if (!idSolicitud) return '';
 
     var isPending = String(row && row.estatus ? row.estatus : '').toLowerCase() === 'pendiente';
-    var review = '<button type="button" class="btn btn-outline-info btn-sm" title="Revisar" onclick="solicitudesUsuarioOperativo.abrirRevision(' + idSolicitud + ')"><i class="mdi mdi-eye"></i></button>';
+    var canManage = solicitudesUsuarioOperativo.puedeGestionar();
+    var reviewAction = canManage ? 'abrirRevision' : 'abrirConsulta';
+    var review = '<button type="button" class="btn btn-outline-info btn-sm" title="Ver" onclick="solicitudesUsuarioOperativo.' + reviewAction + '(' + idSolicitud + ')"><i class="mdi mdi-eye"></i></button>';
     var approve = '<button type="button" class="btn btn-outline-success btn-sm" title="Aprobar" onclick="solicitudesUsuarioOperativo.abrirAprobacion(' + idSolicitud + ')"><i class="mdi mdi-check"></i></button>';
     var reject = '<button type="button" class="btn btn-outline-danger btn-sm" title="Rechazar" onclick="solicitudesUsuarioOperativo.abrirRechazo(' + idSolicitud + ')"><i class="mdi mdi-close"></i></button>';
 
-    if (!isPending) {
+    if (!isPending || !canManage) {
         return '<div class="d-inline-flex gap-1">' + review + '</div>';
     }
 

@@ -44,7 +44,7 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
             <div>
                 <span class="fic-access-card__category">Catálogo</span>
                 <h2>Establecimientos FIC</h2>
-                <p>Da de alta proveedores y después registra o administra sus establecimientos relacionados.</p>
+                <p><?= $inicioModoConsulta ? 'Consulta proveedores y establecimientos registrados sin modificar el padrón.' : 'Da de alta proveedores y después registra o administra sus establecimientos relacionados.' ?></p>
             </div>
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/EstablecimientosFic') ?>">
                 Establecimientos FIC
@@ -66,7 +66,7 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
             <div>
                 <span class="fic-access-card__category">Solicitudes</span>
                 <h2>Solicitudes</h2>
-                <p>Aprueba o rechaza solicitudes de QR, altas y órdenes de hospedaje enviadas al sistema.</p>
+                <p><?= $inicioModoConsulta ? 'Consulta las bandejas y aprueba o rechaza únicamente solicitudes institucionales de folio.' : 'Aprueba o rechaza solicitudes de QR, altas y órdenes de hospedaje enviadas al sistema.' ?></p>
             </div>
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/SolicitudesUsuarioFic') ?>">
                 Ver solicitudes

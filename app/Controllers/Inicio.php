@@ -111,6 +111,8 @@ class Inicio extends BaseController {
             return $this->renderPerfilSeculHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
             return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true)) {
+            return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
       
 
@@ -1028,7 +1030,7 @@ class Inicio extends BaseController {
 
     public function Hospedaje()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
         if (empty($tiUsuario)) {
             return redirect()->to(base_url('index.php/Inicio'));
@@ -1042,15 +1044,16 @@ class Inicio extends BaseController {
 
     public function Cajero()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
 
-        if (empty($tiUsuario)) {
+        if (empty($usuarioDashboard)) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['cajeroAccesoTiInicio'] = true;
+        $data['cajeroSoloConsulta'] = empty($this->resolveSecturiAdminUsuario());
         $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
         $data['contentView'] = 'secciones/vCajero';
         $this->_renderView($data);
@@ -1058,7 +1061,7 @@ class Inicio extends BaseController {
 
     public function PartidasFic()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
         if (empty($tiUsuario)) {
             return redirect()->to(base_url('index.php/Inicio'));
@@ -1077,7 +1080,7 @@ class Inicio extends BaseController {
 
     public function PagosFic()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
         if (empty($tiUsuario)) {
             return redirect()->to(base_url('index.php/Inicio'));
@@ -1095,7 +1098,7 @@ class Inicio extends BaseController {
 
     public function FacturasFic()
     {
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
@@ -1109,7 +1112,7 @@ class Inicio extends BaseController {
 
     public function getFacturasFic()
     {
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
             return $this->response->setStatusCode(403)->setJSON([
                 'total' => 0,
                 'rows' => [],
@@ -1174,7 +1177,7 @@ class Inicio extends BaseController {
 
     public function verFacturaProveedorArchivo()
     {
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar facturas.');
         }
 
@@ -1294,9 +1297,15 @@ class Inicio extends BaseController {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
+        $idSolicitudEdicion = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
+        $esRevisionAdministrativa = $idSolicitudEdicion > 0
+            && strtolower(trim((string) ($this->request->getGet('origen') ?? ''))) === 'revision';
         $backUrl = $grupo === 'fic'
             ? base_url('index.php/Inicio/PerfilFic')
             : base_url('index.php/Inicio/' . ucfirst($grupo));
+        if ($esRevisionAdministrativa && (string) ($contextoUsuario['active_group'] ?? '') === 'secturi') {
+            $backUrl = base_url('index.php/Inicio/SolicitudesUsuarioFic');
+        }
 
         $saveUrl = $grupo === 'fic'
             ? base_url('index.php/Inicio/guardarSolicitudUsuarioFicPerfil')
@@ -1309,7 +1318,7 @@ class Inicio extends BaseController {
         $data['modoAltaProveedor'] = false;
         $data['modoSolicitudFolio'] = true;
         $data['solicitudFolioGrupo'] = strtoupper($grupo);
-        $data['solicitudFolioId'] = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
+        $data['solicitudFolioId'] = $idSolicitudEdicion;
         $data['regresarUrl'] = $backUrl;
         $data['saveUrl'] = $saveUrl;
         $data['solicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudFolioEditable');
@@ -1417,7 +1426,7 @@ class Inicio extends BaseController {
         ]);
     }
 
-    private function collectFolioInstitucionalPairs($db): array
+    private function collectFolioInstitucionalPairs($db, int $excludeSolicitudId = 0): array
     {
         $pares = [];
         $usuarioRows = $db->table('usuario')
@@ -1432,21 +1441,25 @@ class Inicio extends BaseController {
             $this->appendFolioInstitucionalPair($pares, $row['folio'] ?? '', $row['sub_folio'] ?? '');
         }
 
-        $solicitudes = $db->table('solicitud_usuario')
+        $solicitudesBuilder = $db->table('solicitud_usuario')
             ->select('comentario_ti')
             ->where('visible', 1)
             ->where('estatus', 'pendiente')
-            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug'])
-            ->get()
+            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+        if ($excludeSolicitudId > 0) {
+            $solicitudesBuilder->where('id_solicitud_usuario !=', $excludeSolicitudId);
+        }
+        $solicitudes = $solicitudesBuilder->get()
             ->getResultArray();
 
         foreach ($solicitudes as $solicitud) {
             $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
             $payload = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
             if (!empty($payload)) {
+                $payload = $this->synchronizeSolicitudFolioFields($payload);
                 $this->appendFolioInstitucionalPair(
                     $pares,
-                    $payload['folio_grupo'] ?? $payload['folio'] ?? $payload['folio_ui'] ?? '',
+                    $payload['folio'] ?? $payload['folio_ui'] ?? $payload['folio_grupo'] ?? '',
                     $payload['sub_folio'] ?? $payload['subf_ui'] ?? ''
                 );
             }
@@ -1895,8 +1908,7 @@ class Inicio extends BaseController {
         $esPropietario = (int) ($row['usu_reg'] ?? 0) === $idSesionUsuario;
         $esAdminDelGrupo = empty($tiUsuario)
             && (string) ($contextoUsuario['active_group'] ?? '') === $grupoRow
-            && (int) ($contextoUsuario['group_role'] ?? 0) === 1
-            && $estatusRow === 'rechazada';
+            && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
 
         if (empty($tiUsuario) && !$esPropietario && !$esAdminDelGrupo) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar esta solicitud.']);
@@ -2169,6 +2181,9 @@ class Inicio extends BaseController {
     private function mapSolicitudUsuarioFicPerfilRow(array $row): array
     {
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($row['comentario_ti'] ?? ''));
+        $payloadSolicitud = is_array($payloadInfo['payload'] ?? null)
+            ? $this->synchronizeSolicitudFolioFields($payloadInfo['payload'])
+            : [];
         $grupoSolicitud = $payloadInfo['grupo'] !== ''
             ? $payloadInfo['grupo']
             : str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? 'fic'));
@@ -2192,9 +2207,11 @@ class Inicio extends BaseController {
             'correo' => (string) ($row['correo'] ?? ''),
             'nombre_completo' => $nombreCompleto,
             'estatus' => (string) ($row['estatus'] ?? ''),
-            'comentario_ti' => $payloadInfo['summary'] !== '' ? $payloadInfo['summary'] : (string) ($row['comentario_ti'] ?? ''),
-            'payload_solicitud' => $payloadInfo['payload'],
-            'tiene_payload_completo' => !empty($payloadInfo['payload']) ? 1 : 0,
+            'comentario_ti' => !empty($payloadSolicitud)
+                ? $this->buildSolicitudFolioSummary($payloadSolicitud)
+                : (string) ($row['comentario_ti'] ?? ''),
+            'payload_solicitud' => $payloadSolicitud,
+            'tiene_payload_completo' => !empty($payloadSolicitud) ? 1 : 0,
             'catalogo_grupo' => $grupoSolicitud !== '' ? $grupoSolicitud : 'fic',
             'fec_reg' => (string) ($row['fec_reg'] ?? ''),
             'visible' => (int) ($row['visible'] ?? 0),
@@ -2320,8 +2337,15 @@ class Inicio extends BaseController {
         $primerApellido = trim((string) ($post['primer_apellido'] ?? ''));
         $segundoApellido = trim((string) ($post['segundo_apellido'] ?? ''));
         $correo = strtolower(trim((string) ($post['correo'] ?? '')));
-        $folio = trim((string) ($post['folio'] ?? $post['folio_ui'] ?? ''));
-        $folioGrupo = trim((string) ($post['folio_grupo'] ?? $folio));
+        $folioFuente = trim((string) ($post['folio'] ?? ''));
+        if ($folioFuente === '') {
+            $folioFuente = trim((string) ($post['folio_ui'] ?? ''));
+        }
+        if ($folioFuente === '') {
+            $folioFuente = trim((string) ($post['folio_grupo'] ?? ''));
+        }
+        $folio = preg_replace('/\D+/', '', $folioFuente);
+        $folioGrupo = $folio;
         $subFolio = strtoupper(trim((string) ($post['sub_folio'] ?? $post['subf_ui'] ?? '')));
 
         if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
@@ -2363,7 +2387,7 @@ class Inicio extends BaseController {
             }
         }
 
-        $paresInstitucionales = $this->collectFolioInstitucionalPairs($db);
+        $paresInstitucionales = $this->collectFolioInstitucionalPairs($db, $idSolicitudEdicion);
         $folioDisponible = $this->resolveSiguienteFolioInstitucionalDisponible(
             $paresInstitucionales,
             (int) $folioGrupo,
@@ -2483,7 +2507,9 @@ class Inicio extends BaseController {
 
             return $this->response->setJSON([
                 'ok' => true,
-                'message' => 'Solicitud reenviada correctamente.',
+                'message' => $estatusEdicion === 'rechazada'
+                    ? 'Solicitud corregida y reenviada correctamente.'
+                    : 'Solicitud actualizada correctamente.',
                 'data' => ['id_solicitud_usuario' => $idSolicitudEdicion],
             ]);
         }
@@ -2665,6 +2691,23 @@ class Inicio extends BaseController {
         return '';
     }
 
+    private function synchronizeSolicitudFolioFields(array $payload): array
+    {
+        $folioFuente = trim((string) ($payload['folio'] ?? ''));
+        if ($folioFuente === '') {
+            $folioFuente = trim((string) ($payload['folio_ui'] ?? ''));
+        }
+        if ($folioFuente === '') {
+            $folioFuente = trim((string) ($payload['folio_grupo'] ?? ''));
+        }
+
+        $folioCanonico = preg_replace('/\D+/', '', $folioFuente);
+        $payload['folio'] = $folioCanonico;
+        $payload['folio_grupo'] = $folioCanonico;
+
+        return $payload;
+    }
+
     private function normalizeSolicitudFolioPayload(string $grupo, array $payload): array
     {
         $grupo = strtolower(trim($grupo));
@@ -2695,18 +2738,7 @@ class Inicio extends BaseController {
             $payload['id_partida'] = in_array($partida, [1, 2, 3], true) ? $partida : 3;
         }
 
-        if (isset($payload['folio'])) {
-            $payload['folio'] = preg_replace('/\D+/', '', (string) $payload['folio']);
-        }
-        if (isset($payload['folio_grupo'])) {
-            $payload['folio_grupo'] = preg_replace('/\D+/', '', (string) $payload['folio_grupo']);
-        }
-        if (empty($payload['folio_grupo']) && !empty($payload['folio'])) {
-            $payload['folio_grupo'] = $payload['folio'];
-        }
-        if (empty($payload['folio']) && !empty($payload['folio_grupo'])) {
-            $payload['folio'] = $payload['folio_grupo'];
-        }
+        $payload = $this->synchronizeSolicitudFolioFields($payload);
 
         if (isset($payload['sub_folio'])) {
             $payload['sub_folio'] = strtoupper(trim((string) $payload['sub_folio']));
@@ -3338,8 +3370,8 @@ class Inicio extends BaseController {
         $data['scripts'] = array('principal','agregar');
         $data['contextoUsuario'] = $contextoUsuario;
         $data['modoEstablecimientosFic'] = true;
-        $data['esAdministradorEstablecimientosFic'] = !empty($contextoUsuario['is_ti_master']);
-        $data['soloConsultaEstablecimientosFic'] = empty($contextoUsuario['is_ti_master']);
+        $data['esAdministradorEstablecimientosFic'] = !empty($this->resolveSecturiAdminUsuario());
+        $data['soloConsultaEstablecimientosFic'] = empty($this->resolveSecturiAdminUsuario());
         $data['altaProveedorUrl'] = base_url('index.php/Inicio/AltaUsuario?modo=proveedor');
         $data['usuariosUrl'] = base_url('index.php/Inicio/Usuarios');
         $data['datosEstablecimiento'] = $establecimientos;
@@ -3354,7 +3386,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_ti_master'])) {
+        if (empty($this->resolveSecturiAdminUsuario())) {
             return $this->response->setJSON([
                 'results' => [],
             ]);
@@ -3418,7 +3450,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_ti_master'])) {
+        if (empty($this->resolveSecturiAdminUsuario())) {
             return $this->response->setStatusCode(403)->setJSON([
                 'ok' => false,
                 'message' => 'No tienes permisos para consultar proveedores.',
@@ -4299,7 +4331,7 @@ class Inicio extends BaseController {
             return null;
         }
 
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
             return null;
         }
 
@@ -4497,15 +4529,17 @@ class Inicio extends BaseController {
 
     public function SolicitudesUsuarioFic()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
 
-        if (empty($tiUsuario)) {
+        if (empty($usuarioDashboard)) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
         $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_operativo', 'solicitudes_usuario_fic_panel'];
@@ -4515,6 +4549,12 @@ class Inicio extends BaseController {
         $data['ficSolicitudCancelarUrl'] = base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil');
         $data['ficSolicitudAprobarUrl'] = base_url('index.php/Inicio/aprobarSolicitudNuevoFolioTi');
         $data['ficSolicitudRechazarUrl'] = base_url('index.php/Inicio/rechazarSolicitudNuevoFolioTi');
+        $data['ficSolicitudEditorMode'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) ? 'json' : 'visual';
+        $data['ficSolicitudEditorVisualBaseUrl'] = base_url('index.php/Inicio/SolicitudAlta');
+        $data['solicitudesPuedeEditarFolios'] = !empty($tiUsuario) || !empty($secturiAdminUsuario);
+        $data['solicitudesPuedeDecidirFolios'] = !empty($this->resolveFolioDecisionUsuario());
+        $data['solicitudesPuedeGestionarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario);
+        $data['solicitudesPuedeGestionarOperativo'] = !empty($tiUsuario) || !empty($secturiAdminUsuario);
         $data['qrSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesActivacionQrFic');
         $data['operativoSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioOperativo');
         $data['operativoSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioOperativo');
@@ -4526,7 +4566,7 @@ class Inicio extends BaseController {
 
     public function getSolicitudesActivacionQrFic()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
         if (empty($tiUsuario)) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -4653,6 +4693,18 @@ class Inicio extends BaseController {
     public function activarQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
+        if (empty($tiUsuario)) {
+            $resolver = new UsuarioPerfilResolver();
+            $contextoUsuario = $resolver->resolve(\Config\Services::session()->get());
+            $esCajeroSecturi = (string) ($contextoUsuario['active_group'] ?? '') === 'secturi'
+                && (int) ($contextoUsuario['group_role'] ?? 0) === 4;
+            if (!$esCajeroSecturi) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'success' => false,
+                    'message' => 'No tienes permisos para activar usuarios.',
+                ]);
+            }
+        }
        
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
         if ($idUsuario <= 0) {
@@ -4773,7 +4825,7 @@ class Inicio extends BaseController {
 
     public function verArchivoSolicitudQrFic()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
         if (empty($tiUsuario)) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar este archivo.');
         }
@@ -5266,6 +5318,41 @@ class Inicio extends BaseController {
 
     private function resolveTiMasterUsuario(): array
     {
+        return $this->resolveUsuarioPorCapacidad('is_ti_master');
+    }
+
+    private function resolveSecturiAdminUsuario(): array
+    {
+        $usuario = $this->resolveSecturiDashboardUsuario();
+        if (empty($usuario)) {
+            return [];
+        }
+
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($usuario);
+        if (($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 1) {
+            return $usuario;
+        }
+
+        if (!empty($contextoUsuario['is_ti_master'])) {
+            return $usuario;
+        }
+
+        return [];
+    }
+
+    private function resolveSecturiDashboardUsuario(): array
+    {
+        return $this->resolveUsuarioPorCapacidad('can_access_secturi_dashboard');
+    }
+
+    private function resolveFolioDecisionUsuario(): array
+    {
+        return $this->resolveUsuarioPorCapacidad('can_decide_institutional_folios');
+    }
+
+    private function resolveUsuarioPorCapacidad(string $capacidad): array
+    {
         $session = \Config\Services::session();
         $idUsuario = (int) ($session->get('id_usuario') ?? 0);
         if ($idUsuario <= 0) {
@@ -5286,7 +5373,7 @@ class Inicio extends BaseController {
 
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($usuario);
-        if (empty($contextoUsuario['is_ti_master'])) {
+        if (empty($contextoUsuario[$capacidad])) {
             return [];
         }
 
@@ -5295,7 +5382,7 @@ class Inicio extends BaseController {
 
     public function getSolicitudesUsuarioOperativo()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
         if (empty($tiUsuario)) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -5352,7 +5439,7 @@ class Inicio extends BaseController {
 
     public function getSolicitudUsuarioOperativo($idSolicitudUsuario = null)
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
         if (empty($tiUsuario)) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -5717,7 +5804,7 @@ class Inicio extends BaseController {
 
         $modoAltaProveedor = $this->request->getGet('modo') === 'proveedor';
 
-        if ($modoAltaProveedor && empty($contextoUsuario['is_ti_master'])) {
+        if ($modoAltaProveedor && empty($this->resolveSecturiAdminUsuario())) {
             return redirect()->to(base_url('index.php/Inicio/EstablecimientosFic'));
         }
 
@@ -5750,7 +5837,7 @@ class Inicio extends BaseController {
 
     public function getSolicitudesNuevoFolioTi()
     {
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
             return $this->response->setStatusCode(403)->setJSON([
                 'ok' => false,
                 'total' => 0,
@@ -5806,7 +5893,7 @@ class Inicio extends BaseController {
 
     public function getSolicitudNuevoFolioTi()
     {
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar esta solicitud.']);
         }
 
@@ -5825,7 +5912,7 @@ class Inicio extends BaseController {
 
     public function aprobarSolicitudNuevoFolioTi()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
+        $tiUsuario = $this->resolveFolioDecisionUsuario();
         if (empty($tiUsuario)) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para aprobar solicitudes.']);
         }
@@ -5861,9 +5948,15 @@ class Inicio extends BaseController {
 
         $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
+        $actorContext = $resolver->resolve($session->get());
+        if (empty($actorContext['is_ti_master'])) {
+            // La elevación es local a esta aprobación y conserva el grupo solicitado en el payload.
+            $actorContext['is_ti_master'] = true;
+            $actorContext['can_edit_user_catalog'] = true;
+        }
         $usuarioController = new Usuario();
         $usuarioController->initController($this->request, $this->response, \Config\Services::logger());
-        $saveResponse = $usuarioController->saveAltaUsuarioPayload($payload, $resolver->resolve($session->get()), (int) ($session->get('id_usuario') ?? 0), 'Inicio.aprobarSolicitudNuevoFolioTi');
+        $saveResponse = $usuarioController->saveAltaUsuarioPayload($payload, $actorContext, (int) ($session->get('id_usuario') ?? 0), 'Inicio.aprobarSolicitudNuevoFolioTi');
         $saveBody = json_decode((string) $saveResponse->getBody(), true);
 
         if (!is_array($saveBody) || !empty($saveBody['error'])) {
@@ -5890,8 +5983,8 @@ class Inicio extends BaseController {
 
     public function actualizarSolicitudNuevoFolioTi()
     {
-        $tiUsuario = $this->resolveTiMasterUsuario();
-        if (empty($tiUsuario)) {
+        $usuarioAdmin = $this->resolveSecturiAdminUsuario();
+        if (empty($usuarioAdmin)) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para editar solicitudes.']);
         }
 
@@ -5962,7 +6055,7 @@ class Inicio extends BaseController {
 
     public function rechazarSolicitudNuevoFolioTi()
     {
-        if (empty($this->resolveTiMasterUsuario())) {
+        if (empty($this->resolveFolioDecisionUsuario())) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para rechazar solicitudes.']);
         }
 
@@ -6205,10 +6298,16 @@ class Inicio extends BaseController {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
+        if ((string) ($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 2) {
+            $modo = 'consulta';
+        }
+
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['hubTitle'] = 'Centro de Acceso SECTURI';
-        $data['hubSubtitle'] = 'Acceso institucional SECTURI con capacidades operativas equivalentes al perfil TI.';
+        $data['hubSubtitle'] = $modo === 'consulta'
+            ? 'Consulta institucional SECTURI con autorización para aprobar o rechazar solicitudes de folio.'
+            : 'Acceso institucional SECTURI con capacidades operativas equivalentes al perfil TI.';
         $data['inicioModoConsulta'] = $modo === 'consulta';
         $data['contentView'] = 'secciones/vPerfilSecturi';
         $this->_renderView($data);

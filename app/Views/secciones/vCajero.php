@@ -1,6 +1,6 @@
 <?php
-$session = \Config\Services::session();
 $cajeroAccesoTiInicio = !empty($cajeroAccesoTiInicio);
+$cajeroSoloConsulta = !empty($cajeroSoloConsulta);
 $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
 ?>
 <style>
@@ -33,12 +33,13 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
 </style>
 <div class="container-fluid py-4"
      id="cajeroPage"
+     data-solo-consulta="<?= $cajeroSoloConsulta ? '1' : '0' ?>"
      data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>"
      data-export-xlsx-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaXlsx'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h3 class="mb-1 text-white">Administración de cajeros</h3>
-            <p class="text-muted mb-0">Consulta, registra, edita o elimina cajeros.</p>
+            <h3 class="mb-1 text-white"><?= $cajeroSoloConsulta ? 'Consulta de usuarios y folios' : 'Administración de cajeros' ?></h3>
+            <p class="text-muted mb-0"><?= $cajeroSoloConsulta ? 'Consulta llegadas, documentos y órdenes sin modificar usuarios.' : 'Consulta, registra, edita o elimina cajeros.' ?></p>
         </div>
         <div class="d-flex flex-wrap gap-2 justify-content-end">
             <?php if ($cajeroAccesoTiInicio): ?>
@@ -49,13 +50,17 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
             <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx">
                 <i class="mdi mdi-download me-1"></i> Descargar orden del d&iacute;a
             </button>
-            <?php if ($session->get('id_perfil') == 1): ?> 
+            <?php if (!$cajeroSoloConsulta): ?>
             <button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
                 <i class="mdi mdi-account-plus me-1"></i> Nuevo cajero
             </button>
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if ($cajeroSoloConsulta): ?>
+        <div class="alert alert-info" role="status">Modo consulta: las acciones de carga, activación y eliminación están deshabilitadas para este perfil.</div>
+    <?php endif; ?>
 
     <div class="card">
         <div class="card-body">
@@ -179,7 +184,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
 </div>
 
 <script>
-const id_perfil = <?= json_encode($session->get('id_perfil')) ?>;
+const cajeroSoloConsulta = <?= json_encode($cajeroSoloConsulta) ?>;
 const S3_PUBLIC_BASE_URL = 'https://sectur-audiovisuales-509634423753-us-east-1-an.s3.amazonaws.com/';
 window.cajeros = Object.assign(window.cajeros || {}, {
     modal: null,
@@ -460,6 +465,14 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     acciones(value, row) {
         row = row || {};
         const idUsuario = Number(row.id_usuario || 0);
+        if (cajeroSoloConsulta) {
+            return `
+                <div class="cajero-actions">
+                    <button class="btn btn-primary" type="button" title="Ver orden" onclick="st.agregar.verPdf(${idUsuario})">
+                        <i class="mdi mdi-file-pdf-box"></i>
+                    </button>
+                </div>`;
+        }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
         const expedienteCompleto = this.tieneExpedienteCompleto(row);
         const botonActivarQr = qrActivo
@@ -481,7 +494,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 </button>
                 ${botonActivarQr}`;
 
-        if (Number(id_perfil) === 1) {
+        if (!cajeroSoloConsulta) {
             botones += `
                 <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${idUsuario})">
                     <i class="mdi mdi-account-remove"></i>

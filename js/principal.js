@@ -892,8 +892,9 @@ window.cajeros = {
                 }
 
                 cajeros.aplicarSolicitudFolioEditable(data);
-                $('#cajeroPageTitle').text('Editar solicitud rechazada');
-                $('#guardarCajero').text('Enviar nuevamente');
+                var estatus = String(data.estatus || '').toLowerCase();
+                $('#cajeroPageTitle').text(estatus === 'rechazada' ? 'Corregir solicitud rechazada' : 'Editar solicitud pendiente');
+                $('#guardarCajero').text(estatus === 'rechazada' ? 'Enviar nuevamente' : 'Guardar cambios en la solicitud');
             })
             .fail(function () {
                 Swal.fire('Error', 'No fue posible cargar la solicitud.', 'error');
