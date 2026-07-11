@@ -1412,7 +1412,7 @@ window.cajeros = {
         idPerfil = Number(idPerfil || 0);
         var defaultMap = { group: '', allowVisibleRole: false };
         var mapping = {
-            1: { group: 'secturi', allowVisibleRole: true },
+            1: { group: '', allowVisibleRole: false },
             3: { group: '', allowVisibleRole: false },
             4: { group: 'secturi', allowVisibleRole: true },
             6: { group: 'secturi', allowVisibleRole: true },
@@ -1466,6 +1466,10 @@ window.cajeros = {
         return perfilTexto.trim().toUpperCase() === 'CLIENTE';
     },
 
+    esPerfilTi: function (idPerfil) {
+        return Number(idPerfil || $('#id_perfil_catalogo').val() || 0) === 1;
+    },
+
     esRolVisibleCliente: function () {
         var perfilTexto = $('#perfil_grupo option:selected').text() || '';
         return perfilTexto.trim().toUpperCase() === 'CLIENTE';
@@ -1501,10 +1505,20 @@ window.cajeros = {
 
     sincronizarPartidaUI: function () {
         var esAutomatica = this.esPartidaAutomaticaFicUg();
+        var esTi = this.esPerfilTi();
         var hidden = $('#id_partida');
         var select = $('#id_partida_ui');
         var wrapper = $('#partidaManualWrapper');
         var valor = String(hidden.val() || select.val() || '');
+
+        if (esTi) {
+            hidden.val('');
+            if (select.length) {
+                select.val('').prop('disabled', true).trigger('change.select2');
+            }
+            wrapper.addClass('d-none');
+            return;
+        }
 
         if (esAutomatica) {
             valor = this.resolverPartidaAutomatica();
@@ -1658,9 +1672,17 @@ window.cajeros = {
 
     actualizarFlujoBeneficios: function () {
         var esProveedor = this.esProveedorLike();
+        var esTi = this.esPerfilTi();
         var tieneAlimentos = !esProveedor && $('#tiene_alimentos').val() === '1';
         var tieneHospedaje = !esProveedor && $('#tiene_hospedaje').val() === '1';
         var esAutomatica = this.esPartidaAutomaticaFicUg();
+
+        if (esTi) {
+            tieneAlimentos = false;
+            tieneHospedaje = false;
+            $('#tiene_alimentos, #tiene_hospedaje').val('0');
+            $('#id_partida, #id_partida_ui, #id_establecimiento').val('');
+        }
 
         $('.alimentos-field').toggle(tieneAlimentos);
         $('.hospedaje-field').toggle(tieneHospedaje);
@@ -1686,7 +1708,7 @@ window.cajeros = {
             $('#tiene_alimentos, #tiene_hospedaje').val('0');
         }
 
-        if (esAutomatica) {
+        if (esAutomatica || esTi) {
             $('#partidaManualWrapper').addClass('d-none');
         } else {
             $('#partidaManualWrapper').removeClass('d-none');
@@ -2064,7 +2086,7 @@ window.cajeros = {
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
 
-        if (!this.esPartidaAutomaticaFicUg() && partida === '') {
+        if (!this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
             Swal.fire('Atencion', 'Selecciona una partida antes de guardar.', 'warning');
             return;
         }
@@ -2354,7 +2376,7 @@ window.cajeros = {
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
 
-        if (!this.esPartidaAutomaticaFicUg() && partida === '') {
+        if (!this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
             Swal.fire('Atención', 'Selecciona una partida antes de guardar.', 'warning');
             return;
         }

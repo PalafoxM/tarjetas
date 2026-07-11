@@ -555,15 +555,22 @@ class Usuario extends BaseController
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
         $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
+        $esPerfilTi = (int) ($legacyProfile ?? 0) === 1 || (int) ($selectedProfile ?? 0) === 1;
 
-        if ($partidaUsuario === null) {
+        if ($esPerfilTi) {
+            $grupoUsuario = '';
+            $partidaUsuario = null;
+            $idEstablecimientoAlta = null;
+        }
+
+        if (!$esPerfilTi && $partidaUsuario === null) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Debes seleccionar una partida para este perfil.',
             ]);
         }
 
-        if ($idEstablecimientoAlta === null) {
+        if (!$esPerfilTi && $idEstablecimientoAlta === null) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Debes seleccionar un establecimiento para este usuario.',
@@ -611,6 +618,27 @@ class Usuario extends BaseController
             'tarifa_total' => $this->nullableNumeric($data['tarifa_total'] ?? null),
         ];
         $dataInsert = array_merge($dataInsert, $assignment);
+
+        if ($esPerfilTi) {
+            $dataInsert['tiene_alimentos'] = 0;
+            $dataInsert['tiene_hospedaje'] = 0;
+            $dataInsert['id_establecimiento_hotel'] = null;
+            $dataInsert['id_tipo_habitacion'] = null;
+            $dataInsert['fecha_check_in'] = null;
+            $dataInsert['fecha_check_out'] = null;
+            $dataInsert['fec_vigencia_desde'] = null;
+            $dataInsert['fec_vigencia_hasta'] = null;
+            $dataInsert['fec_vigencia_desde_hos'] = null;
+            $dataInsert['fec_vigencia_hasta_hos'] = null;
+            $dataInsert['noche'] = null;
+            $dataInsert['tarifa_noche'] = null;
+            $dataInsert['tarifa_total'] = 0.00;
+            $dataInsert['monto_deposito'] = 0.00;
+            $dataInsert['monto_deposito_hotel'] = 0.00;
+            $dataInsert['monto_deposito_reservado'] = 0.00;
+            $dataInsert['monto_deposito_operativo'] = 0.00;
+            $dataInsert['deposito_programado_estatus'] = 'sin_programa';
+        }
 
         if (!empty($data['contrasenia'])) {
             $dataInsert['contrasenia'] = password_hash((string) $data['contrasenia'], PASSWORD_BCRYPT);
@@ -795,15 +823,22 @@ class Usuario extends BaseController
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
         $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
+        $esPerfilTi = (int) ($legacyProfile ?? 0) === 1 || (int) ($selectedProfile ?? 0) === 1;
 
-        if ($partidaUsuario === null) {
+        if ($esPerfilTi) {
+            $grupoUsuario = '';
+            $partidaUsuario = null;
+            $idEstablecimientoAlta = null;
+        }
+
+        if (!$esPerfilTi && $partidaUsuario === null) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Debes seleccionar una partida para este usuario.',
             ]);
         }
 
-        if ($idEstablecimientoAlta === null) {
+        if (!$esPerfilTi && $idEstablecimientoAlta === null) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Debes seleccionar un establecimiento para este usuario.',
@@ -833,6 +868,10 @@ class Usuario extends BaseController
         }
         $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
         $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
+        if ($esPerfilTi) {
+            $tieneAlimentos = false;
+            $tieneHospedaje = false;
+        }
         $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? ''));
         $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? ''));
         $vigenciaDesdeHosp = trim((string) ($data['fec_vigencia_desde_hos'] ?? ''));
@@ -926,7 +965,7 @@ class Usuario extends BaseController
             ]);
         }
 
-        if ($folio === '') {
+        if (!$esPerfilTi && $folio === '') {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'Debes capturar el folio.',
@@ -2943,13 +2982,15 @@ class Usuario extends BaseController
 
     private function filterPerfilesCatalogo(array $perfiles, array $actorContext): array
     {
+        if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
+            return array_values(array_filter($perfiles, static function ($perfil) {
+                return in_array((int) ($perfil['id_perfil'] ?? 0), [1, 4, 8, 9, 10], true);
+            }));
+        }
+
         $perfiles = array_values(array_filter($perfiles, static function ($perfil) {
             return in_array((int) ($perfil['id_perfil'] ?? 0), [4, 8, 9, 10], true);
         }));
-
-        if ($actorContext['is_ti_master'] || (int) ($actorContext['id_perfil'] ?? 0) === 1) {
-            return $perfiles;
-        }
 
         // Cajero SECTURI debe poder ver todo el catálogo visible, incluidos subperfiles.
         if (!empty($actorContext['is_secturi_cajero'])) {
