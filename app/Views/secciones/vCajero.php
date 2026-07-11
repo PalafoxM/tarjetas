@@ -474,7 +474,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 </div>`;
         }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
-        const expedienteCompleto = this.tieneExpedienteCompleto(row);
+        const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
         const botonActivarQr = qrActivo
             ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i></button>`
             : expedienteCompleto
@@ -510,10 +510,13 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             return true;
         }
 
-        return String(row.qr || '').trim() !== ''
-            && String(row.ine_frontal || '').trim() !== ''
+        const tieneQr = String(row.qr || '').trim() !== '';
+        const tienePdfIntegrado = String(row.ine_firma_cajero || '').trim() !== '';
+        const tieneDocumentosLegacy = String(row.ine_frontal || '').trim() !== ''
             && String(row.ine_trasera || '').trim() !== ''
             && String(row.firma || '').trim() !== '';
+
+        return tieneQr && (tienePdfIntegrado || tieneDocumentosLegacy);
     },
 
     seleccionarFirmaCajero(idUsuario) {
@@ -616,7 +619,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
         const rows = $('#cajerosTable').bootstrapTable('getData', { useCurrentPage: false, includeHiddenRows: true }) || [];
         const row = rows.find((item) => Number(item.id_usuario || item.ID_USUARIO || 0) === Number(idUsuario || 0));
-        if (!this.tieneExpedienteCompleto(row || {})) {
+        if (!cajeros.tieneExpedienteCompleto(row || {})) {
             Swal.fire('Atencion', 'No se puede activar el usuario porque su expediente esta incompleto.', 'warning');
             return;
         }
