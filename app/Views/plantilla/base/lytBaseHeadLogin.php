@@ -124,6 +124,7 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+    <?= view('plantilla/base/lytGoogleAnalytics') ?>
     <script>
         (function () {
             var mainBackgrounds = <?= json_encode($loginBackgroundUrls) ?>;

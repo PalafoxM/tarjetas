@@ -29,15 +29,7 @@
             <link href="<?php echo base_url() . "/assets/css/{$css}.css" ?>?filever=<?php echo time() ?>" rel="stylesheet" type="text/css" />
         <?php endforeach; endif; ?>
 
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-43Y0S30R97"></script>
-        <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-
-        gtag('config', 'G-43Y0S30R97');
-        </script>
+        <?= view('plantilla/base/lytGoogleAnalytics') ?>
 
         <script src="<?php echo base_url("/assets/js/vendor.min.js"); ?>"></script>        
 
