@@ -327,6 +327,26 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    private function resolveProveedorReporteConfig(array $establecimiento): array
+    {
+        $tipoDetectado = strtolower(trim((string) ($establecimiento['dsc_tipo'] ?? '')));
+        $idTipo = (int) ($establecimiento['id_tipo'] ?? 0);
+
+        if ($idTipo === 2 || ($tipoDetectado !== '' && (str_contains($tipoDetectado, 'hotel') || str_contains($tipoDetectado, 'recep')))) {
+            return [
+                'tipo' => 'hospedaje',
+                'label' => 'reporte de hospedaje',
+                'prefix' => 'ACTIVAVIONESFIC/REPORTES/HOSPEDAJE',
+            ];
+        }
+
+        return [
+            'tipo' => 'ventas',
+            'label' => 'reporte de ventas',
+            'prefix' => 'ACTIVAVIONESFIC/REPORTES/VENTAS',
+        ];
+    }
+
     public function enviarFacturaProveedor()
     {
         $session = \Config\Services::session();
@@ -458,6 +478,108 @@ class Inicio extends BaseController {
             'id_factura' => (int) $db->insertID(),
             'xml' => $xmlUrl,
             'pdf' => $pdfUrl,
+        ]);
+    }
+
+    public function subirReporteProveedor()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'No tienes permisos para subir reportes.',
+            ]);
+        }
+
+        $idEstablecimiento = (int) ($this->request->getPost('id_establecimiento') ?? 0);
+        if ($idEstablecimiento <= 0) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona un establecimiento valido.',
+            ]);
+        }
+
+        $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
+        $establecimiento = [];
+        foreach (is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [] as $item) {
+            $row = is_object($item) ? get_object_vars($item) : (array) $item;
+            if ((int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento) {
+                $establecimiento = $row;
+                break;
+            }
+        }
+
+        if (empty($establecimiento)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'El establecimiento no pertenece al proveedor en sesion.',
+            ]);
+        }
+
+        $configReporte = $this->resolveProveedorReporteConfig($establecimiento);
+
+        $reporte = $this->request->getFile('reporte');
+        if (!$reporte || !$reporte->isValid()) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Selecciona un PDF valido para el reporte.',
+            ]);
+        }
+
+        $reporteExtension = strtolower((string) $reporte->getClientExtension());
+        if ($reporteExtension !== 'pdf') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El reporte debe ser PDF.',
+            ]);
+        }
+
+        if ($reporte->getSize() > 20 * 1024 * 1024) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'El reporte debe pesar maximo 20 MB.',
+            ]);
+        }
+
+        $tmpDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'reportes_proveedor';
+        if (!is_dir($tmpDir)) {
+            @mkdir($tmpDir, 0775, true);
+        }
+
+        if (!is_dir($tmpDir) || !is_writable($tmpDir)) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No se puede escribir el archivo temporal del reporte.',
+            ]);
+        }
+
+        $timestamp = date('YmdHis');
+        $suffix = bin2hex(random_bytes(4));
+        $tipoReporte = (string) ($configReporte['tipo'] ?? 'ventas');
+        $fileName = 'reporte_' . $tipoReporte . '_' . $idEstablecimiento . '_' . $timestamp . '_' . $suffix . '.pdf';
+        $reporte->move($tmpDir, $fileName, true);
+
+        $localPath = $tmpDir . DIRECTORY_SEPARATOR . $fileName;
+        $objectKey = rtrim((string) ($configReporte['prefix'] ?? 'ACTIVAVIONESFIC/REPORTES'), '/') . '/' . $fileName;
+        $url = $this->uploadFileToS3($localPath, $objectKey, 'application/pdf');
+        @unlink($localPath);
+
+        if ($url === null) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No fue posible subir el reporte a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'error' => false,
+            'respuesta' => 'Reporte de ' . ($configReporte['label'] ?? 'ventas') . ' subido correctamente.',
+            'url' => $url,
+            'tipo_reporte' => $tipoReporte,
+            'id_establecimiento' => $idEstablecimiento,
         ]);
     }
 
@@ -664,7 +786,7 @@ class Inicio extends BaseController {
 
             $mpdf->SetTitle('Reporte de consumos facturados');
             $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtml($rows, $periodoLabel));
-            $mpdf->Output($filename, 'D');
+            $mpdf->Output($filename, 'I');
         } catch (\Throwable $e) {
             log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
@@ -711,7 +833,12 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
+        if (
+            empty($contextoUsuario['is_provider_flow'])
+            && empty($contextoUsuario['is_recepcion_flow'])
+            && empty($contextoUsuario['can_access_secturi_dashboard'])
+            && empty($session->get('id_proveedor'))
+        ) {
             return null;
         }
 
@@ -934,7 +1061,7 @@ class Inicio extends BaseController {
 
             $mpdf->SetTitle((string) ($layout['titulo'] ?? 'Reporte de consumos facturados'));
             $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtmlHomologado($rows, $periodoLabel, $layout));
-            $mpdf->Output($filename, 'D');
+            $mpdf->Output($filename, 'I');
         } catch (\Throwable $e) {
             log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
@@ -972,7 +1099,7 @@ class Inicio extends BaseController {
 
             $mpdf->SetTitle('Reporte de hospedaje');
             $mpdf->WriteHTML(view('pdfs/vpdfReporteHospedaje', $payload));
-            $mpdf->Output($filename, 'D');
+            $mpdf->Output($filename, 'I');
         } catch (\Throwable $e) {
             log_message('error', 'Error al generar PDF de reporte de hospedaje: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de hospedaje solicitado.');
@@ -1223,6 +1350,7 @@ class Inicio extends BaseController {
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
+        $data['establecimientosBandeja'] = $this->buildPagosFicEstablecimientosData();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
         $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de pagos sin cambiar la sesión autenticada.';
@@ -3451,7 +3579,86 @@ class Inicio extends BaseController {
                 ];
             }, $rows),
         ];
-    }    public function EstablecimientosFic()
+    }
+
+    private function buildPagosFicEstablecimientosData(): array
+    {
+        $db = \Config\Database::connect();
+        $tableName = null;
+
+        if ($db->tableExists('establecimientos')) {
+            $tableName = 'establecimientos';
+        } elseif ($db->tableExists('establecimiento')) {
+            $tableName = 'establecimiento';
+        }
+
+        if ($tableName === null) {
+            return [];
+        }
+
+        $facturasPorEstablecimiento = [];
+        if ($db->tableExists('facturas')) {
+            $facturas = $db->table('facturas')
+                ->select('id_factura, id_estableciemiento AS id_establecimiento, xml, pdf, fec_reg, visible')
+                ->where('visible', 1)
+                ->orderBy('fec_reg', 'DESC')
+                ->get()
+                ->getResultArray();
+
+            foreach ($facturas as $factura) {
+                $idEstFactura = (int) ($factura['id_establecimiento'] ?? 0);
+                if ($idEstFactura <= 0 || isset($facturasPorEstablecimiento[$idEstFactura])) {
+                    continue;
+                }
+
+                $facturasPorEstablecimiento[$idEstFactura] = [
+                    'id_factura' => (int) ($factura['id_factura'] ?? 0),
+                    'tiene_xml' => trim((string) ($factura['xml'] ?? '')) !== '',
+                    'tiene_pdf' => trim((string) ($factura['pdf'] ?? '')) !== '',
+                ];
+            }
+        }
+
+        $rows = $db->table($tableName . ' e')
+            ->select('e.id_establecimiento, e.dsc_establecimiento, e.no_proveedor, e.id_tipo, cte.dsc_tipo, e.visible')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->where('e.visible', 1)
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return array_map(static function (array $row) use ($facturasPorEstablecimiento): array {
+            $idEstablecimiento = (int) ($row['id_establecimiento'] ?? 0);
+            $tipoDetectado = strtolower(trim((string) ($row['dsc_tipo'] ?? '')));
+            $idTipo = (int) ($row['id_tipo'] ?? 0);
+            $esHospedaje = $idTipo === 2 || ($tipoDetectado !== '' && (str_contains($tipoDetectado, 'hotel') || str_contains($tipoDetectado, 'recep')));
+            $factura = is_array($facturasPorEstablecimiento[$idEstablecimiento] ?? null) ? $facturasPorEstablecimiento[$idEstablecimiento] : [];
+            $idFactura = (int) ($factura['id_factura'] ?? 0);
+
+            return [
+                'id_establecimiento' => $idEstablecimiento,
+                'establecimiento' => (string) ($row['dsc_establecimiento'] ?? 'Sin establecimiento'),
+                'no_proveedor' => (string) ($row['no_proveedor'] ?? ''),
+                'id_tipo' => $idTipo,
+                'dsc_tipo' => $tipoDetectado,
+                'reporte_url' => $esHospedaje
+                    ? base_url('index.php/Inicio/exportarReporteHospedajePdf?id_establecimiento=' . $idEstablecimiento)
+                    : base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato?id_establecimiento=' . $idEstablecimiento),
+                'factura_id' => $idFactura,
+                'xml_url' => $idFactura > 0
+                    ? base_url('index.php/Inicio/verFacturaProveedorArchivo?id_factura=' . $idFactura . '&tipo=xml')
+                    : '',
+                'pdf_url' => $idFactura > 0
+                    ? base_url('index.php/Inicio/verFacturaProveedorArchivo?id_factura=' . $idFactura . '&tipo=pdf')
+                    : '',
+                'tiene_xml' => $idFactura > 0 && !empty($factura['tiene_xml']),
+                'tiene_pdf' => $idFactura > 0 && !empty($factura['tiene_pdf']),
+                'visible' => (int) ($row['visible'] ?? 0),
+            ];
+        }, $rows);
+    }
+
+    public function EstablecimientosFic()
     {
         $session = \Config\Services::session();
         $Mglobal = new Mglobal;
@@ -3812,6 +4019,13 @@ class Inicio extends BaseController {
 
     private function resolveProviderInvoicePdfPath(array $data): string
     {
+        $facturaXmlContext = is_array($data['facturaXmlContext'] ?? null) ? $data['facturaXmlContext'] : [];
+        $pdfCandidates = [];
+
+        if (!empty($facturaXmlContext['pdf'])) {
+            $pdfCandidates[] = (string) $facturaXmlContext['pdf'];
+        }
+
         $solicitudPago = is_array($data['solicitudPago'] ?? null) ? $data['solicitudPago'] : [];
         $observaciones = is_array($solicitudPago['observaciones_json'] ?? null) ? $solicitudPago['observaciones_json'] : [];
         $candidateKeys = [
@@ -3827,6 +4041,12 @@ class Inicio extends BaseController {
 
         foreach ($candidateKeys as $key) {
             $candidate = trim((string) ($observaciones[$key] ?? ''));
+            if ($candidate !== '') {
+                $pdfCandidates[] = $candidate;
+            }
+        }
+
+        foreach ($pdfCandidates as $candidate) {
             if ($candidate === '' || preg_match('#^https?://#i', $candidate)) {
                 continue;
             }
@@ -3866,13 +4086,20 @@ class Inicio extends BaseController {
     {
         $proveedorPerfil = is_array($data['proveedorPerfil'] ?? null) ? $data['proveedorPerfil'] : [];
         $proveedorEstablecimiento = is_array($data['proveedorEstablecimiento'] ?? null) ? $data['proveedorEstablecimiento'] : [];
-        $solicitudPago = is_array($data['solicitudPago'] ?? null) ? $data['solicitudPago'] : [];
+        $facturaXmlContext = is_array($data['facturaXmlContext'] ?? null) ? $data['facturaXmlContext'] : [];
+        $xmlInfo = is_array($facturaXmlContext['xml_info'] ?? null) ? $facturaXmlContext['xml_info'] : [];
+        $proveedorXml = is_array($facturaXmlContext['proveedor'] ?? null) ? $facturaXmlContext['proveedor'] : [];
+        $establecimientoXml = is_array($facturaXmlContext['establecimiento'] ?? null) ? $facturaXmlContext['establecimiento'] : [];
 
-        $fechaEmision = !empty($data['fecha_emision']) ? date('d/m/Y', strtotime((string) $data['fecha_emision'])) : date('d/m/Y');
-        $folio = (string) ($data['folio_formato'] ?? '');
-        $razonSocial = trim((string) ($proveedorPerfil['razon_social'] ?? ''));
-        $establecimiento = trim((string) ($proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
-        $monto = !empty($solicitudPago['monto_solicitado']) ? '$' . number_format((float) $solicitudPago['monto_solicitado'], 2) : '';
+        $fechaEmision = !empty($facturaXmlContext['fecha_emision'])
+            ? date('d/m/Y', strtotime((string) $facturaXmlContext['fecha_emision']))
+            : (!empty($data['fecha_emision']) ? date('d/m/Y', strtotime((string) $data['fecha_emision'])) : date('d/m/Y'));
+        $folio = (string) ($facturaXmlContext['folio_formato'] ?? $data['folio_formato'] ?? '');
+        $razonSocial = trim((string) ($proveedorXml['razon_social'] ?? $proveedorPerfil['razon_social'] ?? ''));
+        $establecimiento = trim((string) ($establecimientoXml['dsc_establecimiento'] ?? $proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
+        $monto = !empty($xmlInfo['total'])
+            ? '$' . number_format((float) $xmlInfo['total'], 2)
+            : (!empty($facturaXmlContext['monto_total']) ? '$' . number_format((float) $facturaXmlContext['monto_total'], 2) : '');
 
         $common = [
             ['text' => $fechaEmision, 'x' => 154, 'y' => 12, 'w' => 42, 'h' => 6, 'fontSize' => 8],
@@ -3926,6 +4153,8 @@ class Inicio extends BaseController {
         if (empty($proveedorPerfil) || empty($establecimientoSeleccionado)) {
             return [];
         }
+
+        $facturaXmlContext = $this->buildLatestFacturaXmlContextForEstablecimiento($idEstablecimiento);
 
         $db = \Config\Database::connect();
         $solicitudPago = $db->table('solicitud_pago sp')
@@ -3991,18 +4220,25 @@ class Inicio extends BaseController {
         ];
 
         $documento = $documentos[$tipoDocumento] ?? $documentos['encabezado_factura'];
+        $fechaEmision = !empty($facturaXmlContext['fecha_emision'])
+            ? (string) $facturaXmlContext['fecha_emision']
+            : date('Y-m-d H:i:s');
+        $folioFormato = !empty($facturaXmlContext['folio_formato'])
+            ? (string) $facturaXmlContext['folio_formato']
+            : 'PROV-' . $idUsuario . '-' . $idEstablecimiento . '-' . date('YmdHis');
 
         return [
             'documentoCodigo' => $tipoDocumento,
             'documentoTitulo' => $documento['titulo'],
             'documentoDescripcion' => $documento['descripcion'],
             'documentoObjetivo' => $documento['objetivo'],
-            'fecha_emision' => date('Y-m-d H:i:s'),
-            'folio_formato' => 'PROV-' . $idUsuario . '-' . $idEstablecimiento . '-' . date('YmdHis'),
+            'fecha_emision' => $fechaEmision,
+            'folio_formato' => $folioFormato,
             'proveedorPerfil' => $proveedorPerfil,
             'proveedorEstablecimiento' => $establecimientoSeleccionado,
             'proveedorEstablecimientos' => $establecimientos,
             'conteo_establecimientos' => count($establecimientos),
+            'facturaXmlContext' => $facturaXmlContext,
             'solicitudPago' => $solicitudContexto,
         ];
     }
@@ -4566,9 +4802,90 @@ class Inicio extends BaseController {
                 'rfc' => $proveedorRfc,
             ],
             'factura' => (object) $factura,
+            'facturaXmlContext' => $this->buildFacturaXmlContextFromRow($factura, $xmlInfo),
             'edit' => 1,
             'logo' => FCPATH . 'assets/logo-guanajuato.png',
         ];
+    }
+
+    private function buildFacturaXmlContextFromRow(array $factura, ?array $xmlInfo = null): array
+    {
+        $xmlInfo = is_array($xmlInfo) ? $xmlInfo : $this->extractFacturaXmlInfo((string) ($factura['xml'] ?? ''));
+        $idFactura = (int) ($factura['id_factura'] ?? 0);
+        $idEstablecimiento = (int) ($factura['id_establecimiento'] ?? $factura['id_estableciemiento'] ?? 0);
+        $proveedorNombre = trim((string) ($xmlInfo['emisor_nombre'] ?? ''));
+        $proveedorRfc = trim((string) ($xmlInfo['emisor_rfc'] ?? ''));
+        $concepto = trim((string) ($xmlInfo['concepto'] ?? ''));
+        $monto = (float) ($xmlInfo['total'] ?? 0);
+
+        return [
+            'id_factura' => $idFactura,
+            'id_establecimiento' => $idEstablecimiento,
+            'folio_formato' => (string) ($xmlInfo['folio'] ?? ''),
+            'fecha_emision' => (string) ($xmlInfo['fecha'] ?? ($factura['fec_reg'] ?? date('Y-m-d H:i:s'))),
+            'monto_total' => $monto,
+            'xml' => (string) ($factura['xml'] ?? ''),
+            'pdf' => (string) ($factura['pdf'] ?? ''),
+            'proveedor' => [
+                'id_proveedor' => (int) ($factura['id_proveedor'] ?? 0),
+                'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
+                'razon_social' => $proveedorNombre !== '' ? $proveedorNombre : (string) ($factura['razon_social'] ?? 'Proveedor'),
+                'rfc' => $proveedorRfc !== '' ? $proveedorRfc : (string) ($factura['rfc'] ?? ''),
+            ],
+            'establecimiento' => [
+                'id_establecimiento' => $idEstablecimiento,
+                'dsc_establecimiento' => (string) ($factura['dsc_establecimiento'] ?? ''),
+                'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
+            ],
+            'xml_info' => [
+                'folio' => (string) ($xmlInfo['folio'] ?? ''),
+                'fecha' => (string) ($xmlInfo['fecha'] ?? ''),
+                'total' => $monto,
+                'emisor_nombre' => $proveedorNombre,
+                'emisor_rfc' => $proveedorRfc,
+                'concepto' => $concepto,
+            ],
+        ];
+    }
+
+    private function buildLatestFacturaXmlContextForEstablecimiento(int $idEstablecimiento): array
+    {
+        if ($idEstablecimiento <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('facturas')) {
+            return [];
+        }
+
+        $factura = $db->table('facturas f')
+            ->select('
+                f.id_factura,
+                f.xml,
+                f.pdf,
+                f.id_estableciemiento AS id_establecimiento,
+                f.fec_reg,
+                e.dsc_establecimiento,
+                e.no_proveedor,
+                p.id_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->join('establecimiento e', 'e.id_establecimiento = f.id_estableciemiento', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('f.visible', 1)
+            ->where('f.id_estableciemiento', $idEstablecimiento)
+            ->orderBy('f.fec_reg', 'DESC')
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($factura)) {
+            return [];
+        }
+
+        return $this->buildFacturaXmlContextFromRow($factura);
     }
 
     private function extractFacturaXmlInfo(string $storedXml): array

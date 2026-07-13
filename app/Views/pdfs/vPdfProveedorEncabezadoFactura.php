@@ -1,16 +1,24 @@
 <?php
 $proveedorPerfil = is_array($proveedorPerfil ?? null) ? $proveedorPerfil : [];
 $proveedorEstablecimiento = is_array($proveedorEstablecimiento ?? null) ? $proveedorEstablecimiento : [];
+$facturaXmlContext = is_array($facturaXmlContext ?? null) ? $facturaXmlContext : [];
+$xmlInfo = is_array($facturaXmlContext['xml_info'] ?? null) ? $facturaXmlContext['xml_info'] : [];
+$proveedorXml = is_array($facturaXmlContext['proveedor'] ?? null) ? $facturaXmlContext['proveedor'] : [];
+$establecimientoXml = is_array($facturaXmlContext['establecimiento'] ?? null) ? $facturaXmlContext['establecimiento'] : [];
 $solicitudPago = is_array($solicitudPago ?? null) ? $solicitudPago : [];
 $fechaEmision = !empty($fecha_emision) ? date('d/m/Y', strtotime((string) $fecha_emision)) : date('d/m/Y');
 $folioFormato = (string) ($folio_formato ?? '');
 $documentoTitulo = (string) ($documentoTitulo ?? 'EncabezadoFactura');
 $documentoDescripcion = trim((string) ($documentoDescripcion ?? ''));
 $documentoObjetivo = trim((string) ($documentoObjetivo ?? ''));
-$razonSocial = trim((string) ($proveedorPerfil['razon_social'] ?? 'Proveedor autenticado'));
-$establecimientoNombre = trim((string) ($proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
-$montoSolicitado = !empty($solicitudPago['monto_solicitado']) ? '$' . number_format((float) $solicitudPago['monto_solicitado'], 2) : 'N/D';
-$estatusSolicitud = trim((string) ($solicitudPago['estatus'] ?? 'N/D'));
+$razonSocial = trim((string) ($proveedorXml['razon_social'] ?? $proveedorPerfil['razon_social'] ?? 'Proveedor autenticado'));
+$establecimientoNombre = trim((string) ($establecimientoXml['dsc_establecimiento'] ?? $proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
+$montoSolicitado = !empty($xmlInfo['total'])
+    ? '$' . number_format((float) $xmlInfo['total'], 2)
+    : (!empty($facturaXmlContext['monto_total']) ? '$' . number_format((float) $facturaXmlContext['monto_total'], 2) : (!empty($solicitudPago['monto_solicitado']) ? '$' . number_format((float) $solicitudPago['monto_solicitado'], 2) : 'N/D'));
+$estatusSolicitud = !empty($facturaXmlContext['folio_formato'])
+    ? 'XML cargado'
+    : trim((string) ($solicitudPago['estatus'] ?? 'N/D'));
 ?>
 <!DOCTYPE html>
 <html lang="es">

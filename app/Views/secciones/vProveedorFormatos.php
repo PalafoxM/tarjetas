@@ -136,7 +136,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
     .provider-formats-actions {
         display: grid;
         gap: .75rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .provider-formats-action {
@@ -324,6 +324,23 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                         type="file"
                                                         accept="application/pdf,.pdf">
                                                 </label>
+                                                <?php
+                                                $tipoReporte = 'ventas';
+                                                $dscTipoEstablecimiento = strtolower(trim((string) ($establecimiento['dsc_tipo'] ?? '')));
+                                                $idTipoEstablecimiento = (int) ($establecimiento['id_tipo'] ?? 0);
+                                                if ($idTipoEstablecimiento === 2 || ($dscTipoEstablecimiento !== '' && (str_contains($dscTipoEstablecimiento, 'hotel') || str_contains($dscTipoEstablecimiento, 'recep')))) {
+                                                    $tipoReporte = 'hospedaje';
+                                                }
+                                                $labelReporte = $tipoReporte === 'hospedaje' ? 'SUBIR REPORTE DE HOSPEDAJE' : 'SUBIR REPORTE DE VENTAS';
+                                                ?>
+                                                <label class="btn provider-formats-action provider-formats-upload" for="reporte_proveedor_pdf_<?= esc($idEst, 'attr') ?>">
+                                                    <i class="mdi mdi-cloud-upload-outline me-1"></i> <?= esc($labelReporte) ?>
+                                                    <input
+                                                        id="reporte_proveedor_pdf_<?= esc($idEst, 'attr') ?>"
+                                                        name="reporte_proveedor_pdf[<?= esc($idEst, 'attr') ?>]"
+                                                        type="file"
+                                                        accept="application/pdf,.pdf">
+                                                </label>
                                                 <button
                                                     type="button"
                                                     class="btn provider-formats-action js-enviar-factura"
@@ -334,22 +351,6 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                             </div>
                                             <div class="provider-formats-empty mt-3">
                                                 Selecciona el XML y el PDF de la factura para habilitar el envio.
-                                            </div>
-                                            <div class="provider-formats-actions mt-3">
-                                                <a
-                                                    href="<?= esc(base_url('index.php/Inicio/pdfProveedorEncabezadoFactura/' . (int) $idEst), 'attr') ?>"
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                    class="provider-formats-link">
-                                                    <i class="mdi mdi-file-document-outline me-1"></i> Abrir encabezado de factura
-                                                </a>
-                                                <a
-                                                    href="<?= esc(base_url('index.php/Inicio/pdfProveedorFormatoPT/' . (int) $idEst), 'attr') ?>"
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                    class="provider-formats-link">
-                                                    <i class="mdi mdi-file-table-box-outline me-1"></i> Abrir formato PT
-                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -375,6 +376,12 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         };
     }
 
+    function getReporteInputs(idEstablecimiento) {
+        return {
+            input: document.getElementById('reporte_proveedor_pdf_' + idEstablecimiento)
+        };
+    }
+
     function fileMatches(file, extension, mimeTypes) {
         if (!file) return false;
         var name = String(file.name || '');
@@ -393,10 +400,61 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         controls.button.disabled = !(validXml && validPdf);
     }
 
+    function subirReporteProveedor(idEstablecimiento) {
+        var controls = getReporteInputs(idEstablecimiento);
+        var file = controls.input && controls.input.files ? controls.input.files[0] : null;
+
+        if (!fileMatches(file, '.pdf', ['application/pdf'])) {
+            Swal.fire('Atencion', 'Selecciona un PDF valido para el reporte.', 'warning');
+            return;
+        }
+
+        var data = new FormData();
+        data.append('id_establecimiento', idEstablecimiento);
+        data.append('reporte', file);
+
+        Swal.fire({
+            title: 'Subiendo reporte',
+            text: 'Espera un momento...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: function () {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: '<?= esc(base_url('index.php/Inicio/subirReporteProveedor'), 'js') ?>',
+            type: 'POST',
+            dataType: 'json',
+            data: data,
+            processData: false,
+            contentType: false
+        }).done(function (response) {
+            if (!response || response.error) {
+                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible subir el reporte.', 'warning');
+                return;
+            }
+
+            if (controls.input) controls.input.value = '';
+            Swal.fire('Correcto', response.respuesta || 'Reporte subido correctamente.', 'success');
+        }).fail(function (request) {
+            var response = request.responseJSON || {};
+            Swal.fire('Error', response.respuesta || 'No fue posible subir el reporte.', 'error');
+        });
+    }
+
     document.querySelectorAll('[id^="encabezado_factura_xml_"], [id^="formato_pt_pdf_"]').forEach(function (input) {
         input.addEventListener('change', function () {
             var idEstablecimiento = this.id.replace('encabezado_factura_xml_', '').replace('formato_pt_pdf_', '');
             updateEnviarFactura(idEstablecimiento);
+        });
+    });
+
+    document.querySelectorAll('[id^="reporte_proveedor_pdf_"]').forEach(function (input) {
+        input.addEventListener('change', function () {
+            var idEstablecimiento = this.id.replace('reporte_proveedor_pdf_', '');
+            subirReporteProveedor(idEstablecimiento);
         });
     });
 

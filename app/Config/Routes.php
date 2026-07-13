@@ -35,6 +35,7 @@ $routes->post('Inicio/resolverUrlEdicionSolicitud', 'Inicio::resolverUrlEdicionS
 $routes->post('Inicio/actualizarSolicitudNuevoFolioTi', 'Inicio::actualizarSolicitudNuevoFolioTi');
 $routes->post('Inicio/guardarPagoSinQrProveedor', 'Inicio::guardarPagoSinQrProveedor');
 $routes->post('Inicio/enviarFacturaProveedor', 'Inicio::enviarFacturaProveedor');
+$routes->post('Inicio/subirReporteProveedor', 'Inicio::subirReporteProveedor');
 $routes->get('Inicio/pdfProveedorEncabezadoFactura/(:num)', 'Inicio::pdfProveedorEncabezadoFactura/$1');
 $routes->get('Inicio/pdfProveedorFormatoPT/(:num)', 'Inicio::pdfProveedorFormatoPT/$1');
 $routes->get('Inicio/pdfProveedorLiberacionPago/(:num)', 'Inicio::pdfProveedorLiberacionPago/$1');

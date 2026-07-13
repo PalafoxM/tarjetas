@@ -1,16 +1,22 @@
 <?php
 $proveedorPerfil = is_array($proveedorPerfil ?? null) ? $proveedorPerfil : [];
 $proveedorEstablecimiento = is_array($proveedorEstablecimiento ?? null) ? $proveedorEstablecimiento : [];
+$facturaXmlContext = is_array($facturaXmlContext ?? null) ? $facturaXmlContext : [];
+$xmlInfo = is_array($facturaXmlContext['xml_info'] ?? null) ? $facturaXmlContext['xml_info'] : [];
+$proveedorXml = is_array($facturaXmlContext['proveedor'] ?? null) ? $facturaXmlContext['proveedor'] : [];
+$establecimientoXml = is_array($facturaXmlContext['establecimiento'] ?? null) ? $facturaXmlContext['establecimiento'] : [];
 $solicitudPago = is_array($solicitudPago ?? null) ? $solicitudPago : [];
 $fechaEmision = !empty($fecha_emision) ? date('d/m/Y', strtotime((string) $fecha_emision)) : date('d/m/Y');
 $folioFormato = (string) ($folio_formato ?? '');
 $documentoTitulo = (string) ($documentoTitulo ?? 'LiberacionPago');
 $documentoDescripcion = trim((string) ($documentoDescripcion ?? ''));
 $documentoObjetivo = trim((string) ($documentoObjetivo ?? ''));
-$razonSocial = trim((string) ($proveedorPerfil['razon_social'] ?? 'Proveedor autenticado'));
-$establecimientoNombre = trim((string) ($proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
+$razonSocial = trim((string) ($proveedorXml['razon_social'] ?? $proveedorPerfil['razon_social'] ?? 'Proveedor autenticado'));
+$establecimientoNombre = trim((string) ($establecimientoXml['dsc_establecimiento'] ?? $proveedorEstablecimiento['dsc_establecimiento'] ?? ''));
 $fechaRespuesta = trim((string) ($solicitudPago['fecha_respuesta'] ?? ''));
-$estatusSolicitud = trim((string) ($solicitudPago['estatus'] ?? 'N/D'));
+$estatusSolicitud = !empty($facturaXmlContext['folio_formato'])
+    ? 'XML cargado'
+    : trim((string) ($solicitudPago['estatus'] ?? 'N/D'));
 ?>
 <!DOCTYPE html>
 <html lang="es">
