@@ -88,7 +88,7 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
             type="button"
             class="btn btn-outline-info"
             id="descargar_reporte_ventas_hotel"
-            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato'), 'attr') ?>">
+            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato') . '?download=1', 'attr') ?>">
             <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
         </button>
     </div>
@@ -222,12 +222,15 @@ window.establecimientos = {
                 return;
             }
 
+            var joiner = baseUrl.indexOf('?') === -1 ? '?' : '&';
+            var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento);
+
             if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
-                window.cajeros.descargarArchivoSinNavegar(baseUrl + '?id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento));
+                window.cajeros.descargarArchivoSinNavegar(downloadUrl);
                 return;
             }
 
-            window.location.href = baseUrl + '?id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento);
+            window.location.href = downloadUrl;
         });
 
         $('#RecepcionTable').bootstrapTable({

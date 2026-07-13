@@ -1061,7 +1061,8 @@ class Inicio extends BaseController {
 
             $mpdf->SetTitle((string) ($layout['titulo'] ?? 'Reporte de consumos facturados'));
             $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtmlHomologado($rows, $periodoLabel, $layout));
-            $mpdf->Output($filename, 'I');
+            $salida = $this->request->getGet('download') ? 'D' : 'I';
+            $mpdf->Output($filename, $salida);
         } catch (\Throwable $e) {
             log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
@@ -1099,7 +1100,8 @@ class Inicio extends BaseController {
 
             $mpdf->SetTitle('Reporte de hospedaje');
             $mpdf->WriteHTML(view('pdfs/vpdfReporteHospedaje', $payload));
-            $mpdf->Output($filename, 'I');
+            $salida = $this->request->getGet('download') ? 'D' : 'I';
+            $mpdf->Output($filename, $salida);
         } catch (\Throwable $e) {
             log_message('error', 'Error al generar PDF de reporte de hospedaje: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de hospedaje solicitado.');

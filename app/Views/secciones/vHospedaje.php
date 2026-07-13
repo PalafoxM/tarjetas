@@ -1,6 +1,6 @@
 <?php
 $session = \Config\Services::session();
-$reporteHospedajeUrl = base_url('index.php/Inicio/exportarReporteHospedajePdf');
+$reporteHospedajeUrl = base_url('index.php/Inicio/exportarReporteHospedajePdf') . '?download=1';
 $reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') ?? 0);
 ?>
 <div class="container-fluid py-4">
@@ -105,7 +105,8 @@ window.establecimientos = {
                     return;
                 }
 
-                var downloadUrl = baseUrl + '?id_establecimiento=' + encodeURIComponent(idEstablecimiento);
+                var joiner = baseUrl.indexOf('?') === -1 ? '?' : '&';
+                var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(idEstablecimiento);
                 if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
                     window.cajeros.descargarArchivoSinNavegar(downloadUrl);
                     return;

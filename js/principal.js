@@ -512,6 +512,76 @@ window.cajeros = {
             previousFrame.parentNode.removeChild(previousFrame);
         }
 
+        var descargarBlob = function (blob, fallbackName) {
+            var objectUrl = window.URL.createObjectURL(blob);
+            var enlace = document.createElement('a');
+            enlace.href = objectUrl;
+            enlace.download = fallbackName || 'descarga';
+            enlace.rel = 'noopener';
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+
+            window.setTimeout(function () {
+                window.URL.revokeObjectURL(objectUrl);
+                if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                    window.FicLoading.hide();
+                }
+            }, 1000);
+        };
+
+        var inferirNombreArchivo = function (response) {
+            var contentDisposition = response && response.headers ? String(response.headers.get('content-disposition') || '') : '';
+            var match = contentDisposition.match(/filename\*?=(?:UTF-8''|"?)([^\";]+)/i);
+            if (match && match[1]) {
+                try {
+                    return decodeURIComponent(match[1].replace(/"/g, '').trim());
+                } catch (e) {
+                    return match[1].replace(/"/g, '').trim();
+                }
+            }
+
+            var path = String((response && response.url) || url).split('?')[0];
+            var lastSegment = path.split('/').filter(Boolean).pop() || 'descarga';
+            if (!/\.[a-z0-9]{2,5}$/i.test(lastSegment)) {
+                var contentType = response && response.headers ? String(response.headers.get('content-type') || '').toLowerCase() : '';
+                if (contentType.indexOf('pdf') !== -1) {
+                    lastSegment += '.pdf';
+                }
+            }
+
+            return lastSegment;
+        };
+
+        if (window.fetch) {
+            window.fetch(url, {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('No fue posible descargar el archivo.');
+                }
+
+                return response.blob().then(function (blob) {
+                    descargarBlob(blob, inferirNombreArchivo(response));
+                });
+            }).catch(function () {
+                var iframe = document.createElement('iframe');
+                iframe.id = 'ficDownloadFrame';
+                iframe.style.display = 'none';
+                iframe.setAttribute('aria-hidden', 'true');
+                iframe.src = url;
+                document.body.appendChild(iframe);
+
+                window.setTimeout(function () {
+                    if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                        window.FicLoading.hide();
+                    }
+                }, 1000);
+            });
+            return;
+        }
+
         var iframe = document.createElement('iframe');
         iframe.id = 'ficDownloadFrame';
         iframe.style.display = 'none';

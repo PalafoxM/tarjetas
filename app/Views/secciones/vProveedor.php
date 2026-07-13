@@ -15,7 +15,7 @@ $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars
 $idEstablecimientoActual = (int) ($idEstablecimientoActual ?? 0);
 $reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato');
 if ($idEstablecimientoActual > 0) {
-    $reporteVentasUrl .= '?id_establecimiento=' . $idEstablecimientoActual;
+    $reporteVentasUrl .= '?id_establecimiento=' . $idEstablecimientoActual . '&download=1';
 }
 
 $pagosTotales = count($proveedorPagos);
