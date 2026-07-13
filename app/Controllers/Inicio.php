@@ -870,7 +870,7 @@ class Inicio extends BaseController {
             'slug' => 'general',
             'titulo' => 'Reporte de consumos facturados',
             'subtitulo' => 'Proveedor',
-            'etiqueta_establecimiento' => 'Restaurante / hotel',
+            'etiqueta_establecimiento' => 'Restaurante / Hotel',
             'accent' => '#4b5563',
             'accent_soft' => '#e5e7eb',
         ];
@@ -932,10 +932,11 @@ class Inicio extends BaseController {
         $layout = is_array($layout) ? $layout : [];
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
-        $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / hotel');
+        $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
         $accent = (string) ($layout['accent'] ?? '#4b5563');
         $accentSoft = (string) ($layout['accent_soft'] ?? '#e5e7eb');
 
+        // Agrupar por orden de pago para mantener el orden cronológico
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
             $ordenPago = $this->resolveReporteVentasOrdenPago($row);
@@ -944,58 +945,159 @@ class Inicio extends BaseController {
 
         ksort($rowsByOrdenPago, SORT_NATURAL);
 
-        $html = '
-            <style>
-                body { font-family: DejaVu Sans, Arial, sans-serif; color: #111827; }
-                .title { text-align: center; font-weight: bold; font-size: 13pt; margin: 0 0 4px; }
-                .subtitle { text-align: center; font-weight: bold; font-size: 11pt; margin: 0 0 2px; }
-                .period { text-align: center; font-size: 10pt; margin: 0 0 10px; }
-                table { width: 100%; border-collapse: collapse; font-size: 8.8pt; }
-                th, td { border: 1px solid #6b7280; padding: 5px 6px; vertical-align: top; }
-                th { background: #4b5563; color: #ffffff; text-align: center; }
-                .order-total td { font-weight: bold; background: #e5e7eb; }
-                .empty { padding: 12px; text-align: center; border: 1px solid #d1d5db; background: #f9fafb; }
-                .spacer { height: 8px; }
-            </style>
-            <div class="title">SECRETARÃA DE TURISMO E IDENTIDAD</div>
-            <div class="subtitle">53 FESTIVAL INTERNACIONAL CERVANTINO</div>
-            <div class="subtitle">REPORTE DE CONSUMOS FACTURADOS</div>
-            <div class="period">' . esc($periodoLabel, 'html') . '</div>';
-
-        if (empty($rowsByOrdenPago)) {
-            $html .= '<div class="empty">Sin consumos facturados</div>';
-            return $html;
-        }
-
+        // Aplanar las filas manteniendo el orden de los grupos
+        $flattenedRows = [];
         foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
+            // Ordenar por fecha dentro de cada grupo
             usort($ordenRows, static function ($a, $b) {
                 $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
                 $fechaB = strtotime((string) ($b['fec_reg'] ?? $b['fecha_respuesta'] ?? '')) ?: 0;
-
                 return $fechaA <=> $fechaB;
             });
-
-            $html .= '<table>';
-            $html .= '<thead><tr><th>Orden Pago</th><th>Fecha</th><th>Restaurante</th><th>Partida</th><th>Item</th><th>Transaccion</th><th>Importe</th></tr></thead><tbody>';
-
-            $totalOrden = 0.0;
             foreach ($ordenRows as $row) {
+                $flattenedRows[] = $row;
+            }
+        }
+
+        // Construir HTML con codificación UTF-8 correcta
+        $html = '
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { 
+                        font-family: DejaVu Sans, Arial, sans-serif; 
+                        color: #172033; 
+                        padding: 15px 10px;
+                    }
+                    .header { 
+                        border-bottom: 2px solid ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; 
+                        padding-bottom: 15px; 
+                        margin-bottom: 18px; 
+                        text-align: center;
+                    }
+                    .title-main { 
+                        font-size: 22px; 
+                        font-weight: bold; 
+                        color: #000000; 
+                    }
+                    .title-sub { 
+                        font-size: 18px; 
+                        font-weight: bold; 
+                        color: #000000; 
+                        margin-top: 2px;
+                    }
+                    .subtitle { 
+                        font-size: 14px; 
+                        color: #475569; 
+                        margin-top: 6px; 
+                    }
+                    .subtitle-bold { 
+                        font-size: 14px; 
+                        font-weight: bold; 
+                        color: #475569; 
+                        margin-top: 6px; 
+                    }
+                    .period { 
+                        text-align: center; 
+                        font-size: 12pt; 
+                        margin-top: 14px; 
+                        margin-bottom: 0;
+                        color: #475569;
+                    }
+                    .table-container {
+                        margin-top: 14px;
+                    }
+                    table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        font-size: 8.5pt;
+                    }
+                    th, td { 
+                        border: 1px solid #000000; 
+                        padding: 4px 6px; 
+                        vertical-align: middle; 
+                    }
+                    th { 
+                        background: #bbbbbb; 
+                        color: #000000; 
+                        text-align: left; 
+                        font-weight: bold;
+                    }
+                    .money { 
+                        text-align: right; 
+                        font-weight: bold; 
+                    }
+                    .empty { 
+                        padding: 12px; 
+                        text-align: center; 
+                        border: 1px solid #d1d5db; 
+                        background: #f9fafb; 
+                    }
+                    .spacer { 
+                        height: 6px; 
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
+                    <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
+                    <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
+                    <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
+                    <div class="subtitle-bold">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</div>
+                    <div class="period">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>
+                </div>';
+
+        if (empty($flattenedRows)) {
+            $html .= '<div class="empty">Sin consumos facturados</div>';
+        } else {
+            $html .= '
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Orden Pago</th>
+                                <th>Fecha</th>
+                                <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
+                                <th>Partida</th>
+                                <th>Item</th>
+                                <th>Transacción</th>
+                                <th>Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+
+            // Renderizar todas las filas sin totales por orden de pago
+            foreach ($flattenedRows as $row) {
                 $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
-                $totalOrden += $importe;
-                $html .= '<tr>'
-                    . '<td>' . esc($ordenPago, 'html') . '</td>'
-                    . '<td>' . esc($this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''), 'html') . '</td>'
-                    . '<td>' . esc((string) ($row['dsc_establecimiento'] ?? ''), 'html') . '</td>'
-                    . '<td>' . esc($this->resolveReporteVentasPartida($row), 'html') . '</td>'
-                    . '<td>Consumo</td>'
-                    . '<td>' . esc((string) ($row['id_solicitud_pago'] ?? ''), 'html') . '</td>'
-                    . '<td>$ ' . number_format($importe, 2, '.', ',') . '</td>'
-                    . '</tr>';
+                $ordenPago = $this->resolveReporteVentasOrdenPago($row);
+                $fecha = $this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? '');
+                $establecimiento = (string) ($row['dsc_establecimiento'] ?? '');
+                $partida = $this->resolveReporteVentasPartida($row);
+                $transaccion = (string) ($row['id_solicitud_pago'] ?? '');
+
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($establecimiento, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>Consumo</td>
+                    <td>' . htmlspecialchars($transaccion, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="money">$ ' . number_format($importe, 2, '.', ',') . '</td>
+                </tr>';
             }
 
-            $html .= '<tr class="order-total"><td>Total de orden de pago ' . esc($ordenPago, 'html') . '</td><td></td><td></td><td></td><td></td><td></td><td>$ ' . number_format($totalOrden, 2, '.', ',') . '</td></tr>';
-            $html .= '</tbody></table><div class="spacer"></div>';
+            $html .= '
+                        </tbody>
+                    </table>
+                </div>';
         }
+
+        $html .= '
+            </body>
+            </html>';
 
         return $html;
     }
@@ -1119,6 +1221,7 @@ class Inicio extends BaseController {
         $accent = (string) ($layout['accent'] ?? '#1d4ed8');
         $accentSoft = (string) ($layout['accent_soft'] ?? '#dbeafe');
 
+        // Agrupar por orden de pago para mantener el orden, pero sin mostrar totales
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
             $ordenPago = $this->resolveReporteVentasOrdenPago($row);
@@ -1127,70 +1230,151 @@ class Inicio extends BaseController {
 
         ksort($rowsByOrdenPago, SORT_NATURAL);
 
-        $html = '
-            <style>
-                body { font-family: DejaVu Sans, Arial, sans-serif; color: #172033; }
-                .header { border-bottom: 2px solid ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; padding-bottom: 10px; margin-bottom: 16px; }
-                .title { font-size: 20px; font-weight: bold; color: #0f172a; text-align: center; }
-                .subtitle { font-size: 11px; color: #475569; margin-top: 4px; text-align: center; }
-                .chip { display: inline-block; margin: 8px auto 0; padding: 4px 12px; border-radius: 999px; background: ' . htmlspecialchars($accentSoft, ENT_QUOTES, 'UTF-8') . '; color: ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; font-size: 9px; font-weight: bold; }
-                .section-title { font-size: 13px; font-weight: bold; color: #0f172a; margin: 18px 0 8px; }
-                table { width: 100%; border-collapse: collapse; }
-                th, td { border: 1px solid #d7dee8; padding: 8px; }
-                th { background: #e2e8f0; color: #0f172a; text-align: left; }
-                .label { width: 22%; background: #f8fafc; font-weight: bold; color: #334155; white-space: nowrap; }
-                .value-wide { width: 78%; }
-                .value-half { width: 28%; }
-                .money { text-align: right; font-weight: bold; }
-                .summary { margin-bottom: 14px; }
-                .summary td { vertical-align: top; }
-                .note { margin-top: 18px; padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc; }
-                .order-total td { font-weight: bold; background: #e5e7eb; }
-                .empty { padding: 12px; text-align: center; border: 1px solid #d1d5db; background: #f9fafb; }
-                .spacer { height: 10px; }
-            </style>
-            <div class="header">
-                <div class="title">SECRETARIA DE TURISMO E IDENTIDAD</div>
-                <div class="subtitle">53 FESTIVAL INTERNACIONAL CERVANTINO</div>
-                <div class="subtitle">' . htmlspecialchars($titulo, ENT_QUOTES, 'UTF-8') . '</div>
-                <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
-                <div style="text-align:center;"><span class="chip">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</span></div>
-            </div>
-            <div class="subtitle">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>';
-
-        if (empty($rowsByOrdenPago)) {
-            $html .= '<div class="empty">Sin consumos facturados</div>';
-            return $html;
-        }
-
+        // Aplanar las filas manteniendo el orden de los grupos
+        $flattenedRows = [];
         foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
             usort($ordenRows, static function ($a, $b) {
                 $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
                 $fechaB = strtotime((string) ($b['fec_reg'] ?? $b['fecha_respuesta'] ?? '')) ?: 0;
                 return $fechaA <=> $fechaB;
             });
-
-            $html .= '<table>';
-            $html .= '<thead><tr><th>Orden Pago</th><th>Fecha</th><th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th><th>Partida</th><th>Item</th><th>Transaccion</th><th>Importe</th></tr></thead><tbody>';
-
-            $totalOrden = 0.0;
             foreach ($ordenRows as $row) {
+                $flattenedRows[] = $row;
+            }
+        }
+
+        // Construir HTML con codificación UTF-8 correcta
+        $html = '
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { 
+                        font-family: DejaVu Sans, Arial, sans-serif; 
+                        color: #172033; 
+                        padding: 20px;
+                    }
+                    .header { 
+                        border-bottom: 2px solid ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; 
+                        padding-bottom: 15px; 
+                        margin-bottom: 18px; 
+                        text-align: center;
+                    }
+                    .title-main { 
+                        font-size: 22px; 
+                        font-weight: bold; 
+                        color: #000000; 
+                    }
+                    .title-sub { 
+                        font-size: 18px; 
+                        font-weight: bold; 
+                        color: #000000; 
+                        margin-top: 2px;
+                    }
+                    .subtitle { 
+                        font-size: 14px; 
+                        color: #475569; 
+                        margin-top: 6px; 
+                    }
+                    .subtitle-bold { 
+                        font-size: 14px; 
+                        font-weight: bold; 
+                        color: #475569; 
+                        margin-top: 6px; 
+                    }
+                    .period { 
+                        text-align: center; 
+                        font-size: 12pt; 
+                        margin-top: 14px; 
+                        margin-bottom: 0;
+                        color: #475569;
+                    }
+                    .table-container {
+                        margin-top: 14px;
+                    }
+                    table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        font-size: 8.8pt;
+                    }
+                    th, td { 
+                        border: 1px solid #000000; 
+                        padding: 5px 6px; 
+                        vertical-align: top; 
+                    }
+                    th { 
+                        background: #bbbbbb; 
+                        color: #000000; 
+                        text-align: left; 
+                        font-weight: bold;
+                    }
+                    .money { 
+                        text-align: right; 
+                        font-weight: bold; 
+                    }
+                    .empty { 
+                        padding: 12px; 
+                        text-align: center; 
+                        border: 1px solid #d1d5db; 
+                        background: #f9fafb; 
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
+                    <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
+                    <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
+                    <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
+                    <div class="subtitle-bold">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</div>
+                    <div class="period">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>
+                </div>';
+
+        if (empty($flattenedRows)) {
+            $html .= '<div class="empty">Sin consumos facturados</div>';
+        } else {
+            $html .= '
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Orden Pago</th>
+                                <th>Fecha</th>
+                                <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
+                                <th>Partida</th>
+                                <th>Item</th>
+                                <th>Transacción</th>
+                                <th>Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>';
+
+            // Renderizar todas las filas sin totales
+            foreach ($flattenedRows as $row) {
                 $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
-                $totalOrden += $importe;
-                $html .= '<tr>'
-                    . '<td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>'
-                    . '<td>' . htmlspecialchars($this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
-                    . '<td>' . htmlspecialchars((string) ($row['dsc_establecimiento'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
-                    . '<td>' . htmlspecialchars($this->resolveReporteVentasPartida($row), ENT_QUOTES, 'UTF-8') . '</td>'
-                    . '<td>Consumo</td>'
-                    . '<td>' . htmlspecialchars((string) ($row['id_solicitud_pago'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
-                    . '<td class="money">$ ' . number_format($importe, 2, '.', ',') . '</td>'
-                    . '</tr>';
+                $ordenPago = $this->resolveReporteVentasOrdenPago($row);
+                
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars((string) ($row['dsc_establecimiento'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($this->resolveReporteVentasPartida($row), ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>Consumo</td>
+                    <td>' . htmlspecialchars((string) ($row['id_solicitud_pago'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="money">$ ' . number_format($importe, 2, '.', ',') . '</td>
+                </tr>';
             }
 
-            $html .= '<tr class="order-total"><td>Total de orden de pago ' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td><td></td><td></td><td></td><td></td><td></td><td class="money">$ ' . number_format($totalOrden, 2, '.', ',') . '</td></tr>';
-            $html .= '</tbody></table><div class="spacer"></div>';
+            $html .= '
+                        </tbody>
+                    </table>
+                </div>';
         }
+
+        $html .= '
+            </body>
+            </html>';
 
         return $html;
     }
