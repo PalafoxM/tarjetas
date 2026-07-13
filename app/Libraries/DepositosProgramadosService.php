@@ -252,26 +252,28 @@ class DepositosProgramadosService
         $saldoAnteriorHotel = round((float) ($user['monto_deposito_hotel'] ?? 0), 2);
         $saldoAnteriorReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
         $saldoAnteriorOperativo = round((float) ($user['monto_deposito_operativo'] ?? 0), 2);
-        if ($saldoAnteriorReservado <= 0) {
-            return ['applied' => false, 'message' => 'No hay saldo reservado pendiente por aplicar.'];
-        }
-        if ($totalApplied > $saldoAnteriorReservado) {
-            if ($hotelAmount >= $saldoAnteriorReservado) {
-                $hotelAmount = $saldoAnteriorReservado;
-                $foodAmount = 0.00;
-            } else {
-                $foodAmount = round($saldoAnteriorReservado - $hotelAmount, 2);
-            }
-            $totalApplied = $saldoAnteriorReservado;
+        $saldoPendienteLiberar = round(max(0.00, $saldoAnteriorReservado - $saldoAnteriorOperativo), 2);
+        if ($saldoPendienteLiberar <= 0) {
+            return ['applied' => false, 'message' => 'No hay saldo programado pendiente por aplicar.'];
         }
 
-        // El saldo de alimentos debe reflejar el monto del periodo activo,
-        // no acumular el valor base capturado en el alta.
+        if ($totalApplied > $saldoPendienteLiberar) {
+            if ($hotelAmount >= $saldoPendienteLiberar) {
+                $hotelAmount = $saldoPendienteLiberar;
+                $foodAmount = 0.00;
+            } else {
+                $foodAmount = round($saldoPendienteLiberar - $hotelAmount, 2);
+            }
+            $totalApplied = $saldoPendienteLiberar;
+        }
+
+        // El saldo reservado se conserva hasta que venza la vigencia;
+        // lo que crece es el saldo operativo disponible para consumo.
         $saldoNuevoAlimentos = round($foodAmount, 2);
         $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmount), 2);
-        $saldoNuevoReservado = round(max(0.00, $saldoAnteriorReservado - $totalApplied), 2);
+        $saldoNuevoReservado = $saldoAnteriorReservado;
         $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
-        $programStatus = $saldoNuevoReservado > 0 ? 'parcial' : 'aplicado';
+        $programStatus = $saldoNuevoOperativo >= $saldoAnteriorReservado ? 'aplicado' : 'operativo';
 
         $this->db->transBegin();
         try {
@@ -412,18 +414,402 @@ class DepositosProgramadosService
             ];
         }
 
-        if ($hotelReserve > 0 && (int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1) {
-            $allocations[] = [
-                'id_partida' => 2,
-                'tipo' => 'hospedaje',
-                'monto' => $hotelReserve,
-            ];
-        }
+        // El hospedaje 3390A se ejerce por noche efectivamente consumida,
+        // no como reserva presupuestal al momento del alta.
 
         return [
             'error' => false,
             'data' => $this->mergePartidaAllocations($allocations),
         ];
+    }
+
+    public function applyHospedajeCheckInConsumption(int $idUsuario, int $actorUserId = 0, ?string $referenceDate = null): object
+    {
+        $response = new stdClass();
+        $response->error = true;
+        $response->respuesta = 'Error | No fue posible aplicar el consumo de hospedaje.';
+
+        $user = $this->getUserRow($idUsuario);
+        if (empty($user)) {
+            $response->respuesta = 'Error | El usuario no existe o no esta visible.';
+            return $response;
+        }
+
+        if ((int) ($user['tiene_hospedaje'] ?? 0) !== 1) {
+            $response->error = false;
+            $response->respuesta = 'El usuario no tiene hospedaje programado.';
+            $response->aplicado = 0.00;
+            return $response;
+        }
+
+        $tarifaNoche = round((float) ($user['tarifa_noche'] ?? 0), 2);
+        if ($tarifaNoche <= 0) {
+            $totalHospedaje = round((float) ($user['monto_deposito_hotel'] ?? 0), 2);
+            $nochesProgramadas = max(0, (int) ($user['noche'] ?? 0));
+            if ($totalHospedaje > 0 && $nochesProgramadas > 0) {
+                $tarifaNoche = round($totalHospedaje / $nochesProgramadas, 2);
+            }
+        }
+
+        if ($tarifaNoche <= 0) {
+            $response->respuesta = 'Error | No fue posible resolver la tarifa de hospedaje.';
+            return $response;
+        }
+
+        $nochesProgramadas = max(1, (int) ($user['noche'] ?? 0));
+        $hotelRestante = round((float) ($user['monto_deposito_hotel'] ?? 0), 2);
+        if ($hotelRestante <= 0) {
+            $hotelRestante = round($tarifaNoche * $nochesProgramadas, 2);
+        }
+        $montoAplicar = min($tarifaNoche, $hotelRestante);
+        if ($montoAplicar <= 0) {
+            $response->error = false;
+            $response->respuesta = 'No hay saldo de hospedaje pendiente por aplicar.';
+            $response->aplicado = 0.00;
+            return $response;
+        }
+
+        $result = $this->consumeHospedajeAmount($user, $montoAplicar, $actorUserId, $referenceDate);
+        if (!empty($result['error'])) {
+            $response->respuesta = (string) ($result['message'] ?? 'Error | No fue posible aplicar el consumo de hospedaje.');
+            return $response;
+        }
+
+        $response->error = false;
+        $response->respuesta = 'Consumo de hospedaje aplicado correctamente.';
+        $response->aplicado = $montoAplicar;
+        $response->id_partida = 2;
+        return $response;
+    }
+
+    public function processDailyProgrammedMaintenance(?string $referenceDate = null, int $actorUserId = 0): array
+    {
+        $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
+        $users = $this->db->table('usuario')
+            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible')
+            ->where('visible', 1)
+            ->where('activo_qr', 1)
+            ->groupStart()
+                ->where('tiene_hospedaje', 1)
+                ->orWhere('tiene_alimentos', 1)
+            ->groupEnd()
+            ->get()
+            ->getResultArray();
+
+        $result = [
+            'ok' => true,
+            'processed' => 0,
+            'consumed' => 0,
+            'released' => 0,
+            'errors' => [],
+        ];
+
+        foreach ($users as $user) {
+            $checkIn = trim((string) ($user['fecha_check_in'] ?? ''));
+            $checkOut = trim((string) ($user['fecha_check_out'] ?? ''));
+            $vigenciaFin = $this->resolveUserDate($user, ['fec_vigencia_hasta']);
+
+            if ((int) ($user['tiene_hospedaje'] ?? 0) === 1 && $checkIn !== '') {
+                if ($checkOut !== '') {
+                    $released = $this->releaseHospedajePendingOnCheckout($user, $actorUserId, $now);
+                    if (!empty($released['applied'])) {
+                        $result['processed']++;
+                        $result['released']++;
+                    }
+                } else {
+                    $consumed = $this->processHospedajeNightlyConsumption($user, $actorUserId, $now);
+                    if (!empty($consumed['applied'])) {
+                        $result['processed']++;
+                        $result['consumed']++;
+                    }
+                }
+            }
+
+            if ((int) ($user['tiene_alimentos'] ?? 0) === 1 && $vigenciaFin !== null && $now > $vigenciaFin) {
+                $released = $this->releaseFoodExpiredBalance($user, $actorUserId, $now);
+                if (!empty($released['applied'])) {
+                    $result['processed']++;
+                    $result['released']++;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private function processHospedajeNightlyConsumption(array $user, int $actorUserId, DateTimeImmutable $referenceDate): array
+    {
+        $checkIn = $this->resolveUserDate($user, ['fecha_check_in']);
+        if ($checkIn === null) {
+            return ['applied' => false, 'message' => 'El usuario no tiene check in registrado.'];
+        }
+
+        if (!empty($user['fecha_check_out'])) {
+            return ['applied' => false, 'message' => 'El hospedaje ya fue cerrado.'];
+        }
+
+        $tarifaNoche = round((float) ($user['tarifa_noche'] ?? 0), 2);
+        $nochesProgramadas = max(1, (int) ($user['noche'] ?? 0));
+        if ($tarifaNoche <= 0) {
+            $totalHospedaje = round($nochesProgramadas * (float) ($user['monto_deposito_hotel'] ?? 0), 2);
+            if ($totalHospedaje <= 0) {
+                return ['applied' => false, 'message' => 'No fue posible resolver la tarifa de hospedaje.'];
+            }
+            $tarifaNoche = round($totalHospedaje / $nochesProgramadas, 2);
+        }
+
+        $hotelTotal = round($tarifaNoche * $nochesProgramadas, 2);
+        $hotelRestante = round(max(0.00, (float) ($user['monto_deposito_hotel'] ?? 0)), 2);
+        if ($hotelRestante <= 0) {
+            $hotelRestante = $hotelTotal;
+        }
+        $hotelConsumido = round(max(0.00, $hotelTotal - $hotelRestante), 2);
+        $nochesEsperadas = min($nochesProgramadas, $this->countInclusiveDays($checkIn, $referenceDate));
+        $montoDeseado = round($nochesEsperadas * $tarifaNoche, 2);
+        $montoAplicar = round(max(0.00, min($hotelRestante, $montoDeseado - $hotelConsumido)), 2);
+
+        if ($montoAplicar <= 0) {
+            return ['applied' => false, 'message' => 'No hay noches subsecuentes por consumir.'];
+        }
+
+        $result = $this->consumeHospedajeAmount($user, $montoAplicar, $actorUserId, $referenceDate->format('Y-m-d H:i:s'));
+        if (!empty($result['error'])) {
+            return ['applied' => false, 'message' => (string) ($result['message'] ?? 'No fue posible aplicar el consumo de hospedaje.')];
+        }
+
+        return ['applied' => true, 'applied_amount' => $montoAplicar];
+    }
+
+    public function releaseHospedajePendingOnCheckout(array $user, int $actorUserId, DateTimeImmutable $referenceDate): array
+    {
+        $idUsuario = (int) ($user['id_usuario'] ?? 0);
+        if ($idUsuario <= 0) {
+            return ['applied' => false, 'message' => 'Usuario invalido.'];
+        }
+
+        $hotelRestante = round(max(0.00, (float) ($user['monto_deposito_hotel'] ?? 0)), 2);
+        if ($hotelRestante <= 0) {
+            return ['applied' => false, 'message' => 'No hay saldo de hospedaje pendiente por liberar.'];
+        }
+
+        $saldoReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
+        $nuevoReservado = round(max(0.00, $saldoReservado - $hotelRestante), 2);
+
+        $this->db->transBegin();
+        try {
+            $this->db->table('usuario')
+                ->where('id_usuario', $idUsuario)
+                ->update([
+                    'monto_deposito_hotel' => number_format(0, 2, '.', ''),
+                    'monto_deposito_reservado' => number_format($nuevoReservado, 2, '.', ''),
+                    'deposito_programado_estatus' => 'cerrado',
+                    'fec_act' => $referenceDate->format('Y-m-d H:i:s'),
+                    'usu_act' => $actorUserId,
+                ]);
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException('La transaccion de cierre de hospedaje no pudo completarse.');
+            }
+
+            $this->db->transCommit();
+
+            return ['applied' => true, 'applied_amount' => $hotelRestante];
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            log_message('error', 'DepositosProgramadosService.releaseHospedajePendingOnCheckout: ' . $e->getMessage());
+            return ['applied' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function releaseFoodExpiredBalance(array $user, int $actorUserId, DateTimeImmutable $referenceDate): array
+    {
+        $idUsuario = (int) ($user['id_usuario'] ?? 0);
+        if ($idUsuario <= 0) {
+            return ['applied' => false, 'message' => 'Usuario invalido.'];
+        }
+
+        // Separamos primero el hospedaje pendiente para no devolverlo por la partida de alimentos.
+        $saldoComidaPendiente = $this->resolveFoodPendingBalance($user);
+        if ($saldoComidaPendiente <= 0) {
+            return ['applied' => false, 'message' => 'No hay saldo de alimentos pendiente por liberar.'];
+        }
+
+        $saldoReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
+        $hotelRestante = round(max(0.00, (float) ($user['monto_deposito_hotel'] ?? 0)), 2);
+        $context = $this->resolver->resolve($user);
+        $idPartida = $this->resolveFoodPartidaByContext($context);
+        if ($idPartida === null) {
+            return ['applied' => false, 'message' => 'No hay partida de alimentos configurada para el grupo del usuario.'];
+        }
+
+        $this->db->transBegin();
+        try {
+            $this->releasePartidaAmount($idPartida, $saldoComidaPendiente, $actorUserId);
+
+            $nuevoReservado = round(max(0.00, $saldoReservado - $saldoComidaPendiente), 2);
+            $nuevoEstado = $hotelRestante > 0 ? 'operativo' : 'vencido';
+            $this->db->table('usuario')
+                ->where('id_usuario', $idUsuario)
+                ->update([
+                    'monto_deposito_reservado' => number_format($nuevoReservado, 2, '.', ''),
+                    'deposito_programado_estatus' => $nuevoEstado,
+                    'fec_act' => $referenceDate->format('Y-m-d H:i:s'),
+                    'usu_act' => $actorUserId,
+                ]);
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException('La transaccion de liberacion de alimentos no pudo completarse.');
+            }
+
+            $this->db->transCommit();
+
+            return ['applied' => true, 'applied_amount' => $saldoComidaPendiente, 'id_partida' => $idPartida];
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            log_message('error', 'DepositosProgramadosService.releaseFoodExpiredBalance: ' . $e->getMessage());
+            return ['applied' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function resolveFoodPendingBalance(array $user): float
+    {
+        $saldoReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
+        $saldoOperativo = round((float) ($user['monto_deposito_operativo'] ?? 0), 2);
+        $hotelRestante = round(max(0.00, (float) ($user['monto_deposito_hotel'] ?? 0)), 2);
+
+        $saldoAlimentosReservado = round(max(0.00, $saldoReservado - $hotelRestante), 2);
+
+        return round(max(0.00, $saldoAlimentosReservado - $saldoOperativo), 2);
+    }
+
+    private function consumeHospedajeAmount(array $user, float $montoAplicar, int $actorUserId, ?string $referenceDate = null): array
+    {
+        $idUsuario = (int) ($user['id_usuario'] ?? 0);
+        if ($idUsuario <= 0 || $montoAplicar <= 0) {
+            return ['error' => true, 'message' => 'No fue posible resolver el consumo de hospedaje.'];
+        }
+
+        $saldoReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
+        $saldoOperativo = round((float) ($user['monto_deposito_operativo'] ?? 0), 2);
+        $hotelRestante = round(max(0.00, (float) ($user['monto_deposito_hotel'] ?? 0)), 2);
+        $montoAplicar = round(min($montoAplicar, $hotelRestante), 2);
+        if ($montoAplicar <= 0) {
+            return ['error' => true, 'message' => 'No hay saldo de hospedaje pendiente por aplicar.'];
+        }
+
+        $partidaHospedaje = 2;
+        $fechaAct = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
+
+        $this->db->transBegin();
+        try {
+            $partida = $this->db->query(
+                'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus, visible
+                 FROM cat_partida
+                 WHERE id_partida = ?
+                 FOR UPDATE',
+                [$partidaHospedaje]
+            )->getRowArray();
+
+            if (empty($partida)) {
+                throw new RuntimeException('La partida de hospedaje no existe o no esta visible.');
+            }
+
+            $disponible = round((float) ($partida['monto_disponible'] ?? 0), 2);
+            if ($montoAplicar > $disponible) {
+                throw new RuntimeException(
+                    'Presupuesto insuficiente en partida ' . ($partida['partida'] ?? $partidaHospedaje) .
+                    '. Disponible: $' . number_format($disponible, 2, '.', ',') .
+                    ', requerido: $' . number_format($montoAplicar, 2, '.', ',')
+                );
+            }
+
+            $nuevoEjercido = round((float) ($partida['monto_ejercido'] ?? 0) + $montoAplicar, 2);
+            $nuevoDisponible = round($disponible - $montoAplicar, 2);
+            $presupuesto = round((float) ($partida['monto_presupuesto'] ?? 0), 2);
+            $porcentaje = $presupuesto > 0 ? round(($nuevoEjercido / $presupuesto) * 100, 2) : 0.00;
+
+            $this->db->table('cat_partida')
+                ->where('id_partida', $partidaHospedaje)
+                ->update([
+                    'monto_ejercido' => number_format($nuevoEjercido, 2, '.', ''),
+                    'monto_disponible' => number_format($nuevoDisponible, 2, '.', ''),
+                    'porcentaje_ejercido' => number_format($porcentaje, 2, '.', ''),
+                    'estatus' => $nuevoDisponible <= 0 ? 'agotada' : ($partida['estatus'] === 'agotada' ? 'activa' : $partida['estatus']),
+                    'fec_act' => $fechaAct->format('Y-m-d H:i:s'),
+                    'usu_act' => $actorUserId,
+                ]);
+
+            $nuevoHotelRestante = round(max(0.00, $hotelRestante - $montoAplicar), 2);
+            $nuevoOperativo = round($saldoOperativo + $montoAplicar, 2);
+            $nuevoEstado = $nuevoHotelRestante > 0 ? 'operativo' : 'aplicado';
+
+            $this->db->table('usuario')
+                ->where('id_usuario', $idUsuario)
+                ->update([
+                    'monto_deposito_hotel' => number_format($nuevoHotelRestante, 2, '.', ''),
+                    'monto_deposito_operativo' => number_format($nuevoOperativo, 2, '.', ''),
+                    'deposito_programado_estatus' => $nuevoEstado,
+                    'fec_act' => $fechaAct->format('Y-m-d H:i:s'),
+                    'usu_act' => $actorUserId,
+                ]);
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException('La transaccion de consumo de hospedaje no pudo completarse.');
+            }
+
+            $this->db->transCommit();
+
+            return [
+                'error' => false,
+                'applied' => true,
+                'applied_amount' => $montoAplicar,
+                'id_partida' => $partidaHospedaje,
+                'saldo_reservado' => $saldoReservado,
+            ];
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            log_message('error', 'DepositosProgramadosService.consumeHospedajeAmount: ' . $e->getMessage());
+            return ['error' => true, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function releasePartidaAmount(int $idPartida, float $monto, int $actorUserId): void
+    {
+        $idPartida = (int) $idPartida;
+        $monto = round($monto, 2);
+        if ($idPartida <= 0 || $monto <= 0) {
+            return;
+        }
+
+        $partida = $this->db->query(
+            'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus, visible
+             FROM cat_partida
+             WHERE id_partida = ?
+             FOR UPDATE',
+            [$idPartida]
+        )->getRowArray();
+
+        if (empty($partida)) {
+            throw new RuntimeException('La partida presupuestal no existe o no esta visible: ' . $idPartida);
+        }
+
+        $disponible = round((float) ($partida['monto_disponible'] ?? 0), 2);
+        $ejercido = round((float) ($partida['monto_ejercido'] ?? 0), 2);
+        $nuevoEjercido = round(max(0.00, $ejercido - $monto), 2);
+        $nuevoDisponible = round($disponible + $monto, 2);
+        $presupuesto = round((float) ($partida['monto_presupuesto'] ?? 0), 2);
+        $porcentaje = $presupuesto > 0 ? round(($nuevoEjercido / $presupuesto) * 100, 2) : 0.00;
+
+        $this->db->table('cat_partida')
+            ->where('id_partida', $idPartida)
+            ->update([
+                'monto_ejercido' => number_format($nuevoEjercido, 2, '.', ''),
+                'monto_disponible' => number_format($nuevoDisponible, 2, '.', ''),
+                'porcentaje_ejercido' => number_format($porcentaje, 2, '.', ''),
+                'estatus' => $nuevoDisponible > 0 ? 'activa' : ($partida['estatus'] ?? 'activa'),
+                'fec_act' => date('Y-m-d H:i:s'),
+                'usu_act' => $actorUserId,
+            ]);
     }
 
     private function resolveFoodPartidaByContext(array $context): ?int

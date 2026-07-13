@@ -1700,6 +1700,16 @@ class Usuario extends BaseController
                     'script' => 'Usuario.checkInHospedaje',
                 ]
             );
+
+            $depositosService = new DepositosProgramadosService();
+            $consumoHospedaje = $depositosService->applyHospedajeCheckInConsumption(
+                $idUsuario,
+                (int) $session->get('id_usuario'),
+                $fechaAhora
+            );
+            if (!empty($consumoHospedaje->error)) {
+                log_message('error', 'Usuario.checkInHospedaje consumo hospedaje: ' . ($consumoHospedaje->respuesta ?? 'Error desconocido'));
+            }
         }
 
         return $this->respond($response);
@@ -1772,6 +1782,8 @@ class Usuario extends BaseController
             'operativo' => 'Operativo',
             'parcial' => 'Parcial',
             'aplicado' => 'Aplicado',
+            'cerrado' => 'Cerrado',
+            'vencido' => 'Vencido',
             'error' => 'Error',
             'cancelado' => 'Cancelado',
             'sin_programa' => 'Sin programa',
@@ -1866,6 +1878,19 @@ class Usuario extends BaseController
                     'script' => 'Usuario.checkOutHospedaje',
                 ]
             );
+
+            $depositosService = new DepositosProgramadosService();
+            $usuarioCheckout = $this->globals->getTabla([
+                'tabla' => 'usuario',
+                'where' => [
+                    'visible' => 1,
+                    'id_usuario' => $idUsuario,
+                ],
+            ]);
+            $filaCheckout = (!$usuarioCheckout->error && !empty($usuarioCheckout->data)) ? (array) $usuarioCheckout->data[0] : [];
+            if (!empty($filaCheckout)) {
+                $depositosService->releaseHospedajePendingOnCheckout($filaCheckout, (int) $session->get('id_usuario'), $fechaAhora);
+            }
         }
 
         return $this->respond($response);

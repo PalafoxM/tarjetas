@@ -12,9 +12,9 @@ class ProcesarDepositosProgramados extends BaseCommand
 {
     protected $group = 'Depositos';
     protected $name = 'depositos:programar';
-    protected $description = 'Procesa los depositos programados para usuarios con QR activo.';
+    protected $description = 'Procesa liberacion diaria y semanal de depositos programados.';
     protected $usage = 'depositos:programar [--date YYYY-MM-DD]';
-    protected $help = 'Ejecuta la liberacion semanal de depositos. Solo corre en domingo a las 23:59:59, salvo que se pase --date para simulacion.';
+    protected $help = 'Ejecuta el consumo diario de hospedaje y el retorno de alimentos vencidos; si corre en domingo, tambien procesa la liberacion semanal.';
 
     public function run(array $params)
     {
@@ -32,13 +32,16 @@ class ProcesarDepositosProgramados extends BaseCommand
             $reference = new DateTimeImmutable('now', $timezone);
         }
 
-        if ((int) $reference->format('N') !== 7 || $reference->format('H:i') !== '23:59') {
-            CLI::error('El proceso de depositos programados solo corre en domingo a las 23:59.');
-            return EXIT_ERROR;
-        }
-
         $service = new DepositosProgramadosService();
-        $result = $service->processWeeklyDeposits($reference->format('Y-m-d H:i:s'), 0);
+        $result = [
+            'ok' => true,
+            'weekly' => null,
+            'daily' => $service->processDailyProgrammedMaintenance($reference->format('Y-m-d H:i:s'), 0),
+        ];
+
+        if ((int) $reference->format('N') === 7) {
+            $result['weekly'] = $service->processWeeklyDeposits($reference->format('Y-m-d H:i:s'), 0);
+        }
 
         CLI::write(json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         return EXIT_SUCCESS;
