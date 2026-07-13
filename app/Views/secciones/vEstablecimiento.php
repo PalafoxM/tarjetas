@@ -92,8 +92,8 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
             <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
         </button>
     </div>
-    <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
-        <i class="mdi mdi-arrow-left me-1"></i> Atrás
+   <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary mb-3">
+     <i class="mdi mdi-arrow-left me-1"></i> Atrás
     </a>
 
     <?php if (empty($establecimientos)): ?>
@@ -108,7 +108,7 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
             </div>
         </section>
     <?php else: ?>
-        <nav class="establecimiento-tabs" aria-label="Establecimientos">
+        <nav class="establecimiento-tabs mb-4" aria-label="Establecimientos">
             <?php foreach ($establecimientos as $index => $establecimiento): ?>
                 <button
                     type="button"

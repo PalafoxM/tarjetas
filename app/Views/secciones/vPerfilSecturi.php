@@ -86,7 +86,7 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
 
         <article class="fic-access-card fic-access-card--amber">
             <div>
-                <span class="fic-access-card__category">Facturacion</span>
+                <span class="fic-access-card__category">Facturación</span>
                 <h2>Facturas</h2>
                 <p>Consulta los XML y PDF enviados por los proveedores para seguimiento administrativo.</p>
             </div>

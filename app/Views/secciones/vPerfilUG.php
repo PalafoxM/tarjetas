@@ -3,7 +3,7 @@ $session = \Config\Services::session();
 $hubTitle = (string) ($hubTitle ?? 'Perfil UG');
 $hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catálogoUG.');
 $hubMode = (string) ($perfilUgMode ?? 'admin');
-$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administraci?n';
+$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administración';
 $mostrarEdicion = $hubMode === 'admin';
 $mostrarSeguimientoSolicitudes = $hubMode === 'consulta';
 $perfilOptions = is_array($ugSolicitudPerfilOptions ?? null) ? $ugSolicitudPerfilOptions : [];

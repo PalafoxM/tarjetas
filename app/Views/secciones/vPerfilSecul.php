@@ -3,7 +3,7 @@ $session = \Config\Services::session();
 $hubTitle = (string) ($hubTitle ?? 'Perfil SECUL');
 $hubSubtitle = (string) ($hubSubtitle ?? 'Usuarios visibles pertenecientes al catálogoSECUL.');
 $hubMode = (string) ($perfilSeculMode ?? 'admin');
-$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administraci?n';
+$hubModeLabel = $hubMode === 'consulta' ? 'Consulta' : 'Administración';
 $mostrarEdicion = $hubMode === 'admin';
 $mostrarSeguimientoSolicitudes = $hubMode === 'consulta';
 $perfilOptions = is_array($seculSolicitudPerfilOptions ?? null) ? $seculSolicitudPerfilOptions : [];
