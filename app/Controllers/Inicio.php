@@ -933,10 +933,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
-        $accent = (string) ($layout['accent'] ?? '#4b5563');
-        $accentSoft = (string) ($layout['accent_soft'] ?? '#e5e7eb');
 
-        // Agrupar por orden de pago para mantener el orden cronológico
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
             $ordenPago = $this->resolveReporteVentasOrdenPago($row);
@@ -945,10 +942,9 @@ class Inicio extends BaseController {
 
         ksort($rowsByOrdenPago, SORT_NATURAL);
 
-        // Aplanar las filas manteniendo el orden de los grupos
         $flattenedRows = [];
+        $totalImporte = 0.0;
         foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
-            // Ordenar por fecha dentro de cada grupo
             usort($ordenRows, static function ($a, $b) {
                 $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
                 $fechaB = strtotime((string) ($b['fec_reg'] ?? $b['fecha_respuesta'] ?? '')) ?: 0;
@@ -956,120 +952,78 @@ class Inicio extends BaseController {
             });
             foreach ($ordenRows as $row) {
                 $flattenedRows[] = $row;
+                $totalImporte += (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
             }
         }
 
-        // Construir HTML con codificación UTF-8 correcta
+        $summaryHtml = '<table class="summary">';
+        $summaryHtml .= '<tr>';
+        $summaryHtml .= '<td class="label">Total registros</td>';
+        $summaryHtml .= '<td class="value">' . count($flattenedRows) . '</td>';
+        $summaryHtml .= '<td class="label">Total importe</td>';
+        $summaryHtml .= '<td class="value money">$' . number_format($totalImporte, 2) . '</td>';
+        $summaryHtml .= '</tr>';
+        $summaryHtml .= '</table>';
+
         $html = '
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <style>
-                    body { 
-                        font-family: DejaVu Sans, Arial, sans-serif; 
-                        color: #172033; 
-                        padding: 15px 10px;
-                    }
-                    .header { 
-                        border-bottom: 2px solid ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; 
-                        padding-bottom: 15px; 
-                        margin-bottom: 18px; 
-                        text-align: center;
-                    }
-                    .title-main { 
-                        font-size: 22px; 
-                        font-weight: bold; 
-                        color: #000000; 
-                    }
-                    .title-sub { 
-                        font-size: 18px; 
-                        font-weight: bold; 
-                        color: #000000; 
-                        margin-top: 2px;
-                    }
-                    .subtitle { 
-                        font-size: 14px; 
-                        color: #475569; 
-                        margin-top: 6px; 
-                    }
-                    .subtitle-bold { 
-                        font-size: 14px; 
-                        font-weight: bold; 
-                        color: #475569; 
-                        margin-top: 6px; 
-                    }
-                    .period { 
-                        text-align: center; 
-                        font-size: 12pt; 
-                        margin-top: 14px; 
-                        margin-bottom: 0;
-                        color: #475569;
-                    }
-                    .table-container {
-                        margin-top: 14px;
-                    }
-                    table { 
-                        width: 100%; 
-                        border-collapse: collapse; 
-                        font-size: 8.5pt;
-                    }
-                    th, td { 
-                        border: 1px solid #000000; 
-                        padding: 4px 6px; 
-                        vertical-align: middle; 
-                    }
-                    th { 
-                        background: #bbbbbb; 
-                        color: #000000; 
-                        text-align: left; 
-                        font-weight: bold;
-                    }
-                    .money { 
-                        text-align: right; 
-                        font-weight: bold; 
-                    }
-                    .empty { 
-                        padding: 12px; 
-                        text-align: center; 
-                        border: 1px solid #d1d5db; 
-                        background: #f9fafb; 
-                    }
-                    .spacer { 
-                        height: 6px; 
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
-                    <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
-                    <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
-                    <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
-                    <div class="subtitle-bold">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</div>
-                    <div class="period">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>
-                </div>';
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: DejaVu Sans, Arial, sans-serif; color: #172033; padding: 15px 10px; }
+                .header { border-bottom: 2px solid #0f766e; padding-bottom: 15px; margin-bottom: 18px; text-align: center; }
+                .title-main { font-size: 22px; font-weight: bold; color: #000000; }
+                .title-sub { font-size: 18px; font-weight: bold; color: #000000; margin-top: 2px; }
+                .subtitle { font-size: 14px; color: #475569; margin-top: 6px; }
+                .subtitle-bold { font-size: 14px; font-weight: bold; color: #475569; margin-top: 6px; }
+                .period { text-align: center; font-size: 12pt; margin-top: 14px; margin-bottom: 0; color: #475569; }
+
+                .summary { width: 100%; border-collapse: collapse; margin: 14px 0 14px; }
+                .summary td { border: 1px solid #d1d5db; padding: 8px 12px; font-size: 11pt; }
+                .summary .label { background: #f3f4f6; font-weight: bold; color: #111827; width: 20%; }
+                .summary .value { width: 30%; font-size: 11pt; }
+
+                .table-container { margin-top: 14px; }
+                table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+                th, td { border: 1px solid #9ca3af; padding: 4px 6px; vertical-align: top; }
+                th { background: #0f172a; color: #ffffff; text-align: left; font-weight: bold; }
+                .money { text-align: right; font-weight: bold; }
+                .empty { border: 1px solid #d1d5db; background: #f9fafb; padding: 16px; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
+                <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
+                <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="subtitle-bold">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="period">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>
+            </div>
+
+            ' . $summaryHtml . '
+
+            <div class="table-container">';
 
         if (empty($flattenedRows)) {
             $html .= '<div class="empty">Sin consumos facturados</div>';
         } else {
             $html .= '
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Orden Pago</th>
-                                <th>Fecha</th>
-                                <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                                <th>Partida</th>
-                                <th>Item</th>
-                                <th>Transacción</th>
-                                <th>Importe</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Orden pago</th>
+                            <th>Fecha</th>
+                            <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
+                            <th>Partida</th>
+                            <th>Ítem</th>
+                            <th>Transacción</th>
+                            <th>Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
 
-            // Renderizar todas las filas sin totales por orden de pago
             foreach ($flattenedRows as $row) {
                 $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
                 $ordenPago = $this->resolveReporteVentasOrdenPago($row);
@@ -1085,19 +1039,19 @@ class Inicio extends BaseController {
                     <td>' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>Consumo</td>
                     <td>' . htmlspecialchars($transaccion, ENT_QUOTES, 'UTF-8') . '</td>
-                    <td class="money">$ ' . number_format($importe, 2, '.', ',') . '</td>
+                    <td class="money">$' . number_format($importe, 2) . '</td>
                 </tr>';
             }
 
             $html .= '
-                        </tbody>
-                    </table>
-                </div>';
+                    </tbody>
+                </table>';
         }
 
         $html .= '
-            </body>
-            </html>';
+            </div>
+        </body>
+        </html>';
 
         return $html;
     }
@@ -1217,11 +1171,8 @@ class Inicio extends BaseController {
         $layout = is_array($layout) ? $layout : [];
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
-        $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Establecimiento');
-        $accent = (string) ($layout['accent'] ?? '#1d4ed8');
-        $accentSoft = (string) ($layout['accent_soft'] ?? '#dbeafe');
+        $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
 
-        // Agrupar por orden de pago para mantener el orden, pero sin mostrar totales
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
             $ordenPago = $this->resolveReporteVentasOrdenPago($row);
@@ -1230,8 +1181,8 @@ class Inicio extends BaseController {
 
         ksort($rowsByOrdenPago, SORT_NATURAL);
 
-        // Aplanar las filas manteniendo el orden de los grupos
         $flattenedRows = [];
+        $totalImporte = 0.0;
         foreach ($rowsByOrdenPago as $ordenPago => $ordenRows) {
             usort($ordenRows, static function ($a, $b) {
                 $fechaA = strtotime((string) ($a['fec_reg'] ?? $a['fecha_respuesta'] ?? '')) ?: 0;
@@ -1240,141 +1191,106 @@ class Inicio extends BaseController {
             });
             foreach ($ordenRows as $row) {
                 $flattenedRows[] = $row;
+                $totalImporte += (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
             }
         }
 
-        // Construir HTML con codificación UTF-8 correcta
+        $summaryHtml = '<table class="summary">';
+        $summaryHtml .= '<tr>';
+        $summaryHtml .= '<td class="label">Total registros</td>';
+        $summaryHtml .= '<td class="value">' . count($flattenedRows) . '</td>';
+        $summaryHtml .= '<td class="label">Total importe</td>';
+        $summaryHtml .= '<td class="value money">$' . number_format($totalImporte, 2) . '</td>';
+        $summaryHtml .= '</tr>';
+        $summaryHtml .= '</table>';
+
         $html = '
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <style>
-                    body { 
-                        font-family: DejaVu Sans, Arial, sans-serif; 
-                        color: #172033; 
-                        padding: 20px;
-                    }
-                    .header { 
-                        border-bottom: 2px solid ' . htmlspecialchars($accent, ENT_QUOTES, 'UTF-8') . '; 
-                        padding-bottom: 15px; 
-                        margin-bottom: 18px; 
-                        text-align: center;
-                    }
-                    .title-main { 
-                        font-size: 22px; 
-                        font-weight: bold; 
-                        color: #000000; 
-                    }
-                    .title-sub { 
-                        font-size: 18px; 
-                        font-weight: bold; 
-                        color: #000000; 
-                        margin-top: 2px;
-                    }
-                    .subtitle { 
-                        font-size: 14px; 
-                        color: #475569; 
-                        margin-top: 6px; 
-                    }
-                    .subtitle-bold { 
-                        font-size: 14px; 
-                        font-weight: bold; 
-                        color: #475569; 
-                        margin-top: 6px; 
-                    }
-                    .period { 
-                        text-align: center; 
-                        font-size: 12pt; 
-                        margin-top: 14px; 
-                        margin-bottom: 0;
-                        color: #475569;
-                    }
-                    .table-container {
-                        margin-top: 14px;
-                    }
-                    table { 
-                        width: 100%; 
-                        border-collapse: collapse; 
-                        font-size: 8.8pt;
-                    }
-                    th, td { 
-                        border: 1px solid #000000; 
-                        padding: 5px 6px; 
-                        vertical-align: top; 
-                    }
-                    th { 
-                        background: #bbbbbb; 
-                        color: #000000; 
-                        text-align: left; 
-                        font-weight: bold;
-                    }
-                    .money { 
-                        text-align: right; 
-                        font-weight: bold; 
-                    }
-                    .empty { 
-                        padding: 12px; 
-                        text-align: center; 
-                        border: 1px solid #d1d5db; 
-                        background: #f9fafb; 
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
-                    <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
-                    <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
-                    <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
-                    <div class="subtitle-bold">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</div>
-                    <div class="period">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>
-                </div>';
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: DejaVu Sans, Arial, sans-serif; color: #172033; padding: 15px 10px; }
+                .header { border-bottom: 2px solid #0f766e; padding-bottom: 15px; margin-bottom: 18px; text-align: center; }
+                .title-main { font-size: 22px; font-weight: bold; color: #000000; }
+                .title-sub { font-size: 18px; font-weight: bold; color: #000000; margin-top: 2px; }
+                .subtitle { font-size: 14px; color: #475569; margin-top: 6px; }
+                .subtitle-bold { font-size: 14px; font-weight: bold; color: #475569; margin-top: 6px; }
+                .period { text-align: center; font-size: 12pt; margin-top: 14px; margin-bottom: 0; color: #475569; }
+
+                .summary { width: 100%; border-collapse: collapse; margin: 14px 0 14px; }
+                .summary td { border: 1px solid #d1d5db; padding: 8px 12px; font-size: 11pt; }
+                .summary .label { background: #f3f4f6; font-weight: bold; color: #111827; width: 20%; }
+                .summary .value { width: 30%; font-size: 11pt; }
+
+                .table-container { margin-top: 14px; }
+                table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+                th, td { border: 1px solid #9ca3af; padding: 4px 6px; vertical-align: top; }
+                th { background: #0f172a; color: #ffffff; text-align: left; font-weight: bold; }
+                .money { text-align: right; font-weight: bold; }
+                .empty { border: 1px solid #d1d5db; background: #f9fafb; padding: 16px; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
+                <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
+                <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="subtitle-bold">' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</div>
+                <div class="period">' . htmlspecialchars($periodoLabel, ENT_QUOTES, 'UTF-8') . '</div>
+            </div>
+
+            ' . $summaryHtml . '
+
+            <div class="table-container">';
 
         if (empty($flattenedRows)) {
             $html .= '<div class="empty">Sin consumos facturados</div>';
         } else {
             $html .= '
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Orden Pago</th>
-                                <th>Fecha</th>
-                                <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                                <th>Partida</th>
-                                <th>Item</th>
-                                <th>Transacción</th>
-                                <th>Importe</th>
-                            </tr>
-                        </thead>
-                        <tbody>';
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Orden pago</th>
+                            <th>Fecha</th>
+                            <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
+                            <th>Partida</th>
+                            <th>Ítem</th>
+                            <th>Transacción</th>
+                            <th>Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
 
-            // Renderizar todas las filas sin totales
             foreach ($flattenedRows as $row) {
                 $importe = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
                 $ordenPago = $this->resolveReporteVentasOrdenPago($row);
-                
+                $fecha = $this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? '');
+                $establecimiento = (string) ($row['dsc_establecimiento'] ?? '');
+                $partida = $this->resolveReporteVentasPartida($row);
+                $transaccion = (string) ($row['id_solicitud_pago'] ?? '');
+
                 $html .= '<tr>
                     <td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>
-                    <td>' . htmlspecialchars($this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
-                    <td>' . htmlspecialchars((string) ($row['dsc_establecimiento'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
-                    <td>' . htmlspecialchars($this->resolveReporteVentasPartida($row), ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($establecimiento, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td>' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>Consumo</td>
-                    <td>' . htmlspecialchars((string) ($row['id_solicitud_pago'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>
-                    <td class="money">$ ' . number_format($importe, 2, '.', ',') . '</td>
+                    <td>' . htmlspecialchars($transaccion, ENT_QUOTES, 'UTF-8') . '</td>
+                    <td class="money">$' . number_format($importe, 2) . '</td>
                 </tr>';
             }
 
             $html .= '
-                        </tbody>
-                    </table>
-                </div>';
+                    </tbody>
+                </table>';
         }
 
         $html .= '
-            </body>
-            </html>';
+            </div>
+        </body>
+        </html>';
 
         return $html;
     }
