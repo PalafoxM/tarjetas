@@ -269,11 +269,6 @@ var notificaciones = (function () {
         state.readUrl = (base_url || '') + 'index.php/Inicio/marcarNotificacionLeida';
         bindEvents();
         load();
-
-        if (state.refreshTimer) {
-            window.clearInterval(state.refreshTimer);
-        }
-        state.refreshTimer = window.setInterval(load, 60000);
     }
 
     return {
