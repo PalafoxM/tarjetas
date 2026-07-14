@@ -479,7 +479,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i></button>`
             : expedienteCompleto
                 ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">Activar QR</button>`
-                : `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin expediente completo" disabled>Activar QR</button>`;
+                : `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`;
         let botones = `
             <div class="cajero-actions">
               
@@ -510,13 +510,13 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             return true;
         }
 
-        const tieneQr = String(row.qr || '').trim() !== '';
-        const tienePdfIntegrado = String(row.ine_firma_cajero || '').trim() !== '';
-        const tieneDocumentosLegacy = String(row.ine_frontal || '').trim() !== ''
-            && String(row.ine_trasera || '').trim() !== ''
-            && String(row.firma || '').trim() !== '';
-
-        return tieneQr && (tienePdfIntegrado || tieneDocumentosLegacy);
+        return [
+            row.qr,
+            row.ine_firma_cajero,
+            row.ine_frontal,
+            row.ine_trasera,
+            row.firma
+        ].some((path) => String(path || '').trim() !== '');
     },
 
     seleccionarFirmaCajero(idUsuario) {
@@ -620,7 +620,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const rows = $('#cajerosTable').bootstrapTable('getData', { useCurrentPage: false, includeHiddenRows: true }) || [];
         const row = rows.find((item) => Number(item.id_usuario || item.ID_USUARIO || 0) === Number(idUsuario || 0));
         if (!cajeros.tieneExpedienteCompleto(row || {})) {
-            Swal.fire('Atencion', 'No se puede activar el usuario porque su expediente esta incompleto.', 'warning');
+            Swal.fire('Atencion', 'No se puede activar el usuario porque no tiene documentos cargados.', 'warning');
             return;
         }
 

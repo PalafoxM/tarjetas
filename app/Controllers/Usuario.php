@@ -2864,9 +2864,10 @@ class Usuario extends BaseController
             $documentRow = $documentIndex[$idUsuario] ?? [];
             $mergedRow = array_merge($displayRow, $baseRow, $documentRow);
             $mergedRow['expediente_completo'] = trim((string) ($mergedRow['qr'] ?? '')) !== ''
-                && trim((string) ($mergedRow['ine_frontal'] ?? '')) !== ''
-                && trim((string) ($mergedRow['ine_trasera'] ?? '')) !== ''
-                && trim((string) ($mergedRow['firma'] ?? '')) !== '';
+                || trim((string) ($mergedRow['ine_firma_cajero'] ?? '')) !== ''
+                || trim((string) ($mergedRow['ine_frontal'] ?? '')) !== ''
+                || trim((string) ($mergedRow['ine_trasera'] ?? '')) !== ''
+                || trim((string) ($mergedRow['firma'] ?? '')) !== '';
             $mergedRow['nombre_completo'] = trim(implode(' ', array_filter([
                 $mergedRow['nombre'] ?? '',
                 $mergedRow['primer_apellido'] ?? '',

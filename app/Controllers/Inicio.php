@@ -5155,6 +5155,7 @@ class Inicio extends BaseController {
                 CONCAT_WS(" ", u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
                 u.correo,
                 u.qr,
+                u.ine_firma_cajero,
                 u.ine_frontal,
                 u.ine_trasera,
                 u.firma,
@@ -5220,9 +5221,15 @@ class Inicio extends BaseController {
         $mapped = array_map(static function (array $row): array {
             $activoQr = (int) ($row['activo_qr'] ?? 0);
             $qr = trim((string) ($row['qr'] ?? ''));
+            $ineFirmaCajero = trim((string) ($row['ine_firma_cajero'] ?? ''));
             $ineFrontal = trim((string) ($row['ine_frontal'] ?? ''));
             $ineTrasera = trim((string) ($row['ine_trasera'] ?? ''));
             $firma = trim((string) ($row['firma'] ?? ''));
+            $tieneDocumentoCargado = $qr !== ''
+                || $ineFirmaCajero !== ''
+                || $ineFrontal !== ''
+                || $ineTrasera !== ''
+                || $firma !== '';
 
             return [
                 'id_usuario' => (int) ($row['id_usuario'] ?? 0),
@@ -5234,10 +5241,11 @@ class Inicio extends BaseController {
                 'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
                 'correo' => (string) ($row['correo'] ?? ''),
                 'qr' => $qr,
+                'ine_firma_cajero' => $ineFirmaCajero,
                 'ine_frontal' => $ineFrontal,
                 'ine_trasera' => $ineTrasera,
                 'firma' => $firma,
-                'expediente_completo' => ($qr !== '' && $ineFrontal !== '' && $ineTrasera !== '' && $firma !== ''),
+                'expediente_completo' => $tieneDocumentoCargado,
                 'activo_qr' => $activoQr,
                 'qr_activo' => $activoQr,
                 'fec_reg' => (string) ($row['fec_reg'] ?? ''),
@@ -5280,7 +5288,7 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $usuario = $db->table('usuario')
-            ->select('id_usuario, visible, qr, ine_frontal, ine_trasera, firma, activo_qr')
+            ->select('id_usuario, visible, qr, ine_firma_cajero, ine_frontal, ine_trasera, firma, activo_qr')
             ->where('id_usuario', $idUsuario)
             ->get()
             ->getRowArray();
@@ -5299,9 +5307,15 @@ class Inicio extends BaseController {
         }
 
         $qr = trim((string) ($usuario['qr'] ?? ''));
+        $ineFirmaCajero = trim((string) ($usuario['ine_firma_cajero'] ?? ''));
         $ineFrontal = trim((string) ($usuario['ine_frontal'] ?? ''));
         $ineTrasera = trim((string) ($usuario['ine_trasera'] ?? ''));
         $firma = trim((string) ($usuario['firma'] ?? ''));
+        $tieneDocumentoCargado = $qr !== ''
+            || $ineFirmaCajero !== ''
+            || $ineFrontal !== ''
+            || $ineTrasera !== ''
+            || $firma !== '';
       /*   if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
@@ -5309,10 +5323,10 @@ class Inicio extends BaseController {
             ]);
         }
  */
-        if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
+        if (!$tieneDocumentoCargado) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
-                'message' => 'El expediente esta incompleto o falta el QR generado.',
+                'message' => 'Falta al menos un documento cargado.',
             ]);
         }
         $service = new DepositosProgramadosService($db);
