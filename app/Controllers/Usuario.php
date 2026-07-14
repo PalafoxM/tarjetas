@@ -552,10 +552,13 @@ class Usuario extends BaseController
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
         $legacyProfile = $this->resolveLegacyProfileAlta($selectedProfile, $assignment, $usuarioActual ?? []);
+        $storedProfile = $selectedProfile > 0
+            ? $selectedProfile
+            : $this->nullableInt($usuarioActual['id_perfil'] ?? null);
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
         $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
-        $esPerfilTi = (int) ($legacyProfile ?? 0) === 1 || (int) ($selectedProfile ?? 0) === 1;
+        $esPerfilTi = (int) ($storedProfile ?? 0) === 1;
 
         if ($esPerfilTi) {
             $grupoUsuario = '';
@@ -801,6 +804,7 @@ class Usuario extends BaseController
     {
         $db = \Config\Database::connect();
         $idUsuario = (int) ($data['id_usuario'] ?? 0);
+        $isEditMode = $idUsuario > 0;
         $usuarioActual = $idUsuario > 0 ? $this->getBaseUserRow($idUsuario) : null;
 
         if ($idUsuario > 0 && !$usuarioActual) {
@@ -820,10 +824,13 @@ class Usuario extends BaseController
         $assignment = $this->resolver->applyAssignment($data, $actorContext, $usuarioActual ?? []);
         $selectedProfile = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
         $legacyProfile = $this->resolveLegacyProfileAlta($selectedProfile, $assignment, $usuarioActual ?? []);
+        $storedProfile = $selectedProfile > 0
+            ? $selectedProfile
+            : $this->nullableInt($usuarioActual['id_perfil'] ?? null);
         $grupoUsuario = $this->resolveGrupoUsuarioAlta($data, $assignment, $usuarioActual ?? []);
         $partidaUsuario = $this->resolvePartidaAlta($data, $grupoUsuario, $usuarioActual ?? []);
         $idEstablecimientoAlta = $this->resolveEstablecimientoAlta($data, $grupoUsuario, $selectedProfile, $usuarioActual ?? []);
-        $esPerfilTi = (int) ($legacyProfile ?? 0) === 1 || (int) ($selectedProfile ?? 0) === 1;
+        $esPerfilTi = (int) ($storedProfile ?? 0) === 1;
 
         if ($esPerfilTi) {
             $grupoUsuario = '';
@@ -1008,7 +1015,7 @@ class Usuario extends BaseController
                 }
             }
 
-            if ($persona['contrasenia'] === '') {
+            if ($persona['contrasenia'] === '' && !$isEditMode) {
                 return $this->respond([
                     'error' => true,
                     'respuesta' => sprintf('La contrasena es requerida para el pax %d.', $index + 1),
@@ -1049,7 +1056,7 @@ class Usuario extends BaseController
                 'segundo_apellido' => $personas[0]['segundo_apellido'],
                 'correo' => $personas[0]['correo'],
                 'usuario' => $personas[0]['usuario'],
-                'id_perfil' => $legacyProfile,
+                'id_perfil' => $storedProfile,
                 'id_establecimiento' => $idEstablecimientoAlta,
                 'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
                 'id_partida' => $partidaUsuario,
@@ -1083,15 +1090,13 @@ class Usuario extends BaseController
                 'folio' => $folio,
                 'folio_grupo' => $folioGrupo,
                 'sub_folio' => $subFolioBase !== '' ? $subFolioBase : null,
-                'contrasenia' => password_hash($personas[0]['contrasenia'], PASSWORD_BCRYPT),
                 'fec_act' => $fechaAhora,
                 'usu_act' => $idSesionUsuario,
             ];
 
-            if (!empty($data['contrasenia'])) {
-                $updateData['contrasenia'] = password_hash((string) $data['contrasenia'], PASSWORD_BCRYPT);
-            } else {
-                unset($updateData['contrasenia']);
+            $contraseniaNueva = trim((string) ($data['contrasenia'] ?? ''));
+            if ($contraseniaNueva !== '') {
+                $updateData['contrasenia'] = password_hash($contraseniaNueva, PASSWORD_BCRYPT);
             }
 
             $response = $this->globals->saveTabla(
@@ -1230,7 +1235,7 @@ class Usuario extends BaseController
                     'id_proveedor' => null,
                     'id_tipo_proveedor' => null,
                     'id_establecimiento' => $idEstablecimientoAlta,
-                    'id_perfil' => $legacyProfile,
+                    'id_perfil' => $storedProfile,
                     'nombre' => $persona['nombre'],
                     'primer_apellido' => $persona['primer_apellido'],
                     'segundo_apellido' => $persona['segundo_apellido'],
