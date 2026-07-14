@@ -13,23 +13,37 @@ class ProcesarDepositosProgramados extends BaseCommand
     protected $group = 'Depositos';
     protected $name = 'depositos:programar';
     protected $description = 'Procesa liberacion diaria y semanal de depositos programados.';
-    protected $usage = 'depositos:programar [--date YYYY-MM-DD]';
-    protected $help = 'Ejecuta el consumo diario de hospedaje y el retorno de alimentos vencidos; si corre en domingo, tambien procesa la liberacion semanal.';
+    protected $usage = 'depositos:programar [--date YYYY-MM-DD] [--time HH:MM]';
+    protected $help = 'Ejecuta el consumo diario de hospedaje y el retorno de alimentos vencidos; si corre en domingo, tambien procesa la liberacion semanal. Con --time puedes fijar una hora de referencia puntual.';
 
     public function run(array $params)
     {
         $dateOption = CLI::getOption('date');
+        $timeOption = CLI::getOption('time');
         $timezone = new DateTimeZone('America/Mexico_City');
+        $today = new DateTimeImmutable('now', $timezone);
+        $todayDate = $today->format('Y-m-d');
 
         if (trim((string) $dateOption) !== '') {
+            $dateValue = trim((string) $dateOption);
+            $timeValue = trim((string) $timeOption);
+            if ($timeValue === '' && $dateValue === $todayDate) {
+                $timeValue = '11:50:00';
+            }
+            if ($timeValue === '') {
+                $timeValue = '23:59:59';
+            } elseif (preg_match('/^\d{2}:\d{2}$/', $timeValue) === 1) {
+                $timeValue .= ':00';
+            }
+
             try {
-                $reference = new DateTimeImmutable(trim((string) $dateOption) . ' 23:59:59', $timezone);
+                $reference = new DateTimeImmutable($dateValue . ' ' . $timeValue, $timezone);
             } catch (\Throwable $e) {
-                CLI::error('La fecha indicada en --date no es valida. Usa YYYY-MM-DD.');
+                CLI::error('La fecha u hora indicada no es valida. Usa --date YYYY-MM-DD y --time HH:MM.');
                 return EXIT_ERROR;
             }
         } else {
-            $reference = new DateTimeImmutable('now', $timezone);
+            $reference = $today;
         }
 
         $service = new DepositosProgramadosService();

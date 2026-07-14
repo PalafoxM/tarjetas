@@ -3304,10 +3304,11 @@ class Inicio extends BaseController {
                     foreach ($partidasRemotas as $partidaRemota) {
                         $partidasFinales[(int) ($partidaRemota['id_partida'] ?? 0)] = $partidaRemota;
                     }
+
+                    // La BD local es la fuente de verdad para el ejercicio en tiempo real.
+                    // Si el seed remoto queda desfasado, no debe esconder el consumo real.
                     foreach ($partidasLocalesMap as $idPartida => $partidaLocal) {
-                        if (!isset($partidasFinales[$idPartida])) {
-                            $partidasFinales[$idPartida] = $partidaLocal;
-                        }
+                        $partidasFinales[$idPartida] = $partidaLocal;
                     }
 
                     usort($partidasFinales, static function (array $a, array $b) {

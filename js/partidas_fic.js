@@ -65,18 +65,126 @@
         mount.innerHTML = '<div class="partidas-chart-empty">' + message + '</div>';
     }
 
-    function buildLegendItem(item) {
+    function sanitizeKey(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'partida';
+    }
+
+    function buildDonutCardMarkup(item) {
         return '' +
-            '<div class="partidas-chart-legend-item">' +
-                '<span class="partidas-chart-legend-swatch" style="background:' + item.color + '"></span>' +
-                '<div>' +
-                    '<div class="partidas-chart-legend-label">' + item.label + '</div>' +
-                    '<div class="partidas-muted" style="font-size:.82rem">' + item.note + '</div>' +
+            '<article class="partidas-donut-card" data-partida-id="' + item.id + '">' +
+                '<div class="partidas-donut-card__head">' +
+                    '<div>' +
+                        '<span class="partidas-chart-summary-label">' + item.label + '</span>' +
+                        '<h3 class="partidas-donut-card__title">' + item.note + '</h3>' +
+                    '</div>' +
+                    '<div class="partidas-donut-card__meta">' +
+                        '<span>' + item.percent.toFixed(1) + '% ejercido</span>' +
+                        '<strong>' + formatCurrency(item.exercised) + '</strong>' +
+                    '</div>' +
                 '</div>' +
-                '<div class="partidas-chart-legend-meta">' +
-                    formatCurrency(item.value) + '<br>' + item.percent.toFixed(1) + '% ejercido' +
+                '<div class="partidas-donut-card__chart" id="partidasDonut-' + sanitizeKey(item.label) + '"></div>' +
+                '<div class="partidas-donut-card__footer">' +
+                    '<span>Presupuesto: ' + formatCurrency(item.budget) + '</span>' +
+                    '<span>Disponible: ' + formatCurrency(item.available) + '</span>' +
                 '</div>' +
-            '</div>';
+            '</article>';
+    }
+
+    function renderSingleDonut(chartEl, item) {
+        if (typeof window.ApexCharts === 'undefined') {
+            chartEl.innerHTML = '<div class="partidas-chart-empty">ApexCharts no esta disponible.</div>';
+            return;
+        }
+
+        var chartOptions = {
+            chart: {
+                type: 'donut',
+                height: 270,
+                toolbar: { show: false },
+                foreColor: '#cbd5e1',
+                animations: {
+                    enabled: true,
+                    easing: 'easeinout',
+                    speed: 650
+                },
+                events: {
+                    dataPointSelection: function () {
+                        chartEl.classList.add('is-active');
+                    }
+                }
+            },
+            series: [item.exercised, item.available],
+            labels: ['Ejercido', 'Disponible'],
+            colors: [item.color, 'rgba(148, 163, 184, .18)'],
+            legend: { show: false },
+            stroke: {
+                width: 2,
+                colors: ['#0f172a']
+            },
+            states: {
+                hover: {
+                    filter: { type: 'lighten', value: 0.08 }
+                },
+                active: {
+                    allowMultipleDataPointsSelection: false,
+                    filter: { type: 'darken', value: 0.65 }
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                style: { fontSize: '11px', fontWeight: 700 },
+                formatter: function (val, opts) {
+                    return opts.seriesIndex === 0 ? 'Ejercido' : 'Disponible';
+                },
+                dropShadow: { enabled: false }
+            },
+            plotOptions: {
+                pie: {
+                    expandOnClick: true,
+                    donut: {
+                        size: '70%',
+                        labels: {
+                            show: true,
+                            name: {
+                                show: true,
+                                color: '#f8fafc',
+                                offsetY: -8
+                            },
+                            value: {
+                                show: true,
+                                color: '#e2e8f0',
+                                formatter: function () {
+                                    return formatCurrency(item.exercised);
+                                }
+                            },
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: 'Presupuesto',
+                                color: '#93c5fd',
+                                formatter: function () {
+                                    return formatCurrency(item.budget);
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            tooltip: {
+                y: {
+                    formatter: function (value, opts) {
+                        var label = opts.seriesIndex === 0 ? 'Ejercido' : 'Disponible';
+                        return label + ': ' + formatCurrency(value) + ' · ' + item.percent.toFixed(1) + '% del presupuesto';
+                    }
+                }
+            }
+        };
+
+        var chart = new window.ApexCharts(chartEl, chartOptions);
+        chart.render();
     }
 
     function renderChart(root) {
@@ -95,161 +203,51 @@
 
         var partidas = Array.isArray(dashboard.partidas) ? dashboard.partidas : [];
         var palette = ['#60a5fa', '#34d399', '#fbbf24', '#f97316', '#a78bfa', '#fb7185', '#22d3ee', '#c084fc'];
+        var priorityOrder = { 2: 0, 3: 1, 1: 2 };
 
         var chartData = partidas
             .map(function (partida, index) {
                 var budget = toNumber(partida.monto_presupuesto);
                 var exercised = toNumber(partida.monto_ejercido);
                 var available = toNumber(partida.monto_disponible);
+                var id = Number(partida.id_partida || 0);
+
                 return {
+                    id: id,
                     label: String(partida.partida || ('Partida ' + (index + 1))),
-                    note: String(partida.des_partida || 'Sin descripción'),
-                    value: budget,
+                    note: String(partida.des_partida || 'Sin descripcion'),
                     exercised: exercised,
+                    budget: budget,
                     available: available,
                     percent: budget > 0 ? (exercised / budget) * 100 : 0,
                     color: String(partida.color_dashboard || palette[index % palette.length])
                 };
             })
             .filter(function (item) {
-                return item.value > 0;
+                return item.budget > 0 && (item.id === 2 || item.id === 3 || item.id === 1);
             })
             .sort(function (a, b) {
-                return b.value - a.value;
+                var aOrder = Object.prototype.hasOwnProperty.call(priorityOrder, a.id) ? priorityOrder[a.id] : 99;
+                var bOrder = Object.prototype.hasOwnProperty.call(priorityOrder, b.id) ? priorityOrder[b.id] : 99;
+                return aOrder - bOrder;
             });
 
         if (!chartData.length) {
-            renderNoData(mount, 'No hay presupuesto disponible para graficar todavía.');
+            renderNoData(mount, 'No hay presupuesto disponible para graficar todavia.');
             return;
         }
 
-        var totalBudget = chartData.reduce(function (carry, item) {
-            return carry + item.value;
-        }, 0);
-        var totalExercised = chartData.reduce(function (carry, item) {
-            return carry + item.exercised;
-        }, 0);
-        var totalAvailable = chartData.reduce(function (carry, item) {
-            return carry + item.available;
-        }, 0);
-
-        var legendItems = chartData.slice(0, 6).map(buildLegendItem).join('');
-
-        mount.innerHTML = [
-            '<div class="partidas-chart-layout">',
-                '<div class="partidas-chart-canvas">',
-                    '<div id="partidasMultiPieChartCanvas"></div>',
-                '</div>',
-                '<aside class="partidas-chart-side">',
-                    '<div class="partidas-chart-summary">',
-                        '<div class="partidas-chart-summary-card">',
-                            '<span class="partidas-chart-summary-label">Presupuesto total</span>',
-                            '<div class="partidas-chart-summary-value">' + formatCurrency(totalBudget) + '</div>',
-                        '</div>',
-                        '<div class="partidas-chart-summary-card">',
-                            '<span class="partidas-chart-summary-label">Ejercido</span>',
-                            '<div class="partidas-chart-summary-value">' + formatCurrency(totalExercised) + '</div>',
-                        '</div>',
-                        '<div class="partidas-chart-summary-card">',
-                            '<span class="partidas-chart-summary-label">Disponible</span>',
-                            '<div class="partidas-chart-summary-value">' + formatCurrency(totalAvailable) + '</div>',
-                        '</div>',
-                    '</div>',
-                    '<div class="partidas-chart-legend">' + legendItems + '</div>',
-                '</aside>',
-            '</div>'
-        ].join('');
-
-        var chartEl = document.getElementById('partidasMultiPieChartCanvas');
-        if (!chartEl) {
-            return;
-        }
-
-        var chartOptions = {
-            chart: {
-                type: 'donut',
-                height: 320,
-                toolbar: { show: false },
-                foreColor: '#cbd5e1',
-                animations: {
-                    enabled: true,
-                    easing: 'easeinout',
-                    speed: 650
-                }
-            },
-            series: chartData.map(function (item) { return item.value; }),
-            labels: chartData.map(function (item) { return item.label; }),
-            colors: chartData.map(function (item) { return item.color; }),
-            legend: { show: false },
-            stroke: {
-                width: 2,
-                colors: ['#0f172a']
-            },
-            dataLabels: {
-                enabled: true,
-                style: { fontSize: '12px', fontWeight: 700 },
-                formatter: function (val, opts) {
-                    var item = chartData[opts.seriesIndex];
-                    return item ? item.label : val.toFixed(1) + '%';
-                },
-                dropShadow: { enabled: false }
-            },
-            plotOptions: {
-                pie: {
-                    donut: {
-                        size: '68%',
-                        labels: {
-                            show: true,
-                            name: {
-                                show: true,
-                                color: '#f8fafc',
-                                offsetY: -8
-                            },
-                            value: {
-                                show: true,
-                                color: '#e2e8f0',
-                                formatter: function () {
-                                    return formatCurrency(totalExercised);
-                                }
-                            },
-                            total: {
-                                show: true,
-                                showAlways: true,
-                                label: 'Presupuesto',
-                                color: '#93c5fd',
-                                formatter: function () {
-                                    return formatCurrency(totalBudget);
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            tooltip: {
-                y: {
-                    formatter: function (value, opts) {
-                        var item = chartData[opts.seriesIndex];
-                        return formatCurrency(value) + ' · ' + (item ? item.percent.toFixed(1) : '0.0') + '% ejercido';
-                    }
-                }
-            },
-            responsive: [{
-                breakpoint: 768,
-                options: {
-                    chart: { height: 280 },
-                    plotOptions: { pie: { donut: { size: '64%' } } }
-                }
-            }]
-        };
+        mount.innerHTML = '<div class="partidas-donut-grid">' + chartData.map(buildDonutCardMarkup).join('') + '</div>';
 
         function mountChart() {
-            if (typeof window.ApexCharts === 'undefined') {
-                renderNoData(mount, 'ApexCharts no está disponible en esta vista.');
-                return;
-            }
+            chartData.forEach(function (item) {
+                var chartEl = document.getElementById('partidasDonut-' + sanitizeKey(item.label));
+                if (!chartEl) {
+                    return;
+                }
 
-            var chart = new window.ApexCharts(chartEl, chartOptions);
-            chart.render();
+                renderSingleDonut(chartEl, item);
+            });
         }
 
         if (window.ApexCharts) {
@@ -258,7 +256,7 @@
         }
 
         if (!window.base_url) {
-            renderNoData(mount, 'No fue posible resolver la ruta base de la librería de gráficas.');
+            renderNoData(mount, 'No fue posible resolver la ruta base de la libreria de graficas.');
             return;
         }
 

@@ -152,6 +152,10 @@
     gap: 10px;
 }
 
+.partidas-chart-summary--wide {
+    margin-bottom: 16px;
+}
+
 .partidas-chart-summary-card {
     background: rgba(30, 41, 59, .82);
     border: 1px solid rgba(148, 163, 184, .10);
@@ -172,6 +176,64 @@
     font-size: 1rem;
     font-weight: 800;
     color: #f8fafc;
+}
+
+.partidas-donut-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.partidas-donut-card {
+    background: rgba(30, 41, 59, .82);
+    border: 1px solid rgba(148, 163, 184, .12);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 380px;
+}
+
+.partidas-donut-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.partidas-donut-card__title {
+    margin: .3rem 0 0;
+    font-size: 1rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.partidas-donut-card__meta {
+    display: grid;
+    gap: .2rem;
+    text-align: right;
+    color: #cbd5e1;
+    font-size: .88rem;
+    white-space: nowrap;
+}
+
+.partidas-donut-card__meta strong {
+    color: #f8fafc;
+    font-size: 1rem;
+}
+
+.partidas-donut-card__chart {
+    min-height: 270px;
+}
+
+.partidas-donut-card__footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: .85rem;
+    color: #cbd5e1;
+    flex-wrap: wrap;
 }
 
 .partidas-chart-legend {
@@ -239,7 +301,8 @@
 @media (max-width: 992px) {
     .partidas-grid,
     .partidas-chart-layout,
-    .partidas-chart-summary {
+    .partidas-chart-summary,
+    .partidas-donut-grid {
         grid-template-columns: 1fr;
     }
 }
