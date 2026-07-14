@@ -3991,6 +3991,36 @@ class Inicio extends BaseController {
             ->getResult();
     }
 
+    private function resolveProviderEstablishmentForPdf(int $idEstablecimiento): array
+    {
+        if ($idEstablecimiento <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+
+        $row = $db->table('establecimiento e')
+            ->select('
+                e.id_establecimiento,
+                e.dsc_establecimiento,
+                e.id_tipo,
+                cte.dsc_tipo,
+                e.no_proveedor,
+                p.id_proveedor,
+                p.razon_social,
+                p.rfc,
+                p.fic
+            ')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('e.visible', 1)
+            ->where('e.id_establecimiento', $idEstablecimiento)
+            ->get()
+            ->getRowArray();
+
+        return is_array($row) ? $row : [];
+    }
+
     private function renderProveedorFormatoPdf(string $tipoDocumento, int $idEstablecimiento)
     {
         $session = \Config\Services::session();
@@ -4000,7 +4030,7 @@ class Inicio extends BaseController {
         }
 
         $data = $this->buildProviderFormatPdfData($idUsuario, $idEstablecimiento, $tipoDocumento);
-        if (empty($data['proveedorPerfil']) || empty($data['proveedorEstablecimiento'])) {
+        if (empty($data['proveedorEstablecimiento'])) {
             return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
         }
 
@@ -4249,12 +4279,26 @@ class Inicio extends BaseController {
             }
         }
 
+        if (empty($establecimientoSeleccionado) && $idEstablecimiento > 0) {
+            $establecimientoSeleccionado = $this->resolveProviderEstablishmentForPdf($idEstablecimiento);
+        }
+
         if (empty($establecimientoSeleccionado) && !empty($establecimientos)) {
             $establecimientoSeleccionado = $establecimientos[0];
         }
 
-        if (empty($proveedorPerfil) || empty($establecimientoSeleccionado)) {
+        if (empty($establecimientoSeleccionado)) {
             return [];
+        }
+
+        if (empty($proveedorPerfil)) {
+            $proveedorPerfil = [
+                'id_proveedor' => (int) ($establecimientoSeleccionado['id_proveedor'] ?? 0),
+                'no_proveedor' => (string) ($establecimientoSeleccionado['no_proveedor'] ?? ''),
+                'razon_social' => (string) ($establecimientoSeleccionado['razon_social'] ?? ''),
+                'rfc' => (string) ($establecimientoSeleccionado['rfc'] ?? ''),
+                'fic' => (int) ($establecimientoSeleccionado['fic'] ?? 0),
+            ];
         }
 
         $facturaXmlContext = $this->buildLatestFacturaXmlContextForEstablecimiento($idEstablecimiento);
