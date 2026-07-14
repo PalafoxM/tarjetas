@@ -26,14 +26,14 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
         <div class="partidas-hero">
             <span class="partidas-badge">Partidas FIC</span>
             <h1>Dashboard de partidas</h1>
-            <p>Monitorea el presupuesto oficial de cada partida y comparalo con la operacion viva del sistema.</p>
+            <p>Monitorea el presupuesto oficial de cada partida.</p>
         </div>
         <a class="btn btn-outline-light" href="<?= esc($previewBackUrl, 'attr') ?>">
             <i class="mdi mdi-arrow-left me-1"></i> Volver a inicio
         </a>
     </div>
 
-    <?php if (!empty($previewInterfaceActiva)): ?>
+    <!--<?php if (!empty($previewInterfaceActiva)): ?>
         <div class="panel p-3 mb-4">
             <div class="alert alert-info mb-0" role="alert">
                 <strong><?= esc((string) ($previewInterfaceLabel ?? 'Vista de referencia')) ?></strong>
@@ -44,12 +44,12 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
 
     <div class="panel p-3 mb-4">
         <p class="partidas-muted mb-0">Vista de referencia lista para conectar datos operativos de partidas, presupuesto, usuarios y movimientos sin depender de la sesion de la interfaz destino.</p>
-    </div>
+    </div>-->
 
     <div class="panel p-3 mb-4">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
             <div>
-                <span class="partidas-badge">Ultima actualizacion</span>
+                <span class="partidas-badge">Última actualización</span>
                 <div class="partidas-muted mt-2"><?= esc((string) ($meta['ultima_actualizacion'] ?? '--')) ?></div>
             </div>
             <div class="partidas-muted">Fuente: <?= esc((string) ($meta['source'] ?? 'node')) ?> · <?= esc((string) count($partidas)) ?> partidas</div>
@@ -64,7 +64,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
             <div class="partidas-card">
                 <span class="partidas-card__label">Ejercido</span>
                 <div class="partidas-card__value"><?= esc((string) ($resumen['monto_ejercido'] ?? '$0.00')) ?></div>
-                <div class="partidas-card__note">Operacion acumulada en tablero</div>
+                <div class="partidas-card__note">Operación acumulada en tablero</div>
             </div>
             <div class="partidas-card">
                 <span class="partidas-card__label">Disponible</span>
@@ -74,7 +74,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
             <div class="partidas-card">
                 <span class="partidas-card__label">Usuarios</span>
                 <div class="partidas-card__value"><?= esc((string) ($resumen['usuarios_asignados'] ?? '0')) ?></div>
-                <div class="partidas-card__note">Asignacion operativa activa</div>
+                <div class="partidas-card__note">Asignación operativa activa</div>
             </div>
         </div>
     </div>
@@ -83,7 +83,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
         <section class="partidas-chart-shell">
             <div class="partidas-chart-head">
                 <div>
-                    <h2 class="partidas-chart-title">Distribucion visual por partida</h2>
+                    <h2 class="partidas-chart-title">Distribución visual por partida</h2>
                     <p class="partidas-chart-copy">Vista comparativa del presupuesto oficial por partida usando 3 donuts independientes para ver el consumo separado e interactivo.</p>
                 </div>
             </div>
@@ -91,7 +91,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
         </section>
     </div>
 
-    <div class="panel p-3 mb-4">
+    <!--<div class="panel p-3 mb-4">
         <div class="mb-3">
             <h2 class="h5 mb-1 text-white">Tarjetas por partida</h2>
             <p class="partidas-muted mb-0">Resumen individual listo para poblar con el catalogo de partidas.</p>
@@ -113,5 +113,5 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
                 </div>
             <?php endif; ?>
         </div>
-    </div>
+    </div>-->
 </div>
