@@ -3168,16 +3168,23 @@ class Usuario extends BaseController
             return null;
         }
 
+        $relativePath = $this->persistInstitutionalQrLocalFallback($absolutePath, $fileName);
         $keyPrefix = $this->envFirst(['AWS_S3_PREFIX', 'S3_PREFIX', 'AWS_BUCKET_PREFIX'], 'qr_fic');
         $objectKey = trim($keyPrefix, '/');
         $objectKey = ($objectKey !== '' ? $objectKey . '/' : '') . $fileName;
-        $qrUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
-        if ($qrUrl === null) {
-            $qrUrl = $this->persistInstitutionalQrLocalFallback($absolutePath, $fileName);
-        }
+        $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
         @unlink($absolutePath);
 
-        return $qrUrl;
+        if ($relativePath !== null) {
+            return $relativePath;
+        }
+
+        $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '', $fileName);
+        if ($safeFileName === '') {
+            $safeFileName = 'usuario-qr-' . time() . '.png';
+        }
+
+        return 'uploads/qr_fic/' . $safeFileName;
     }
 
     private function persistInstitutionalQrLocalFallback(string $absolutePath, string $fileName): ?string
@@ -3207,9 +3214,7 @@ class Usuario extends BaseController
         }
 
         log_message('warning', 'Usuario.generateInstitutionalQrForUser: S3 no disponible, QR guardado localmente en ' . $targetPath);
-        $relativePath = $relativeDir . '/' . $safeFileName;
-
-        return function_exists('base_url') ? base_url($relativePath) : $relativePath;
+        return $relativeDir . '/' . $safeFileName;
     }
 
     private function uploadFileToS3(string $absolutePath, string $objectKey, string $contentType, bool $logFailureAsError = true): ?string

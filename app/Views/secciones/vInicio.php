@@ -34,22 +34,22 @@
                 <p>Accede al catálogo de usuarios del sistema.</p>
             </div>
             <a class="fic-access-card__button" href="<?php echo base_url('index.php/Inicio/Usuarios'); ?>">
-                Usuarios
+                Alta y edición de usuarios
             </a>
         </article>
 
         <article class="fic-access-card fic-access-card--cyan">
             <div>
                 <span class="fic-access-card__category">Catálogo</span>
-                <h2>Establecimientos FIC</h2>
+                <h2>Establecimientos y proveedores FIC</h2>
                 <p>Da de alta proveedores y después registra o administra sus establecimientos relacionados.</p>
             </div>
             <a class="fic-access-card__button" href="<?php echo base_url('index.php/Inicio/EstablecimientosFic'); ?>">
-                Establecimientos FIC
+                Ver proovedores y establecimientos
             </a>
         </article>
 
-        <article class="fic-access-card fic-access-card--purple">
+        <!--<article class="fic-access-card fic-access-card--purple">
             <div>
                 <span class="fic-access-card__category">Dashboard</span>
                 <h2>Pagos FIC</h2>
@@ -58,12 +58,12 @@
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/PagosFic') ?>">
                 Consultar pagos
             </a>
-        </article>
+        </article>-->
 
         <article class="fic-access-card fic-access-card--green">
             <div>
                 <span class="fic-access-card__category">Solicitudes</span>
-                <h2>Solicitudes</h2>
+                <h2>Solicitudes folios, gerente o recepcionista</h2>
                 <p>Aprueba o rechaza solicitudes de QR, altas y órdenes de hospedaje enviadas al sistema.</p>
             </div>
             <a class="fic-access-card__button" href="<?= base_url('/index.php/Inicio/SolicitudesUsuarioFic') ?>">
@@ -73,18 +73,18 @@
 
         <article class="fic-access-card fic-access-card--outline">
             <div>
-                <span class="fic-access-card__category">Hospedaje</span>
-                <h2>Movimientos de hospedaje</h2>
-                <p>Consulta los movimientos de los usuarios, llegadas, órdenes de hospedaje y alimentos.</p>
+                <span class="fic-access-card__category">Activaciones de usuarios</span>
+                <h2>Activaciones QR</h2>
+                <p>Consulta la orden del día para Caja SECTURI, activa o rechaza QR.</p>
             </div>
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Cajero') ?>">
-                Ver hospedajes
+                Ver activaciones
             </a>
         </article>
 
         <article class="fic-access-card fic-access-card--amber">
             <div>
-                <span class="fic-access-card__category">Facturacion</span>
+                <span class="fic-access-card__category">Facturación</span>
                 <h2>Facturas</h2>
                 <p>Consulta los XML y PDF enviados por los proveedores para seguimiento administrativo.</p>
             </div>

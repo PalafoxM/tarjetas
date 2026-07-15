@@ -7,6 +7,11 @@ $esNuevo = $idUsuarioEditar <= 0;
 $modoAltaProveedor = !empty($modoAltaProveedor);
 $modoSolicitudFolio = !empty($modoSolicitudFolio);
 $solicitudFolioGrupo = strtoupper((string) ($solicitudFolioGrupo ?? ''));
+$puedeSugerirFolio = !$modoAltaProveedor && (
+    $modoSolicitudFolio
+    || !empty($contextoUsuario['is_ti_master'])
+    || ((string) ($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 1)
+);
 $regresarUrl = $regresarUrl ?? base_url('index.php/Inicio/Usuarios');
 $partidaOptions = is_array($partidaOptions ?? null) ? $partidaOptions : [];
 $extractCatalogAmount = static function ($item) {
@@ -251,6 +256,8 @@ $inferHabitacionCapacidad = static function ($item) {
     data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-solicitud-folio-mode="<?= $modoSolicitudFolio ? '1' : '0' ?>"
     data-solicitud-id="<?= esc((string) ($solicitudFolioId ?? 0), 'attr') ?>"
+    data-solicitud-grupo="<?= esc($solicitudFolioGrupo, 'attr') ?>"
+    data-folio-suggestions-enabled="<?= $puedeSugerirFolio ? '1' : '0' ?>"
     data-folio-suggestions-url="<?= esc(base_url('index.php/Inicio/getSugerenciasFolioInstitucional'), 'attr') ?>"
     data-solicitud-detail-url="<?= esc((string) ($solicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudFolioEditable')), 'attr') ?>"
     data-save-url="<?= esc($saveUrl ?? base_url('index.php/Usuario/saveAltaUsuario'), 'attr') ?>">
