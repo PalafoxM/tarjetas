@@ -814,9 +814,14 @@ class Inicio extends BaseController {
             return $partida;
         }
 
-        $idPartida = trim((string) ($row['id_partida_usuario'] ?? ''));
-        if ($idPartida !== '') {
-            return $idPartida;
+        $idPartida = (int) ($row['id_partida_usuario'] ?? 0);
+        if ($idPartida > 0) {
+            $mapaPartidas = [
+                1 => '2210',
+                2 => '3390A',
+                3 => '3390B'
+            ];
+            return $mapaPartidas[$idPartida] ?? 'Sin partida';
         }
 
         return 'Sin partida';
@@ -933,6 +938,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
+        $partida = (string) ($layout['partida'] ?? '');
 
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
@@ -963,6 +969,12 @@ class Inicio extends BaseController {
         $summaryHtml .= '<td class="label">Total importe</td>';
         $summaryHtml .= '<td class="value money">$' . number_format($totalImporte, 2) . '</td>';
         $summaryHtml .= '</tr>';
+        if ($partida !== '') {
+            $summaryHtml .= '<tr>';
+            $summaryHtml .= '<td class="label">Partida</td>';
+            $summaryHtml .= '<td class="value" colspan="3">' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>';
+            $summaryHtml .= '</tr>';
+        }
         $summaryHtml .= '</table>';
 
         $html = '
@@ -990,6 +1002,13 @@ class Inicio extends BaseController {
                 th { background: #0f172a; color: #ffffff; text-align: left; font-weight: bold; }
                 .money { text-align: right; font-weight: bold; }
                 .empty { border: 1px solid #d1d5db; background: #f9fafb; padding: 16px; text-align: center; }
+                
+                table th:nth-child(1) { width: 28%; }
+                table th:nth-child(2) { width: 10%; }
+                table th:nth-child(3) { width: 22%; }
+                table th:nth-child(4) { width: 10%; }
+                table th:nth-child(5) { width: 10%; }
+                table th:nth-child(6) { width: 20%; }
             </style>
         </head>
         <body>
@@ -1016,7 +1035,6 @@ class Inicio extends BaseController {
                             <th>Orden pago</th>
                             <th>Fecha</th>
                             <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                            <th>Partida</th>
                             <th>Ítem</th>
                             <th>Transacción</th>
                             <th>Importe</th>
@@ -1029,14 +1047,12 @@ class Inicio extends BaseController {
                 $ordenPago = $this->resolveReporteVentasOrdenPago($row);
                 $fecha = $this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? '');
                 $establecimiento = (string) ($row['dsc_establecimiento'] ?? '');
-                $partida = $this->resolveReporteVentasPartida($row);
                 $transaccion = (string) ($row['id_solicitud_pago'] ?? '');
 
                 $html .= '<tr>
                     <td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>' . htmlspecialchars($establecimiento, ENT_QUOTES, 'UTF-8') . '</td>
-                    <td>' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>Consumo</td>
                     <td>' . htmlspecialchars($transaccion, ENT_QUOTES, 'UTF-8') . '</td>
                     <td class="money">$' . number_format($importe, 2) . '</td>
@@ -1088,43 +1104,119 @@ class Inicio extends BaseController {
 
     public function exportarReporteVentasProveedorPdfFormato()
     {
-        $payload = $this->buildReporteVentasProveedorExportPayload();
-        if ($payload === null) {
-            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
+        $session = \Config\Services::session();
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return $this->response->setStatusCode(401)->setBody('SesiÃ³n invÃ¡lida.');
         }
 
-        $rows = $payload['rows'];
-        $periodoLabel = $this->buildReporteVentasPeriodoLabel($rows);
-        $layout = $this->resolveReporteVentasLayout($payload['dashboard'], (int) $payload['id_establecimiento']);
-        $filename = 'reporte_consumos_facturados_' . ($layout['slug'] ?? 'general') . '_' . ($payload['id_establecimiento'] > 0 ? $payload['id_establecimiento'] : 'general') . '.pdf';
-
-        $tempDir = WRITEPATH . 'mpdf-temp';
-        if (!is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
+        $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
 
-        try {
-            $mpdf = new \Mpdf\Mpdf([
-                'mode' => 'utf-8',
-                'format' => 'Letter',
-                'orientation' => 'L',
-                'tempDir' => $tempDir,
-                'margin_left' => 10,
-                'margin_right' => 10,
-                'margin_top' => 12,
-                'margin_bottom' => 12,
-            ]);
-
-            $mpdf->SetTitle((string) ($layout['titulo'] ?? 'Reporte de consumos facturados'));
-            $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtmlHomologado($rows, $periodoLabel, $layout));
-            $salida = $this->request->getGet('download') ? 'D' : 'I';
-            $mpdf->Output($filename, $salida);
-        } catch (\Throwable $e) {
-            log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
-            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
+        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        if ($idEstablecimiento > 0) {
+            $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
 
-        exit;
+        $rows = $this->buildReporteVentasProveedorRows($dashboard);
+        
+        if (empty($rows)) {
+            return $this->response->setStatusCode(404)->setBody('No hay datos para generar el reporte.');
+        }
+
+        $partidasPermitidas = ['2210', '3390B'];
+        $resultados = [];
+
+        foreach ($partidasPermitidas as $partida) {
+            $rowsFiltrados = array_filter($rows, function($row) use ($partida) {
+                $partidaRow = $this->resolveReporteVentasPartida($row);
+                return $partidaRow === $partida;
+            });
+
+            if (empty($rowsFiltrados)) {
+                continue;
+            }
+
+            $dashboardFiltrado = $dashboard;
+            $dashboardFiltrado['proveedorPagos'] = array_values($rowsFiltrados);
+            
+            $periodoLabel = $this->buildReporteVentasPeriodoLabel($rowsFiltrados);
+            $layout = $this->resolveReporteVentasLayout($dashboardFiltrado, (int) $idEstablecimiento);
+            $layout['partida'] = $partida;
+            
+            $filename = 'reporte_consumos_facturados_' . $partida . '_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.pdf';
+
+            $tempDir = WRITEPATH . 'mpdf-temp';
+            if (!is_dir($tempDir)) {
+                @mkdir($tempDir, 0775, true);
+            }
+
+            try {
+                $mpdf = new \Mpdf\Mpdf([
+                    'mode' => 'utf-8',
+                    'format' => 'Letter',
+                    'orientation' => 'L',
+                    'tempDir' => $tempDir,
+                    'margin_left' => 10,
+                    'margin_right' => 10,
+                    'margin_top' => 12,
+                    'margin_bottom' => 12,
+                ]);
+
+                $mpdf->SetTitle((string) ($layout['titulo'] ?? 'Reporte de consumos facturados'));
+                $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtmlHomologado($rowsFiltrados, $periodoLabel, $layout));
+                
+                $output = $mpdf->Output($filename, 'S');
+                $resultados[] = [
+                    'filename' => $filename,
+                    'content' => $output,
+                    'partida' => $partida
+                ];
+            } catch (\Throwable $e) {
+                log_message('error', 'Error al generar PDF de reporte de ventas proveedor partida ' . $partida . ': ' . $e->getMessage());
+                return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF para la partida ' . $partida . '.');
+            }
+        }
+
+        if (empty($resultados)) {
+            return $this->response->setStatusCode(404)->setBody('No hay datos para las partidas solicitadas.');
+        }
+
+        if (count($resultados) === 1) {
+            return $this->response
+                ->setHeader('Content-Type', 'application/pdf')
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $resultados[0]['filename'] . '"')
+                ->setHeader('Content-Length', (string) strlen($resultados[0]['content']))
+                ->setBody($resultados[0]['content']);
+        }
+
+        $zipFilename = 'reportes_consumos_facturados_' . date('Ymd_His') . '.zip';
+        $zipPath = WRITEPATH . 'uploads/' . $zipFilename;
+        
+        if (!is_dir(WRITEPATH . 'uploads/')) {
+            @mkdir(WRITEPATH . 'uploads/', 0775, true);
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return $this->response->setStatusCode(500)->setBody('No fue posible crear el archivo ZIP.');
+        }
+
+        foreach ($resultados as $resultado) {
+            $zip->addFromString($resultado['filename'], $resultado['content']);
+        }
+        $zip->close();
+
+        $zipContent = file_get_contents($zipPath);
+        @unlink($zipPath);
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/zip')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $zipFilename . '"')
+            ->setHeader('Content-Length', (string) strlen($zipContent))
+            ->setBody($zipContent);
     }
 
     public function exportarReporteHospedajePdf()
@@ -1172,6 +1264,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
+        $partida = (string) ($layout['partida'] ?? '');
 
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
@@ -1202,6 +1295,12 @@ class Inicio extends BaseController {
         $summaryHtml .= '<td class="label">Total importe</td>';
         $summaryHtml .= '<td class="value money">$' . number_format($totalImporte, 2) . '</td>';
         $summaryHtml .= '</tr>';
+        if ($partida !== '') {
+            $summaryHtml .= '<tr>';
+            $summaryHtml .= '<td class="label">Partida</td>';
+            $summaryHtml .= '<td class="value" colspan="3">' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>';
+            $summaryHtml .= '</tr>';
+        }
         $summaryHtml .= '</table>';
 
         $html = '
@@ -1229,6 +1328,13 @@ class Inicio extends BaseController {
                 th { background: #0f172a; color: #ffffff; text-align: left; font-weight: bold; }
                 .money { text-align: right; font-weight: bold; }
                 .empty { border: 1px solid #d1d5db; background: #f9fafb; padding: 16px; text-align: center; }
+
+                table th:nth-child(1) { width: 28%; }
+                table th:nth-child(2) { width: 10%; }
+                table th:nth-child(3) { width: 22%; }
+                table th:nth-child(4) { width: 10%; }
+                table th:nth-child(5) { width: 10%; }
+                table th:nth-child(6) { width: 20%; }
             </style>
         </head>
         <body>
@@ -1255,7 +1361,6 @@ class Inicio extends BaseController {
                             <th>Orden pago</th>
                             <th>Fecha</th>
                             <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                            <th>Partida</th>
                             <th>Ítem</th>
                             <th>Transacción</th>
                             <th>Importe</th>
@@ -1268,14 +1373,12 @@ class Inicio extends BaseController {
                 $ordenPago = $this->resolveReporteVentasOrdenPago($row);
                 $fecha = $this->formatReporteVentasFecha($row['fec_reg'] ?? $row['fecha_respuesta'] ?? '');
                 $establecimiento = (string) ($row['dsc_establecimiento'] ?? '');
-                $partida = $this->resolveReporteVentasPartida($row);
                 $transaccion = (string) ($row['id_solicitud_pago'] ?? '');
 
                 $html .= '<tr>
                     <td>' . htmlspecialchars($ordenPago, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>' . htmlspecialchars($fecha, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>' . htmlspecialchars($establecimiento, ENT_QUOTES, 'UTF-8') . '</td>
-                    <td>' . htmlspecialchars($partida, ENT_QUOTES, 'UTF-8') . '</td>
                     <td>Consumo</td>
                     <td>' . htmlspecialchars($transaccion, ENT_QUOTES, 'UTF-8') . '</td>
                     <td class="money">$' . number_format($importe, 2) . '</td>
@@ -1345,8 +1448,34 @@ class Inicio extends BaseController {
 
         $rows = [];
         if (!empty($hospedaje->data)) {
+            $usuariosIds = array_map(function($row) {
+                return (int) $row->id_usuario;
+            }, $hospedaje->data);
+            
+            $partidasMap = [];
+            if (!empty($usuariosIds)) {
+                $db = \Config\Database::connect();
+                $partidasResult = $db->table('usuario u')
+                    ->select('u.id_usuario, cp.partida')
+                    ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
+                    ->whereIn('u.id_usuario', $usuariosIds)
+                    ->where('u.visible', 1)
+                    ->get()
+                    ->getResultArray();
+                
+                foreach ($partidasResult as $partidaRow) {
+                    $partida = trim((string) ($partidaRow['partida'] ?? ''));
+                    if ($partida !== '') {
+                        $partidasMap[(int) $partidaRow['id_usuario']] = $partida;
+                    }
+                }
+            }
+            
             foreach ($hospedaje->data as $row) {
-                $rows[] = is_object($row) ? get_object_vars($row) : (array) $row;
+                $rowArray = is_object($row) ? get_object_vars($row) : (array) $row;
+                $idUsuario = (int) ($rowArray['id_usuario'] ?? 0);
+                $rowArray['partida_usuario'] = $partidasMap[$idUsuario] ?? '';
+                $rows[] = $rowArray;
             }
         }
 
@@ -1354,6 +1483,8 @@ class Inicio extends BaseController {
         $totalTarifa = 0.0;
         $checkInCount = 0;
         $checkOutCount = 0;
+        $partidaUnica = '';
+
         foreach ($rows as $row) {
             $fechaCheckIn = trim((string) ($row['fecha_check_in'] ?? ''));
             $fechaCheckOut = trim((string) ($row['fecha_check_out'] ?? ''));
@@ -1366,6 +1497,11 @@ class Inicio extends BaseController {
                 $checkOutCount++;
             }
             $totalTarifa += (float) ($row['tarifa_noche'] ?? 0);
+
+            $partidaActual = trim((string) ($row['partida_usuario'] ?? ''));
+            if ($partidaActual !== '' && $partidaUnica === '') {
+                $partidaUnica = $partidaActual;
+            }
         }
 
         sort($fechas);
@@ -1382,6 +1518,7 @@ class Inicio extends BaseController {
             'establecimiento' => trim((string) ($usuarioRow['dsc_establecimiento'] ?? '')),
             'periodo_label' => $periodoLabel,
             'rows' => $rows,
+            'partida' => $partidaUnica,
             'resumen' => [
                 'total_registros' => count($rows),
                 'check_in' => $checkInCount,
