@@ -320,6 +320,24 @@ $inferHabitacionCapacidad = static function ($item) {
                         <input type="text" class="form-control crud-ui-lower" id="clave_ui" readonly>
                     </div>
                     <div class="col-md-3">
+                        <label class="form-label" for="id_perfil_catalogo">Perfil</label>
+                        <select class="form-control js-select2-catalog" name="id_perfil_catalogo" id="id_perfil_catalogo" data-placeholder="Buscar perfil">
+                            <option value="">Seleccione</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="perfil_grupo">Perfil visible</label>
+                        <select class="form-control js-select2-catalog" name="perfil_grupo" id="perfil_grupo" data-placeholder="Buscar perfil visible">
+                            <option value="">Seleccione</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="id_establecimiento">Establecimiento</label>
+                        <select class="form-control js-select2-catalog" name="id_establecimiento" id="id_establecimiento" data-placeholder="Buscar establecimiento">
+                            <option value="">Seleccione</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label" for="folio_ui">Folio</label>
                         <input type="text" class="form-control" name="folio" id="folio_ui" placeholder="folio" inputmode="numeric" pattern="[0-9]*" maxlength="20">
                     </div>
@@ -366,24 +384,6 @@ $inferHabitacionCapacidad = static function ($item) {
                         </div>
                     </div>
 
-                    <div class="col-md-3">
-                        <label class="form-label" for="id_perfil_catalogo">Perfil</label>
-                        <select class="form-control js-select2-catalog" name="id_perfil_catalogo" id="id_perfil_catalogo" data-placeholder="Buscar perfil">
-                            <option value="">Seleccione</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="perfil_grupo">Perfil visible</label>
-                        <select class="form-control js-select2-catalog" name="perfil_grupo" id="perfil_grupo" data-placeholder="Buscar perfil visible">
-                            <option value="">Seleccione</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="id_establecimiento">Establecimiento</label>
-                        <select class="form-control js-select2-catalog" name="id_establecimiento" id="id_establecimiento" data-placeholder="Buscar establecimiento">
-                            <option value="">Seleccione</option>
-                        </select>
-                    </div>
                     <div class="col-md-3">
                         <label class="form-label" for="usuario">Usuario</label>
                         <input class="form-control crud-ui-lower" name="usuario" id="usuario" required>

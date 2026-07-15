@@ -956,17 +956,17 @@ window.cajeros = {
 
     obtenerGrupoSugerenciasFolio: function () {
         var grupoSolicitud = String(this.solicitudFolioGrupo || '').toLowerCase();
-        if (grupoSolicitud === 'fic' || grupoSolicitud === 'secul' || grupoSolicitud === 'ug') {
+        if (grupoSolicitud === 'fic' || grupoSolicitud === 'secul' || grupoSolicitud === 'ug' || grupoSolicitud === 'secturi') {
             return grupoSolicitud;
         }
 
         var grupoFormulario = String(this.obtenerGrupoInstitucional() || '').toLowerCase();
-        if (grupoFormulario === 'fic' || grupoFormulario === 'secul' || grupoFormulario === 'ug') {
+        if (grupoFormulario === 'fic' || grupoFormulario === 'secul' || grupoFormulario === 'ug' || grupoFormulario === 'secturi') {
             return grupoFormulario;
         }
 
         var grupoActual = String($('#grupo_usuario').val() || this.contexto.active_group || '').toLowerCase();
-        if (grupoActual === 'fic' || grupoActual === 'secul' || grupoActual === 'ug') {
+        if (grupoActual === 'fic' || grupoActual === 'secul' || grupoActual === 'ug' || grupoActual === 'secturi') {
             return grupoActual;
         }
 

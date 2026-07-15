@@ -1744,13 +1744,14 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $grupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? '')));
 
         if ($grupo === '') {
             $grupo = strtolower((string) ($contextoUsuario['active_group'] ?? ''));
         }
 
-        if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+        if (!in_array($grupo, ['fic', 'secul', 'ug', 'secturi'], true)) {
             return $this->response->setJSON([
                 'ok' => true,
                 'data' => [
@@ -1815,7 +1816,7 @@ class Inicio extends BaseController {
             ->select('comentario_ti')
             ->where('visible', 1)
             ->where('estatus', 'pendiente')
-            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi']);
         if ($excludeSolicitudId > 0) {
             $solicitudesBuilder->where('id_solicitud_usuario !=', $excludeSolicitudId);
         }
