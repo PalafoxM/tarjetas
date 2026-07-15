@@ -22,10 +22,6 @@ $reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') 
         </div>
     </div>
 
-    <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary mb-3">
-        <i class="mdi mdi-arrow-left me-1"></i> Atras
-    </a>
-
     <div class="card">
         <div class="card-body">
             <table id="hospedajeTable"
