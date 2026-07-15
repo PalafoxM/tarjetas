@@ -1657,7 +1657,7 @@ class Inicio extends BaseController {
         $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
         $cfg = $grupo === 'fic' ? [] : $this->getSolicitudCatalogoConfig($grupo);
 
-        if (empty($tiUsuario) && (!$esGrupo || $rolGrupo !== 1)) {
+        if (empty($tiUsuario) && empty($secturiAdminUsuario) && (!$esGrupo || $rolGrupo !== 1)) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
@@ -1756,7 +1756,7 @@ class Inicio extends BaseController {
 
         $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
         $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
-        if (empty($tiUsuario) && (!$esGrupo || $rolGrupo !== 1)) {
+        if (empty($tiUsuario) && empty($secturiAdminUsuario) && (!$esGrupo || $rolGrupo !== 1)) {
             return $this->response->setStatusCode(403)->setJSON([
                 'ok' => false,
                 'message' => 'No tienes permisos para consultar sugerencias de folio.',
@@ -5167,7 +5167,7 @@ class Inicio extends BaseController {
         $data['ficSolicitudCancelarUrl'] = base_url('index.php/Inicio/cancelarSolicitudUsuarioFicPerfil');
         $data['ficSolicitudAprobarUrl'] = base_url('index.php/Inicio/aprobarSolicitudNuevoFolioTi');
         $data['ficSolicitudRechazarUrl'] = base_url('index.php/Inicio/rechazarSolicitudNuevoFolioTi');
-        $data['ficSolicitudEditorMode'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) ? 'json' : 'visual';
+        $data['ficSolicitudEditorMode'] = !empty($tiUsuario) ? 'visual' : 'json';
         $data['ficSolicitudEditorVisualBaseUrl'] = base_url('index.php/Inicio/SolicitudAlta');
         $data['solicitudesPuedeEditarFolios'] = !empty($tiUsuario) || !empty($secturiAdminUsuario);
         $data['solicitudesPuedeDecidirFolios'] = !empty($this->resolveFolioDecisionUsuario());
