@@ -4905,7 +4905,7 @@ class Inicio extends BaseController {
 
         $registro = (object) [
             'fecha_tramite' => $fecha,
-            'no_consecutivo' =>'PT SECTURI/DGCT/DPT/' . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
+            'no_consecutivo' =>'PT SECTURI/SSIDT/DGCT/' . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
             'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
             'rfc_proveedor' => $proveedorRfc,
             'nombre_proveedor_1' => $proveedorNombre,
