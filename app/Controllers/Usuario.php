@@ -1323,14 +1323,11 @@ class Usuario extends BaseController
                     'deposito_programado_estatus' => $montoTotalPax > 0 ? 'reservado' : 'sin_programa',
                     'pax' => $paxTotal,
                     'pax_total' => $paxTotal,
-                    'pax_secuencia' => $sequence,
-                    'es_titular_folio' => $sequence === 1 ? 1 : 0,
                     'folio' => $folio,
                     'folio_grupo' => $folioGrupo,
                     'sub_folio' => $subFolio !== '' ? $subFolio : null,
                     'tarifa_noche' => $tarifaNoche > 0 ? number_format($tarifaNoche, 2, '.', '') : null,
                     'tarifa_total' => number_format($montoTotalPax, 2, '.', ''),
-                    'id_usuario_padre' => $sequence === 1 ? null : $idUsuarioPadre,
                     'fec_act' => $fechaAhora,
                     'usu_act' => $idSesionUsuario,
                 ];
@@ -3173,11 +3170,15 @@ class Usuario extends BaseController
         $keyPrefix = $this->envFirst(['AWS_S3_PREFIX', 'S3_PREFIX', 'AWS_BUCKET_PREFIX'], 'qr_fic');
         $objectKey = trim($keyPrefix, '/');
         $objectKey = ($objectKey !== '' ? $objectKey . '/' : '') . $fileName;
-        $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
+        $uploadUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
         @unlink($absolutePath);
 
         if ($relativePath !== null) {
             return $relativePath;
+        }
+
+        if (is_string($uploadUrl) && trim($uploadUrl) !== '') {
+            return $uploadUrl;
         }
 
         $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '', $fileName);
@@ -3190,22 +3191,17 @@ class Usuario extends BaseController
 
     private function buildInstitutionalQrPayload(int $idUsuario, string $apiToken, array $personalData = [], array $qrContext = [], bool $compact = false): string
     {
-        $payloadToken = trim($apiToken) !== '' ? $apiToken : ('USR-' . $idUsuario);
         $basePayload = [
             'id_usuario' => $idUsuario,
-            'token' => $payloadToken,
             'tipo' => 'usuario_institucional',
             'folio_grupo' => trim((string) ($qrContext['folio_grupo'] ?? '')),
             'sub_folio' => trim((string) ($qrContext['sub_folio'] ?? '')),
             'grupo_usuario' => trim((string) ($qrContext['grupo_usuario'] ?? '')),
+            'ref' => substr(hash('sha256', trim($apiToken) !== '' ? $apiToken : ('USR-' . $idUsuario)), 0, 12),
         ];
 
         if (!$compact) {
             $basePayload['usuario'] = trim((string) ($personalData['usuario'] ?? ''));
-            $basePayload['nombre'] = trim((string) ($personalData['nombre'] ?? ''));
-            $basePayload['primer_apellido'] = trim((string) ($personalData['primer_apellido'] ?? ''));
-            $basePayload['segundo_apellido'] = trim((string) ($personalData['segundo_apellido'] ?? ''));
-            $basePayload['correo'] = trim((string) ($personalData['correo'] ?? ''));
         }
 
         $payload = array_filter($basePayload, static function ($value): bool {
@@ -3214,7 +3210,7 @@ class Usuario extends BaseController
 
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false || $json === '') {
-            $json = 'USR|' . $idUsuario . '|' . $payloadToken;
+            $json = 'USR|' . $idUsuario;
             if (!empty($qrContext['folio_grupo'])) {
                 $json .= '|FG:' . (string) $qrContext['folio_grupo'];
             }
@@ -3264,7 +3260,7 @@ class Usuario extends BaseController
         $targetPath = $targetDir . DIRECTORY_SEPARATOR . $safeFileName;
         if (!copy($absolutePath, $targetPath)) {
             $this->lastS3Error = trim($this->lastS3Error . ' Fallback local no pudo copiar QR.');
-            log_message('error', 'Usuario.generateInstitutionalQrForUser: local fallback copy failed: ' . $targetPath);
+            log_message('warning', 'Usuario.generateInstitutionalQrForUser: local fallback copy failed: ' . $targetPath);
             return null;
         }
 

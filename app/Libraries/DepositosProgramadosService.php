@@ -93,6 +93,8 @@ class DepositosProgramadosService
             $response->error = false;
             $response->respuesta = 'Registro guardado correctamente';
             $response->idRegistro = $idUsuario;
+            $response->pax_secuencia = $resolvedSequence;
+            $response->id_usuario_padre = $userRow['id_usuario_padre'] ?? null;
             $response->programa_id = 0;
             $response->depositos_programados = $allocationRows;
             $response->monto_reservado = $totalReserve;
