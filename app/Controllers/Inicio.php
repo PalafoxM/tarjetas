@@ -4904,7 +4904,14 @@ class Inicio extends BaseController {
         $partida = '3390';
         $proyecto = 'E027QC04182601';
 
-        $banco = $Mglobal->getTabla(['tabla' => 'proveedor_banco', "where" => ["idproveedor" => $factura['id_proveedor'], "fic" => 1]])->data;
+        $banco =  $db->table('proveedor_banco b')
+            ->select('b.no_cuenta, b.banco, b.clabe')
+            ->where('b.idproveedor', $factura['id_proveedor'])
+            ->where('b.fic', 1)
+            ->get()
+            ->getResult();
+
+        //$banco = $Mglobal->getTabla(['tabla' => 'proveedor_banco', "where" => ["idproveedor" => $factura['id_proveedor'], "fic" => 1]])->data;
 
         $registro = (object) [
             'fecha_tramite' => $fecha,
