@@ -4854,6 +4854,7 @@ class Inicio extends BaseController {
 
     private function buildFacturaFormatoData(int $idFactura): ?array
     {
+        $Mglobal = new Mglobal();
         if ($idFactura <= 0) {
             return null;
         }
@@ -4903,15 +4904,17 @@ class Inicio extends BaseController {
         $partida = '3390';
         $proyecto = 'E027QC04182601';
 
+        $banco = $Mglobal->getTabla(['tabla' => 'proveedor_banco', "where" => ["idproveedor" => $factura['id_proveedor'], "fic" => 1]])->data;
+
         $registro = (object) [
             'fecha_tramite' => $fecha,
             'no_consecutivo' =>'PT SECTURI/SSIDT/DGCT/' . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
             'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
             'rfc_proveedor' => $proveedorRfc,
             'nombre_proveedor_1' => $proveedorNombre,
-            'no_cuenta' => '',
-            'banco' => '',
-            'clabe' => '',
+            'no_cuenta' => isset($banco[0]->no_cuenta) ? $banco[0]->no_cuenta : '',
+            'banco' => isset($banco[0]->banco) ? $banco[0]->banco : '',
+            'clabe' => isset($banco[0]->clabe) ? $banco[0]->clabe : '',
             'no_convenio' => 'NO APLICA',
             'no_reserva' => '',
             'importe_total_num' => number_format($total, 2, '.', ','),
