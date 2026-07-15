@@ -1340,8 +1340,7 @@ class Usuario extends BaseController
                     'grupo_usuario' => $grupoUsuario,
                 ]);
                 if ($qrPath === null) {
-                    log_message('warning', 'Usuario.saveAltaUsuario.qr: no fue posible generar el QR del usuario ' . $persona['usuario'] . ', pero se conserva el folio_grupo ' . $folioGrupo . '.');
-                    continue;
+                    throw new \RuntimeException('No fue posible generar y subir el QR a S3 para el usuario ' . $persona['usuario'] . '.');
                 }
 
                 $db->table('usuario')->where('id_usuario', $currentId)->update([
@@ -3166,27 +3165,18 @@ class Usuario extends BaseController
             return null;
         }
 
-        $relativePath = $this->persistInstitutionalQrLocalFallback($absolutePath, $fileName);
         $keyPrefix = $this->envFirst(['AWS_S3_PREFIX', 'S3_PREFIX', 'AWS_BUCKET_PREFIX'], 'qr_fic');
         $objectKey = trim($keyPrefix, '/');
         $objectKey = ($objectKey !== '' ? $objectKey . '/' : '') . $fileName;
         $uploadUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
         @unlink($absolutePath);
 
-        if ($relativePath !== null) {
-            return $relativePath;
-        }
-
         if (is_string($uploadUrl) && trim($uploadUrl) !== '') {
             return $uploadUrl;
         }
 
-        $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '', $fileName);
-        if ($safeFileName === '') {
-            $safeFileName = 'usuario-qr-' . time() . '.png';
-        }
-
-        return 'uploads/qr_fic/' . $safeFileName;
+        log_message('error', 'Usuario.generateInstitutionalQrForUser: no fue posible subir el QR a S3 para user ' . $idUsuario . '. ' . $this->lastS3Error);
+        return null;
     }
 
     private function buildInstitutionalQrPayload(int $idUsuario, string $apiToken, array $personalData = [], array $qrContext = [], bool $compact = false): string
@@ -3236,36 +3226,6 @@ class Usuario extends BaseController
             log_message('error', 'Usuario.buildQrImageResult: ' . $e->getMessage());
             return null;
         }
-    }
-
-    private function persistInstitutionalQrLocalFallback(string $absolutePath, string $fileName): ?string
-    {
-        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
-            return null;
-        }
-
-        $safeFileName = preg_replace('/[^A-Za-z0-9._-]/', '', $fileName);
-        if ($safeFileName === '') {
-            $safeFileName = 'usuario-qr-' . time() . '.png';
-        }
-
-        $relativeDir = 'uploads/qr_fic';
-        $targetDir = rtrim(FCPATH, '\\/') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
-        if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-            $this->lastS3Error = trim($this->lastS3Error . ' Fallback local no pudo crear directorio QR.');
-            log_message('error', 'Usuario.generateInstitutionalQrForUser: local fallback dir unavailable: ' . $targetDir);
-            return null;
-        }
-
-        $targetPath = $targetDir . DIRECTORY_SEPARATOR . $safeFileName;
-        if (!copy($absolutePath, $targetPath)) {
-            $this->lastS3Error = trim($this->lastS3Error . ' Fallback local no pudo copiar QR.');
-            log_message('warning', 'Usuario.generateInstitutionalQrForUser: local fallback copy failed: ' . $targetPath);
-            return null;
-        }
-
-        log_message('warning', 'Usuario.generateInstitutionalQrForUser: S3 no disponible, QR guardado localmente en ' . $targetPath);
-        return $relativeDir . '/' . $safeFileName;
     }
 
     private function uploadFileToS3(string $absolutePath, string $objectKey, string $contentType, bool $logFailureAsError = true): ?string
