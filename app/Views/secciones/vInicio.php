@@ -45,7 +45,7 @@
                 <p>Da de alta proveedores y después registra o administra sus establecimientos relacionados.</p>
             </div>
             <a class="fic-access-card__button" href="<?php echo base_url('index.php/Inicio/EstablecimientosFic'); ?>">
-                Ver proovedores y establecimientos
+                Ver proveedores y establecimientos
             </a>
         </article>
 

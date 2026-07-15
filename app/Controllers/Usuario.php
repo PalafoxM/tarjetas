@@ -713,7 +713,11 @@ class Usuario extends BaseController
                 'correo' => $dataInsert['correo'],
             ];
 
-            $qrPath = $this->generateInstitutionalQrForUser($targetUserId, $apiTokenToUse, $personalData);
+            $qrPath = $this->generateInstitutionalQrForUser($targetUserId, $apiTokenToUse, $personalData, [
+                'folio_grupo' => (string) ($dataInsert['folio_grupo'] ?? $dataInsert['folio'] ?? ''),
+                'sub_folio' => (string) ($dataInsert['sub_folio'] ?? $dataInsert['subf_ui'] ?? ''),
+                'grupo_usuario' => (string) ($dataInsert['grupo_usuario'] ?? ''),
+            ]);
             if ($qrPath !== null) {
                 $updateQr = $this->globals->saveTabla(
                     ['qr' => $qrPath],
@@ -1139,7 +1143,11 @@ class Usuario extends BaseController
 
             $qrPath = null;
             try {
-                $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0]);
+                $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0], [
+                    'folio_grupo' => $folioGrupo,
+                    'sub_folio' => $subFolioBase,
+                    'grupo_usuario' => $grupoUsuario,
+                ]);
                 if ($qrPath !== null) {
                     $this->globals->saveTabla(
                         [
@@ -1157,6 +1165,8 @@ class Usuario extends BaseController
                             'script' => $scriptName . '.qr',
                         ]
                     );
+                } else {
+                    log_message('warning', 'Usuario.saveAltaUsuario.qr: QR no disponible, el usuario se guardo sin QR para id_usuario ' . $idUsuario);
                 }
             } catch (\Throwable $e) {
                 log_message('error', 'Usuario.saveAltaUsuario.qr: ' . $e->getMessage());
@@ -1327,9 +1337,14 @@ class Usuario extends BaseController
 
                 $db->table('usuario')->where('id_usuario', $currentId)->update($updateData);
 
-                $qrPath = $this->generateInstitutionalQrForUser($currentId, $apiToken, $persona);
+                $qrPath = $this->generateInstitutionalQrForUser($currentId, $apiToken, $persona, [
+                    'folio_grupo' => $folioGrupo,
+                    'sub_folio' => $subFolio,
+                    'grupo_usuario' => $grupoUsuario,
+                ]);
                 if ($qrPath === null) {
-                    throw new \RuntimeException('No fue posible generar el QR del usuario ' . $persona['usuario'] . '.');
+                    log_message('warning', 'Usuario.saveAltaUsuario.qr: no fue posible generar el QR del usuario ' . $persona['usuario'] . ', pero se conserva el folio_grupo ' . $folioGrupo . '.');
+                    continue;
                 }
 
                 $db->table('usuario')->where('id_usuario', $currentId)->update([
@@ -3121,26 +3136,9 @@ class Usuario extends BaseController
         return (int) ($current ?? 0) === (int) ($next ?? 0);
     }
 
-    private function generateInstitutionalQrForUser(int $idUsuario, string $apiToken, array $personalData = []): ?string
+    private function generateInstitutionalQrForUser(int $idUsuario, string $apiToken, array $personalData = [], array $qrContext = []): ?string
     {
         if ($idUsuario <= 0) {
-            return null;
-        }
-
-        $payloadToken = trim($apiToken) !== '' ? $apiToken : ('USR-' . $idUsuario);
-        $qrPayload = json_encode(array_filter([
-            'id_usuario' => $idUsuario,
-            'token' => $payloadToken,
-            'tipo' => 'usuario_institucional',
-            'usuario' => trim((string) ($personalData['usuario'] ?? '')),
-            'nombre' => trim((string) ($personalData['nombre'] ?? '')),
-            'primer_apellido' => trim((string) ($personalData['primer_apellido'] ?? '')),
-            'segundo_apellido' => trim((string) ($personalData['segundo_apellido'] ?? '')),
-            'correo' => trim((string) ($personalData['correo'] ?? '')),
-        ]), JSON_UNESCAPED_UNICODE);
-
-        if ($qrPayload === false) {
-            log_message('error', 'Usuario.generateInstitutionalQrForUser: json_encode payload failed for user ' . $idUsuario);
             return null;
         }
 
@@ -3153,13 +3151,16 @@ class Usuario extends BaseController
         $fileName = 'usuario-' . $idUsuario . '-' . time() . '.png';
         $absolutePath = rtrim($tmpDir, '\/') . DIRECTORY_SEPARATOR . $fileName;
 
-        $result = Builder::create()
-            ->data($qrPayload)
-            ->encoding(new Encoding('UTF-8'))
-            ->errorCorrectionLevel(new ErrorCorrectionLevelMedium())
-            ->size(420)
-            ->margin(12)
-            ->build();
+        $qrPayload = $this->buildInstitutionalQrPayload($idUsuario, $apiToken, $personalData, $qrContext, false);
+        $result = $this->buildQrImageResult($qrPayload);
+        if ($result === null) {
+            $qrPayload = $this->buildInstitutionalQrPayload($idUsuario, $apiToken, $personalData, $qrContext, true);
+            $result = $this->buildQrImageResult($qrPayload);
+        }
+        if ($result === null) {
+            log_message('error', 'Usuario.generateInstitutionalQrForUser: unable to build QR image for user ' . $idUsuario);
+            return null;
+        }
 
         try {
             $result->saveToFile($absolutePath);
@@ -3185,6 +3186,60 @@ class Usuario extends BaseController
         }
 
         return 'uploads/qr_fic/' . $safeFileName;
+    }
+
+    private function buildInstitutionalQrPayload(int $idUsuario, string $apiToken, array $personalData = [], array $qrContext = [], bool $compact = false): string
+    {
+        $payloadToken = trim($apiToken) !== '' ? $apiToken : ('USR-' . $idUsuario);
+        $basePayload = [
+            'id_usuario' => $idUsuario,
+            'token' => $payloadToken,
+            'tipo' => 'usuario_institucional',
+            'folio_grupo' => trim((string) ($qrContext['folio_grupo'] ?? '')),
+            'sub_folio' => trim((string) ($qrContext['sub_folio'] ?? '')),
+            'grupo_usuario' => trim((string) ($qrContext['grupo_usuario'] ?? '')),
+        ];
+
+        if (!$compact) {
+            $basePayload['usuario'] = trim((string) ($personalData['usuario'] ?? ''));
+            $basePayload['nombre'] = trim((string) ($personalData['nombre'] ?? ''));
+            $basePayload['primer_apellido'] = trim((string) ($personalData['primer_apellido'] ?? ''));
+            $basePayload['segundo_apellido'] = trim((string) ($personalData['segundo_apellido'] ?? ''));
+            $basePayload['correo'] = trim((string) ($personalData['correo'] ?? ''));
+        }
+
+        $payload = array_filter($basePayload, static function ($value): bool {
+            return $value !== null && $value !== '';
+        });
+
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json === false || $json === '') {
+            $json = 'USR|' . $idUsuario . '|' . $payloadToken;
+            if (!empty($qrContext['folio_grupo'])) {
+                $json .= '|FG:' . (string) $qrContext['folio_grupo'];
+            }
+            if (!empty($qrContext['sub_folio'])) {
+                $json .= '|SF:' . (string) $qrContext['sub_folio'];
+            }
+        }
+
+        return $json;
+    }
+
+    private function buildQrImageResult(string $qrPayload): ?object
+    {
+        try {
+            return Builder::create()
+                ->data($qrPayload)
+                ->encoding(new Encoding('UTF-8'))
+                ->errorCorrectionLevel(new ErrorCorrectionLevelMedium())
+                ->size(420)
+                ->margin(12)
+                ->build();
+        } catch (\Throwable $e) {
+            log_message('error', 'Usuario.buildQrImageResult: ' . $e->getMessage());
+            return null;
+        }
     }
 
     private function persistInstitutionalQrLocalFallback(string $absolutePath, string $fileName): ?string
