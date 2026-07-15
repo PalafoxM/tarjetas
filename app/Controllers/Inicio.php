@@ -4901,7 +4901,7 @@ class Inicio extends BaseController {
         $proveedorRfc = $xmlInfo['emisor_rfc'] !== '' ? $xmlInfo['emisor_rfc'] : (string) ($factura['rfc'] ?? '');
         $concepto = $xmlInfo['concepto'] !== '' ? $xmlInfo['concepto'] : 'Servicios registrados en factura';
         $partida = '3390';
-        $proyecto = 'FIC';
+        $proyecto = 'E027QC04182601';
 
         $registro = (object) [
             'fecha_tramite' => $fecha,
