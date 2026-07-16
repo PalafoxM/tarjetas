@@ -107,8 +107,20 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
                 </div>
             </div>
         </section>
-    <?php else: ?>
-      
+<?php else: ?>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <?php foreach ($establecimientos as $index => $establecimiento): ?>
+                <?php $idEst = (int) ($establecimiento->id_establecimiento ?? 0); ?>
+                <button
+                    type="button"
+                    class="btn btn-outline-info establecimiento-tab<?= $index === 0 ? ' is-active active' : '' ?>"
+                    data-id-establecimiento="<?= esc((string) $idEst, 'attr') ?>"
+                    data-nombre="<?= esc((string) ($establecimiento->dsc_establecimiento ?? 'Establecimiento'), 'attr') ?>"
+                    aria-pressed="<?= $index === 0 ? 'true' : 'false' ?>">
+                    <?= esc((string) ($establecimiento->dsc_establecimiento ?? 'Establecimiento')) ?>
+                </button>
+            <?php endforeach; ?>
+        </div>
 
         <section class="module-shell">
             <div class="module-body">
@@ -139,6 +151,44 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
                     <div class="ventas-corte-card__body">
                         <strong class="ventas-corte-card__status" id="estadoOrdenes">0 pendientes / 0 check in</strong>
                         <p class="ventas-corte-card__message">El total suma solo las noches efectivamente ocupadas. El remanente sigue reservado al usuario hasta su vencimiento.</p>
+                    </div>
+                </div>
+
+                <div class="ventas-corte-card">
+                    <div class="ventas-corte-card__header">
+                        <div>
+                            <span class="ventas-corte-card__kicker">Facturación</span>
+                            <h3 class="ventas-corte-card__amount">Formatos FIC</h3>
+                        </div>
+                        <div class="ventas-corte-card__meta">
+                            <span class="ventas-corte-card__count">XML + PDF</span>
+                            <span class="ventas-corte-card__window">Generación de formatos</span>
+                        </div>
+                    </div>
+                    <div class="ventas-corte-card__body">
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <label class="btn btn-outline-info mb-0" for="hotel_factura_xml">
+                                <i class="mdi mdi-file-xml-box me-1"></i> SUBIR XML
+                                <input id="hotel_factura_xml" type="file" accept="application/xml,text/xml,.xml" hidden>
+                            </label>
+                            <label class="btn btn-outline-info mb-0" for="hotel_factura_pdf">
+                                <i class="mdi mdi-file-pdf-box me-1"></i> SUBIR PDF
+                                <input id="hotel_factura_pdf" type="file" accept="application/pdf,.pdf" hidden>
+                            </label>
+                            <button type="button" class="btn btn-primary" id="hotel_enviar_factura" disabled>
+                                <i class="mdi mdi-send-check-outline me-1"></i> Enviar factura
+                            </button>
+                            <a class="btn btn-outline-light hotel-formato-link" id="hotel_formato_encabezado" target="_blank" rel="noopener">
+                                <i class="mdi mdi-file-document-outline me-1"></i> Encabezado
+                            </a>
+                            <a class="btn btn-outline-light hotel-formato-link" id="hotel_formato_pt" target="_blank" rel="noopener">
+                                <i class="mdi mdi-file-pdf-box me-1"></i> Formato PT
+                            </a>
+                            <a class="btn btn-outline-light hotel-formato-link" id="hotel_formato_liberacion" target="_blank" rel="noopener">
+                                <i class="mdi mdi-file-check-outline me-1"></i> Liberación
+                            </a>
+                        </div>
+                        <p class="ventas-corte-card__message mt-2 mb-0">Selecciona el XML y PDF de la factura para habilitar el envío. Después podrás generar los formatos del establecimiento seleccionado.</p>
                     </div>
                 </div>
 
@@ -222,6 +272,25 @@ window.establecimientos = {
             window.location.href = downloadUrl;
         });
 
+        var xmlInput = document.getElementById('hotel_factura_xml');
+        var pdfInput = document.getElementById('hotel_factura_pdf');
+        var enviarFactura = document.getElementById('hotel_enviar_factura');
+        if (xmlInput) {
+            xmlInput.addEventListener('change', function () {
+                establecimientos.actualizarFacturaControls();
+            });
+        }
+        if (pdfInput) {
+            pdfInput.addEventListener('change', function () {
+                establecimientos.actualizarFacturaControls();
+            });
+        }
+        if (enviarFactura) {
+            enviarFactura.addEventListener('click', function () {
+                establecimientos.enviarFactura();
+            });
+        }
+
         $('#RecepcionTable').bootstrapTable({
             data: [],
             formatNoMatches: function () {
@@ -244,7 +313,103 @@ window.establecimientos = {
 
         document.getElementById('establecimientoNombre').textContent = pestana.dataset.nombre;
         this.idEstablecimiento = pestana.dataset.idEstablecimiento;
+        this.actualizarFormatoUrls();
+        this.actualizarFacturaControls();
         this.cargar();
+    },
+
+    fileMatches: function (file, extension, mimeTypes) {
+        if (!file) return false;
+        var name = String(file.name || '').toLowerCase();
+        var type = String(file.type || '').toLowerCase();
+        return name.endsWith(extension) || mimeTypes.indexOf(type) !== -1;
+    },
+
+    facturaControls: function () {
+        return {
+            xml: document.getElementById('hotel_factura_xml'),
+            pdf: document.getElementById('hotel_factura_pdf'),
+            button: document.getElementById('hotel_enviar_factura')
+        };
+    },
+
+    actualizarFacturaControls: function () {
+        var controls = this.facturaControls();
+        if (!controls.button) return;
+        var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
+        var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+        var validXml = this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']);
+        var validPdf = this.fileMatches(pdfFile, '.pdf', ['application/pdf']);
+        controls.button.disabled = !(this.idEstablecimiento && validXml && validPdf);
+    },
+
+    actualizarFormatoUrls: function () {
+        var id = encodeURIComponent(this.idEstablecimiento || '');
+        var links = {
+            hotel_formato_encabezado: base_url + 'index.php/Inicio/pdfProveedorEncabezadoFactura/' + id,
+            hotel_formato_pt: base_url + 'index.php/Inicio/pdfProveedorFormatoPT/' + id,
+            hotel_formato_liberacion: base_url + 'index.php/Inicio/pdfProveedorLiberacionPago/' + id
+        };
+
+        Object.keys(links).forEach(function (key) {
+            var link = document.getElementById(key);
+            if (!link) return;
+            if (id) {
+                link.href = links[key];
+                link.classList.remove('disabled');
+            } else {
+                link.removeAttribute('href');
+                link.classList.add('disabled');
+            }
+        });
+    },
+
+    enviarFactura: function () {
+        var controls = this.facturaControls();
+        var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
+        var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+
+        if (!this.idEstablecimiento || !this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']) || !this.fileMatches(pdfFile, '.pdf', ['application/pdf'])) {
+            Swal.fire('Atencion', 'Selecciona un XML y un PDF validos.', 'warning');
+            return;
+        }
+
+        var data = new FormData();
+        data.append('id_establecimiento', this.idEstablecimiento);
+        data.append('xml', xmlFile);
+        data.append('pdf', pdfFile);
+
+        Swal.fire({
+            title: 'Enviando factura',
+            text: 'Espera un momento...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: function () {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: base_url + 'index.php/Inicio/enviarFacturaProveedor',
+            type: 'POST',
+            dataType: 'json',
+            data: data,
+            processData: false,
+            contentType: false
+        }).done(function (response) {
+            if (!response || response.error) {
+                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible enviar la factura.', 'warning');
+                return;
+            }
+
+            if (controls.xml) controls.xml.value = '';
+            if (controls.pdf) controls.pdf.value = '';
+            establecimientos.actualizarFacturaControls();
+            Swal.fire('Correcto', response.respuesta || 'Factura enviada correctamente.', 'success');
+        }).fail(function (request) {
+            var response = request.responseJSON || {};
+            Swal.fire('Error', response.respuesta || 'No fue posible enviar la factura.', 'error');
+        });
     },
 
     cargar: function () {

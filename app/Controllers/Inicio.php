@@ -353,7 +353,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
                 'respuesta' => 'No tienes permisos para enviar facturas.',
@@ -368,11 +368,20 @@ class Inicio extends BaseController {
             ]);
         }
 
+        $establecimientosPermitidos = [];
         $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
-        $establecimientosPermitidos = array_map(static function ($item): int {
+        $establecimientosPermitidos = array_merge($establecimientosPermitidos, array_map(static function ($item): int {
             $row = is_object($item) ? get_object_vars($item) : (array) $item;
             return (int) ($row['id_establecimiento'] ?? 0);
-        }, is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []);
+        }, is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []));
+
+        if (!empty($contextoUsuario['is_recepcion_flow'])) {
+            $establecimientosPermitidos = array_merge($establecimientosPermitidos, array_map(static function (array $row): int {
+                return (int) ($row['id_establecimiento'] ?? 0);
+            }, $this->resolveSessionEstablecimientos()));
+        }
+
+        $establecimientosPermitidos = array_values(array_unique(array_filter($establecimientosPermitidos)));
 
         if (!in_array($idEstablecimiento, $establecimientosPermitidos, true)) {
             return $this->response->setStatusCode(403)->setJSON([
