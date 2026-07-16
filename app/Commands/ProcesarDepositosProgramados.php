@@ -22,14 +22,10 @@ class ProcesarDepositosProgramados extends BaseCommand
         $timeOption = CLI::getOption('time');
         $timezone = new DateTimeZone('America/Mexico_City');
         $today = new DateTimeImmutable('now', $timezone);
-        $todayDate = $today->format('Y-m-d');
 
         if (trim((string) $dateOption) !== '') {
             $dateValue = trim((string) $dateOption);
             $timeValue = trim((string) $timeOption);
-            if ($timeValue === '' && $dateValue === $todayDate) {
-                $timeValue = '11:50:00';
-            }
             if ($timeValue === '') {
                 $timeValue = '23:59:59';
             } elseif (preg_match('/^\d{2}:\d{2}$/', $timeValue) === 1) {
