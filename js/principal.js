@@ -84,8 +84,30 @@ saeg.principal = (function () {
                 return '<span class="badge bg-success">S\u00ed</span>';
             }
 
-            return '<span class="badge bg-danger">No</span>';
-        },
+        return '<span class="badge bg-danger">No</span>';
+    },
+
+    extraerMensajeRespuesta: function (source, fallback) {
+        var data = source || {};
+        if (source && source.responseJSON) {
+            data = source.responseJSON;
+        } else if (source && typeof source.responseText === 'string' && source.responseText.trim() !== '') {
+            try {
+                data = JSON.parse(source.responseText);
+            } catch (error) {
+                data = { respuesta: source.responseText };
+            }
+        }
+
+        var message = String(
+            (data && (data.respuesta || data.message || data.error || data.mensaje))
+            || (data && data.errorDB && (data.errorDB.sqlMessage || data.errorDB.message))
+            || fallback
+            || 'No fue posible completar la operacion.'
+        ).trim();
+
+        return message || fallback || 'No fue posible completar la operacion.';
+    },
 
     fecha: function (value) {
         if (!value) return '';
@@ -601,6 +623,17 @@ window.cajeros = {
     inicializarProveedorDashboard: function () {
         var pagina = $('#proveedorPage');
         if (!pagina.length) return;
+        var autoAbrirSolicitudPersonal = false;
+        this.solicitudProveedorEstablecimientoPendiente = '';
+
+        try {
+            var params = new URLSearchParams(window.location.search || '');
+            autoAbrirSolicitudPersonal = params.get('solicitud_personal') === '1';
+            this.solicitudProveedorEstablecimientoPendiente = params.get('id_establecimiento') || '';
+        } catch (error) {
+            autoAbrirSolicitudPersonal = false;
+            this.solicitudProveedorEstablecimientoPendiente = '';
+        }
 
         this.inicializarSelect2();
         $('.crud-ui-upper').off('input.proveedor').on('input.proveedor', this.normalizarMayusculas.bind(this));
@@ -650,7 +683,14 @@ window.cajeros = {
                 cajeros.enviarPagoSinQr();
             });
 
-        this.cargarEstablecimientosSolicitudProveedor();
+        if (autoAbrirSolicitudPersonal && $('#modalSolicitudPersonal').length) {
+            $('#modalSolicitudPersonal').modal('show');
+            if (window.history && typeof window.history.replaceState === 'function') {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        } else {
+            this.cargarEstablecimientosSolicitudProveedor();
+        }
     },
 
     cargarEstablecimientosSolicitudProveedor: function () {
@@ -688,6 +728,11 @@ window.cajeros = {
                 option.setAttribute('data-dsc-tipo', tipo);
                 select.append(option);
             });
+
+            if (cajeros.solicitudProveedorEstablecimientoPendiente) {
+                select.val(String(cajeros.solicitudProveedorEstablecimientoPendiente));
+                cajeros.solicitudProveedorEstablecimientoPendiente = '';
+            }
 
             select.prop('disabled', false).trigger('change.select2');
         }).fail(function () {
@@ -2224,7 +2269,7 @@ window.cajeros = {
             data: $('#cajeroForm').serialize()
         }).done(function (response) {
             if (response.error || response.ok === false) {
-                Swal.fire('Atención', response.respuesta || response.message || 'No fue posible guardar la información.', 'warning');
+                Swal.fire('Atención', cajeros.extraerMensajeRespuesta(response, 'No fue posible guardar la información.'), 'warning');
                 return;
             }
 
@@ -2235,8 +2280,8 @@ window.cajeros = {
             Swal.fire('Correcto', mensaje, 'success').then(function () {
                 window.location.href = cajeros.listUrl;
             });
-        }).fail(function () {
-            Swal.fire('Error', cajeros.isSolicitudFolioMode ? 'No fue posible enviar la solicitud.' : 'No fue posible guardar el usuario.', 'error');
+        }).fail(function (jqXHR) {
+            Swal.fire('Error', cajeros.extraerMensajeRespuesta(jqXHR, cajeros.isSolicitudFolioMode ? 'No fue posible enviar la solicitud.' : 'No fue posible guardar el usuario.'), 'error');
         }).always(function () {
             boton.prop('disabled', false).html(textoOriginal);
         });
@@ -2478,15 +2523,15 @@ window.cajeros = {
             data: $('#formAltaProveedorFic').serialize()
         }).done(function (response) {
             if (response.error) {
-                Swal.fire('Atenci\u00f3n', response.respuesta, 'warning');
+                Swal.fire('Atenci\u00f3n', cajeros.extraerMensajeRespuesta(response, 'No fue posible guardar el proveedor.'), 'warning');
                 return;
             }
 
             Swal.fire('Correcto', 'Proveedor guardado correctamente.', 'success').then(function () {
                 window.location.href = cajeros.listUrl;
             });
-        }).fail(function () {
-            Swal.fire('Error', 'No fue posible guardar el proveedor.', 'error');
+        }).fail(function (jqXHR) {
+            Swal.fire('Error', cajeros.extraerMensajeRespuesta(jqXHR, 'No fue posible guardar el proveedor.'), 'error');
         }).always(function () {
             boton.prop('disabled', false).html(textoOriginal);
         });
@@ -2513,14 +2558,14 @@ window.cajeros = {
             data: $('#cajeroForm').serialize()
         }).done(function (response) {
             if (response.error) {
-                Swal.fire('Atenci\u00f3n', response.respuesta, 'warning');
+                Swal.fire('Atenci\u00f3n', cajeros.extraerMensajeRespuesta(response, 'No fue posible guardar el usuario.'), 'warning');
                 return;
             }
             Swal.fire('Correcto', 'Usuario guardado correctamente.', 'success').then(function () {
                 window.location.href = cajeros.listUrl;
             });
-        }).fail(function () {
-            Swal.fire('Error', 'No fue posible guardar el usuario.', 'error');
+        }).fail(function (jqXHR) {
+            Swal.fire('Error', cajeros.extraerMensajeRespuesta(jqXHR, 'No fue posible guardar el usuario.'), 'error');
         }).always(function () {
             boton.prop('disabled', false).html(textoOriginal);
         });

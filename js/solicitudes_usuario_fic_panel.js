@@ -40,6 +40,30 @@
         return value;
     }
 
+    function extraerMensajeRespuesta(source, fallback) {
+        if (window.saeg && saeg.principal && typeof saeg.principal.extraerMensajeRespuesta === 'function') {
+            return saeg.principal.extraerMensajeRespuesta(source, fallback);
+        }
+
+        var data = source || {};
+        if (source && source.responseJSON) {
+            data = source.responseJSON;
+        } else if (source && typeof source.responseText === 'string' && source.responseText.trim() !== '') {
+            try {
+                data = JSON.parse(source.responseText);
+            } catch (error) {
+                data = { respuesta: source.responseText };
+            }
+        }
+
+        return String(
+            (data && (data.respuesta || data.message || data.error || data.mensaje))
+            || (data && data.errorDB && (data.errorDB.sqlMessage || data.errorDB.message))
+            || fallback
+            || 'No fue posible completar la operacion.'
+        ).trim();
+    }
+
     function badgeEstado(value) {
         var estado = String(value || '').toLowerCase();
         if (estado === 'pendiente') return '<span class="badge bg-warning text-dark">Pendiente</span>';
@@ -449,14 +473,14 @@
                             }, getCsrfPayload())
                         }).done(function (response) {
                             if (!response || response.ok !== true) {
-                                Swal.fire('Atención', response && response.message ? response.message : 'No fue posible actualizar la solicitud.', 'warning');
+                                Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible actualizar la solicitud.'), 'warning');
                                 return;
                             }
 
                             Swal.fire('Listo', response.message || 'Solicitud actualizada.', 'success');
                             refreshTable(state.folioTable);
-                        }).fail(function () {
-                            Swal.fire('Error', 'No fue posible actualizar la solicitud.', 'error');
+                        }).fail(function (jqXHR) {
+                            Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible actualizar la solicitud.'), 'error');
                         });
                     });
                 });
@@ -482,14 +506,14 @@
                         data: $.extend({ id_solicitud_usuario: idSolicitud }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.ok !== true) {
-                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible aprobar la solicitud.', 'warning');
+                            Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible aprobar la solicitud.'), 'warning');
                             return;
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud aprobada.', 'success');
                         refreshTable(state.folioTable);
-                    }).fail(function () {
-                        Swal.fire('Error', 'No fue posible aprobar la solicitud.', 'error');
+                    }).fail(function (jqXHR) {
+                        Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la solicitud.'), 'error');
                     });
                 });
             })
@@ -522,14 +546,14 @@
                         data: $.extend({ id_solicitud_usuario: idSolicitud, motivo: result.value }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.ok !== true) {
-                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible rechazar la solicitud.', 'warning');
+                            Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible rechazar la solicitud.'), 'warning');
                             return;
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud rechazada.', 'success');
                         refreshTable(state.folioTable);
-                    }).fail(function () {
-                        Swal.fire('Error', 'No fue posible rechazar la solicitud.', 'error');
+                    }).fail(function (jqXHR) {
+                        Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible rechazar la solicitud.'), 'error');
                     });
                 });
             })
@@ -554,14 +578,14 @@
                         data: $.extend({ id_solicitud_usuario: idSolicitud }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.ok !== true) {
-                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible cancelar la solicitud.', 'warning');
+                            Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible cancelar la solicitud.'), 'warning');
                             return;
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud cancelada.', 'success');
                         refreshTable(state.folioTable);
-                    }).fail(function () {
-                        Swal.fire('Error', 'No fue posible cancelar la solicitud.', 'error');
+                    }).fail(function (jqXHR) {
+                        Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible cancelar la solicitud.'), 'error');
                     });
                 });
             })
@@ -595,18 +619,14 @@
                         data: $.extend({ id_usuario: idUsuario }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.success !== true) {
-                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
+                            Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible activar el QR.'), 'warning');
                             return;
                         }
 
                         Swal.fire('Listo', response.message || 'QR activado correctamente.', 'success');
                         refreshTable(state.qrTable);
                     }).fail(function (jqXHR) {
-                        var message = 'No fue posible activar el QR.';
-                        if (jqXHR && jqXHR.responseJSON && jqXHR.responseJSON.message) {
-                            message = jqXHR.responseJSON.message;
-                        }
-                        Swal.fire('Error', message, 'error');
+                        Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible activar el QR.'), 'error');
                     });
                 });
             })
@@ -631,14 +651,14 @@
                         data: $.extend({ id_usuario: idUsuario }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.success !== true) {
-                            Swal.fire('Atención', response && response.message ? response.message : 'No fue posible rechazar la solicitud.', 'warning');
+                            Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible rechazar la solicitud.'), 'warning');
                             return;
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud rechazada.', 'success');
                         refreshTable(state.qrTable);
-                    }).fail(function () {
-                        Swal.fire('Error', 'No fue posible rechazar la solicitud.', 'error');
+                    }).fail(function (jqXHR) {
+                        Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible rechazar la solicitud.'), 'error');
                     });
                 });
             });

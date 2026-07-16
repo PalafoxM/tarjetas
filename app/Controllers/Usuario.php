@@ -1630,12 +1630,59 @@ class Usuario extends BaseController
             return $this->respond([]);
         }
 
-        $response = $this->globals->getTabla([
-            'tabla' => 'vw_usuario_hospedaje',
-            'where' => ['visible' => 1, 'id_establecimiento_hotel' => $idEstablecimiento],
-        ]);
+        $db = \Config\Database::connect();
+        $rows = $db->table('usuario u')
+            ->select("
+                u.id_usuario,
+                u.id_establecimiento,
+                u.id_establecimiento_hotel,
+                u.id_tipo_habitacion,
+                u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
+                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
+                u.folio,
+                u.folio_grupo,
+                u.sub_folio,
+                COALESCE(NULLIF(u.folio_grupo, ''), NULLIF(u.folio, '')) AS folio_hospedaje,
+                u.fecha_check_in,
+                u.fecha_check_out,
+                u.fec_vigencia_desde_hos,
+                u.fec_vigencia_hasta_hos,
+                u.observaciones_hospedaje,
+                u.noche,
+                u.noche AS noches_programadas,
+                u.tarifa_noche,
+                u.tarifa_total,
+                u.tarifa_total AS total_asignado,
+                u.monto_deposito_hotel,
+                COALESCE(th.dsc_tipo_habitacion, 'Sin definir') AS tipo_habitacion,
+                CASE
+                    WHEN u.fecha_check_out IS NOT NULL THEN 'check_out'
+                    WHEN u.fecha_check_in IS NOT NULL THEN 'check_in'
+                    ELSE 'pendiente'
+                END AS estado_hospedaje,
+                CASE
+                    WHEN u.fecha_check_out IS NOT NULL THEN 'check_out'
+                    WHEN u.fecha_check_in IS NOT NULL THEN 'check_in'
+                    ELSE 'pendiente'
+                END AS estatus_hospedaje,
+                0 AS noches_ocupadas,
+                0 AS total_devengado,
+                0 AS monto_devengado
+            ", false)
+            ->join('cat_tipo_habitacion th', 'th.id_tipo_habitacion = u.id_tipo_habitacion', 'left')
+            ->where('u.visible', 1)
+            ->where('u.tiene_hospedaje', 1)
+            ->where('u.id_establecimiento_hotel', $idEstablecimiento)
+            ->orderBy('u.folio_grupo', 'ASC')
+            ->orderBy('u.sub_folio', 'ASC')
+            ->orderBy('u.id_usuario', 'ASC')
+            ->get()
+            ->getResultArray();
 
-        return $this->respond($response->data ?? []);
+        return $this->respond($rows);
     }
 
     public function checkInHospedaje()

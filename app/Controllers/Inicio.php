@@ -437,6 +437,19 @@ class Inicio extends BaseController {
         $prefix = 'ACTIVAVIONESFIC/FACTURAS';
         $xmlUrl = $this->uploadFileToS3($xmlPath, $prefix . '/' . $xmlName, 'application/xml');
         $pdfUrl = $this->uploadFileToS3($pdfPath, $prefix . '/' . $pdfName, 'application/pdf');
+        $facturaGuardadaLocalmente = false;
+
+        if (($xmlUrl === null || $pdfUrl === null) && ENVIRONMENT !== 'production') {
+            $xmlLocalUrl = $this->persistFacturaLocalFile($xmlPath, $xmlName);
+            $pdfLocalUrl = $this->persistFacturaLocalFile($pdfPath, $pdfName);
+            if ($xmlLocalUrl !== '' && $pdfLocalUrl !== '') {
+                $xmlUrl = $xmlLocalUrl;
+                $pdfUrl = $pdfLocalUrl;
+                $facturaGuardadaLocalmente = true;
+                log_message('warning', 'Inicio.enviarFacturaProveedor: usando fallback local para factura. ' . $this->lastS3Error);
+            }
+        }
+
         @unlink($xmlPath);
         @unlink($pdfPath);
 
@@ -468,13 +481,15 @@ class Inicio extends BaseController {
         if (!$guardado) {
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
-                'respuesta' => 'Los archivos subieron a S3, pero no se pudo guardar la factura.',
+                'respuesta' => 'Los archivos se almacenaron, pero no se pudo guardar la factura.',
             ]);
         }
 
         return $this->response->setJSON([
             'error' => false,
-            'respuesta' => 'Factura enviada correctamente.',
+            'respuesta' => $facturaGuardadaLocalmente
+                ? 'Factura enviada correctamente en almacenamiento local de pruebas.'
+                : 'Factura enviada correctamente.',
             'id_factura' => (int) $db->insertID(),
             'xml' => $xmlUrl,
             'pdf' => $pdfUrl,
@@ -1301,12 +1316,9 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        $usuarioAutorizado = $this->resolveSecturiDashboardUsuario();
-        $puedeExportarHospedaje = !empty($usuarioAutorizado)
-            || !empty($session->get('id_proveedor'))
+        $puedeExportarHospedaje = !empty($session->get('id_proveedor'))
             || !empty($contextoUsuario['is_provider_flow'])
-            || !empty($contextoUsuario['is_recepcion_flow'])
-            || !empty($contextoUsuario['is_ti_master']);
+            || !empty($contextoUsuario['is_recepcion_flow']);
 
         if (!$puedeExportarHospedaje) {
             return null;
@@ -1326,29 +1338,53 @@ class Inicio extends BaseController {
         }
 
         $usuarioRow = (array) $usuario->data[0];
-        $idEstablecimiento = (int) ($usuarioRow['id_establecimiento'] ?? 0);
+        $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
         if ($idEstablecimiento <= 0) {
-            $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+            $idEstablecimiento = (int) ($usuarioRow['id_establecimiento'] ?? 0);
         }
         if ($idEstablecimiento <= 0) {
             return null;
         }
 
-        $hospedaje = $Mglobal->getTabla([
-            'tabla' => 'vw_usuario',
-            'where' => [
-                'visible' => 1,
-                'id_establecimiento_hotel' => $idEstablecimiento,
-            ],
-            'order' => 'fecha_check_in ASC, id_usuario ASC',
-        ]);
-
-        $rows = [];
-        if (!empty($hospedaje->data)) {
-            foreach ($hospedaje->data as $row) {
-                $rows[] = is_object($row) ? get_object_vars($row) : (array) $row;
-            }
+        $db = \Config\Database::connect();
+        $establecimientoPermitido = $this->resolveSessionEstablecimientoProveedorHospedaje($idEstablecimiento, $contextoUsuario);
+        if (empty($establecimientoPermitido)) {
+            return null;
         }
+
+        $establecimientoRow = $db->table('establecimiento')
+            ->select('dsc_establecimiento')
+            ->where('visible', 1)
+            ->where('id_establecimiento', $idEstablecimiento)
+            ->get()
+            ->getRowArray();
+        $nombreEstablecimiento = trim((string) ($establecimientoRow['dsc_establecimiento'] ?? $usuarioRow['dsc_establecimiento'] ?? ''));
+
+        $rows = $db->table('usuario u')
+            ->select("
+                u.id_usuario,
+                u.folio,
+                u.folio_grupo,
+                u.sub_folio,
+                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
+                u.fecha_check_in,
+                u.fecha_check_out,
+                u.id_tipo_habitacion,
+                COALESCE(th.dsc_tipo_habitacion, u.id_tipo_habitacion) AS tipo_habitacion,
+                u.tarifa_noche,
+                u.tarifa_total,
+                u.observaciones_hospedaje
+            ", false)
+            ->join('cat_tipo_habitacion th', 'th.id_tipo_habitacion = u.id_tipo_habitacion', 'left')
+            ->where('u.visible', 1)
+            ->where('u.tiene_hospedaje', 1)
+            ->where('u.id_establecimiento_hotel', $idEstablecimiento)
+            ->where('u.fecha_check_in IS NOT NULL', null, false)
+            ->where("TRIM(COALESCE(u.fecha_check_in, '')) <> ''", null, false)
+            ->orderBy('u.fecha_check_in', 'ASC')
+            ->orderBy('u.id_usuario', 'ASC')
+            ->get()
+            ->getResultArray();
 
         $fechas = [];
         $totalTarifa = 0.0;
@@ -1375,11 +1411,11 @@ class Inicio extends BaseController {
 
         return [
             'titulo' => 'Reporte de hospedaje',
-            'subtitulo' => trim((string) ($usuarioRow['dsc_establecimiento'] ?? '')) !== ''
-                ? trim((string) ($usuarioRow['dsc_establecimiento'] ?? ''))
+            'subtitulo' => $nombreEstablecimiento !== ''
+                ? $nombreEstablecimiento
                 : 'Establecimiento',
             'id_establecimiento' => $idEstablecimiento,
-            'establecimiento' => trim((string) ($usuarioRow['dsc_establecimiento'] ?? '')),
+            'establecimiento' => $nombreEstablecimiento,
             'periodo_label' => $periodoLabel,
             'rows' => $rows,
             'resumen' => [
@@ -1389,6 +1425,43 @@ class Inicio extends BaseController {
                 'total_tarifa' => $totalTarifa,
             ],
         ];
+    }
+
+    private function resolveSessionEstablecimientoProveedorHospedaje(int $idEstablecimiento, array $contextoUsuario): array
+    {
+        if ($idEstablecimiento <= 0) {
+            return [];
+        }
+
+        $session = \Config\Services::session();
+        $idUsuario = (int) $session->get('id_usuario');
+        if ($idUsuario <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('establecimiento e')
+            ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
+            ->join('usuario u', 'u.id_usuario = ' . $idUsuario, 'left')
+            ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'left')
+            ->join('usuario_establecimiento ue', 'ue.id_establecimiento = e.id_establecimiento AND ue.id_usuario = ' . $idUsuario . ' AND ue.visible = 1', 'left')
+            ->where('e.visible', 1)
+            ->where('e.id_establecimiento', $idEstablecimiento)
+            ->groupStart()
+                ->where('e.no_proveedor = p.no_proveedor', null, false)
+                ->orWhere('e.no_proveedor', (string) $idUsuario)
+                ->orWhere('ue.id_usuario IS NOT NULL', null, false);
+
+        if (!empty($contextoUsuario['is_recepcion_flow'])) {
+            $builder->orWhere('u.id_establecimiento', $idEstablecimiento);
+        }
+
+        $row = $builder
+            ->groupEnd()
+            ->get()
+            ->getRowArray();
+
+        return is_array($row) ? $row : [];
     }
 
     public function Hospedaje()
@@ -5261,6 +5334,36 @@ class Inicio extends BaseController {
         curl_close($curl);
 
         return is_string($body) && $httpCode >= 200 && $httpCode < 300 ? $body : '';
+    }
+
+    private function persistFacturaLocalFile(string $sourcePath, string $fileName): string
+    {
+        if (!is_file($sourcePath) || !is_readable($sourcePath)) {
+            return '';
+        }
+
+        $safeName = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($fileName));
+        if (!is_string($safeName) || $safeName === '') {
+            return '';
+        }
+
+        $localDir = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'facturas';
+        if (!is_dir($localDir)) {
+            @mkdir($localDir, 0775, true);
+        }
+
+        if (!is_dir($localDir) || !is_writable($localDir)) {
+            log_message('error', 'Inicio.persistFacturaLocalFile: local dir is not writable: ' . $localDir);
+            return '';
+        }
+
+        $targetPath = $localDir . DIRECTORY_SEPARATOR . $safeName;
+        if (!@copy($sourcePath, $targetPath)) {
+            log_message('error', 'Inicio.persistFacturaLocalFile: could not copy local factura file: ' . $targetPath);
+            return '';
+        }
+
+        return base_url('uploads/facturas/' . rawurlencode($safeName));
     }
 
 

@@ -29,6 +29,30 @@ var solicitudesUsuarioOperativo = (function () {
         return fecha.toLocaleString('es-MX');
     }
 
+    function extraerMensajeRespuesta(source, fallback) {
+        if (window.saeg && saeg.principal && typeof saeg.principal.extraerMensajeRespuesta === 'function') {
+            return saeg.principal.extraerMensajeRespuesta(source, fallback);
+        }
+
+        var data = source || {};
+        if (source && source.responseJSON) {
+            data = source.responseJSON;
+        } else if (source && typeof source.responseText === 'string' && source.responseText.trim() !== '') {
+            try {
+                data = JSON.parse(source.responseText);
+            } catch (error) {
+                data = { respuesta: source.responseText };
+            }
+        }
+
+        return String(
+            (data && (data.respuesta || data.message || data.error || data.mensaje))
+            || (data && data.errorDB && (data.errorDB.sqlMessage || data.errorDB.message))
+            || fallback
+            || 'No fue posible completar la operacion.'
+        ).trim();
+    }
+
     function resolveLabelTipoUsuario(row) {
         var idPerfil = Number(row && (row.id_perfil_solicitado || row.id_perfil || 0));
         if (idPerfil === 5) return 'GERENTE';
@@ -441,7 +465,7 @@ var solicitudesUsuarioOperativo = (function () {
                 }
             }).done(function (response) {
                 if (!response || response.ok !== true) {
-                    Swal.fire('Atención', response && (response.message || response.respuesta) ? (response.message || response.respuesta) : 'No fue posible aprobar la solicitud.', 'warning');
+                    Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible aprobar la solicitud.'), 'warning');
                     return;
                 }
 
@@ -449,11 +473,7 @@ var solicitudesUsuarioOperativo = (function () {
                 Swal.fire('Correcto', response.message || 'Solicitud aprobada correctamente.', 'success');
                 refrescarTabla();
             }).fail(function (jqXHR) {
-                var message = 'No fue posible aprobar la solicitud.';
-                if (jqXHR && jqXHR.responseJSON && (jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta)) {
-                    message = jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta;
-                }
-                Swal.fire('Error', message, 'error');
+                Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la solicitud.'), 'error');
             }).always(function () {
                 boton.prop('disabled', false).html(textoOriginal);
             });
@@ -482,7 +502,7 @@ var solicitudesUsuarioOperativo = (function () {
                 }
             }).done(function (response) {
                 if (!response || response.ok !== true) {
-                    Swal.fire('Atención', response && (response.message || response.respuesta) ? (response.message || response.respuesta) : 'No fue posible rechazar la solicitud.', 'warning');
+                    Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible rechazar la solicitud.'), 'warning');
                     return;
                 }
 
@@ -490,11 +510,7 @@ var solicitudesUsuarioOperativo = (function () {
                 Swal.fire('Correcto', response.message || 'Solicitud rechazada correctamente.', 'success');
                 refrescarTabla();
             }).fail(function (jqXHR) {
-                var message = 'No fue posible rechazar la solicitud.';
-                if (jqXHR && jqXHR.responseJSON && (jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta)) {
-                    message = jqXHR.responseJSON.message || jqXHR.responseJSON.respuesta;
-                }
-                Swal.fire('Error', message, 'error');
+                Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible rechazar la solicitud.'), 'error');
             }).always(function () {
                 boton.prop('disabled', false).html(textoOriginal);
             });
