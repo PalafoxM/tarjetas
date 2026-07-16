@@ -83,7 +83,7 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
             <tr>
                 <td class="label-cell">FECHA DEL GASTO:</td>
                 <td class="value-cell">
-                    <?= esc($fechaGasto) ?>
+                    del 10 de septiembre al 26 de octubre de 2026
                 </td>
             </tr>
             <tr>
