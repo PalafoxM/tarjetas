@@ -18,6 +18,7 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
          body {
             font-family: Arial, sans-serif;
             font-size: 10pt;
+            margin: 20mm;
         }
         table {
             width: 100%;
