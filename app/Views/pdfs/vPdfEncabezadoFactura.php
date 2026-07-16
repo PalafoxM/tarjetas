@@ -15,20 +15,18 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
 <head>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: dejavusans, Arial, sans-serif;
+         body {
+            font-family: Arial, sans-serif;
             font-size: 10pt;
-            color: #000;
-            margin: 8mm;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 7mm;
+            margin-bottom: 20px;
         }
         th, td {
             border: 1px solid #000;
-            padding: 2.2mm;
+            padding: 5px;
             text-align: left;
             vertical-align: middle;
         }
@@ -37,18 +35,18 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
             color: #fff;
             text-align: center;
             font-weight: bold;
-            padding: 3mm;
-            font-size: 13pt;
+            padding: 8px;
+            font-size: 12pt;
         }
         .label-cell {
             background-color: #ccc;
             font-weight: bold;
             width: 30%;
-            font-size: 9.5pt;
+            font-size: 9pt;
         }
         .value-cell {
             width: 70%;
-            font-size: 9.5pt;
+            font-size: 9pt;
         }
     </style>
 </head>
@@ -63,16 +61,16 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
             <tr>
                 <td class="label-cell">RESPONSABLE / CARGO / AREA:</td>
                 <td class="value-cell">
-                    HUGO RAMÍREZ DUARTE
+                    MTRO. DAVID AYALA SAUCEDO - SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO
                 </td>
             </tr>
             <tr>
                 <td class="label-cell">COMISION / REUNION / EVENTO:</td>
-                <td class="value-cell">PAGOS DEL FESTIVAL INTERNACIONAL CERVANTINO</td>
+                <td class="value-cell">Consumo de alimentos durante la edición 54 del FIC del 10 de Sep al 26 Oct. 2026</td>
             </tr>
             <tr>
                 <td class="label-cell">CONCEPTO DEL PAGO:</td>
-                <td class="value-cell">PAGOS FIC</td>
+                <td class="value-cell">Consumo de alimentos durante la edición 54 del FIC del 10 de Sep al 26 Oct. 2026</td>
             </tr>
             <tr>
                 <td class="label-cell">PARTIDA:</td>
