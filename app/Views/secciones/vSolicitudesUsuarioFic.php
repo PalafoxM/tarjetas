@@ -219,73 +219,25 @@ $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo
 
     <?php if (!$solicitudesPuedeGestionarQr && !$solicitudesPuedeGestionarOperativo): ?>
         <div class="alert alert-info mb-4" role="status">
-            Modo consulta SECTURI: puedes revisar todas las bandejas y decidir solicitudes institucionales de folio. QR y altas de gerente/recepción permanecen en consulta.
+            Modo consulta SECTURI: puedes revisar las bandejas disponibles y decidir solicitudes institucionales de folio. Las altas de gerente/recepción permanecen en consulta.
         </div>
     <?php endif; ?>
 
-    <div class="card solicitudes-card mb-4">
-        <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                <div>
-                    <h4 class="solicitudes-section-title">Solicitudes de activación de QR</h4>
-                </div>
-            </div>
-            <div class="row g-3 align-items-end mb-3">
-                <div class="col-12 col-md-4 col-lg-3">
-                    <label class="form-label" for="filtroSolicitudQrFicEstatus">Estatus</label>
-                    <select id="filtroSolicitudQrFicEstatus" class="form-select">
-                        <option value="">Todos</option>
-                        <option value="pendiente" selected>Pendientes</option>
-                        <option value="aprobada">Aprobadas</option>
-                    </select>
-                </div>
-                <div class="col-12 col-md-8 col-lg-9">
-                    <div class="alert solicitudes-note mb-0" role="alert"><?= $solicitudesPuedeGestionarQr ? 'Revisa QR, INE frontal, INE trasera y firma antes de activar o rechazar la solicitud.' : 'Consulta QR, INE frontal, INE trasera y firma. Este perfil no puede cambiar el estatus del QR.' ?></div>
-                </div>
-            </div>
-            <div class="solicitudes-table-wrap">
-                <table
-                    id="tablaSolicitudesActivacionQrFic"
-                    class="table table-dark table-hover align-middle solicitudes-table"
-                    data-locale="es-MX"
-                    data-search="true"
-                    data-search-align="left"
-                    data-pagination="true"
-                    data-side-pagination="server"
-                    data-method="post"
-                    data-page-size="10"
-                    data-page-list="[10, 25, 50, 100]"
-                    data-sortable="true"
-                    data-classes="table table-striped table-hover"
-                    data-query-params="queryParamsSolicitudesActivacionQrFic"
-                    data-response-handler="responseHandlerSolicitudesActivacionQrFic">
-                    <thead>
-                        <tr>
-                            <th data-field="id_usuario" data-sortable="true">ID usuario</th>
-                            <th data-field="folio" data-sortable="true">Folio</th>
-                            <th data-field="usuario" data-sortable="true">Usuario</th>
-                            <th data-field="nombre_completo" data-sortable="true">Nombre completo</th>
-                            <th data-field="correo" data-sortable="true">Correo</th>
-                            <th data-field="qr" data-formatter="solicitudesQrFicArchivoFormatter">QR</th>
-                            <th data-field="ine_frontal" data-formatter="solicitudesQrFicArchivoFormatter">INE frontal</th>
-                            <th data-field="ine_trasera" data-formatter="solicitudesQrFicArchivoFormatter">INE trasera</th>
-                            <th data-field="firma" data-formatter="solicitudesQrFicArchivoFormatter">Firma</th>
-                            <th data-field="expediente_completo" data-sortable="true" data-formatter="solicitudesQrFicExpedienteFormatter">Expediente completo</th>
-                            <th data-field="qr_activo" data-sortable="true" data-formatter="solicitudesQrFicEstadoFormatter">QR activo</th>
-                            <th data-field="fec_reg" data-sortable="true" data-formatter="solicitudesQrFicFechaFormatter">Fecha de solicitud</th>
-                            <th data-field="fec_act" data-sortable="true" data-formatter="solicitudesQrFicFechaFormatter">Última actualización</th>
-                            <th data-field="acciones" data-align="center" data-formatter="solicitudesQrFicAccionesFormatter">Acciones</th>
-                        </tr>
-                    </thead>
-                </table>
-            </div>
-            <div class="solicitudes-empty mt-3" id="solicitudesQrPlaceholder">
-                Cargando solicitudes de activación QR.
-            </div>
-        </div>
-    </div>
-
-    <div class="card solicitudes-card mb-4">
+    <ul class="nav nav-tabs nav-tabs-custom mb-0" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active font-weight-semibold" data-toggle="tab" href="#solicitudesTabFolios" role="tab">
+                <i class="mdi mdi-file-document-outline mr-1"></i> Nuevos folios
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link font-weight-semibold" data-toggle="tab" href="#solicitudesTabOperativo" role="tab">
+                <i class="mdi mdi-account-tie mr-1"></i> Gerente y recepci&oacute;n
+            </a>
+        </li>
+    </ul>
+    <div class="tab-content pt-4">
+        <div class="tab-pane fade show active" id="solicitudesTabFolios" role="tabpanel">
+            <div class="card solicitudes-card mb-4">
         <div class="card-body">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                 <div>
@@ -305,7 +257,7 @@ $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo
                     </select>
                 </div>
                 <div class="col-12 col-md-8 col-lg-9">
-                    <div class="alert solicitudes-note mb-0" role="alert">La consulta usa el flujo FIC existente y separa esta bandeja de QR y personal operativo.</div>
+                    <div class="alert solicitudes-note mb-0" role="alert">La consulta usa el flujo FIC existente y separa esta bandeja de personal operativo.</div>
                 </div>
             </div>
             <div class="solicitudes-table-wrap">
@@ -340,14 +292,17 @@ $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo
         </div>
     </div>
 
-    <div
-        id="solicitudesUsuarioOperativoRoot"
-        data-list-url="<?= esc($operativoSolicitudListadoUrl, 'attr') ?>"
-        data-detail-url="<?= esc($operativoSolicitudDetalleUrl, 'attr') ?>"
-        data-approve-url="<?= esc($operativoSolicitudAprobarUrl, 'attr') ?>"
-        data-reject-url="<?= esc($operativoSolicitudRechazarUrl, 'attr') ?>"
-        data-can-manage="<?= $solicitudesPuedeGestionarOperativo ? '1' : '0' ?>">
-        <div class="card solicitudes-card mb-4">
+        </div>
+
+        <div class="tab-pane fade" id="solicitudesTabOperativo" role="tabpanel">
+            <div
+                id="solicitudesUsuarioOperativoRoot"
+                data-list-url="<?= esc($operativoSolicitudListadoUrl, 'attr') ?>"
+                data-detail-url="<?= esc($operativoSolicitudDetalleUrl, 'attr') ?>"
+                data-approve-url="<?= esc($operativoSolicitudAprobarUrl, 'attr') ?>"
+                data-reject-url="<?= esc($operativoSolicitudRechazarUrl, 'attr') ?>"
+                data-can-manage="<?= $solicitudesPuedeGestionarOperativo ? '1' : '0' ?>">
+                <div class="card solicitudes-card mb-4">
             <div class="card-body">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                     <div>
@@ -402,6 +357,79 @@ $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo
             </div>
         </div>
     </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var root = document.getElementById('solicitudesUsuarioFicPanelRoot');
+            if (!root || !window.jQuery) {
+                return;
+            }
+
+            var resizeTable = function (selector) {
+                var table = window.jQuery(selector);
+                if (table.length && typeof table.bootstrapTable === 'function') {
+                    table.bootstrapTable('resetView');
+                }
+            };
+
+            var tabSelectors = 'a[data-toggle="tab"], a[data-bs-toggle="tab"]';
+
+            var activateTab = function (targetHash) {
+                var target = String(targetHash || '').trim();
+                if (!target || target.charAt(0) !== '#') {
+                    target = '#solicitudesTabFolios';
+                }
+
+                var $links = window.jQuery(root).find(tabSelectors);
+                var $panes = window.jQuery(root).find('.tab-pane');
+                var $targetPane = window.jQuery(root).find(target);
+
+                if (!$targetPane.length) {
+                    target = '#solicitudesTabFolios';
+                    $targetPane = window.jQuery(root).find(target);
+                }
+
+                $links.removeClass('active').attr('aria-selected', 'false');
+                $links.each(function () {
+                    var href = String(this.getAttribute('href') || this.getAttribute('data-bs-target') || '');
+                    if (href === target) {
+                        window.jQuery(this).addClass('active').attr('aria-selected', 'true');
+                    }
+                });
+
+                $panes.removeClass('show active');
+                $targetPane.addClass('show active');
+
+                if (target === '#solicitudesTabFolios') {
+                    resizeTable('#tablaSolicitudesFoliosFic');
+                } else if (target === '#solicitudesTabOperativo') {
+                    resizeTable('#tablaSolicitudesUsuarioOperativo');
+                }
+            };
+
+            window.jQuery(root).find(tabSelectors).off('click.solicitudesTabs').on('click.solicitudesTabs', function (event) {
+                event.preventDefault();
+                var target = String(this.getAttribute('href') || this.getAttribute('data-bs-target') || '');
+                if (target) {
+                    window.location.hash = target;
+                }
+                activateTab(target);
+            });
+
+            window.addEventListener('hashchange', function () {
+                activateTab(window.location.hash);
+            });
+
+            activateTab(window.location.hash || '#solicitudesTabFolios');
+
+            window.setTimeout(function () {
+                resizeTable('#tablaSolicitudesFoliosFic');
+                resizeTable('#tablaSolicitudesUsuarioOperativo');
+            }, 150);
+        })();
+    </script>
 
     <div class="modal fade solicitudes-modal" id="modalPreviewArchivoQrFic" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
@@ -550,4 +578,5 @@ $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo
         </div>
     </div>
 </div>
+
 

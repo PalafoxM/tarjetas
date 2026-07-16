@@ -1441,6 +1441,24 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function getDashboardPartidasFic()
+    {
+        $tiUsuario = $this->resolveSecturiDashboardUsuario();
+
+        if (empty($tiUsuario)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar el dashboard de partidas.',
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'message' => 'Dashboard de partidas consultado correctamente.',
+            'data' => $this->buildPartidasDashboardSeed(),
+        ]);
+    }
+
     public function PagosFic()
     {
         $tiUsuario = $this->resolveSecturiDashboardUsuario();
