@@ -4943,7 +4943,7 @@ class Inicio extends BaseController {
 
         $registro = (object) [
             'fecha_tramite' => $fecha,
-            'no_consecutivo' =>'PT SECTURI/SSIDT/DGCT/' . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
+            'no_consecutivo' =>'PT SECTURI/SSIDT/DGCT/FIC/TA' . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
             'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
             'rfc_proveedor' => $proveedorRfc,
             'nombre_proveedor_1' => $proveedorNombre,
@@ -4956,10 +4956,10 @@ class Inicio extends BaseController {
             'importe_letra' => $total > 0 ? ('IMPORTE POR $' . number_format($total, 2, '.', ',') . ' M.N.') : '',
             'nombre_autoriza' => 'MARÍA GUADALUPE ROBLES LEÓN',
             'cargo_autoriza' => 'SECRETARIO/A DE TURISMO E IDENTIDAD',
-            'nombre_responsable' => 'HUGO RAMÍREZ DUARTE',
-            'cargo_responsable' => 'DIRECTOR/A GENERAL DE COMPETITIVIDAD TURÍSTICA',
-            'nombre_responsable_2' => 'JORGE ROJAS RODRÍGUEZ',
-            'cargo_responsable_2' => 'DIRECTOR/A DE PROFESIONALIZACIÓN TURÍSTICA',
+            'nombre_responsable' => 'DAVID AYALA SAUCEDO',
+            'cargo_responsable' => 'SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO',
+            'nombre_responsable_2' => 'HUGO RAMÍREZ DUARTE',
+            'cargo_responsable_2' => 'DIRECTOR GENERAL DE COMPETITIVIDAD TURÍSTICA',
             'clausula' => 'NO APLICA',
             'concepto' => $concepto,
             'id_factura' => $idFactura,
