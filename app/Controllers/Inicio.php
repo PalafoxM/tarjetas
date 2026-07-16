@@ -4066,7 +4066,7 @@ class Inicio extends BaseController {
             'encabezado_factura' => [
                 'title' => 'EncabezadoFactura',
                 'file' => 'EncabezadoFactura',
-                'template' => FCPATH . 'assets/images/EncabezadoFactura_43.pdf',
+                'view' => 'pdfs/vPdfEncabezadoFactura',
             ],
             'formato_pt' => [
                 'title' => 'FormatPagoTerceros',
@@ -4082,7 +4082,7 @@ class Inicio extends BaseController {
 
         $config = $templateMap[$tipoDocumento] ?? $templateMap['encabezado_factura'];
         $templatePath = (string) ($config['template'] ?? '');
-        if ($templatePath === '' || !is_file($templatePath) || !is_readable($templatePath)) {
+        if ($tipoDocumento !== 'encabezado_factura' && ($templatePath === '' || !is_file($templatePath) || !is_readable($templatePath))) {
             log_message('error', 'No se encontro la plantilla PDF proveedor: ' . $templatePath);
             return redirect()
                 ->to(base_url('index.php/Inicio/ProveedorFormatos'))
@@ -4108,7 +4108,11 @@ class Inicio extends BaseController {
             ]);
 
             $mpdf->SetTitle($config['title']);
-            $this->writeProviderTemplatePdf($mpdf, $templatePath, $tipoDocumento, $data);
+            if ($tipoDocumento === 'encabezado_factura') {
+                $this->writeProviderEncabezadoFacturaPdf($mpdf, (string) ($config['view'] ?? 'pdfs/vPdfEncabezadoFactura'), $data);
+            } else {
+                $this->writeProviderTemplatePdf($mpdf, $templatePath, $tipoDocumento, $data);
+            }
             $mpdf->Output($config['file'] . '_' . $idEstablecimiento . '.pdf', 'I');
             exit;
         } catch (\Throwable $e) {
@@ -4120,6 +4124,28 @@ class Inicio extends BaseController {
             return redirect()
                 ->to(base_url('index.php/Inicio/ProveedorFormatos'))
                 ->with('error', 'No fue posible generar el PDF solicitado.');
+        }
+    }
+
+    private function writeProviderEncabezadoFacturaPdf(\Mpdf\Mpdf $mpdf, string $view, array $data): void
+    {
+        $mpdf->AddPageByArray([
+            'orientation' => 'P',
+            'sheet-size' => 'Letter',
+            'margin-left' => 0,
+            'margin-right' => 0,
+            'margin-top' => 0,
+            'margin-bottom' => 0,
+            'margin-header' => 0,
+            'margin-footer' => 0,
+        ]);
+
+        $mpdf->WriteHTML(view($view, $data));
+
+        $invoicePdfPath = $this->resolveProviderInvoicePdfPath($data);
+        if ($invoicePdfPath !== '') {
+            $this->writeProviderInvoicePdfPreview($mpdf, $invoicePdfPath);
+            $this->appendProviderPdfPages($mpdf, $invoicePdfPath, 2);
         }
     }
 
