@@ -96,7 +96,7 @@
     function renderSingleDonut(chartEl, item) {
         if (typeof window.ApexCharts === 'undefined') {
             chartEl.innerHTML = '<div class="partidas-chart-empty">ApexCharts no esta disponible.</div>';
-            return;
+            return null;
         }
 
         var chartOptions = {
@@ -185,20 +185,33 @@
 
         var chart = new window.ApexCharts(chartEl, chartOptions);
         chart.render();
+        return chart;
     }
 
-    function renderChart(root) {
+    function destroyChartInstances(root) {
+        var instances = Array.isArray(root.__partidasCharts) ? root.__partidasCharts : [];
+        instances.forEach(function (chart) {
+            if (chart && typeof chart.destroy === 'function') {
+                chart.destroy();
+            }
+        });
+        root.__partidasCharts = [];
+    }
+
+    function renderChart(root, dashboardOverride) {
         var mount = document.getElementById('partidasMultiPieChart');
         if (!mount) {
             return;
         }
 
-        var raw = root.dataset.partidasDashboard || '{}';
-        var dashboard;
-        try {
-            dashboard = JSON.parse(raw);
-        } catch (e) {
-            dashboard = {};
+        var dashboard = dashboardOverride && typeof dashboardOverride === 'object' ? dashboardOverride : null;
+        if (!dashboard) {
+            var raw = root.dataset.partidasDashboard || '{}';
+            try {
+                dashboard = JSON.parse(raw);
+            } catch (e) {
+                dashboard = {};
+            }
         }
 
         var partidas = Array.isArray(dashboard.partidas) ? dashboard.partidas : [];
@@ -233,21 +246,28 @@
             });
 
         if (!chartData.length) {
+            destroyChartInstances(root);
             renderNoData(mount, 'No hay presupuesto disponible para graficar todavia.');
             return;
         }
 
+        destroyChartInstances(root);
         mount.innerHTML = '<div class="partidas-donut-grid">' + chartData.map(buildDonutCardMarkup).join('') + '</div>';
 
         function mountChart() {
+            var chartInstances = [];
             chartData.forEach(function (item) {
                 var chartEl = document.getElementById('partidasDonut-' + sanitizeKey(item.label));
                 if (!chartEl) {
                     return;
                 }
 
-                renderSingleDonut(chartEl, item);
+                var chart = renderSingleDonut(chartEl, item);
+                if (chart) {
+                    chartInstances.push(chart);
+                }
             });
+            root.__partidasCharts = chartInstances;
         }
 
         if (window.ApexCharts) {

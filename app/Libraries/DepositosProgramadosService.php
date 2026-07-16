@@ -465,8 +465,13 @@ class DepositosProgramadosService
             ];
         }
 
-        // El hospedaje 3390A se ejerce por noche efectivamente consumida,
-        // no como reserva presupuestal al momento del alta.
+        if ($hotelReserve > 0 && (int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1) {
+            $allocations[] = [
+                'id_partida' => 2,
+                'tipo' => 'hospedaje',
+                'monto' => $hotelReserve,
+            ];
+        }
 
         return [
             'error' => false,
@@ -648,6 +653,8 @@ class DepositosProgramadosService
 
         $this->db->transBegin();
         try {
+            $this->releasePartidaAmount(2, $hotelRestante, $actorUserId);
+
             $this->db->table('usuario')
                 ->where('id_usuario', $idUsuario)
                 ->update([
@@ -753,43 +760,6 @@ class DepositosProgramadosService
 
         $this->db->transBegin();
         try {
-            $partida = $this->db->query(
-                'SELECT id_partida, partida, monto_presupuesto, monto_ejercido, monto_disponible, estatus, visible
-                 FROM cat_partida
-                 WHERE id_partida = ?
-                 FOR UPDATE',
-                [$partidaHospedaje]
-            )->getRowArray();
-
-            if (empty($partida)) {
-                throw new RuntimeException('La partida de hospedaje no existe o no esta visible.');
-            }
-
-            $disponible = round((float) ($partida['monto_disponible'] ?? 0), 2);
-            if ($montoAplicar > $disponible) {
-                throw new RuntimeException(
-                    'Presupuesto insuficiente en partida ' . ($partida['partida'] ?? $partidaHospedaje) .
-                    '. Disponible: $' . number_format($disponible, 2, '.', ',') .
-                    ', requerido: $' . number_format($montoAplicar, 2, '.', ',')
-                );
-            }
-
-            $nuevoEjercido = round((float) ($partida['monto_ejercido'] ?? 0) + $montoAplicar, 2);
-            $nuevoDisponible = round($disponible - $montoAplicar, 2);
-            $presupuesto = round((float) ($partida['monto_presupuesto'] ?? 0), 2);
-            $porcentaje = $presupuesto > 0 ? round(($nuevoEjercido / $presupuesto) * 100, 2) : 0.00;
-
-            $this->db->table('cat_partida')
-                ->where('id_partida', $partidaHospedaje)
-                ->update([
-                    'monto_ejercido' => number_format($nuevoEjercido, 2, '.', ''),
-                    'monto_disponible' => number_format($nuevoDisponible, 2, '.', ''),
-                    'porcentaje_ejercido' => number_format($porcentaje, 2, '.', ''),
-                    'estatus' => $nuevoDisponible <= 0 ? 'agotada' : ($partida['estatus'] === 'agotada' ? 'activa' : $partida['estatus']),
-                    'fec_act' => $fechaAct->format('Y-m-d H:i:s'),
-                    'usu_act' => $actorUserId,
-                ]);
-
             $nuevoHotelRestante = round(max(0.00, $hotelRestante - $montoAplicar), 2);
             $nuevoOperativo = round($saldoOperativo + $montoAplicar, 2);
             $nuevoEstado = $nuevoHotelRestante > 0 ? 'operativo' : 'aplicado';

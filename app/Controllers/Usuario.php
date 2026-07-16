@@ -3169,13 +3169,28 @@ class Usuario extends BaseController
         $objectKey = trim($keyPrefix, '/');
         $objectKey = ($objectKey !== '' ? $objectKey . '/' : '') . $fileName;
         $uploadUrl = $this->uploadFileToS3($absolutePath, $objectKey, 'image/png', false);
-        @unlink($absolutePath);
-
         if (is_string($uploadUrl) && trim($uploadUrl) !== '') {
+            @unlink($absolutePath);
             return $uploadUrl;
         }
 
-        log_message('error', 'Usuario.generateInstitutionalQrForUser: no fue posible subir el QR a S3 para user ' . $idUsuario . '. ' . $this->lastS3Error);
+        $fallbackDir = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'qr_fic';
+        if (!is_dir($fallbackDir) && !mkdir($fallbackDir, 0775, true) && !is_dir($fallbackDir)) {
+            log_message('warning', 'Usuario.generateInstitutionalQrForUser: no fue posible crear el fallback local para QR en ' . $fallbackDir);
+            @unlink($absolutePath);
+            return null;
+        }
+
+        $fallbackAbsolutePath = rtrim($fallbackDir, '\/') . DIRECTORY_SEPARATOR . $fileName;
+        if (@copy($absolutePath, $fallbackAbsolutePath)) {
+            @unlink($absolutePath);
+            $fallbackRelativePath = '/uploads/qr_fic/' . $fileName;
+            log_message('warning', 'Usuario.generateInstitutionalQrForUser: usando fallback local para user ' . $idUsuario . '. ' . $this->lastS3Error);
+            return $fallbackRelativePath;
+        }
+
+        @unlink($absolutePath);
+        log_message('error', 'Usuario.generateInstitutionalQrForUser: no fue posible subir el QR a S3 ni guardar fallback local para user ' . $idUsuario . '. ' . $this->lastS3Error);
         return null;
     }
 

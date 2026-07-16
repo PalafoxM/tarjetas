@@ -15,6 +15,7 @@ $routes->get('Inicio/Establecimiento/(:num)', 'Inicio::Establecimiento/$1');
 $routes->get('Inicio/PerfilSecturi', 'Inicio::PerfilSecturi');
 $routes->get('Inicio/PerfilSecturiConsulta', 'Inicio::PerfilSecturiConsulta');
 $routes->get('Inicio/Cajero', 'Inicio::Cajero');
+$routes->get('Inicio/getDashboardPartidasFic', 'Inicio::getDashboardPartidasFic');
 $routes->get('Inicio/ProveedorFormatos', 'Inicio::ProveedorFormatos');
 $routes->get('Inicio/FacturasFic', 'Inicio::FacturasFic');
 $routes->get('Inicio/getFacturasFic', 'Inicio::getFacturasFic');
