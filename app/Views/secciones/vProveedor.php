@@ -592,13 +592,6 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                         <h5 class="provider-section-title mt-2">Cortes y autorizaciones</h5>
                         <p class="provider-section-copy">Revisa folios, método, estatus y fecha de cada solicitud de pago.</p>
                     </div>
-                    <a
-                        id="descargar_reporte_ventas_proveedor"
-                        class="btn btn-outline-info btn-sm text-nowrap"
-                        data-download-url="<?= esc($reporteVentasUrl, 'attr') ?>"
-                        href="<?= esc($reporteVentasUrl, 'attr') ?>">
-                        descargar reporte de ventas
-                    </a>
                 </div>
                 <div class="provider-status-strip">
                     <div class="provider-status-item">

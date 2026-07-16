@@ -79,16 +79,22 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
 <?php endif; ?>
 <link rel="stylesheet" href="<?= base_url('css/fic-hotel.css') ?>?filever=<?= time() ?>">
 
-<div class="container-fluid py-4 hotel-app" id="establecimientoApp">
+<div class="container-fluid py-4 hotel-app" id="establecimientoApp"
+     data-id-establecimiento="<?= esc((string) ($establecimientos[0]->id_establecimiento ?? ''), 'attr') ?>"
+     data-nombre="<?= esc((string) ($establecimientos[0]->dsc_establecimiento ?? 'Establecimiento'), 'attr') ?>">
     <div class="module-actions">
-        <button type="button" class="btn btn-outline-primary" id="personalEstablecimiento">
+        <button
+            type="button"
+            class="btn btn-outline-primary"
+            id="personalEstablecimiento"
+            data-solicitud-personal-url="<?= esc(base_url('index.php/Inicio') . '?solicitud_personal=1&id_establecimiento=' . (int) ($establecimientos[0]->id_establecimiento ?? 0), 'attr') ?>">
             <i class="mdi mdi-account-group me-1"></i> Personal del establecimiento
         </button>
         <button
             type="button"
             class="btn btn-outline-info"
             id="descargar_reporte_ventas_hotel"
-            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato') . '?download=1', 'attr') ?>">
+            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteHospedajePdf') . '?download=1', 'attr') ?>">
             <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
         </button>
     </div>
@@ -231,7 +237,8 @@ window.establecimientos = {
     iniciar: function () {
         var app = document.getElementById('establecimientoApp');
         var primeraPestana = app ? app.querySelector('.establecimiento-tab') : null;
-        if (!app || !primeraPestana || typeof $.fn.bootstrapTable !== 'function') return;
+        var tabla = document.getElementById('RecepcionTable');
+        if (!app || !tabla || typeof $.fn.bootstrapTable !== 'function') return;
 
         app.querySelectorAll('.establecimiento-tab').forEach(function (pestana) {
             pestana.addEventListener('click', function () {
@@ -251,26 +258,35 @@ window.establecimientos = {
                 );
             });
 
-        document.getElementById('personalEstablecimiento').addEventListener('click', function () {
-            document.querySelector('.hotel-table-shell').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+        var botonPersonal = document.getElementById('personalEstablecimiento');
+        if (botonPersonal) {
+            botonPersonal.addEventListener('click', function () {
+                var urlSolicitudPersonal = String(this.dataset.solicitudPersonalUrl || '').trim();
+                if (urlSolicitudPersonal) {
+                    window.location.href = urlSolicitudPersonal;
+                }
+            });
+        }
 
-        document.getElementById('descargar_reporte_ventas_hotel').addEventListener('click', function () {
-            var baseUrl = String(this.dataset.downloadBaseUrl || '').trim();
-            if (!baseUrl || !establecimientos.idEstablecimiento) {
-                return;
-            }
+        var botonReporte = document.getElementById('descargar_reporte_ventas_hotel');
+        if (botonReporte) {
+            botonReporte.addEventListener('click', function () {
+                var baseUrl = String(this.dataset.downloadBaseUrl || '').trim();
+                if (!baseUrl || !establecimientos.idEstablecimiento) {
+                    return;
+                }
 
-            var joiner = baseUrl.indexOf('?') === -1 ? '?' : '&';
-            var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento);
+                var joiner = baseUrl.indexOf('?') === -1 ? '?' : '&';
+                var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento);
 
-            if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
-                window.cajeros.descargarArchivoSinNavegar(downloadUrl);
-                return;
-            }
+                if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
+                    window.cajeros.descargarArchivoSinNavegar(downloadUrl);
+                    return;
+                }
 
-            window.location.href = downloadUrl;
-        });
+                window.location.href = downloadUrl;
+            });
+        }
 
         var xmlInput = document.getElementById('hotel_factura_xml');
         var pdfInput = document.getElementById('hotel_factura_pdf');
@@ -301,7 +317,17 @@ window.establecimientos = {
             }
         });
 
-        this.seleccionar(primeraPestana);
+        if (primeraPestana) {
+            this.seleccionar(primeraPestana);
+            return;
+        }
+
+        this.idEstablecimiento = app.dataset.idEstablecimiento || '';
+        var nombreEstablecimiento = app.dataset.nombre || '';
+        if (nombreEstablecimiento && document.getElementById('establecimientoNombre')) {
+            document.getElementById('establecimientoNombre').textContent = nombreEstablecimiento;
+        }
+        this.cargar();
     },
 
     seleccionar: function (pestana) {
