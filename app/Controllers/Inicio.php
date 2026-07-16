@@ -4355,9 +4355,9 @@ class Inicio extends BaseController {
                 ['text' => $fechaEmision, 'x' => 154, 'y' => 12, 'w' => 42, 'h' => 6, 'fontSize' => 8],
             ], [
                 ['text' => 'HUGO RAMÍREZ DUARTE', 'x' => 70, 'y' => 24, 'w' => 132, 'h' => 13, 'fontSize' => 9.4, 'bold' => true],
-                ['text' => 'PAGOS DEL FESTIVAL INTERNACIONAL CERVANTINO', 'x' => 70, 'y' => 42, 'w' => 132, 'h' => 16, 'fontSize' => 9.4, 'bold' => true],
+                ['text' => 'Consumo de alimentos derante la edición 54 del FIC del 10 de Sep al 26 Oc. 2026', 'x' => 70, 'y' => 42, 'w' => 132, 'h' => 16, 'fontSize' => 9.4, 'bold' => true],
                 ['text' => 'PAGOS FIC', 'x' => 70, 'y' => 63, 'w' => 132, 'h' => 7, 'fontSize' => 9.4, 'bold' => true],
-                ['text' => '3390 - Servicios integrales', 'x' => 70, 'y' => 72, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
+                ['text' => '3390 - Servicios Profesionales, cientificos y técnicos integrales', 'x' => 70, 'y' => 72, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
                 ['text' => $folioFactura !== '' ? $folioFactura : 'N/D', 'x' => 70, 'y' => 82, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
                 ['text' => $fechaGasto, 'x' => 70, 'y' => 91, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
                 ['text' => $monto !== '' ? $monto : 'N/D', 'x' => 70, 'y' => 101, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
