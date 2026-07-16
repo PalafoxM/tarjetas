@@ -326,9 +326,9 @@ $formatDate = static function (?string $value): string {
                                                 <a class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc($liberacionUrl, 'attr') ?>">
                                                     <i class="mdi mdi-receipt-text-outline me-1"></i> Liberación pago
                                                 </a>
-                                                <a class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc($liberacionProveedorUrl, 'attr') ?>">
+                                               <!--  <a class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc($liberacionProveedorUrl, 'attr') ?>">
                                                     <i class="mdi mdi-receipt-outline me-1"></i> Liberación pago proveedor
-                                                </a>
+                                                </a> -->
                                             <?php else: ?>
                                                 <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-file-document-outline me-1"></i> Formato PT
@@ -339,9 +339,9 @@ $formatDate = static function (?string $value): string {
                                                 <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-receipt-text-outline me-1"></i> Liberación pago
                                                 </button>
-                                                <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
+                                               <!--  <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-receipt-outline me-1"></i> Liberación pago proveedor
-                                                </button>
+                                                </button> -->
                                             <?php endif; ?>
                                         </div>
                                     </td>
