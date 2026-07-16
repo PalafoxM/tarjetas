@@ -32,6 +32,26 @@ $codigoQrImpreso = (int) ($id_usuario ?? 0) > 0 ? 'FIC-' . (int) $id_usuario . '
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
 $tieneHospedaje = (int) ($tiene_hospedaje ?? 0) === 1;
 $tieneAlimentos = (int) ($tiene_alimentos ?? 0) === 1;
+
+
+if ($tieneHospedaje && $tieneAlimentos) {
+    $tituloOrden = 'Orden de hospedaje y alimentos';
+    $leyendaDocumento = 'Este documento acredita la orden de hospedaje y alimentos asociada al beneficiario para su periodo de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
+    $textoFirma = 'Recibí orden de hospedaje y alimentos impresa';
+} elseif ($tieneHospedaje) {
+    $tituloOrden = 'Orden de hospedaje';
+    $leyendaDocumento = 'Este documento acredita la orden de hospedaje asociada al beneficiario para su periodo de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación.';
+    $textoFirma = 'Recibí orden de hospedaje impresa';
+} elseif ($tieneAlimentos) {
+    $tituloOrden = 'Orden de alimentos';
+    $leyendaDocumento = 'Este documento acredita la orden de alimentos asociada al beneficiario para su periodo de estancia autorizado. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
+    $textoFirma = 'Recibí orden de alimentos impresa';
+} else {
+    $tituloOrden = 'Orden FIC - Documento informativo';
+    $leyendaDocumento = 'Documento informativo del beneficiario del Festival Internacional Cervantino.';
+    $textoFirma = 'Recibí documento informativo';
+}
+
 $beneficioLabel = (string) ($beneficios['beneficio_qr_label'] ?? 'Sin beneficio asignado');
 
 $formatDateRange = static function ($from, $to): string {
@@ -55,7 +75,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Orden FIC - Hospedaje y Alimentos</title>
+    <title><?= esc($tituloOrden) ?> - FIC</title>
     <style>
         body { font-family: dejavusans, sans-serif; color: #172033; font-size: 11px; margin: 12px 15px; padding: 0; }
         .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 8px; margin-bottom: 14px; }
@@ -93,7 +113,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
 <body>
     <section>
         <div class="header">
-            <div class="title">Orden de hospedaje y alimentos</div>
+            <div class="title"><?= esc($tituloOrden) ?></div>
             <div class="subtitle">Festival Internacional Cervantino / SECTURI &nbsp;|&nbsp; Emitido: <?= esc($fechaEmision) ?></div>
         </div>
 
@@ -243,9 +263,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
         </div>
 
         <div class="note">
-            Este documento acredita la orden de hospedaje y alimentos asociada al beneficiario para su periodo de estancia autorizado. 
-            Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación. El consumo de alimentos deberá realizarse 
-            únicamente conforme a las reglas operativas vigentes del programa.
+            <?= nl2br(esc($leyendaDocumento)) ?>
         </div>
 
         <div class="signature-space"></div>
@@ -254,7 +272,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
             <?php if ($firmaUsuarioUrl !== ''): ?>
                 <img src="<?= esc($firmaUsuarioUrl) ?>" alt="Firma del usuario">
             <?php endif; ?>
-            <div class="signature-line">Recibí orden de hospedaje y alimentos impresa</div>
+            <div class="signature-line"><?= esc($textoFirma) ?></div>
         </div>
     </section>
 </body>
