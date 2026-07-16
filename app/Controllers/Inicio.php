@@ -1468,8 +1468,13 @@ class Inicio extends BaseController {
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
+        $data['pagosFicDashboard'] = $this->buildPagosFicDashboardData();
+        $data['establecimientosBandeja'] = $this->buildPagosFicEstablecimientosData();
         $data['facturasListadoUrl'] = base_url('index.php/Inicio/getFacturasFic');
         $data['facturasArchivoUrl'] = base_url('index.php/Inicio/verFacturaProveedorArchivo');
+        $data['previewInterfaceActiva'] = true;
+        $data['previewInterfaceLabel'] = 'Vista de referencia';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de facturas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vFacturasFic';
         $this->_renderView($data);
     }
@@ -1651,6 +1656,7 @@ class Inicio extends BaseController {
 
         $session = \Config\Services::session();
         $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
@@ -1738,13 +1744,14 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $grupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? '')));
 
         if ($grupo === '') {
             $grupo = strtolower((string) ($contextoUsuario['active_group'] ?? ''));
         }
 
-        if (!in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+        if (!in_array($grupo, ['fic', 'secul', 'ug', 'secturi'], true)) {
             return $this->response->setJSON([
                 'ok' => true,
                 'data' => [
@@ -1809,7 +1816,7 @@ class Inicio extends BaseController {
             ->select('comentario_ti')
             ->where('visible', 1)
             ->where('estatus', 'pendiente')
-            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi']);
         if ($excludeSolicitudId > 0) {
             $solicitudesBuilder->where('id_solicitud_usuario !=', $excludeSolicitudId);
         }
@@ -2240,6 +2247,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
         $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         $grupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? '')));
@@ -2273,12 +2281,13 @@ class Inicio extends BaseController {
         $esAdminDelGrupo = empty($tiUsuario)
             && (string) ($contextoUsuario['active_group'] ?? '') === $grupoRow
             && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
+        $esAdminSecturi = !empty($secturiAdminUsuario);
 
-        if (empty($tiUsuario) && !$esPropietario && !$esAdminDelGrupo) {
+        if (empty($tiUsuario) && empty($esAdminSecturi) && !$esPropietario && !$esAdminDelGrupo) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar esta solicitud.']);
         }
 
-        if ($grupo !== '' && $grupo !== $grupoRow) {
+        if ($grupo !== '' && $grupo !== $grupoRow && empty($esAdminSecturi) && empty($tiUsuario)) {
             return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud no corresponde al grupo solicitado.']);
         }
 
@@ -2686,6 +2695,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $post = $this->request->getPost();
         $db = \Config\Database::connect();
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
@@ -2743,7 +2753,7 @@ class Inicio extends BaseController {
                 ]);
             }
 
-            if (empty($tiUsuario) && !$esPropietario && !$esAdminGrupo) {
+            if (empty($tiUsuario) && empty($secturiAdminUsuario) && !$esPropietario && !$esAdminGrupo) {
                 return $this->response->setStatusCode(403)->setJSON([
                     'ok' => false,
                     'message' => 'No tienes permisos para reenviar esta solicitud.',

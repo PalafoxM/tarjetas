@@ -224,7 +224,6 @@ var notificaciones = (function () {
         var idNotification = Number(item.id_notification || 0);
 
         markRead(idNotification, function () {
-            load();
             if (url !== '') {
                 window.location.href = url;
             }

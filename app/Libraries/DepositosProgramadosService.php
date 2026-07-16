@@ -68,6 +68,12 @@ class DepositosProgramadosService
         $userRow['fec_act'] = $userRow['fec_act'] ?? $userRow['fec_reg'];
         $userRow['usu_reg'] = $actorUserId;
         $userRow['usu_act'] = $actorUserId;
+        $resolvedSequence = $this->resolveNextPaxSecuencia($userRow);
+        $userRow['pax_secuencia'] = $resolvedSequence;
+        $userRow['es_titular_folio'] = $resolvedSequence === 1 ? 1 : 0;
+        if ($resolvedSequence > 1 && (int) ($userRow['id_usuario_padre'] ?? 0) <= 0) {
+            $userRow['id_usuario_padre'] = $this->resolveFolioTitularUserId($userRow);
+        }
 
         $this->db->transBegin();
         try {
@@ -87,6 +93,8 @@ class DepositosProgramadosService
             $response->error = false;
             $response->respuesta = 'Registro guardado correctamente';
             $response->idRegistro = $idUsuario;
+            $response->pax_secuencia = $resolvedSequence;
+            $response->id_usuario_padre = $userRow['id_usuario_padre'] ?? null;
             $response->programa_id = 0;
             $response->depositos_programados = $allocationRows;
             $response->monto_reservado = $totalReserve;
@@ -326,6 +334,49 @@ class DepositosProgramadosService
     {
         $this->db->table('usuario')->insert($data);
         return (int) $this->db->insertID();
+    }
+
+    private function resolveNextPaxSecuencia(array $data): int
+    {
+        $folioGrupo = trim((string) ($data['folio_grupo'] ?? ''));
+        $requested = max(1, (int) ($data['pax_secuencia'] ?? 1));
+        if ($folioGrupo === '') {
+            return $requested;
+        }
+
+        $row = $this->db->table('usuario')
+            ->selectMax('pax_secuencia', 'max_secuencia')
+            ->where('visible', 1)
+            ->where('folio_grupo', $folioGrupo)
+            ->get()
+            ->getRowArray();
+
+        $maxSecuencia = (int) ($row['max_secuencia'] ?? 0);
+        if ($maxSecuencia >= $requested) {
+            return $maxSecuencia + 1;
+        }
+
+        return $requested;
+    }
+
+    private function resolveFolioTitularUserId(array $data): int
+    {
+        $folioGrupo = trim((string) ($data['folio_grupo'] ?? ''));
+        if ($folioGrupo === '') {
+            return 0;
+        }
+
+        $row = $this->db->table('usuario')
+            ->select('id_usuario')
+            ->where('visible', 1)
+            ->where('folio_grupo', $folioGrupo)
+            ->where('pax_secuencia', 1)
+            ->orderBy('id_usuario', 'ASC')
+            ->limit(1)
+            ->get()
+            ->getRowArray();
+
+        return (int) ($row['id_usuario'] ?? 0);
     }
 
     private function resolveRequiredEstablecimientoId(array $data): int

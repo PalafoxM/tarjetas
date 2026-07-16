@@ -483,11 +483,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         let botones = `
             <div class="cajero-actions">
               
-                <button class="btn btn-primary" type="button" title="Orden de Hospedaje" onclick="st.agregar.verPdf(${idUsuario})">
+                <button class="btn btn-primary" type="button" title="Orden de Hospedaje y Alimentos" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
-                </button>
-                <button class="btn btn-secondary" type="button" title="Orden de Alimentos no disponible" onclick="st.agregar.verPdfAlimentos(${idUsuario})">
-                    <i class="mdi mdi-file-pdf"></i>
                 </button>
                 <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>

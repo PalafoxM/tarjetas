@@ -389,6 +389,8 @@ window.cajeros = {
         this.folioSuggestionsUrl = contenedor.dataset.folioSuggestionsUrl || (base_url + 'index.php/Inicio/getSugerenciasFolioInstitucional');
         this.solicitudFolioDetailUrl = contenedor.dataset.solicitudDetailUrl || (base_url + 'index.php/Inicio/getSolicitudFolioEditable');
         this.solicitudFolioId = Number(contenedor.dataset.solicitudId || 0);
+        this.solicitudFolioGrupo = String(contenedor.dataset.solicitudGrupo || '').toLowerCase();
+        this.folioSuggestionsEnabled = this.isAltaPage && String(contenedor.dataset.folioSuggestionsEnabled || '0') === '1';
         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
         this.isSolicitudFolioMode = this.isAltaPage && String(contenedor.dataset.solicitudFolioMode || '') === '1';
 
@@ -450,7 +452,7 @@ window.cajeros = {
             });
 
             this.inicializarAltaUsuarioMultiPax();
-            if (this.isSolicitudFolioMode) {
+            if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled) {
                 this.aplicarModoSolicitudFolioUI();
                 this.cargarSugerenciasFolioInstitucional();
             }
@@ -892,25 +894,33 @@ window.cajeros = {
     },
 
     aplicarModoSolicitudFolioUI: function () {
-        if (!this.isSolicitudFolioMode) {
+        if (!this.isSolicitudFolioMode && !this.folioSuggestionsEnabled) {
             return;
         }
 
-        $('.solicitud-partida-visual').addClass('d-none').hide();
+        if (this.isSolicitudFolioMode) {
+            $('.solicitud-partida-visual').addClass('d-none').hide();
+        }
         $('#folioSugerenciasWrapper').removeClass('d-none');
     },
 
     cargarSugerenciasFolioInstitucional: function () {
-        if (!this.isSolicitudFolioMode || !this.folioSuggestionsUrl) {
+        if ((!this.isSolicitudFolioMode && !this.folioSuggestionsEnabled) || !this.folioSuggestionsUrl) {
             return;
         }
 
         var wrapper = $('#folioSugerenciasWrapper');
         var estado = $('#folioSugerenciasEstado');
         var chips = $('#folioSugerenciasChips');
-        var grupo = String(this.contexto.active_group || $('#grupo_usuario').val() || '').toLowerCase();
+        var grupo = this.obtenerGrupoSugerenciasFolio();
 
         wrapper.removeClass('d-none');
+        if (!grupo) {
+            estado.text('Selecciona un perfil institucional para consultar sugerencias de folio.');
+            chips.empty();
+            return;
+        }
+
         estado.text('Consultando ultimo folio disponible...');
         chips.empty();
 
@@ -944,13 +954,35 @@ window.cajeros = {
             });
     },
 
+    obtenerGrupoSugerenciasFolio: function () {
+        var grupoSolicitud = String(this.solicitudFolioGrupo || '').toLowerCase();
+        if (grupoSolicitud === 'fic' || grupoSolicitud === 'secul' || grupoSolicitud === 'ug' || grupoSolicitud === 'secturi') {
+            return grupoSolicitud;
+        }
+
+        var grupoFormulario = String(this.obtenerGrupoInstitucional() || '').toLowerCase();
+        if (grupoFormulario === 'fic' || grupoFormulario === 'secul' || grupoFormulario === 'ug' || grupoFormulario === 'secturi') {
+            return grupoFormulario;
+        }
+
+        var grupoActual = String($('#grupo_usuario').val() || this.contexto.active_group || '').toLowerCase();
+        if (grupoActual === 'fic' || grupoActual === 'secul' || grupoActual === 'ug' || grupoActual === 'secturi') {
+            return grupoActual;
+        }
+
+        return '';
+    },
+
     cargarSolicitudFolioEditable: function (idSolicitud) {
         if (!this.isSolicitudFolioMode || !this.solicitudFolioDetailUrl || !idSolicitud) {
             return;
         }
 
         var url = this.solicitudFolioDetailUrl;
-        var grupo = String(this.contexto.active_group || $('#grupo_usuario').val() || '').toLowerCase();
+        var grupo = String(this.solicitudFolioGrupo || $('#grupo_usuario').val() || this.contexto.active_group || '').toLowerCase();
+        if (grupo === 'secturi') {
+            grupo = '';
+        }
         var params = { id_solicitud_usuario: idSolicitud };
         if (grupo !== '') {
             params.grupo = grupo;
@@ -1015,6 +1047,10 @@ window.cajeros = {
         $('#monto_total_alimentos_ui').val(values.monto_total_alimentos_ui || values.monto_deposito || '');
         $('#tarifa_noche').val(values.tarifa_noche || '');
         $('#tarifa_total').val(values.tarifa_total || '');
+        $('#noche').val(values.noche || '');
+        $('#hospedaje_plan_json').val(values.hospedaje_plan_json || '');
+        $('#hospedaje_sobrerreserva').val(Number(values.hospedaje_sobrerreserva || 0) === 1 ? '1' : '0');
+        $('#hospedaje_sobrerreserva_ui').prop('checked', Number(values.hospedaje_sobrerreserva || 0) === 1);
         $('#id_clave').val(values.id_clave || '');
         $('#categoria_ui').val(values.id_clave || '').trigger('change.select2');
         $('#id_pais').val(values.id_pais || '').trigger('change.select2');
@@ -1025,6 +1061,11 @@ window.cajeros = {
         this.onPaisChange();
         this.actualizarFlujoBeneficios();
         this.redibujarAltaUsuarioPax();
+        this.renderHospedajePlanDesdeValor(values.hospedaje_plan_json || '');
+        if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled) {
+            this.aplicarModoSolicitudFolioUI();
+            this.cargarSugerenciasFolioInstitucional();
+        }
         this.actualizarResumenAltaUsuario();
     },
 
@@ -1525,6 +1566,10 @@ window.cajeros = {
 
         this.aplicarEstablecimientoPorPerfil(selectedProfile);
         this.actualizarFlujoBeneficios();
+        if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled) {
+            this.aplicarModoSolicitudFolioUI();
+            this.cargarSugerenciasFolioInstitucional();
+        }
     },
 
     esPerfilCliente: function (idPerfil) {
@@ -2216,6 +2261,12 @@ window.cajeros = {
         row = row || {};
         var qrPath = String(row.qr || '').trim();
         if (qrPath !== '') {
+            if (/^https?:\/\//i.test(qrPath)) {
+                return {
+                    url: qrPath,
+                    label: qrPath
+                };
+            }
             return {
                 url: base_url + qrPath.replace(/^\/+/, ''),
                 label: qrPath
