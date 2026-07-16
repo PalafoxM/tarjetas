@@ -4151,16 +4151,42 @@ class Inicio extends BaseController {
         if ($tipoDocumento === 'encabezado_factura') {
             $invoicePdfPath = $this->resolveProviderInvoicePdfPath($data);
             if ($invoicePdfPath !== '') {
-                $this->appendProviderPdfPages($mpdf, $invoicePdfPath);
+                $this->writeProviderInvoicePdfPreview($mpdf, $invoicePdfPath);
+                $this->appendProviderPdfPages($mpdf, $invoicePdfPath, 2);
             }
         }
     }
 
-    private function appendProviderPdfPages(\Mpdf\Mpdf $mpdf, string $pdfPath): void
+    private function writeProviderInvoicePdfPreview(\Mpdf\Mpdf $mpdf, string $pdfPath): void
     {
         $pageCount = $mpdf->setSourceFile($pdfPath);
+        if ($pageCount <= 0) {
+            return;
+        }
 
-        for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
+        $templateId = $mpdf->importPage(1);
+        $size = $mpdf->getTemplateSize($templateId);
+        $sourceWidth = (float) ($size['width'] ?? 0);
+        $sourceHeight = (float) ($size['height'] ?? 0);
+        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+            return;
+        }
+
+        $maxWidth = 198.0;
+        $maxHeight = 154.0;
+        $scale = min($maxWidth / $sourceWidth, $maxHeight / $sourceHeight);
+        $width = $sourceWidth * $scale;
+        $height = $sourceHeight * $scale;
+
+        $mpdf->useTemplate($templateId, 9, 115, $width, $height);
+    }
+
+    private function appendProviderPdfPages(\Mpdf\Mpdf $mpdf, string $pdfPath, int $startPage = 1): void
+    {
+        $pageCount = $mpdf->setSourceFile($pdfPath);
+        $startPage = max(1, $startPage);
+
+        for ($pageNumber = $startPage; $pageNumber <= $pageCount; $pageNumber++) {
             $templateId = $mpdf->importPage($pageNumber);
             $size = $mpdf->getTemplateSize($templateId);
 
@@ -4208,7 +4234,7 @@ class Inicio extends BaseController {
         }
 
         foreach ($pdfCandidates as $candidate) {
-            if ($candidate === '' || preg_match('#^https?://#i', $candidate)) {
+            if ($candidate === '') {
                 continue;
             }
 
@@ -4223,9 +4249,35 @@ class Inicio extends BaseController {
                     return $path;
                 }
             }
+
+            $downloadedPath = $this->downloadProviderInvoicePdfToTemp($candidate);
+            if ($downloadedPath !== '') {
+                return $downloadedPath;
+            }
         }
 
         return '';
+    }
+
+    private function downloadProviderInvoicePdfToTemp(string $storedPath): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '') {
+            return '';
+        }
+
+        $pdfBody = $this->readStoredFileContents($storedPath);
+        if ($pdfBody === '' || strncmp($pdfBody, '%PDF', 4) !== 0) {
+            return '';
+        }
+
+        $tempDir = WRITEPATH . 'mpdf-temp' . DIRECTORY_SEPARATOR . 'facturas';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        $tempPath = $tempDir . DIRECTORY_SEPARATOR . 'factura_' . sha1($storedPath . microtime(true)) . '.pdf';
+        return @file_put_contents($tempPath, $pdfBody) !== false ? $tempPath : '';
     }
 
     private function writeProviderTemplateOverlay(\Mpdf\Mpdf $mpdf, string $tipoDocumento, array $data): void
@@ -4236,7 +4288,8 @@ class Inicio extends BaseController {
         }
 
         foreach ($overlay as $item) {
-            $html = '<div style="font-family: dejavusans; font-size: ' . (float) $item['fontSize'] . 'pt; color: #111;">'
+            $fontWeight = !empty($item['bold']) ? 'font-weight: bold;' : '';
+            $html = '<div style="font-family: dejavusans; font-size: ' . (float) $item['fontSize'] . 'pt; color: #111; line-height: 1.12; ' . $fontWeight . '">'
                 . esc((string) $item['text'])
                 . '</div>';
             $mpdf->WriteFixedPosHTML($html, (float) $item['x'], (float) $item['y'], (float) $item['w'], (float) $item['h']);
@@ -4261,6 +4314,10 @@ class Inicio extends BaseController {
         $monto = !empty($xmlInfo['total'])
             ? '$' . number_format((float) $xmlInfo['total'], 2)
             : (!empty($facturaXmlContext['monto_total']) ? '$' . number_format((float) $facturaXmlContext['monto_total'], 2) : '');
+        $fechaGasto = !empty($xmlInfo['fecha'])
+            ? date('d/m/Y', strtotime((string) $xmlInfo['fecha']))
+            : $fechaEmision;
+        $folioFactura = trim((string) ($xmlInfo['folio'] ?? $folio));
 
         $common = [
             ['text' => $fechaEmision, 'x' => 154, 'y' => 12, 'w' => 42, 'h' => 6, 'fontSize' => 8],
@@ -4268,9 +4325,16 @@ class Inicio extends BaseController {
         ];
 
         if ($tipoDocumento === 'encabezado_factura') {
-            return array_merge($common, [
-                ['text' => $razonSocial, 'x' => 35, 'y' => 55, 'w' => 140, 'h' => 8, 'fontSize' => 8],
-                ['text' => $establecimiento, 'x' => 35, 'y' => 64, 'w' => 140, 'h' => 8, 'fontSize' => 8],
+            return array_merge([
+                ['text' => $fechaEmision, 'x' => 154, 'y' => 12, 'w' => 42, 'h' => 6, 'fontSize' => 8],
+            ], [
+                ['text' => 'HUGO RAMÍREZ DUARTE', 'x' => 70, 'y' => 24, 'w' => 132, 'h' => 13, 'fontSize' => 9.4, 'bold' => true],
+                ['text' => 'PAGOS DEL FESTIVAL INTERNACIONAL CERVANTINO', 'x' => 70, 'y' => 42, 'w' => 132, 'h' => 16, 'fontSize' => 9.4, 'bold' => true],
+                ['text' => 'PAGOS FIC', 'x' => 70, 'y' => 63, 'w' => 132, 'h' => 7, 'fontSize' => 9.4, 'bold' => true],
+                ['text' => '3390 - Servicios integrales', 'x' => 70, 'y' => 72, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
+                ['text' => $folioFactura !== '' ? $folioFactura : 'N/D', 'x' => 70, 'y' => 82, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
+                ['text' => $fechaGasto, 'x' => 70, 'y' => 91, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
+                ['text' => $monto !== '' ? $monto : 'N/D', 'x' => 70, 'y' => 101, 'w' => 132, 'h' => 7, 'fontSize' => 9.2],
             ]);
         }
 
