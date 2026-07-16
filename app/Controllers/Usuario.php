@@ -1590,6 +1590,7 @@ class Usuario extends BaseController
 
         $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
         $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
+        $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
 
         $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
         $mpdf = new \Mpdf\Mpdf([
@@ -2185,7 +2186,37 @@ class Usuario extends BaseController
             return '';
         }
 
-        $url = $this->buildS3PresignedGetUrl($firma, 300);
+        return $this->resolveStoredPdfImageSrc((int) $idUsuario, $firma, 'firmas', 'firma_usuario', true);
+    }
+
+    private function resolveUsuarioQrPdfSrc(int $idUsuario, $storedPath = null): string
+    {
+        $qr = trim((string) $storedPath);
+        if ($qr === '' && $idUsuario > 0) {
+            $row = $this->getBaseUserRow($idUsuario);
+            $qr = trim((string) ($row['qr'] ?? ''));
+        }
+
+        if ($qr === '') {
+            return '';
+        }
+
+        return $this->resolveStoredPdfImageSrc((int) $idUsuario, $qr, 'qrs', 'qr_usuario', false);
+    }
+
+    private function resolveStoredPdfImageSrc(int $idUsuario, string $storedPath, string $subdirectory, string $filePrefix, bool $forceJpg): string
+    {
+        $storedPath = trim($storedPath);
+        if ($storedPath === '') {
+            return '';
+        }
+
+        $localPath = $this->resolveLocalPublicFilePath($storedPath);
+        if ($localPath !== '' && is_file($localPath)) {
+            return str_replace('\\', '/', $localPath);
+        }
+
+        $url = $this->buildS3PresignedGetUrl($storedPath, 300);
         if ($url === '') {
             return '';
         }
@@ -2195,8 +2226,33 @@ class Usuario extends BaseController
             return '';
         }
 
-        $localPath = $this->persistFirmaPdfImage((int) $idUsuario, $firma, $imageBody);
-        return $localPath !== '' ? $localPath : '';
+        return $this->persistPdfImage((int) $idUsuario, $storedPath, $imageBody, $subdirectory, $filePrefix, $forceJpg);
+    }
+
+    private function resolveLocalPublicFilePath(string $storedPath): string
+    {
+        $path = trim($storedPath);
+        if ($path === '') {
+            return '';
+        }
+
+        if (preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1 || str_starts_with($path, DIRECTORY_SEPARATOR)) {
+            return is_file($path) ? $path : '';
+        }
+
+        $relative = ltrim(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR);
+        $candidates = [
+            FCPATH . $relative,
+            ROOTPATH . $relative,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 
     private function downloadRemoteFile(string $url): string
@@ -2241,7 +2297,12 @@ class Usuario extends BaseController
 
     private function persistFirmaPdfImage(int $idUsuario, string $sourceKey, string $imageBody): string
     {
-        $directory = $this->getMpdfOrdenesTempDir() . DIRECTORY_SEPARATOR . 'firmas';
+        return $this->persistPdfImage($idUsuario, $sourceKey, $imageBody, 'firmas', 'firma_usuario', true);
+    }
+
+    private function persistPdfImage(int $idUsuario, string $sourceKey, string $imageBody, string $subdirectory, string $filePrefix, bool $forceJpg): string
+    {
+        $directory = $this->getMpdfOrdenesTempDir() . DIRECTORY_SEPARATOR . trim($subdirectory, '\/');
         if (!is_dir($directory)) {
             @mkdir($directory, 0775, true);
         }
@@ -2251,12 +2312,13 @@ class Usuario extends BaseController
         }
 
         $hash = substr(hash('sha256', $sourceKey . '|' . $imageBody), 0, 16);
-        $jpgPath = $directory . DIRECTORY_SEPARATOR . 'firma_usuario_' . $idUsuario . '_' . $hash . '.jpg';
+        $safePrefix = preg_replace('/[^a-z0-9_]+/i', '_', $filePrefix) ?: 'pdf_image';
+        $jpgPath = $directory . DIRECTORY_SEPARATOR . $safePrefix . '_' . $idUsuario . '_' . $hash . '.jpg';
         if (is_file($jpgPath)) {
             return str_replace('\\', '/', $jpgPath);
         }
 
-        if (function_exists('imagecreatefromstring') && function_exists('imagejpeg')) {
+        if ($forceJpg && function_exists('imagecreatefromstring') && function_exists('imagejpeg')) {
             $source = @imagecreatefromstring($imageBody);
             if ($source !== false) {
                 $width = imagesx($source);
@@ -2273,7 +2335,7 @@ class Usuario extends BaseController
             }
         }
 
-        $fallbackPath = $directory . DIRECTORY_SEPARATOR . 'firma_usuario_' . $idUsuario . '_' . $hash . '.img';
+        $fallbackPath = $directory . DIRECTORY_SEPARATOR . $safePrefix . '_' . $idUsuario . '_' . $hash . '.png';
         return file_put_contents($fallbackPath, $imageBody) !== false ? str_replace('\\', '/', $fallbackPath) : '';
     }
 

@@ -30,6 +30,8 @@ $subFolioEntrega = trim((string) ($sub_folio ?? ''));
 $paxEntrega = max(1, (int) ($pax_total ?? ($pax ?? 1)));
 $codigoQrImpreso = (int) ($id_usuario ?? 0) > 0 ? 'FIC-' . (int) $id_usuario . '-QR' : '';
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
+$nipUsuario = trim((string) ($nip ?? ''));
+$qrUsuarioUrl = trim((string) ($qr_usuario_url ?? ''));
 $tieneHospedaje = (int) ($tiene_hospedaje ?? 0) === 1;
 $tieneAlimentos = (int) ($tiene_alimentos ?? 0) === 1;
 
@@ -107,6 +109,13 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
         .detalle-label { width: 22%; font-size: 9px; padding: 4px 6px; }
         .detalle-value { font-size: 10px; padding: 4px 6px; }
         .firma-texto { font-size: 11px; color: #475569; margin-top: 5px; }
+        .access-block { margin-top: 12px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 12px; }
+        .access-table { margin-bottom: 0; }
+        .access-table td { vertical-align: middle; }
+        .nip-value { font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #0f172a; text-align: center; }
+        .qr-image-cell { width: 140px; text-align: center; }
+        .qr-image { width: 118px; height: 118px; object-fit: contain; }
+        .qr-caption { font-size: 8px; color: #475569; margin-top: 4px; word-break: break-all; }
         @page { margin: 10mm 12mm 10mm 12mm; }
     </style>
 </head>
@@ -264,6 +273,25 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
 
         <div class="note">
             <?= nl2br(esc($leyendaDocumento)) ?>
+        </div>
+
+        <div class="access-block">
+            <div class="section-title" style="margin-top:0;">Acceso del usuario</div>
+            <table class="access-table">
+                <tr>
+                    <td class="label" style="width:16%;">NIP</td>
+                    <td class="nip-value" style="width:28%;"><?= esc($nipUsuario !== '' ? $nipUsuario : 'Sin NIP') ?></td>
+                    <td class="label" style="width:16%;">QR asignado</td>
+                    <td class="qr-image-cell">
+                        <?php if ($qrUsuarioUrl !== ''): ?>
+                            <img class="qr-image" src="<?= esc($qrUsuarioUrl) ?>" alt="QR del usuario">
+                        <?php else: ?>
+                            <div style="font-size:10px; color:#64748b;">Sin imagen QR</div>
+                        <?php endif; ?>
+                        <div class="qr-caption"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></div>
+                    </td>
+                </tr>
+            </table>
         </div>
 
         <div class="signature-space"></div>
