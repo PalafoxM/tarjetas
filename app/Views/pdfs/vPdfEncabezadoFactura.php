@@ -18,12 +18,12 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
          body {
             font-family: Arial, sans-serif;
             font-size: 10pt;
-            margin: 20mm;
+            margin: 0;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
+            margin-bottom: 8mm;
         }
         th, td {
             border: 1px solid #000;

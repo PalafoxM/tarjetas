@@ -4132,9 +4132,9 @@ class Inicio extends BaseController {
         $mpdf->AddPageByArray([
             'orientation' => 'P',
             'sheet-size' => 'Letter',
-            'margin-left' => 0,
-            'margin-right' => 0,
-            'margin-top' => 0,
+            'margin-left' => 8,
+            'margin-right' => 8,
+            'margin-top' => 8,
             'margin-bottom' => 0,
             'margin-header' => 0,
             'margin-footer' => 0,
@@ -4203,8 +4203,9 @@ class Inicio extends BaseController {
         $scale = min($maxWidth / $sourceWidth, $maxHeight / $sourceHeight);
         $width = $sourceWidth * $scale;
         $height = $sourceHeight * $scale;
+        $x = max(0, (216.0 - $width) / 2);
 
-        $mpdf->useTemplate($templateId, 9, 115, $width, $height);
+        $mpdf->useTemplate($templateId, $x, 90, $width, $height);
     }
 
     private function appendProviderPdfPages(\Mpdf\Mpdf $mpdf, string $pdfPath, int $startPage = 1): void
