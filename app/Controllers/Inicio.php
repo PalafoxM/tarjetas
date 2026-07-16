@@ -6131,61 +6131,62 @@ class Inicio extends BaseController {
     }
 
     public function getSolicitudesUsuarioOperativo()
-    {
-        $tiUsuario = $this->resolveSecturiDashboardUsuario();
+{
+    $tiUsuario = $this->resolveSecturiDashboardUsuario();
 
-        if (empty($tiUsuario)) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'ok' => false,
-                'total' => 0,
-                'rows' => [],
-                'message' => 'No tienes permisos para consultar esta bandeja.',
-            ]);
-        }
-
-        $db = \Config\Database::connect();
-        $builder = $this->solicitudUsuarioOperativoBaseBuilder($db)
-            ->where('su.visible', 1);
-
-        $estatus = trim((string) ($this->request->getGet('estatus') ?? 'pendiente'));
-        if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
-            $builder->where('su.estatus', $estatus);
-        }
-
-        $search = trim((string) ($this->request->getGet('search') ?? ''));
-        if ($search !== '') {
-            $builder->groupStart()
-                ->like('su.usuario', $search)
-                ->orLike('su.nombre', $search)
-                ->orLike('su.primer_apellido', $search)
-                ->orLike('su.segundo_apellido', $search)
-                ->orLike('su.correo', $search)
-                ->orLike('p.no_proveedor', $search)
-                ->orLike('p.razon_social', $search)
-                ->orLike('e.dsc_establecimiento', $search)
-                ->orLike('cte.dsc_tipo', $search)
-                ->orLike('su.estatus', $search)
-                ->groupEnd();
-        }
-
-        $total = (clone $builder)->countAllResults();
-        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
-        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
-
-        $rows = $builder
-            ->orderBy('su.fec_reg', 'DESC')
-            ->limit($limit, $offset)
-            ->get()
-            ->getResultArray();
-
-        return $this->response->setJSON([
-            'ok' => true,
-            'total' => $total,
-            'rows' => array_map(function (array $row) {
-                return $this->mapSolicitudUsuarioOperativoRow($row);
-            }, $rows),
+    if (empty($tiUsuario)) {
+        return $this->response->setStatusCode(403)->setJSON([
+            'ok' => false,
+            'total' => 0,
+            'rows' => [],
+            'message' => 'No tienes permisos para consultar esta bandeja.',
         ]);
     }
+
+    $db = \Config\Database::connect();
+    $builder = $this->solicitudUsuarioOperativoBaseBuilder($db)
+        ->where('su.visible', 1)
+        ->whereIn('su.tipo_solicitud', ['alta_gerente', 'alta_recepcion']); 
+
+    $estatus = trim((string) ($this->request->getGet('estatus') ?? 'pendiente'));
+    if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
+        $builder->where('su.estatus', $estatus);
+    }
+
+    $search = trim((string) ($this->request->getGet('search') ?? ''));
+    if ($search !== '') {
+        $builder->groupStart()
+            ->like('su.usuario', $search)
+            ->orLike('su.nombre', $search)
+            ->orLike('su.primer_apellido', $search)
+            ->orLike('su.segundo_apellido', $search)
+            ->orLike('su.correo', $search)
+            ->orLike('p.no_proveedor', $search)
+            ->orLike('p.razon_social', $search)
+            ->orLike('e.dsc_establecimiento', $search)
+            ->orLike('cte.dsc_tipo', $search)
+            ->orLike('su.estatus', $search)
+            ->groupEnd();
+    }
+
+    $total = (clone $builder)->countAllResults();
+    $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
+    $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+
+    $rows = $builder
+        ->orderBy('su.fec_reg', 'DESC')
+        ->limit($limit, $offset)
+        ->get()
+        ->getResultArray();
+
+    return $this->response->setJSON([
+        'ok' => true,
+        'total' => $total,
+        'rows' => array_map(function (array $row) {
+            return $this->mapSolicitudUsuarioOperativoRow($row);
+        }, $rows),
+    ]);
+}
 
     public function getSolicitudUsuarioOperativo($idSolicitudUsuario = null)
     {
@@ -6586,60 +6587,60 @@ class Inicio extends BaseController {
     }
 
     public function getSolicitudesNuevoFolioTi()
-    {
-        if (empty($this->resolveSecturiDashboardUsuario())) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'ok' => false,
-                'total' => 0,
-                'rows' => [],
-                'message' => 'No tienes permisos para consultar esta bandeja.',
-            ]);
-        }
-
-        $db = \Config\Database::connect();
-        $builder = $db->table('solicitud_usuario su')
-            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
-            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
-            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
-            ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
-
-        $search = trim((string) ($this->request->getGet('search') ?? ''));
-        if ($search !== '') {
-            $builder->groupStart()
-                ->like('su.usuario', $search)
-                ->orLike('su.nombre', $search)
-                ->orLike('su.primer_apellido', $search)
-                ->orLike('su.segundo_apellido', $search)
-                ->orLike('su.correo', $search)
-                ->orLike('su.estatus', $search)
-                ->orLike('su.tipo_solicitud', $search)
-                ->groupEnd();
-        }
-
-        $estatus = trim((string) ($this->request->getGet('estatus') ?? ''));
-        if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
-            $builder->where('su.estatus', $estatus);
-        }
-
-        $total = (clone $builder)->countAllResults();
-        $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
-        $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
-        $rows = $builder
-            ->orderBy('su.fec_reg', 'DESC')
-            ->limit($limit, $offset)
-            ->get()
-            ->getResultArray();
-
-        return $this->response->setJSON([
-            'ok' => true,
-            'total' => $total,
-            'rows' => array_map(function (array $row): array {
-                return $this->mapSolicitudUsuarioFicPerfilRow($row);
-            }, $rows),
+{
+    if (empty($this->resolveSecturiDashboardUsuario())) {
+        return $this->response->setStatusCode(403)->setJSON([
+            'ok' => false,
+            'total' => 0,
+            'rows' => [],
+            'message' => 'No tienes permisos para consultar esta bandeja.',
         ]);
     }
+
+    $db = \Config\Database::connect();
+    $builder = $db->table('solicitud_usuario su')
+        ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+        ->where('su.visible', 1)
+        ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+
+    $search = trim((string) ($this->request->getGet('search') ?? ''));
+    if ($search !== '') {
+        $builder->groupStart()
+            ->like('su.usuario', $search)
+            ->orLike('su.nombre', $search)
+            ->orLike('su.primer_apellido', $search)
+            ->orLike('su.segundo_apellido', $search)
+            ->orLike('su.correo', $search)
+            ->orLike('su.estatus', $search)
+            ->orLike('su.tipo_solicitud', $search)
+            ->groupEnd();
+    }
+
+    $estatus = trim((string) ($this->request->getGet('estatus') ?? ''));
+    if ($estatus !== '' && !in_array(strtolower($estatus), ['todos', 'all'], true)) {
+        $builder->where('su.estatus', $estatus);
+    }
+
+    $total = (clone $builder)->countAllResults();
+    $limit = max(1, (int) ($this->request->getGet('limit') ?? 10));
+    $offset = max(0, (int) ($this->request->getGet('offset') ?? 0));
+    $rows = $builder
+        ->orderBy('su.fec_reg', 'DESC')
+        ->limit($limit, $offset)
+        ->get()
+        ->getResultArray();
+
+    return $this->response->setJSON([
+        'ok' => true,
+        'total' => $total,
+        'rows' => array_map(function (array $row): array {
+            return $this->mapSolicitudUsuarioFicPerfilRow($row);
+        }, $rows),
+    ]);
+}
 
     public function getSolicitudNuevoFolioTi()
     {

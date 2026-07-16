@@ -75,7 +75,7 @@ class Database extends Config
         'busyTimeout' => 1000,
     ];
 
-    public array $tests = [
+     public array $tests = [
         'DSN'         => '',
         'hostname'    => '127.0.0.1',
         'username'    => '',
@@ -101,11 +101,63 @@ class Database extends Config
     {
         parent::__construct();
 
+        $this->applyEnvironmentOverrides();
+
         // Ensure that we always set the database group to 'tests' if
         // we are currently running an automated test suite, so that
         // we don't overwrite live data on accident.
         if (ENVIRONMENT === 'testing') {
             $this->defaultGroup = 'tests';
+        }
+    }
+
+    private function applyEnvironmentOverrides(): void
+    {
+        $defaultOverrides = [
+            'hostname' => env('DB_HOST'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
+            'database' => env('DB_DATABASE'),
+            'port' => env('DB_PORT'),
+        ];
+
+        foreach ($defaultOverrides as $key => $value) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+
+            $this->default[$key] = $key === 'port' ? (int) $value : $value;
+        }
+
+        $bitacoraOverrides = [
+            'hostname' => env('BITACORA_DB_HOST'),
+            'username' => env('BITACORA_DB_USERNAME'),
+            'password' => env('BITACORA_DB_PASSWORD'),
+            'database' => env('BITACORA_DB_DATABASE'),
+            'port' => env('BITACORA_DB_PORT'),
+        ];
+
+        foreach ($bitacoraOverrides as $key => $value) {
+            $value = trim((string) $value);
+            if ($value === '') {
+                continue;
+            }
+
+            $this->bitacora[$key] = $key === 'port' ? (int) $value : $value;
+        }
+
+        if (trim((string) ($this->bitacora['hostname'] ?? '')) === '') {
+            $this->bitacora['hostname'] = $this->default['hostname'];
+        }
+        if (trim((string) ($this->bitacora['username'] ?? '')) === '') {
+            $this->bitacora['username'] = $this->default['username'];
+        }
+        if (trim((string) ($this->bitacora['password'] ?? '')) === '') {
+            $this->bitacora['password'] = $this->default['password'];
+        }
+        if ((int) ($this->bitacora['port'] ?? 0) <= 0) {
+            $this->bitacora['port'] = $this->default['port'];
         }
     }
 }
