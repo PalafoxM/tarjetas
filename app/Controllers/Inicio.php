@@ -448,7 +448,7 @@ class Inicio extends BaseController {
 
         $xmlPath = $tmpDir . DIRECTORY_SEPARATOR . $xmlName;
         $pdfPath = $tmpDir . DIRECTORY_SEPARATOR . $pdfName;
-        $prefix = 'ACTIVACIONFIC/FACTURAS';
+        $prefix = 'ACTIVACIONESFIC/FACTURAS';
         $xmlUrl = $this->uploadFileToS3($xmlPath, $prefix . '/' . $xmlName, 'application/xml');
         $pdfUrl = $this->uploadFileToS3($pdfPath, $prefix . '/' . $pdfName, 'application/pdf');
         $facturaGuardadaLocalmente = false;
