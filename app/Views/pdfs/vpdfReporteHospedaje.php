@@ -4,6 +4,7 @@ $subtitulo = (string) ($subtitulo ?? 'Establecimiento');
 $periodoLabel = (string) ($periodo_label ?? 'Sin registros de hospedaje');
 $rows = array_values(is_array($rows ?? null) ? $rows : []);
 $resumen = is_array($resumen ?? null) ? $resumen : [];
+$partida = (string) ($partida ?? '');
 
 $formatFecha = static function ($value): string {
     $value = trim((string) $value);
@@ -60,7 +61,7 @@ $formatTipoHabitacion = static function ($value): string {
         .summary .value { width: 30%; }
 
         .table-container { margin-top: 14px; }
-        table.report { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+        table.report { width: 100%; border-collapse: collapse; font-size: 8.5pt; table-layout: fixed; }
         table.report th, table.report td { border: 1px solid #9ca3af; padding: 4px 6px; vertical-align: top; }
         table.report th { background: #0f172a; color: #ffffff; text-align: left; font-weight: bold; }
         .money { text-align: right; font-weight: bold; }
@@ -89,6 +90,12 @@ $formatTipoHabitacion = static function ($value): string {
             <td class="label">Total tarifa</td>
             <td class="value money">$<?= number_format((float) ($resumen['total_tarifa'] ?? 0), 2) ?></td>
         </tr>
+        <?php if ($partida !== ''): ?>
+        <tr>
+            <td class="label">Partida</td>
+            <td class="value" colspan="3"><?= esc($partida) ?></td>
+        </tr>
+        <?php endif; ?>
     </table>
 
     <div class="table-container">
@@ -98,13 +105,13 @@ $formatTipoHabitacion = static function ($value): string {
             <table class="report">
                 <thead>
                     <tr>
-                        <th>Folio</th>
-                        <th>Huésped</th>
-                        <th>Fecha check-in</th>
-                        <th>Fecha check-out</th>
-                        <th>Tipo habitación</th>
-                        <th>Tarifa noche</th>
-                        <th>Observaciones</th>
+                        <th width="8%">Folio</th>
+                        <th width="30%">Huésped</th>
+                        <th width="13%">Fecha check-in</th>
+                        <th width="13%">Fecha check-out</th>
+                        <th width="12%">Tipo habitación</th>
+                        <th width="12%">Tarifa noche</th>
+                        <th width="12%">Observaciones</th>
                     </tr>
                 </thead>
                 <tbody>
