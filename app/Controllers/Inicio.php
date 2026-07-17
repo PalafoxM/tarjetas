@@ -5121,7 +5121,7 @@ class Inicio extends BaseController {
         if($factura['id_tipo']==1){
             $partida = '3390A';
             $folio = 'PT SECTURI/SSIDT/DGCT/FIC/TA/';
-        }else($factura['id_tipo']==2){
+        }else{
             $partida = '3390B';
             $folio = 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
          }
