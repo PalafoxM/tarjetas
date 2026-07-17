@@ -336,14 +336,14 @@ class Inicio extends BaseController {
             return [
                 'tipo' => 'hospedaje',
                 'label' => 'reporte de hospedaje',
-                'prefix' => 'ACTIVAVIONESFIC/REPORTES/HOSPEDAJE',
+                'prefix' => 'ACTIVACIONESFIC/REPORTES/HOSPEDAJE',
             ];
         }
 
         return [
             'tipo' => 'ventas',
             'label' => 'reporte de ventas',
-            'prefix' => 'ACTIVAVIONESFIC/REPORTES/VENTAS',
+            'prefix' => 'ACTIVACIONESFIC/REPORTES/VENTAS',
         ];
     }
 
