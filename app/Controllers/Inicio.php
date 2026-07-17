@@ -5080,7 +5080,7 @@ class Inicio extends BaseController {
                 f.id_tipo,
                 f.xml,
                 f.pdf,
-                f.id_estableciemiento AS id_establecimiento,
+                f.id_establecimiento,
                 f.id_estatus,
                 f.fec_reg,
                 f.usu_reg,
