@@ -1467,46 +1467,6 @@ class Inicio extends BaseController {
         $establecimientoPermitido = $this->resolveSessionEstablecimientoProveedorHospedaje($idEstablecimiento, $contextoUsuario);
         if (empty($establecimientoPermitido)) {
             return null;
-        $hospedaje = $Mglobal->getTabla([
-            'tabla' => 'vw_usuario',
-            'where' => [
-                'visible' => 1,
-                'id_establecimiento_hotel' => $idEstablecimiento,
-            ],
-            'order' => 'fecha_check_in ASC, id_usuario ASC',
-        ]);
-
-        $rows = [];
-        if (!empty($hospedaje->data)) {
-            $usuariosIds = array_map(function($row) {
-                return (int) $row->id_usuario;
-            }, $hospedaje->data);
-            
-            $partidasMap = [];
-            if (!empty($usuariosIds)) {
-                $db = \Config\Database::connect();
-                $partidasResult = $db->table('usuario u')
-                    ->select('u.id_usuario, cp.partida')
-                    ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
-                    ->whereIn('u.id_usuario', $usuariosIds)
-                    ->where('u.visible', 1)
-                    ->get()
-                    ->getResultArray();
-                
-                foreach ($partidasResult as $partidaRow) {
-                    $partida = trim((string) ($partidaRow['partida'] ?? ''));
-                    if ($partida !== '') {
-                        $partidasMap[(int) $partidaRow['id_usuario']] = $partida;
-                    }
-                }
-            }
-            
-            foreach ($hospedaje->data as $row) {
-                $rowArray = is_object($row) ? get_object_vars($row) : (array) $row;
-                $idUsuario = (int) ($rowArray['id_usuario'] ?? 0);
-                $rowArray['partida_usuario'] = $partidasMap[$idUsuario] ?? '';
-                $rows[] = $rowArray;
-            }
         }
 
         $establecimientoRow = $db->table('establecimiento')
@@ -1530,9 +1490,12 @@ class Inicio extends BaseController {
                 COALESCE(th.dsc_tipo_habitacion, u.id_tipo_habitacion) AS tipo_habitacion,
                 u.tarifa_noche,
                 u.tarifa_total,
-                u.observaciones_hospedaje
+                u.observaciones_hospedaje,
+                u.id_partida AS id_partida_usuario,
+                cp.partida AS partida_usuario
             ", false)
             ->join('cat_tipo_habitacion th', 'th.id_tipo_habitacion = u.id_tipo_habitacion', 'left')
+            ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
             ->where('u.visible', 1)
             ->where('u.tiene_hospedaje', 1)
             ->where('u.id_establecimiento_hotel', $idEstablecimiento)
