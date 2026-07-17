@@ -5090,7 +5090,7 @@ class Inicio extends BaseController {
                 p.razon_social,
                 p.rfc
             ')
-            ->join('establecimiento e', 'e.id_establecimiento = f.id_estableciemiento', 'left')
+            ->join('establecimiento e', 'e.id_establecimiento = f.id_establecimiento', 'left')
             ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
             ->where('f.id_factura', $idFactura)
             ->where('f.visible', 1)
