@@ -5070,13 +5070,14 @@ class Inicio extends BaseController {
         }
 
         $db = \Config\Database::connect();
-        if (!$db->tableExists('facturas')) {
+        if (!$db->tableExists('vw_factura')) {
             return null;
         }
 
-        $factura = $db->table('facturas f')
+        $factura = $db->table('vw_factura f')
             ->select('
                 f.id_factura,
+                f.id_tipo,
                 f.xml,
                 f.pdf,
                 f.id_estableciemiento AS id_establecimiento,
@@ -5117,11 +5118,16 @@ class Inicio extends BaseController {
             ->get()
             ->getResult();
 
-        //$banco = $Mglobal->getTabla(['tabla' => 'proveedor_banco', "where" => ["idproveedor" => $factura['id_proveedor'], "fic" => 1]])->data;
-
+        if($factura['id_tipo']==1){
+            $partida = '3390A';
+            $folio = 'PT SECTURI/SSIDT/DGCT/FIC/TA/';
+        }else($factura['id_tipo']==2){
+            $partida = '3390B';
+            $folio = 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
+         }
         $registro = (object) [
             'fecha_tramite' => $fecha,
-            'no_consecutivo' =>'PT SECTURI/SSIDT/DGCT/FIC/TA/' . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
+            'no_consecutivo' => $folio . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
             'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
             'rfc_proveedor' => $proveedorRfc,
             'nombre_proveedor_1' => $proveedorNombre,
