@@ -5120,14 +5120,14 @@ class Inicio extends BaseController {
 
         if($factura['id_tipo']==1){
             $partida = '3390A';
-            $folio = 'PT SECTURI/SSIDT/DGCT/FIC/TA/';
+            $folioPre = 'PT SECTURI/SSIDT/DGCT/FIC/TA/';
         }else{
             $partida = '3390B';
-            $folio = 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
+            $folioPre = 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
          }
         $registro = (object) [
             'fecha_tramite' => $fecha,
-            'no_consecutivo' => $folio . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
+            'no_consecutivo' => $folioPre . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT).'/2026',
             'no_proveedor' => (string) ($factura['no_proveedor'] ?? ''),
             'rfc_proveedor' => $proveedorRfc,
             'nombre_proveedor_1' => $proveedorNombre,
