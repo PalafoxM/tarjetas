@@ -83,7 +83,6 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                    data-page-size="50"
                    data-page-list="[5,10,25,50,100]"
                    data-show-columns="true"
-                   data-show-refresh="true"
                    data-locale="es-MX">
                 <thead>
                     <tr>
@@ -462,6 +461,26 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         return parts.length > 1 ? String(parts.pop() || '').toLowerCase() : '';
     },
 
+    actualizarFilaLocal(idUsuario, cambios) {
+        const table = $('#cajerosTable');
+        const rows = table.bootstrapTable('getData', { useCurrentPage: false, includeHiddenRows: true }) || [];
+        const index = rows.findIndex((item) => Number(item.id_usuario || item.ID_USUARIO || 0) === Number(idUsuario || 0));
+        if (index === -1) return;
+
+        const row = Object.assign({}, rows[index], cambios || {});
+        table.bootstrapTable('updateRow', {
+            index,
+            row
+        });
+    },
+
+    removerFilaLocal(idUsuario) {
+        const table = $('#cajerosTable');
+        const rows = table.bootstrapTable('getData', { useCurrentPage: false, includeHiddenRows: true }) || [];
+        const nextRows = rows.filter((item) => Number(item.id_usuario || item.ID_USUARIO || 0) !== Number(idUsuario || 0));
+        table.bootstrapTable('load', nextRows);
+    },
+
     acciones(value, row) {
         row = row || {};
         const idUsuario = Number(row.id_usuario || 0);
@@ -603,7 +622,10 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 return;
             }
 
-            $('#cajerosTable').bootstrapTable('refresh');
+            cajeros.actualizarFilaLocal(idUsuario, {
+                [response.campo || 'ine_firma_cajero']: response.ruta || '',
+                expediente_completo: true
+            });
             Swal.fire('Correcto', response.respuesta || 'Archivo guardado correctamente.', 'success');
         }).fail((request) => {
             const response = request.responseJSON || {};
@@ -643,7 +665,10 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 }
 
                 Swal.fire('Correcto', response.message || 'QR activado correctamente.', 'success');
-                $('#cajerosTable').bootstrapTable('refresh');
+                cajeros.actualizarFilaLocal(idUsuario, {
+                    activo_qr: 1,
+                    qr_activo: 1
+                });
             }).fail((request) => {
                 const response = request.responseJSON || {};
                 Swal.fire('Error', response.message || 'No fue posible activar el QR.', 'error');
@@ -713,7 +738,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                     Swal.fire('Atención', response.respuesta, 'warning');
                     return;
                 }
-                $('#cajerosTable').bootstrapTable('refresh');
+                cajeros.removerFilaLocal(idUsuario);
                 Swal.fire('Correcto', 'Cajero eliminado correctamente.', 'success');
             }, 'json').fail(() => Swal.fire('Error', 'No fue posible eliminar el cajero.', 'error'));
         });

@@ -353,7 +353,8 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
+        $idEstablecimientoSesion = (int) ($session->get('id_establecimiento') ?? 0);
+        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor')) && $idEstablecimientoSesion <= 0) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
                 'respuesta' => 'No tienes permisos para enviar facturas.',
@@ -369,6 +370,10 @@ class Inicio extends BaseController {
         }
 
         $establecimientosPermitidos = [];
+        if ($idEstablecimientoSesion > 0) {
+            $establecimientosPermitidos[] = $idEstablecimientoSesion;
+        }
+
         $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
         $establecimientosPermitidos = array_merge($establecimientosPermitidos, array_map(static function ($item): int {
             $row = is_object($item) ? get_object_vars($item) : (array) $item;
@@ -386,7 +391,7 @@ class Inicio extends BaseController {
         if (!in_array($idEstablecimiento, $establecimientosPermitidos, true)) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
-                'respuesta' => 'El establecimiento no pertenece al proveedor en sesion.',
+                'respuesta' => 'El establecimiento no pertenece a la sesion.',
             ]);
         }
 
@@ -443,7 +448,7 @@ class Inicio extends BaseController {
 
         $xmlPath = $tmpDir . DIRECTORY_SEPARATOR . $xmlName;
         $pdfPath = $tmpDir . DIRECTORY_SEPARATOR . $pdfName;
-        $prefix = 'ACTIVAVIONESFIC/FACTURAS';
+        $prefix = 'ACTIVACIONFIC/FACTURAS';
         $xmlUrl = $this->uploadFileToS3($xmlPath, $prefix . '/' . $xmlName, 'application/xml');
         $pdfUrl = $this->uploadFileToS3($pdfPath, $prefix . '/' . $pdfName, 'application/pdf');
         $facturaGuardadaLocalmente = false;

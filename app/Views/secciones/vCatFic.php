@@ -27,7 +27,6 @@
                    data-page-size="25"
                    data-page-list="[5,10,25,50,100]"
                    data-show-columns="true"
-                   data-show-refresh="true"
                    data-locale="es-MX">
                 <thead>
                     <tr>

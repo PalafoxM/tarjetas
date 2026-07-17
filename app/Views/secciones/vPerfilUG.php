@@ -72,7 +72,6 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
                    data-page-size="25"
                    data-page-list="[5,10,25,50,100]"
                    data-show-columns="true"
-                   data-show-refresh="true"
                    data-locale="es-MX">
                 <thead>
                     <tr>
@@ -117,7 +116,6 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
                        data-page-size="10"
                        data-page-list="[10,25,50,100]"
                        data-show-columns="false"
-                       data-show-refresh="true"
                        data-locale="es-MX">
                     <thead>
                         <tr>

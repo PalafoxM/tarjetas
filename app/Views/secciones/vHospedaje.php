@@ -9,7 +9,23 @@ $reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') 
             <h3 class="mb-1 text-white">Administracion de hospedaje</h3>
             <p class="text-muted mb-0">Consulta hospedaje.</p>
         </div>
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <label class="btn btn-outline-info btn-sm mb-0" for="hospedaje_factura_xml">
+                <i class="mdi mdi-file-xml-box me-1"></i> Subir XML
+                <input id="hospedaje_factura_xml" type="file" accept="application/xml,text/xml,.xml" class="d-none">
+            </label>
+            <label class="btn btn-outline-info btn-sm mb-0" for="hospedaje_factura_pdf">
+                <i class="mdi mdi-file-pdf-box me-1"></i> Subir PDF
+                <input id="hospedaje_factura_pdf" type="file" accept="application/pdf,.pdf" class="d-none">
+            </label>
+            <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                id="hospedaje_subir_documentos"
+                data-id-establecimiento="<?= esc((string) $reporteHospedajeEstablecimientoId, 'attr') ?>"
+                disabled>
+                <i class="mdi mdi-upload-outline me-1"></i> Cargar documentos
+            </button>
             <button
                 type="button"
                 class="btn btn-outline-info"
@@ -32,7 +48,7 @@ $reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') 
                    data-page-size="25"
                    data-page-list="[5,10,25,50,100]"
                    data-locale="es-MX"
-                   data-show-refresh="true">
+                   >
                 <thead>
                     <tr>
                         <th data-field="id_usuario" data-sortable="true">Folio</th>
@@ -53,6 +69,23 @@ $reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') 
 <script>
 window.establecimientos = {
     iniciar: function () {
+        var xmlInput = document.getElementById('hospedaje_factura_xml');
+        var pdfInput = document.getElementById('hospedaje_factura_pdf');
+        var subirDocumentosButton = document.getElementById('hospedaje_subir_documentos');
+
+        if (xmlInput && pdfInput && subirDocumentosButton) {
+            xmlInput.addEventListener('change', function () {
+                establecimientos.actualizarFacturaControls();
+            });
+            pdfInput.addEventListener('change', function () {
+                establecimientos.actualizarFacturaControls();
+            });
+            subirDocumentosButton.addEventListener('click', function () {
+                establecimientos.enviarFactura();
+            });
+            this.actualizarFacturaControls();
+        }
+
         if (typeof $.fn.bootstrapTable !== 'function') {
             console.error('Bootstrap Table no esta disponible.');
             Swal.fire('Error', 'No fue posible cargar el componente de la tabla.', 'error');
@@ -111,6 +144,90 @@ window.establecimientos = {
                 window.location.href = downloadUrl;
             });
         }
+    },
+
+    fileMatches: function (file, extension, mimeTypes) {
+        if (!file) return false;
+        var name = String(file.name || '').toLowerCase();
+        var type = String(file.type || '').toLowerCase();
+        return name.endsWith(extension) || mimeTypes.indexOf(type) !== -1;
+    },
+
+    facturaControls: function () {
+        return {
+            xml: document.getElementById('hospedaje_factura_xml'),
+            pdf: document.getElementById('hospedaje_factura_pdf'),
+            button: document.getElementById('hospedaje_subir_documentos')
+        };
+    },
+
+    actualizarFacturaControls: function () {
+        var controls = this.facturaControls();
+        if (!controls.button) return;
+
+        var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
+        var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+        var idEstablecimiento = String(controls.button.dataset.idEstablecimiento || '').trim();
+        var validXml = this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']);
+        var validPdf = this.fileMatches(pdfFile, '.pdf', ['application/pdf']);
+        controls.button.disabled = !(idEstablecimiento && validXml && validPdf);
+    },
+
+    enviarFactura: function () {
+        var controls = this.facturaControls();
+        var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
+        var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+        var idEstablecimiento = controls.button ? String(controls.button.dataset.idEstablecimiento || '').trim() : '';
+
+        if (!idEstablecimiento) {
+            Swal.fire('Atencion', 'No se encontro el establecimiento de la sesion.', 'warning');
+            return;
+        }
+
+        if (!this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']) || !this.fileMatches(pdfFile, '.pdf', ['application/pdf'])) {
+            Swal.fire('Atencion', 'Selecciona un XML y un PDF validos.', 'warning');
+            return;
+        }
+
+        var data = new FormData();
+        data.append('id_establecimiento', idEstablecimiento);
+        data.append('xml', xmlFile);
+        data.append('pdf', pdfFile);
+
+        controls.button.disabled = true;
+        Swal.fire({
+            title: 'Subiendo archivos',
+            text: 'Espera un momento...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: function () {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: base_url + 'index.php/Inicio/enviarFacturaProveedor',
+            type: 'POST',
+            dataType: 'json',
+            data: data,
+            processData: false,
+            contentType: false
+        }).done(function (response) {
+            if (!response || response.error) {
+                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible guardar la factura.', 'warning');
+                establecimientos.actualizarFacturaControls();
+                return;
+            }
+
+            if (controls.xml) controls.xml.value = '';
+            if (controls.pdf) controls.pdf.value = '';
+            establecimientos.actualizarFacturaControls();
+            Swal.fire('Correcto', response.respuesta || 'Factura guardada correctamente.', 'success');
+        }).fail(function (request) {
+            var response = request.responseJSON || {};
+            Swal.fire('Error', response.respuesta || 'No fue posible guardar la factura.', 'error');
+            establecimientos.actualizarFacturaControls();
+        });
     },
 
     valorHospedaje: function (value) {
