@@ -2681,11 +2681,11 @@ class Usuario extends BaseController
         $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
         $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
 
-        if (in_array($grupoUsuario, ['fic', 'ug'], true)) {
-            if ($tieneHospedaje) {
-                return 2;
-            }
+        if ($tieneHospedaje) {
+            return 2;
+        }
 
+        if (in_array($grupoUsuario, ['fic', 'ug'], true)) {
             if ($tieneAlimentos) {
                 return 3;
             }

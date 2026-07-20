@@ -856,6 +856,12 @@ class Inicio extends BaseController {
         return 'Sin partida';
     }
 
+    private function formatReportePartidaPublicLabel(string $partida): string
+    {
+        $partida = trim($partida);
+        return in_array(strtoupper($partida), ['3390A', '3390B'], true) ? '3390' : $partida;
+    }
+
     private function buildReporteVentasProveedorRows(array $dashboard): array
     {
         return array_values(is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : []);
@@ -967,7 +973,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
-        $partida = (string) ($layout['partida'] ?? '');
+        $partida = $this->formatReportePartidaPublicLabel((string) ($layout['partida'] ?? ''));
 
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
@@ -1293,7 +1299,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
-        $partida = (string) ($layout['partida'] ?? '');
+        $partida = $this->formatReportePartidaPublicLabel((string) ($layout['partida'] ?? ''));
 
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
@@ -1435,7 +1441,9 @@ class Inicio extends BaseController {
 
         $puedeExportarHospedaje = !empty($session->get('id_proveedor'))
             || !empty($contextoUsuario['is_provider_flow'])
-            || !empty($contextoUsuario['is_recepcion_flow']);
+            || !empty($contextoUsuario['is_recepcion_flow'])
+            || !empty($contextoUsuario['can_access_secturi_dashboard'])
+            || !empty($contextoUsuario['is_ti_master']);
 
         if (!$puedeExportarHospedaje) {
             return null;
@@ -1525,7 +1533,7 @@ class Inicio extends BaseController {
             }
             $totalTarifa += (float) ($row['tarifa_noche'] ?? 0);
 
-            $partidaActual = trim((string) ($row['partida_usuario'] ?? ''));
+            $partidaActual = $this->formatReportePartidaPublicLabel((string) ($row['partida_usuario'] ?? ''));
             if ($partidaActual !== '' && $partidaUnica === '') {
                 $partidaUnica = $partidaActual;
             }
@@ -1568,6 +1576,17 @@ class Inicio extends BaseController {
         }
 
         $db = \Config\Database::connect();
+        if (!empty($contextoUsuario['can_access_secturi_dashboard']) || !empty($contextoUsuario['is_ti_master'])) {
+            $row = $db->table('establecimiento e')
+                ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
+                ->where('e.visible', 1)
+                ->where('e.id_establecimiento', $idEstablecimiento)
+                ->get()
+                ->getRowArray();
+
+            return is_array($row) ? $row : [];
+        }
+
         $builder = $db->table('establecimiento e')
             ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
             ->join('usuario u', 'u.id_usuario = ' . $idUsuario, 'left')
@@ -1889,9 +1908,12 @@ class Inicio extends BaseController {
         $idSolicitudEdicion = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         $esRevisionAdministrativa = $idSolicitudEdicion > 0
             && strtolower(trim((string) ($this->request->getGet('origen') ?? ''))) === 'revision';
-        $backUrl = $grupo === 'fic'
-            ? base_url('index.php/Inicio/PerfilFic')
-            : base_url('index.php/Inicio/' . ucfirst($grupo));
+        $backRoutes = [
+            'fic' => 'PerfilFic',
+            'secul' => 'PerfilSecul',
+            'ug' => 'PerfilUg',
+        ];
+        $backUrl = base_url('index.php/Inicio/' . ($backRoutes[$grupo] ?? 'PerfilFic'));
         if ($esRevisionAdministrativa && (string) ($contextoUsuario['active_group'] ?? '') === 'secturi') {
             $backUrl = base_url('index.php/Inicio/SolicitudesUsuarioFic');
         }
@@ -3329,17 +3351,8 @@ class Inicio extends BaseController {
         }
         $payload['pax_total'] = max(1, (int) ($payload['pax_total'] ?? $payload['pax'] ?? $payload['pax_ui'] ?? 1));
 
-        $tieneHospedaje = (int) ($payload['tiene_hospedaje'] ?? 0) === 1;
-        $tieneAlimentos = (int) ($payload['tiene_alimentos'] ?? 0) === 1;
-
-        if ($tieneHospedaje) {
-            $payload['id_partida'] = 2;
-        } elseif ($tieneAlimentos) {
-            $payload['id_partida'] = 3;
-        } else {
-            $partida = (int) ($payload['id_partida'] ?? 0);
-            $payload['id_partida'] = in_array($partida, [1, 2, 3], true) ? $partida : 3;
-        }
+        $partida = (int) ($payload['id_partida'] ?? 0);
+        $payload['id_partida'] = in_array($partida, [1, 2, 3], true) ? $partida : 0;
 
         $payload = $this->synchronizeSolicitudFolioFields($payload);
 
@@ -5501,6 +5514,23 @@ class Inicio extends BaseController {
     }
 
 
+    private function getSolicitudAprobacionPartidaOptions(): array
+    {
+        try {
+            return \Config\Database::connect()
+                ->table('cat_partida')
+                ->select('id_partida, partida, des_partida')
+                ->where('visible', 1)
+                ->whereIn('id_partida', [1, 2, 3])
+                ->orderBy('id_partida', 'ASC')
+                ->get()
+                ->getResultArray();
+        } catch (\Throwable $e) {
+            log_message('error', 'Inicio.getSolicitudAprobacionPartidaOptions: ' . $e->getMessage());
+            return [];
+        }
+    }
+
     public function SolicitudesUsuarioFic()
     {
         $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
@@ -5529,6 +5559,7 @@ class Inicio extends BaseController {
         $data['solicitudesPuedeDecidirFolios'] = !empty($this->resolveFolioDecisionUsuario());
         $data['solicitudesPuedeGestionarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario);
         $data['solicitudesPuedeGestionarOperativo'] = !empty($tiUsuario) || !empty($secturiAdminUsuario);
+        $data['solicitudesPartidaOptions'] = $this->getSolicitudAprobacionPartidaOptions();
         $data['qrSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesActivacionQrFic');
         $data['operativoSolicitudListadoUrl'] = base_url('index.php/Inicio/getSolicitudesUsuarioOperativo');
         $data['operativoSolicitudDetalleUrl'] = base_url('index.php/Inicio/getSolicitudUsuarioOperativo');
@@ -6907,6 +6938,10 @@ class Inicio extends BaseController {
         }
 
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+        $idPartidaAprobacion = (int) ($this->request->getPost('id_partida') ?? 0);
+        if (!in_array($idPartidaAprobacion, [1, 2, 3], true)) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignara al folio antes de aprobar la solicitud.']);
+        }
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
@@ -6928,6 +6963,7 @@ class Inicio extends BaseController {
         }
         $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
         $payload = $this->normalizeSolicitudFolioPayload($grupoSolicitud, $payload);
+        $payload['id_partida'] = $idPartidaAprobacion;
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
@@ -7401,7 +7437,7 @@ class Inicio extends BaseController {
 
     private function getSolicitudesUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = ConfigServices::session();
+        $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -7417,7 +7453,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
         }
 
-        $db = ConfigDatabase::connect();
+        $db = \Config\Database::connect();
         $builder = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, c.' . $cfg['catalog_label'] . ' AS perfil_solicitado')
             ->join($cfg['catalog_table'] . ' c', 'c.' . $cfg['catalog_id'] . ' = su.id_perfil_solicitado', 'left')
@@ -7457,7 +7493,7 @@ class Inicio extends BaseController {
 
     private function getSolicitudUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = ConfigServices::session();
+        $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -7478,7 +7514,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no v?lida.']);
         }
 
-        $db = ConfigDatabase::connect();
+        $db = \Config\Database::connect();
         $row = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, c.' . $cfg['catalog_label'] . ' AS perfil_solicitado')
             ->join($cfg['catalog_table'] . ' c', 'c.' . $cfg['catalog_id'] . ' = su.id_perfil_solicitado', 'left')
@@ -7498,7 +7534,7 @@ class Inicio extends BaseController {
 
     private function guardarSolicitudUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = ConfigServices::session();
+        $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -7539,7 +7575,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Completa los campos obligatorios.']);
         }
 
-        $db = ConfigDatabase::connect();
+        $db = \Config\Database::connect();
         $perfilSolicitado = $db->table($cfg['catalog_table'])
             ->where($cfg['catalog_id'], $idPerfilSolicitado)
             ->where('visible', 1)
@@ -7633,7 +7669,7 @@ class Inicio extends BaseController {
 
     private function cancelarSolicitudUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = ConfigServices::session();
+        $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -7654,7 +7690,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no v?lida.']);
         }
 
-        $db = ConfigDatabase::connect();
+        $db = \Config\Database::connect();
         $solicitud = $db->table('solicitud_usuario')
             ->where('id_solicitud_usuario', $idSolicitud)
             ->where('visible', 1)

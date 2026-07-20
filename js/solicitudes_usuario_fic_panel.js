@@ -18,6 +18,7 @@
         canEditFolios: true,
         canDecideFolios: true,
         canManageQr: true,
+        partidaOptions: [],
         folioRejectUrl: '',
         previewModal: null,
         previewModalEl: null
@@ -62,6 +63,30 @@
             || fallback
             || 'No fue posible completar la operacion.'
         ).trim();
+    }
+
+    function parsePartidaOptions() {
+        var raw = state.root ? String(state.root.attr('data-partidas-json') || '[]') : '[]';
+        try {
+            var parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function buildPartidaOptionsHtml() {
+        var options = ['<option value="">Selecciona una partida...</option>'];
+        state.partidaOptions.forEach(function (partida) {
+            var idPartida = Number(partida && partida.id_partida ? partida.id_partida : 0);
+            if ([1, 2, 3].indexOf(idPartida) === -1) return;
+
+            var clave = String(partida.partida || '').trim();
+            var descripcion = String(partida.des_partida || '').trim();
+            var label = clave !== '' && descripcion !== '' ? clave + ' - ' + descripcion : (clave || descripcion || ('Partida ' + idPartida));
+            options.push('<option value="' + esc(idPartida) + '">' + esc(label) + '</option>');
+        });
+        return options.join('');
     }
 
     function badgeEstado(value) {
@@ -445,7 +470,7 @@
 
                     Swal.fire({
                         title: 'Editar solicitud de folio',
-                        html: '<div class="text-start mb-2 small text-muted">Ajusta el formulario JSON. La partida se recalculará automáticamente al guardar.</div><textarea id="solicitudFolioPayloadEditor" class="form-control" rows="18" style="font-family:monospace;font-size:.82rem;">' + esc(JSON.stringify(payload, null, 2)) + '</textarea>',
+                        html: '<div class="text-start mb-2 small text-muted">Ajusta el formulario JSON. La partida se asignará al momento de aprobar la solicitud.</div><textarea id="solicitudFolioPayloadEditor" class="form-control" rows="18" style="font-family:monospace;font-size:.82rem;">' + esc(JSON.stringify(payload, null, 2)) + '</textarea>',
                         width: 'min(980px, 96vw)',
                         showCancelButton: true,
                         confirmButtonText: 'Guardar cambios',
@@ -488,14 +513,33 @@
             .on('click.solicitudesFicPanel', '.js-fic-panel-aprobar', function () {
                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
                 if (!idSolicitud || !state.folioApproveUrl) return;
+                if (!state.partidaOptions.length) {
+                    Swal.fire('Atención', 'No hay partidas disponibles para aprobar la solicitud.', 'warning');
+                    return;
+                }
 
                 Swal.fire({
                     title: 'Aceptar solicitud',
-                    text: 'Se creará el folio con el mismo flujo de alta TI.',
+                    html: '<div class="text-start">'
+                        + '<p class="mb-3">Se creará el folio con el mismo flujo de alta TI.</p>'
+                        + '<label for="solicitudFolioPartidaAprobacion" class="form-label fw-semibold">Partida a asignar</label>'
+                        + '<select id="solicitudFolioPartidaAprobacion" class="form-select">'
+                        + buildPartidaOptionsHtml()
+                        + '</select>'
+                        + '<div class="form-text">Esta partida solo la ve el perfil autorizador y se aplicará al crear el folio.</div>'
+                        + '</div>',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Aceptar y crear folio',
-                    cancelButtonText: 'Volver'
+                    cancelButtonText: 'Volver',
+                    preConfirm: function () {
+                        var idPartida = Number($('#solicitudFolioPartidaAprobacion').val() || 0);
+                        if ([1, 2, 3].indexOf(idPartida) === -1) {
+                            Swal.showValidationMessage('Selecciona una partida antes de aprobar.');
+                            return false;
+                        }
+                        return idPartida;
+                    }
                 }).then(function (result) {
                     if (!result.isConfirmed) return;
 
@@ -503,7 +547,10 @@
                         url: state.folioApproveUrl,
                         method: 'POST',
                         dataType: 'json',
-                        data: $.extend({ id_solicitud_usuario: idSolicitud }, getCsrfPayload())
+                        data: $.extend({
+                            id_solicitud_usuario: idSolicitud,
+                            id_partida: result.value
+                        }, getCsrfPayload())
                     }).done(function (response) {
                         if (!response || response.ok !== true) {
                             Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible aprobar la solicitud.'), 'warning');
@@ -684,6 +731,7 @@
             state.canEditFolios = String(root.data('can-edit-folios') || '0') === '1';
             state.canDecideFolios = String(root.data('can-decide-folios') || '0') === '1';
             state.canManageQr = String(root.data('can-manage-qr') || '0') === '1';
+            state.partidaOptions = parsePartidaOptions();
             state.folioRejectUrl = root.data('folio-reject-url') || '';
             state.qrTable = $('#tablaSolicitudesActivacionQrFic');
             state.folioTable = $('#tablaSolicitudesFoliosFic');

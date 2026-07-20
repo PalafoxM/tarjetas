@@ -1671,6 +1671,16 @@ window.cajeros = {
         var wrapper = $('#partidaManualWrapper');
         var valor = String(hidden.val() || select.val() || '');
 
+        if (this.isSolicitudFolioMode) {
+            hidden.val('');
+            if (select.length) {
+                select.val('').prop('disabled', true).trigger('change.select2');
+            }
+            wrapper.addClass('d-none');
+            $('#id_partida_alimentos_ui, #id_partida_hospedaje_ui').val('');
+            return '';
+        }
+
         if (esTi) {
             hidden.val('');
             if (select.length) {
@@ -2246,12 +2256,14 @@ window.cajeros = {
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
 
-        if (!this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
+        if (!this.isSolicitudFolioMode && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
             Swal.fire('Atencion', 'Selecciona una partida antes de guardar.', 'warning');
             return;
         }
 
-        $('#id_partida').val(partida);
+        if (!this.isSolicitudFolioMode || partida !== '') {
+            $('#id_partida').val(partida);
+        }
         this.actualizarResumenAltaUsuario();
         this.asegurarHospedajePlanInicial();
 
@@ -2542,12 +2554,14 @@ window.cajeros = {
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
 
-        if (!this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
+        if (!this.isSolicitudFolioMode && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
             Swal.fire('Atención', 'Selecciona una partida antes de guardar.', 'warning');
             return;
         }
 
-        $('#id_partida').val(partida);
+        if (!this.isSolicitudFolioMode || partida !== '') {
+            $('#id_partida').val(partida);
+        }
          
         boton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Guardando...');
         

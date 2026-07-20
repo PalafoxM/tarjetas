@@ -16,6 +16,19 @@ $solicitudesPuedeEditarFolios = !empty($solicitudesPuedeEditarFolios);
 $solicitudesPuedeDecidirFolios = !empty($solicitudesPuedeDecidirFolios);
 $solicitudesPuedeGestionarQr = !empty($solicitudesPuedeGestionarQr);
 $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo);
+$solicitudesPartidaOptions = array_values(array_filter(array_map(static function ($partida) {
+    $idPartida = (int) ($partida['id_partida'] ?? 0);
+    if (!in_array($idPartida, [1, 2, 3], true)) {
+        return null;
+    }
+
+    return [
+        'id_partida' => $idPartida,
+        'partida' => (string) ($partida['partida'] ?? ''),
+        'des_partida' => (string) ($partida['des_partida'] ?? ''),
+    ];
+}, is_array($solicitudesPartidaOptions ?? null) ? $solicitudesPartidaOptions : [])));
+$solicitudesPartidaOptionsJson = json_encode($solicitudesPartidaOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 ?>
 <style>
     .solicitudes-card {
@@ -202,6 +215,7 @@ $solicitudesPuedeGestionarOperativo = !empty($solicitudesPuedeGestionarOperativo
     data-can-edit-folios="<?= $solicitudesPuedeEditarFolios ? '1' : '0' ?>"
     data-can-decide-folios="<?= $solicitudesPuedeDecidirFolios ? '1' : '0' ?>"
     data-can-manage-qr="<?= $solicitudesPuedeGestionarQr ? '1' : '0' ?>"
+    data-partidas-json="<?= esc($solicitudesPartidaOptionsJson ?: '[]', 'attr') ?>"
     data-folio-reject-url="<?= esc($ficSolicitudRechazarUrl, 'attr') ?>"
     data-qr-list-url="<?= esc($qrSolicitudListadoUrl, 'attr') ?>"
     data-qr-file-url="<?= esc(base_url('index.php/Inicio/verArchivoSolicitudQrFic'), 'attr') ?>"
