@@ -321,82 +321,101 @@ window.establecimientos = {
     },
 
     confirmarCheckIn: function (idUsuario, nombreCompleto) {
-        if (!idUsuario) return;
+    if (!idUsuario) return;
 
-        Swal.fire({
-            title: 'Registrar check in',
-            text: 'Se registrara el check in del hospedaje para ' + (nombreCompleto || 'el huesped') + '.',
-            icon: 'question',
-            input: 'textarea',
-            inputLabel: 'Observaciones (opcional)',
-            inputPlaceholder: 'Ej. huesped llego con identificacion verificada',
-            showCancelButton: true,
-            confirmButtonText: 'Si, registrar',
-            cancelButtonText: 'Cancelar',
-            preConfirm: function (observaciones) {
-                return $.ajax({
-                    url: base_url + 'index.php/Usuario/checkInHospedaje',
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        id_usuario: idUsuario,
-                        observaciones: observaciones
-                    }
-                }).then(function (response) {
-                    if (response.error) {
-                        throw new Error(response.respuesta || 'No fue posible registrar el check in.');
-                    }
-                    return response;
-                }).catch(function (error) {
-                    Swal.showValidationMessage(error.message || 'Error en la peticion.');
-                });
-            }
-        }).then(function (result) {
-            if (result.isConfirmed) {
-                Swal.fire('Check in registrado', 'El check in se ha registrado correctamente.', 'success');
-                $('#hospedajeTable').bootstrapTable('refresh');
-            }
-        });
-    },
+    
+    var idEstablecimiento = document.getElementById('hospedaje_subir_documentos')
+        ?.dataset?.idEstablecimiento || '0';
 
-    confirmarCheckOut: function (idUsuario, nombreCompleto) {
-        if (!idUsuario) return;
 
-        Swal.fire({
-            title: 'Registrar check out',
-            text: 'Se registrara el check out del hospedaje para ' + (nombreCompleto || 'el huesped') + '.',
-            icon: 'question',
-            input: 'textarea',
-            inputLabel: 'Observaciones (opcional)',
-            inputPlaceholder: 'Ej. entrega de habitacion verificada',
-            showCancelButton: true,
-            confirmButtonText: 'Si, registrar',
-            cancelButtonText: 'Cancelar',
-            preConfirm: function (observaciones) {
-                return $.ajax({
-                    url: base_url + 'index.php/Usuario/checkOutHospedaje',
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        id_usuario: idUsuario,
-                        observaciones: observaciones
-                    }
-                }).then(function (response) {
-                    if (response.error) {
-                        throw new Error(response.respuesta || 'No fue posible registrar el check out.');
-                    }
-                    return response;
-                }).catch(function (error) {
-                    Swal.showValidationMessage(error.message || 'Error en la peticion.');
-                });
-            }
-        }).then(function (result) {
-            if (result.isConfirmed) {
-                Swal.fire('Check out registrado', 'El check out se ha registrado correctamente.', 'success');
-                $('#hospedajeTable').bootstrapTable('refresh');
-            }
-        });
-    }
+    Swal.fire({
+        title: 'Registrar check in',
+        text: 'Se registrara el check in del hospedaje para ' + (nombreCompleto || 'el huesped') + '.',
+        icon: 'question',
+        input: 'textarea',
+        inputLabel: 'Observaciones (opcional)',
+        inputPlaceholder: 'Ej. huesped llego con identificacion verificada',
+        showCancelButton: true,
+        confirmButtonText: 'Si, registrar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: function (observaciones) {
+            var datos = {
+                id_usuario: idUsuario,
+                id_establecimiento: idEstablecimiento, 
+                observaciones: observaciones
+            };
+          
+
+            return $.ajax({
+                url: base_url + 'index.php/Usuario/checkInHospedaje',
+                type: 'POST',
+                dataType: 'json',
+                data: datos
+            }).then(function (response) {
+               
+                if (response.error) {
+                    throw new Error(response.respuesta || 'No fue posible registrar el check in.');
+                }
+                return response;
+            }).catch(function (error) {
+                Swal.showValidationMessage(error.message || 'Error en la peticion.');
+            });
+        }
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            Swal.fire('Check in registrado', 'El check in se ha registrado correctamente.', 'success');
+            $('#hospedajeTable').bootstrapTable('refresh');
+        }
+    });
+},
+
+confirmarCheckOut: function (idUsuario, nombreCompleto) {
+    if (!idUsuario) return;
+
+    
+    var idEstablecimiento = document.getElementById('hospedaje_subir_documentos')
+        ?.dataset?.idEstablecimiento || '0';
+
+   
+
+    Swal.fire({
+        title: 'Registrar check out',
+        text: 'Se registrara el check out del hospedaje para ' + (nombreCompleto || 'el huesped') + '.',
+        icon: 'question',
+        input: 'textarea',
+        inputLabel: 'Observaciones (opcional)',
+        inputPlaceholder: 'Ej. entrega de habitacion verificada',
+        showCancelButton: true,
+        confirmButtonText: 'Si, registrar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: function (observaciones) {
+            var datos = {
+                id_usuario: idUsuario,
+                id_establecimiento: idEstablecimiento, 
+                observaciones: observaciones
+            };
+
+            return $.ajax({
+                url: base_url + 'index.php/Usuario/checkOutHospedaje',
+                type: 'POST',
+                dataType: 'json',
+                data: datos
+            }).then(function (response) {
+                if (response.error) {
+                    throw new Error(response.respuesta || 'No fue posible registrar el check out.');
+                }
+                return response;
+            }).catch(function (error) {
+                Swal.showValidationMessage(error.message || 'Error en la peticion.');
+            });
+        }
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            Swal.fire('Check out registrado', 'El check out se ha registrado correctamente.', 'success');
+            $('#hospedajeTable').bootstrapTable('refresh');
+        }
+    });
+},
 };
 
 $(function () {

@@ -114,19 +114,7 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
             </div>
         </section>
 <?php else: ?>
-        <div class="d-flex flex-wrap gap-2 mb-3">
-            <?php foreach ($establecimientos as $index => $establecimiento): ?>
-                <?php $idEst = (int) ($establecimiento->id_establecimiento ?? 0); ?>
-                <button
-                    type="button"
-                    class="btn btn-outline-info establecimiento-tab<?= $index === 0 ? ' is-active active' : '' ?>"
-                    data-id-establecimiento="<?= esc((string) $idEst, 'attr') ?>"
-                    data-nombre="<?= esc((string) ($establecimiento->dsc_establecimiento ?? 'Establecimiento'), 'attr') ?>"
-                    aria-pressed="<?= $index === 0 ? 'true' : 'false' ?>">
-                    <?= esc((string) ($establecimiento->dsc_establecimiento ?? 'Establecimiento')) ?>
-                </button>
-            <?php endforeach; ?>
-        </div>
+       
 
         <section class="module-shell">
             <div class="module-body">
