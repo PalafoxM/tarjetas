@@ -1,7 +1,7 @@
 <?php
 $session = \Config\Services::session();
 $reporteHospedajeUrl = base_url('index.php/Inicio/exportarReporteHospedajePdf') . '?download=1';
-$reporteHospedajeEstablecimientoId = (int) ($session->get('id_establecimiento') ?? 0);
+$reporteHospedajeEstablecimientoId = (int) ($hospedajeEstablecimientoId ?? $session->get('id_establecimiento') ?? 0);
 ?>
 <div class="container-fluid py-4">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">

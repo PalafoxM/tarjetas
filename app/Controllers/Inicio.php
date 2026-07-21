@@ -213,7 +213,12 @@ class Inicio extends BaseController {
            }else{
              $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
             $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+            $idEstablecimiento = !empty($datosProveedor->data[0]->id_establecimiento)
+                ? (int) $datosProveedor->data[0]->id_establecimiento
+                : 0;
+            if ($idEstablecimiento > 0) {
+                $data['hospedajeEstablecimientoId'] = $idEstablecimiento;
+            }
            /*  $tabla = ["tabla" => "vw_usuario", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
             $cliente = $Mglobal->getTabla($tabla);
             $data['usuarioHotel'] = (!empty($cliente->data) && isset($cliente->data))?$cliente->data:[]; */
@@ -1621,6 +1626,7 @@ class Inicio extends BaseController {
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
+        $data['hospedajeEstablecimientoId'] = (int) ($this->request->getGet('id_establecimiento') ?? 0);
         $data['contentView'] = 'secciones/vHospedaje';
         $this->_renderView($data);
     }
