@@ -38,13 +38,13 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
      data-export-xlsx-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaXlsx'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
-            <h3 class="mb-1 text-white"><?= $cajeroSoloConsulta ? 'Consulta de usuarios y folios' : 'Administración de cajeros' ?></h3>
-            <p class="text-muted mb-0"><?= $cajeroSoloConsulta ? 'Consulta llegadas, documentos y órdenes sin modificar usuarios.' : 'Consulta, registra, edita o elimina cajeros.' ?></p>
+            <h3 class="mb-1 text-white"><?= $cajeroSoloConsulta ? 'Consulta de usuarios y folios' : 'AdministraciÃ³n de cajeros' ?></h3>
+            <p class="text-muted mb-0"><?= $cajeroSoloConsulta ? 'Consulta llegadas, documentos y Ã³rdenes sin modificar usuarios.' : 'Consulta, registra, edita o elimina cajeros.' ?></p>
         </div>
         <div class="d-flex flex-wrap gap-2 justify-content-end">
             <?php if ($cajeroAccesoTiInicio): ?>
             <a href="<?= esc($cajeroRegresarUrl, 'attr') ?>" class="btn btn-outline-secondary">
-                <i class="mdi mdi-arrow-left me-1"></i> Atrás
+                <i class="mdi mdi-arrow-left me-1"></i> AtrÃ¡s
             </a>
             <?php endif; ?>
             <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx">
@@ -59,21 +59,21 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
     </div>
 
     <?php if ($cajeroSoloConsulta): ?>
-        <div class="alert alert-info" role="status">Modo consulta: las acciones de carga, activación y eliminación están deshabilitadas para este perfil.</div>
+        <div class="alert alert-info" role="status">Modo consulta: las acciones de carga, activaciÃ³n y eliminaciÃ³n estÃ¡n deshabilitadas para este perfil.</div>
     <?php endif; ?>
 
     <div class="card">
         <div class="card-body">
             <div class="row g-2 align-items-end mb-3">
                 <div class="col-12 col-md-4 col-lg-3">
-                    <label class="form-label" for="filtro_dia_llegada">Día de llegada</label>
+                    <label class="form-label" for="filtro_dia_llegada">DÃ­a de llegada</label>
                     <input type="date" class="form-control" id="filtro_dia_llegada">
                 </div>
                 <div class="col-12 col-md-auto">
-                    <button type="button" class="btn btn-outline-light" id="limpiar_filtro_dia_llegada" disabled>Todos los días</button>
+                    <button type="button" class="btn btn-outline-light" id="limpiar_filtro_dia_llegada" disabled>Todos los dÃ­as</button>
                 </div>
                 <div class="col-12 col-md">
-                    <div class="text-muted small" id="filtro_dia_llegada_estado">Mostrando todos los folios por día de llegada.</div>
+                    <div class="text-muted small" id="filtro_dia_llegada_estado">Mostrando todos los folios por dÃ­a de llegada.</div>
                 </div>
             </div>
             <table id="cajerosTable"
@@ -137,9 +137,9 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                             <input class="form-control" name="usuario" id="usuario" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="contrasenia">Contraseña</label>
+                            <label class="form-label" for="contrasenia">ContraseÃ±a</label>
                             <input type="password" class="form-control" name="contrasenia" id="contrasenia">
-                            <small class="text-muted">En edición, déjala vacía para conservar la actual.</small>
+                            <small class="text-muted">En ediciÃ³n, dÃ©jala vacÃ­a para conservar la actual.</small>
                         </div>
                     </div>
                 </div>
@@ -175,7 +175,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <a href="#" id="cajeroDocumentosOpen" class="btn btn-outline-info disabled" target="_blank" rel="noopener">Abrir en nueva pestaña</a>
+                <a href="#" id="cajeroDocumentosOpen" class="btn btn-outline-info disabled" target="_blank" rel="noopener">Abrir en nueva pestaÃ±a</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -198,7 +198,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     iniciar() {
         if (typeof $.fn.bootstrapTable !== 'function') {
-            console.error('Bootstrap Table no está disponible.');
+            console.error('Bootstrap Table no estÃ¡ disponible.');
             Swal.fire('Error', 'No fue posible cargar el componente de la tabla.', 'error');
             return;
         }
@@ -217,7 +217,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 } else if (response && Array.isArray(response.rows)) {
                     rows = response.rows;
                 } else {
-                    console.error('Respuesta inválida al cargar cajeros:', response);
+                    console.error('Respuesta invÃ¡lida al cargar cajeros:', response);
                     return [];
                 }
 
@@ -267,7 +267,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     },
 
     estado(value) {
-        if (Number(value) === 1) return '<span class="badge bg-success">Sí</span>';
+        if (Number(value) === 1) return '<span class="badge bg-success">SÃ­</span>';
         if (Number(value) === 2 || Number(value) === 0) return '<span class="badge bg-danger">No</span>';
         return '<span class="badge bg-secondary">Pendiente</span>';
     },
@@ -280,7 +280,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const pagina = document.getElementById('cajeroPage');
         const baseUrl = pagina ? String(pagina.dataset.exportXlsxUrl || '').trim() : '';
         if (!baseUrl) {
-            Swal.fire('Atención', 'No fue posible resolver la ruta de descarga.', 'warning');
+            Swal.fire('AtenciÃ³n', 'No fue posible resolver la ruta de descarga.', 'warning');
             return;
         }
 
@@ -362,7 +362,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     abrirDocumento(url) {
         const documentoUrl = cajeros.normalizarUrlDocumento(url);
         if (!documentoUrl) {
-            Swal.fire('Atención', 'No hay documento disponible.', 'warning');
+            Swal.fire('AtenciÃ³n', 'No hay documento disponible.', 'warning');
             return;
         }
         window.open(documentoUrl, '_blank', 'noopener');
@@ -397,7 +397,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const rows = $('#cajerosTable').bootstrapTable('getData', { useCurrentPage: false }) || [];
         const row = rows.find((item) => Number(item.id_usuario || 0) === Number(idUsuario || 0));
         if (!row) {
-            Swal.fire('Atención', 'No fue posible resolver los documentos del usuario.', 'warning');
+            Swal.fire('AtenciÃ³n', 'No fue posible resolver los documentos del usuario.', 'warning');
             return;
         }
 
@@ -425,7 +425,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     abrirDocumento(field) {
         const doc = (this.documentosActuales || []).find((item) => item.field === field);
         if (!doc || doc.path === '') {
-            Swal.fire('Atención', 'No hay archivo disponible.', 'warning');
+            Swal.fire('AtenciÃ³n', 'No hay archivo disponible.', 'warning');
             return;
         }
 
@@ -449,7 +449,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         } else if (ext === 'pdf') {
             preview = '<iframe src="' + safeUrl + '" title="' + safeLabel + '"></iframe>';
         } else {
-            preview = '<div class="alert alert-info m-3">No hay vista previa para este tipo de archivo. Usa el botón para abrirlo en una nueva pestaña.</div>';
+            preview = '<div class="alert alert-info m-3">No hay vista previa para este tipo de archivo. Usa el botÃ³n para abrirlo en una nueva pestaÃ±a.</div>';
         }
 
         $('#cajeroDocumentosPreview').attr('class', previewClass).html(preview);
@@ -496,25 +496,16 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                     </button>
                 </div>`;
         }
-        const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
-        const botonActivarQr = qrActivo
-            ? `<button class="btn btn-outline-success" type="button" title="QR ya activo" disabled>
+        const botonActivarQr = cajeroPuedeActivarQr
+            ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">
                     <i class="mdi mdi-qrcode-check"></i> Activar QR
                 </button>`
-            : cajeroPuedeActivarQr
-                ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">
-                        <i class="mdi mdi-qrcode-check"></i> Activar QR
-                    </button>`
-                : `<button class="btn btn-outline-secondary" type="button" title="No tienes permisos para activar QR" disabled>
-                        <i class="mdi mdi-qrcode-check"></i> Activar QR
-                    </button>`;
-        const botonRechazarQr = qrActivo
-            ? `<button class="btn btn-outline-danger" type="button" title="Rechazar activaci�n QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})">
-                    <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
-                </button>`
-            : `<button class="btn btn-outline-secondary" type="button" title="No se puede rechazar hasta que el QR est� activo" disabled>
-                    <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
+            : `<button class="btn btn-outline-secondary" type="button" title="No tienes permisos para activar QR" disabled>
+                    <i class="mdi mdi-qrcode-check"></i> Activar QR
                 </button>`;
+        const botonRechazarQr = `<button class="btn btn-outline-danger" type="button" title="Rechazar activación QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})">
+                <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
+            </button>`;
         let botones = `
             <div class="cajero-actions">
               
@@ -543,13 +534,12 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             return true;
         }
 
-        return [
-            row.qr,
-            row.ine_firma_cajero,
-            row.ine_frontal,
-            row.ine_trasera,
-            row.firma
-        ].some((path) => String(path || '').trim() !== '');
+        const pdfIneYFirma = String(row.ine_firma_cajero || '').trim() !== '';
+        const ineCompleta = String(row.ine_frontal || '').trim() !== ''
+            && String(row.ine_trasera || '').trim() !== ''
+            && String(row.firma || '').trim() !== '';
+
+        return pdfIneYFirma || ineCompleta;
     },
 
     seleccionarFirmaCajero(idUsuario) {
@@ -661,11 +651,11 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         }
 
         Swal.fire({
-            title: '¿Estas seguro de activar QR?',
-            text: 'Se marcará el QR del usuario como activo.',
+            title: 'Â¿Estas seguro de activar QR?',
+            text: 'Se marcarÃ¡ el QR del usuario como activo.',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, activar',
+            confirmButtonText: 'SÃ­, activar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (!result.isConfirmed) return;
@@ -677,7 +667,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 data: { id_usuario: idUsuario }
             }).done((response) => {
                 if (!response || response.success !== true) {
-                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
+                    Swal.fire('AtenciÃƒÂ³n', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
                     return;
                 }
 
@@ -697,11 +687,11 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         if (!idUsuario) return;
 
         Swal.fire({
-            title: '¿Rechazar activación QR?',
-            text: 'Se retirará la activación y el usuario podrá iniciar nuevamente su proceso.',
+            title: 'Â¿Rechazar activaciÃ³n QR?',
+            text: 'Se retirarÃ¡ la activaciÃ³n y el usuario podrÃ¡ iniciar nuevamente su proceso.',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sí, rechazar',
+            confirmButtonText: 'SÃ­, rechazar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (!result.isConfirmed) return;
@@ -713,11 +703,11 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 data: { id_usuario: idUsuario }
             }).done((response) => {
                 if (!response || response.success !== true) {
-                    Swal.fire('Atención', response && response.message ? response.message : 'No fue posible rechazar la activación del QR.', 'warning');
+                    Swal.fire('AtenciÃ³n', response && response.message ? response.message : 'No fue posible rechazar la activaciÃ³n del QR.', 'warning');
                     return;
                 }
 
-                Swal.fire('Correcto', response.message || 'La activación fue rechazada.', 'success');
+                Swal.fire('Correcto', response.message || 'La activaciÃ³n fue rechazada.', 'success');
                 cajeros.actualizarFilaLocal(idUsuario, {
                     activo_qr: 0,
                     qr_activo: 0,
@@ -730,7 +720,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 });
             }).fail((request) => {
                 const response = request.responseJSON || {};
-                Swal.fire('Error', response.message || 'No fue posible rechazar la activación del QR.', 'error');
+                Swal.fire('Error', response.message || 'No fue posible rechazar la activaciÃ³n del QR.', 'error');
             });
         });
     },
@@ -771,7 +761,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             data: $('#cajeroForm').serialize()
         }).done((response) => {
             if (response.error) {
-                Swal.fire('Atención', response.respuesta, 'warning');
+                Swal.fire('AtenciÃ³n', response.respuesta, 'warning');
                 return;
             }
             if (this.modal) this.modal.hide();
@@ -783,8 +773,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     eliminar(idUsuario) {
         Swal.fire({
-            title: '¿Eliminar cajero?',
-            text: 'El registro dejará de mostrarse en la tabla.',
+            title: 'Â¿Eliminar cajero?',
+            text: 'El registro dejarÃ¡ de mostrarse en la tabla.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Eliminar',
@@ -794,7 +784,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
             $.post(base_url + 'index.php/Usuario/deleteUsuario', { id_usuario: idUsuario }, (response) => {
                 if (response.error) {
-                    Swal.fire('Atención', response.respuesta, 'warning');
+                    Swal.fire('AtenciÃ³n', response.respuesta, 'warning');
                     return;
                 }
                 cajeros.removerFilaLocal(idUsuario);
