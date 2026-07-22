@@ -1886,15 +1886,21 @@ class Inicio extends BaseController {
     public function Cajero()
     {
         $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
+        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
 
-        if (empty($usuarioDashboard)) {
+        if (empty($usuarioDashboard) && empty($usuarioCapazQr)) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['cajeroAccesoTiInicio'] = true;
-        $data['cajeroSoloConsulta'] = empty($this->resolveSecturiAdminUsuario());
+        $data['cajeroPuedeRechazarQr'] = !empty($usuarioCapazQr);
+        $data['cajeroPuedeActivarQr'] = !empty($usuarioCapazQr);
+        $data['cajeroPuedeGestionarQr'] = !empty($data['cajeroPuedeRechazarQr']) || !empty($data['cajeroPuedeActivarQr']);
+        $data['cajeroSoloConsulta'] = empty($data['cajeroPuedeGestionarQr']);
         $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
         $data['contentView'] = 'secciones/vCajero';
         $this->_renderView($data);
@@ -6034,17 +6040,12 @@ class Inicio extends BaseController {
     public function activarQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
-        if (empty($tiUsuario)) {
-            $resolver = new UsuarioPerfilResolver();
-            $contextoUsuario = $resolver->resolve(\Config\Services::session()->get());
-            $esCajeroSecturi = (string) ($contextoUsuario['active_group'] ?? '') === 'secturi'
-                && (int) ($contextoUsuario['group_role'] ?? 0) === 4;
-            if (!$esCajeroSecturi) {
-                return $this->response->setStatusCode(403)->setJSON([
-                    'success' => false,
-                    'message' => 'No tienes permisos para activar usuarios.',
-                ]);
-            }
+        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
+        if (empty($tiUsuario) && empty($usuarioCapazQr)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'No tienes permisos para activar usuarios.',
+            ]);
         }
        
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
@@ -6099,7 +6100,8 @@ class Inicio extends BaseController {
             ]);
         }
         $service = new DepositosProgramadosService($db);
-        $result = $service->activateQrAndApplyDeposits($idUsuario, (int) ($tiUsuario['id_usuario'] ?? 0));
+        $actorId = (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0));
+        $result = $service->activateQrAndApplyDeposits($idUsuario, $actorId);
         if (!empty($result->error)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
@@ -6118,7 +6120,8 @@ class Inicio extends BaseController {
     public function rechazarActivacionQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
-        if (empty($tiUsuario)) {
+        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
+        if (empty($tiUsuario) && empty($usuarioCapazQr)) {
             return $this->response->setStatusCode(403)->setJSON([
                 'success' => false,
                 'message' => 'No tienes permisos para rechazar solicitudes de QR.',
@@ -6157,11 +6160,13 @@ class Inicio extends BaseController {
             ->where('id_usuario', $idUsuario)
             ->update([
                 'activo_qr' => 0,
+                'qr' => null,
+                'ine_firma_cajero' => null,
                 'ine_frontal' => null,
                 'ine_trasera' => null,
                 'firma' => null,
                 'fec_act' => date('Y-m-d H:i:s'),
-                'usu_act' => (int) ($tiUsuario['id_usuario'] ?? 0),
+                'usu_act' => (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0)),
             ]);
 
         return $this->response->setJSON([
@@ -6691,6 +6696,42 @@ class Inicio extends BaseController {
     private function resolveSecturiDashboardUsuario(): array
     {
         return $this->resolveUsuarioPorCapacidad('can_access_secturi_dashboard');
+    }
+
+    private function resolveUsuarioCapazQr(): array
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $usuario = $db->table('usuario')
+            ->select('id_usuario, id_perfil, id_proveedor, id_tipo_proveedor, id_fic_perfil, id_ug_perfil, id_secul_perfil, id_secturi_perfil, visible')
+            ->where('id_usuario', $idUsuario)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuario)) {
+            return [];
+        }
+
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($usuario);
+        $grupo = (string) ($contextoUsuario['active_group'] ?? '');
+        $rol = (int) ($contextoUsuario['group_role'] ?? 0);
+
+        if (!empty($contextoUsuario['is_ti_master'])) {
+            return $usuario;
+        }
+
+        if ($grupo === 'secturi' && in_array($rol, [1, 2, 4], true)) {
+            return $usuario;
+        }
+
+        return [];
     }
 
     private function resolveFolioDecisionUsuario(): array
