@@ -3788,9 +3788,24 @@ class Inicio extends BaseController {
         return $this->renderPerfilUgHub('consulta');
     }
 
+    public function PerfilFic()
+    {
+        return $this->renderPerfilFicHub('admin');
+    }
+
+    public function PerfilFicConsulta()
+    {
+        return $this->renderPerfilFicHub('consulta');
+    }
+
     private function renderPerfilSeculHub(string $modo = 'admin')
     {
         return $this->renderPerfilCatalogoHub('secul', $modo);
+    }
+
+    private function renderPerfilFicHub(string $modo = 'admin')
+    {
+        return $this->renderPerfilCatalogoHub('fic', $modo);
     }
 
     private function renderPerfilUgHub(string $modo = 'admin')
@@ -4234,6 +4249,23 @@ class Inicio extends BaseController {
     private function getSolicitudCatalogoConfig(string $grupo): array
     {
         $configs = [
+            'fic' => [
+                'label' => 'FIC',
+                'view' => 'secciones/vPerfilFic',
+                'mode_key' => 'perfilFicMode',
+                'can_create_key' => 'ficSolicitudPuedeCrear',
+                'perfil_options_key' => 'ficSolicitudPerfilOptions',
+                'list_url_key' => 'ficSolicitudListadoUrl',
+                'detail_url_key' => 'ficSolicitudDetalleUrl',
+                'save_url_key' => 'ficSolicitudGuardarUrl',
+                'cancel_url_key' => 'ficSolicitudCancelarUrl',
+                'establecimiento_id_key' => 'ficSolicitudEstablecimientoId',
+                'catalog_table' => 'cat_fic',
+                'catalog_id' => 'id_fic_perfil',
+                'catalog_label' => 'dsc_perfil',
+                'tipo_solicitud' => 'alta_usuario_fic',
+                'usuario_group_field' => 'id_fic_perfil',
+            ],
             'secul' => [
                 'label' => 'SECUL',
                 'view' => 'secciones/vPerfilSecul',
