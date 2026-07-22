@@ -673,7 +673,7 @@ class Inicio extends BaseController {
 
         $idUsuario = (int) $session->get('id_usuario');
         if ($idUsuario <= 0) {
-            return $this->response->setStatusCode(401)->setBody('SesiÃƒÂ³n invÃƒÂ¡lida.');
+            return $this->response->setStatusCode(401)->setBody('Sesión inválida.');
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
@@ -707,7 +707,7 @@ class Inicio extends BaseController {
             ->setFontBold()
             ->build();
 
-        $writer->addRow(WriterEntityFactory::createRowFromArray(['SECRETARÃƒÂA DE TURISMO E IDENTIDAD', '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray(['SECRETARíA DE TURISMO E IDENTIDAD', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['53 FESTIVAL INTERNACIONAL CERVANTINO', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['REPORTE DE CONSUMOS FACTURADOS', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray([$this->buildReporteVentasPeriodoLabel($rows), '', '', '', '', ''], $titleStyle));
@@ -948,7 +948,7 @@ class Inicio extends BaseController {
         if ($tipoDetectado !== '' && (str_contains($tipoDetectado, 'hotel') || str_contains($tipoDetectado, 'recep'))) {
             $layout['slug'] = 'hotel';
             $layout['titulo'] = 'Reporte de hoteles';
-            $layout['subtitulo'] = $nombreDetectado !== '' ? $nombreDetectado : 'RecepciÃƒÂ³n';
+            $layout['subtitulo'] = $nombreDetectado !== '' ? $nombreDetectado : 'Recepción';
             $layout['etiqueta_establecimiento'] = 'Hotel';
             $layout['accent'] = '#1d4ed8';
             $layout['accent_soft'] = '#dbeafe';
@@ -1053,7 +1053,7 @@ class Inicio extends BaseController {
         </head>
         <body>
             <div class="header">
-                <div class="title-main">SECRETARÃƒÂA DE TURISMO E IDENTIDAD</div>
+                <div class="title-main">SECRETARíA DE TURISMO E IDENTIDAD</div>
                 <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
                 <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
                 <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
@@ -1075,8 +1075,8 @@ class Inicio extends BaseController {
                             <th>Orden pago</th>
                             <th>Fecha</th>
                             <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                            <th>ÃƒÂtem</th>
-                            <th>TransacciÃƒÂ³n</th>
+                            <th>ítem</th>
+                            <th>Transacción</th>
                             <th>Importe</th>
                         </tr>
                     </thead>
@@ -1631,7 +1631,7 @@ class Inicio extends BaseController {
         </head>
         <body>
             <div class="header">
-                <div class="title-main">SECRETARÃƒÂA DE TURISMO E IDENTIDAD</div>
+                <div class="title-main">SECRETARíA DE TURISMO E IDENTIDAD</div>
                 <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
                 <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
                 <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
@@ -1653,8 +1653,8 @@ class Inicio extends BaseController {
                             <th>Orden pago</th>
                             <th>Fecha</th>
                             <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                            <th>ÃƒÂtem</th>
-                            <th>TransacciÃƒÂ³n</th>
+                            <th>ítem</th>
+                            <th>Transacción</th>
                             <th>Importe</th>
                         </tr>
                     </thead>
@@ -1920,7 +1920,7 @@ class Inicio extends BaseController {
         $data['partidasDashboardSeed'] = $this->buildPartidasDashboardSeed();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando la vista de partidas sin cambiar la sesiÃƒÂ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando la vista de partidas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vPartidasFic';
         $this->_renderView($data);
     }
@@ -1957,7 +1957,7 @@ class Inicio extends BaseController {
         $data['establecimientosBandeja'] = $this->buildPagosFicEstablecimientosData();
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando el historial global de pagos sin cambiar la sesiÃƒÂ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de pagos sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vPagosFic';
         $this->_renderView($data);
     }
@@ -1976,7 +1976,7 @@ class Inicio extends BaseController {
         $data['facturasArchivoUrl'] = base_url('index.php/Inicio/verFacturaProveedorArchivo');
         $data['previewInterfaceActiva'] = true;
         $data['previewInterfaceLabel'] = 'Vista de referencia';
-        $data['previewInterfaceDescripcion'] = 'EstÃƒÂ¡s consultando el historial global de facturas sin cambiar la sesiÃƒÂ³n autenticada.';
+        $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de facturas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vFacturasFic';
         $this->_renderView($data);
     }
@@ -2010,7 +2010,7 @@ class Inicio extends BaseController {
             [
                 'key' => 'secul',
                 'label' => 'SECUL',
-                'title' => 'SecretarÃƒÂ­a de Cultura',
+                'title' => 'Secretarí­a de Cultura',
                 'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
                 'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
                 'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
@@ -2185,7 +2185,7 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $usuario = $db->table('usuario')
-            ->select('id_usuario, visible')
+            ->select('id_usuario, visible, qr')
             ->where('id_usuario', $idUsuario)
             ->get()
             ->getRowArray();
@@ -2207,6 +2207,7 @@ class Inicio extends BaseController {
             ->where('id_usuario', $idUsuario)
             ->update([
                 'activo_qr' => 0,
+                'qr' => $usuario['qr'] ?? null,
                 'ine_firma_cajero' => null,
                 'ine_frontal' => null,
                 'ine_trasera' => null,
@@ -2951,7 +2952,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseÃƒÂ±a.',
+                'message' => 'Completa usuario y contraseí±a.',
             ]);
         }
 
@@ -3131,7 +3132,7 @@ class Inicio extends BaseController {
             $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
-                'message' => 'No fue posible finalizar la aprobaciÃƒÂ³n.',
+                'message' => 'No fue posible finalizar la aprobación.',
             ]);
         }
 
@@ -3212,7 +3213,7 @@ class Inicio extends BaseController {
         $db->transCommit();
         if (!empty($solicitud)) {
             if (!$this->createSolicitudRechazadaNotification($solicitud, $motivo, $motivo)) {
-                log_message('warning', 'Inicio.rechazarSolicitudUsuarioOperativo: no se pudo crear la notificaciÃƒÂ³n para la solicitud ' . $idSolicitud);
+                log_message('warning', 'Inicio.rechazarSolicitudUsuarioOperativo: no se pudo crear la notificación para la solicitud ' . $idSolicitud);
             }
         }
 
@@ -3352,12 +3353,12 @@ class Inicio extends BaseController {
 
         $idSolicitud = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         if ($idSolicitud <= 0) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃƒÂ¡lida.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
 
         $row = $this->findSolicitudNuevoFolioTi($idSolicitud);
         if (empty($row)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontrÃƒÂ³ la solicitud.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la solicitud.']);
         }
 
         return $this->response->setJSON(['ok' => true, 'data' => $this->mapSolicitudUsuarioFicPerfilRow($row)]);
@@ -3373,19 +3374,19 @@ class Inicio extends BaseController {
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
         $idPartidaAprobacion = (int) ($this->request->getPost('id_partida') ?? 0);
         if ($idSolicitud <= 0) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃƒÂ¡lida.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
 
         $db = \Config\Database::connect();
         $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
         if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
             $estatusActual = trim((string) ($solicitud['estatus'] ?? 'desconocido'));
-            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud institucional ya no estÃƒÂ¡ pendiente. Estatus actual: ' . $estatusActual . '.']);
+            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud institucional ya no está pendiente. Estatus actual: ' . $estatusActual . '.']);
         }
 
         $esSolicitudEdicion = $this->isSolicitudEdicionInstitucional($solicitud);
         if (!$esSolicitudEdicion && !in_array($idPartidaAprobacion, [1, 2, 3], true)) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignarÃƒÂ¡ al folio antes de aprobar la solicitud.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignará al folio antes de aprobar la solicitud.']);
         }
 
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
@@ -3393,7 +3394,7 @@ class Inicio extends BaseController {
         if (empty($payload)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Esta solicitud fue capturada con el formato anterior y no contiene los datos completos para crear el folio. RechÃƒÂ¡zala y solicita que se capture nuevamente desde Solicitud de nuevo folio.',
+                'message' => 'Esta solicitud fue capturada con el formato anterior y no contiene los datos completos para crear el folio. Recházala y solicita que se capture nuevamente desde Solicitud de nuevo folio.',
             ]);
         }
         $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
@@ -3420,7 +3421,7 @@ class Inicio extends BaseController {
             if (!is_array($saveBody) || !empty($saveBody['error'])) {
                 return $this->response->setStatusCode(409)->setJSON([
                     'ok' => false,
-                    'message' => (string) ($saveBody['respuesta'] ?? 'No fue posible aplicar la ediciÃƒÂ³n solicitada.'),
+                    'message' => (string) ($saveBody['respuesta'] ?? 'No fue posible aplicar la edición solicitada.'),
                 ]);
             }
 
@@ -3433,7 +3434,7 @@ class Inicio extends BaseController {
                 'usu_act' => (int) ($session->get('id_usuario') ?? 0),
             ]);
 
-            return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y ediciÃƒÂ³n aplicada correctamente.']);
+            return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y edición aplicada correctamente.']);
         }
         $payload['id_partida'] = $idPartidaAprobacion;
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
@@ -3447,7 +3448,7 @@ class Inicio extends BaseController {
         $resolver = new UsuarioPerfilResolver();
         $actorContext = $resolver->resolve($session->get());
         if (empty($actorContext['is_ti_master'])) {
-            // La elevaciÃƒÂ³n es local a esta aprobaciÃƒÂ³n y conserva el grupo solicitado en el payload.
+            // La elevación es local a esta aprobación y conserva el grupo solicitado en el payload.
             $actorContext['is_ti_master'] = true;
             $actorContext['can_edit_user_catalog'] = true;
         }
@@ -3488,7 +3489,7 @@ class Inicio extends BaseController {
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
         $payloadJson = trim((string) ($this->request->getPost('payload_json') ?? ''));
         if ($idSolicitud <= 0 || $payloadJson === '') {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud o formulario no vÃƒÂ¡lido.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud o formulario no válido.']);
         }
 
         $solicitud = $this->findSolicitudNuevoFolioTi($idSolicitud);
@@ -3503,7 +3504,7 @@ class Inicio extends BaseController {
 
         $payloadEditado = json_decode($payloadJson, true);
         if (!is_array($payloadEditado)) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'El formulario editado no tiene formato JSON vÃƒÂ¡lido.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'El formulario editado no tiene formato JSON válido.']);
         }
 
         $grupo = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payloadEditado);
@@ -3572,7 +3573,7 @@ class Inicio extends BaseController {
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
         $motivo = trim((string) ($this->request->getPost('motivo') ?? ''));
         if ($idSolicitud <= 0) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no vÃƒÂ¡lida.']);
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
         if ($motivo === '') {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Captura el motivo de rechazo.']);
@@ -3643,7 +3644,7 @@ class Inicio extends BaseController {
             $db = \Config\Database::connect(null, false);
             $insertData = [
                 'titulo' => 'Solicitud rechazada',
-                'mensaje' => 'Hay una solicitud ' . $grupoLabel . ' rechazada pendiente de revisiÃƒÂ³n.',
+                'mensaje' => 'Hay una solicitud ' . $grupoLabel . ' rechazada pendiente de revisión.',
                 'tipo' => 'SOLICITUD_ALTA_RECHAZADA',
                 'data_json' => json_encode($notificationData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'visible' => 1,
@@ -3816,7 +3817,7 @@ class Inicio extends BaseController {
         $data['scripts'] = ['principal', 'agregar'];
         $data['hubTitle'] = 'Centro de Acceso SECTURI';
         $data['hubSubtitle'] = $modo === 'consulta'
-            ? 'Consulta institucional SECTURI con autorizaciÃƒÂ³n para aprobar o rechazar solicitudes de folio.'
+            ? 'Consulta institucional SECTURI con autorización para aprobar o rechazar solicitudes de folio.'
             : 'Acceso institucional SECTURI con capacidades operativas equivalentes al perfil TI.';
         $data['inicioModoConsulta'] = $modo === 'consulta';
         $data['contentView'] = 'secciones/vPerfilSecturi';
@@ -3860,8 +3861,8 @@ class Inicio extends BaseController {
         $data[$cfg['mode_key']] = $modo === 'consulta' ? 'consulta' : 'admin';
         $data['hubTitle'] = 'Perfil ' . $cfg['label'];
         $data['hubSubtitle'] = $modo === 'consulta'
-            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catÃƒÂ¡logo ' . $cfg['label'] . '.'
-            : 'Panel operativo para solicitar folios del catÃƒÂ¡logo ' . $cfg['label'] . '.';
+            ? 'Vista de consulta para revisar solicitudes de folio y perfiles visibles del catálogo ' . $cfg['label'] . '.'
+            : 'Panel operativo para solicitar folios del catálogo ' . $cfg['label'] . '.';
         $data[$cfg['can_create_key']] = $modo === 'admin' && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
         $data[$cfg['perfil_options_key']] = array_map(static function (array $row) use ($cfg): array {
             return [
@@ -3932,7 +3933,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catÃƒÂ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -3988,7 +3989,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃƒÂ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para consultar solicitudes.']);
@@ -4030,10 +4031,10 @@ class Inicio extends BaseController {
         $usuario = '';
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃƒÂ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catÃƒÂ¡logo puede enviar solicitudes.']);
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo un administrador del catálogo puede enviar solicitudes.']);
         }
         if ($this->request->getMethod() !== 'post') {
             return $this->response->setStatusCode(405)->setJSON(['ok' => false, 'message' => 'M?todo no permitido.']);
@@ -4113,10 +4114,10 @@ class Inicio extends BaseController {
         ][$beneficiosKey] ?? 'Ninguno';
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Hospedaje: sÃƒÂ­Ã‚Â­';
+            $detalleSolicitud[] = 'Hospedaje: sí­Ã‚Â­';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Alimentos: sÃƒÂ­Ã‚Â­';
+            $detalleSolicitud[] = 'Alimentos: sí­Ã‚Â­';
         }
         if ($observaciones !== '') {
             $detalleSolicitud[] = '';
@@ -4164,7 +4165,7 @@ class Inicio extends BaseController {
         $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
 
         if (empty($cfg)) {
-            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catÃƒÂ¡logo no v?lido.']);
+            return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'catálogo no v?lido.']);
         }
         if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'No tienes permisos para cancelar solicitudes.']);
