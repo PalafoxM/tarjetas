@@ -951,7 +951,10 @@ window.cajeros = {
     },
 
     cargarSugerenciasFolioInstitucional: function () {
-        if ((!this.isSolicitudFolioMode && !this.folioSuggestionsEnabled) || !this.folioSuggestionsUrl) {
+        var esEdicionInstitucional = this.esEdicionInstitucionalAdmin();
+        var folioActual = String($('#folio_ui').val() || '').trim();
+
+        if ((!this.isSolicitudFolioMode && !this.folioSuggestionsEnabled && !(esEdicionInstitucional && folioActual === '')) || !this.folioSuggestionsUrl) {
             return;
         }
 
@@ -2556,6 +2559,9 @@ window.cajeros = {
         $('#id_tipo_habitacion').val(data.id_tipo_habitacion || '').trigger('change.select2');
         $('#id_nivel_cliente').val(data.id_nivel_cliente || '').trigger('change.select2');
         this.renderHospedajePlanDesdeValor(data.hospedaje_plan_json || '');
+        if (this.esEdicionInstitucionalAdmin() && String($('#folio_ui').val() || '').trim() === '') {
+            $('#folioSugerenciasWrapper').removeClass('d-none');
+        }
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
         this.aplicarModoFormulario(soloConsulta);
@@ -2563,6 +2569,9 @@ window.cajeros = {
         this.actualizarResumenAltaUsuario();
         $('#cajeroPageTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
         this.aplicarModoEdicionInstitucional();
+        if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled || (this.esEdicionInstitucionalAdmin() && String($('#folio_ui').val() || '').trim() === '')) {
+            this.cargarSugerenciasFolioInstitucional();
+        }
     },
 
     aplicarModoFormulario: function (soloConsulta) {
