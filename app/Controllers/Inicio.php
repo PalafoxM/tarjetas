@@ -4261,7 +4261,7 @@ class Inicio extends BaseController {
                 'cancel_url_key' => 'ficSolicitudCancelarUrl',
                 'establecimiento_id_key' => 'ficSolicitudEstablecimientoId',
                 'catalog_table' => 'cat_fic',
-                'catalog_id' => 'id_fic_perfil',
+                'catalog_id' => 'id_perfil_fic',
                 'catalog_label' => 'dsc_perfil',
                 'tipo_solicitud' => 'alta_usuario_fic',
                 'usuario_group_field' => 'id_fic_perfil',
