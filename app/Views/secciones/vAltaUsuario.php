@@ -282,6 +282,35 @@ $inferHabitacionCapacidad = static function ($item) {
         </div>
     <?php endif; ?>
 
+    <div class="card border-secondary-subtle shadow-sm mb-3 d-none" id="comentarioSolicitudInstitucionalWrapper">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label" for="comentario_usuario">Comentario para TI/admin SECTURI</label>
+                    <textarea
+                        class="form-control"
+                        name="comentario_usuario"
+                        id="comentario_usuario"
+                        rows="3"
+                        placeholder="Opcional. Describe el motivo de la modificación o cualquier contexto útil para la revisión."></textarea>
+                </div>
+                <div class="col-12 d-none" id="comentarioSolicitudHistorialWrapper">
+                    <label class="form-label">Comentarios anteriores</label>
+                    <div class="border rounded p-3 bg-body-tertiary">
+                        <div class="mb-3">
+                            <strong>Comentario enviado</strong>
+                            <pre class="mb-0 mt-1 text-break" id="comentarioSolicitudAnterior" style="white-space: pre-wrap;"></pre>
+                        </div>
+                        <div>
+                            <strong>Motivo de rechazo</strong>
+                            <pre class="mb-0 mt-1 text-break" id="comentarioSolicitudRechazo" style="white-space: pre-wrap;"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <form id="cajeroForm">
         <div class="card">
             <div class="card-body">

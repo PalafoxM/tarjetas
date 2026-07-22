@@ -3415,8 +3415,8 @@ class Usuario extends BaseController
             'tarifa_total' => number_format($nextReserved, 2, '.', ''),
             'pax' => $this->nullableInt($data['pax'] ?? null),
             'pax_total' => $this->nullableInt($data['pax_total'] ?? $data['pax'] ?? null),
-            'pax_secuencia' => $this->nullableInt($data['pax_secuencia'] ?? null),
-            'es_titular_folio' => $this->nullableInt($data['es_titular_folio'] ?? null),
+            'pax_secuencia' => max(1, (int) ($data['pax_secuencia'] ?? $usuarioActual['pax_secuencia'] ?? 1)),
+            'es_titular_folio' => max(1, (int) ($data['es_titular_folio'] ?? $usuarioActual['es_titular_folio'] ?? 1)),
             'folio' => trim((string) ($data['folio'] ?? '')) ?: null,
             'folio_grupo' => trim((string) ($data['folio_grupo'] ?? '')) ?: null,
             'sub_folio' => trim((string) ($data['sub_folio'] ?? '')) ?: null,
@@ -3631,6 +3631,10 @@ class Usuario extends BaseController
             'fec_vigencia_hasta' => 'Vigencia alimentos hasta',
             'fec_vigencia_desde_hos' => 'Vigencia hospedaje desde',
             'fec_vigencia_hasta_hos' => 'Vigencia hospedaje hasta',
+            'comentario_usuario' => 'Comentario',
+            'comentario_usuario_anterior' => 'Comentario anterior',
+            'motivo_rechazo' => 'Motivo de rechazo',
+            'motivo_rechazo_anterior' => 'Motivo de rechazo anterior',
         ] as $key => $label) {
             if (isset($payload[$key]) && trim((string) $payload[$key]) !== '') {
                 $lines[] = $label . ': ' . (string) $payload[$key];

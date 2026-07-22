@@ -946,6 +946,7 @@ window.cajeros = {
 
         if (this.isSolicitudFolioMode) {
             $('.solicitud-partida-visual').addClass('d-none').hide();
+            $('#comentarioSolicitudInstitucionalWrapper').removeClass('d-none');
         }
         $('#folioSugerenciasWrapper').removeClass('d-none');
     },
@@ -1090,6 +1091,7 @@ window.cajeros = {
         $('#id_tipo_habitacion').val(values.id_tipo_habitacion || '').trigger('change.select2');
         $('#fec_vigencia_desde_hos').val(this.normalizarFechaInput(values.fec_vigencia_desde_hos || ''));
         $('#fec_vigencia_hasta_hos').val(this.normalizarFechaInput(values.fec_vigencia_hasta_hos || ''));
+        $('#comentario_usuario').val(values.comentario_usuario || '');
         $('#id_partida').val(values.id_partida || '');
         $('#id_partida_ui').val(values.id_partida || '').trigger('change.select2');
         $('#monto_deposito').val(values.monto_deposito || '');
@@ -1111,6 +1113,15 @@ window.cajeros = {
         this.actualizarFlujoBeneficios();
         this.redibujarAltaUsuarioPax();
         this.renderHospedajePlanDesdeValor(values.hospedaje_plan_json || '');
+        var comentarioAnterior = String(values.comentario_usuario || values.comentario_usuario_anterior || '').trim();
+        var motivoRechazo = String(values.motivo_rechazo || values.motivo_rechazo_anterior || '').trim();
+        if (comentarioAnterior !== '' || motivoRechazo !== '') {
+            $('#comentarioSolicitudHistorialWrapper').removeClass('d-none');
+            $('#comentarioSolicitudAnterior').text(comentarioAnterior !== '' ? comentarioAnterior : 'Sin comentario previo.');
+            $('#comentarioSolicitudRechazo').text(motivoRechazo !== '' ? motivoRechazo : 'Sin motivo de rechazo registrado.');
+        } else {
+            $('#comentarioSolicitudHistorialWrapper').addClass('d-none');
+        }
         if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled) {
             this.aplicarModoSolicitudFolioUI();
             this.cargarSugerenciasFolioInstitucional();
@@ -1671,6 +1682,7 @@ window.cajeros = {
             return;
         }
 
+        $('#comentarioSolicitudInstitucionalWrapper').removeClass('d-none');
         $('.solicitud-partida-visual').addClass('d-none').hide();
         $('#id_partida').val('');
         $('#usuario').prop('readonly', false);

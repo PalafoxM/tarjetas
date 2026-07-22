@@ -3125,6 +3125,10 @@ class Inicio extends BaseController {
             'comentario_ti' => !empty($payloadSolicitud)
                 ? $this->buildSolicitudFolioSummary($payloadSolicitud)
                 : (string) ($row['comentario_ti'] ?? ''),
+            'comentario_usuario' => (string) ($payloadSolicitud['comentario_usuario'] ?? ''),
+            'comentario_usuario_anterior' => (string) ($payloadSolicitud['comentario_usuario_anterior'] ?? ''),
+            'motivo_rechazo' => (string) ($payloadSolicitud['motivo_rechazo'] ?? ''),
+            'motivo_rechazo_anterior' => (string) ($payloadSolicitud['motivo_rechazo_anterior'] ?? ''),
             'payload_solicitud' => $payloadSolicitud,
             'tiene_payload_completo' => !empty($payloadSolicitud) ? 1 : 0,
             'catalogo_grupo' => $grupoSolicitud !== '' ? $grupoSolicitud : 'fic',
@@ -3487,6 +3491,9 @@ class Inicio extends BaseController {
             'tiene_hospedaje' => 'Hospedaje',
             'id_nivel_cliente' => 'Tarifa diaria',
             'id_partida' => 'Partida',
+            'comentario_usuario' => 'Comentario',
+            'comentario_usuario_anterior' => 'Comentario anterior',
+            'motivo_rechazo_anterior' => 'Motivo rechazo anterior',
             'fec_vigencia_desde' => 'Vigencia desde',
             'fec_vigencia_hasta' => 'Vigencia hasta',
             'fec_vigencia_desde_hos' => 'Hospedaje desde',
@@ -7396,6 +7403,19 @@ class Inicio extends BaseController {
 
         $grupo = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payloadEditado);
         $payload = $this->normalizeSolicitudFolioPayload($grupo, $payloadEditado);
+        $payload['comentario_usuario'] = trim((string) ($payload['comentario_usuario'] ?? ''));
+        if ($estatusActual === 'rechazada') {
+            $payloadAnterior = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
+            $comentarioUsuarioAnterior = trim((string) ($payloadAnterior['comentario_usuario'] ?? ''));
+            $motivoRechazoAnterior = trim((string) ($payloadAnterior['motivo_rechazo'] ?? ''));
+            if ($comentarioUsuarioAnterior !== '') {
+                $payload['comentario_usuario_anterior'] = $comentarioUsuarioAnterior;
+            }
+            if ($motivoRechazoAnterior !== '') {
+                $payload['motivo_rechazo_anterior'] = $motivoRechazoAnterior;
+            }
+            unset($payload['motivo_rechazo']);
+        }
         $perfilGrupo = (int) ($payload['perfil_grupo'] ?? 0);
         $idPerfilSolicitado = $perfilGrupo;
         $usuario = strtolower(trim((string) ($payload['usuario'] ?? '')));
