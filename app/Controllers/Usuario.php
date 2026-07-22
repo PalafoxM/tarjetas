@@ -3378,25 +3378,56 @@ class Usuario extends BaseController
 
         $assignment = $this->buildInstitutionalAssignment($grupoUsuario, $perfilGrupo);
         $fechaAhora = date('Y-m-d H:i:s');
+        $hospedajePlanJson = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? null);
+        $hospedajeSobrerreserva = $this->normalizeHospedajeSobrerreserva($data['hospedaje_sobrerreserva'] ?? null, $hospedajePlanJson);
+        $contraseniaNueva = trim((string) ($data['contrasenia'] ?? ''));
         $updateData = array_merge([
             'nombre' => $nombre,
             'primer_apellido' => $primerApellido,
             'segundo_apellido' => $segundoApellido,
             'correo' => $correo,
+            'usuario' => trim((string) ($data['usuario'] ?? $usuarioActual['usuario'] ?? '')),
             'id_perfil' => $this->getInstitutionalBaseProfileId($grupoUsuario),
             'id_nivel_cliente' => (int) ($impact['id_nivel_cliente'] ?? 0) ?: null,
+            'id_establecimiento' => $this->nullableInt($data['id_establecimiento'] ?? null),
+            'id_partida' => $this->nullableInt($data['id_partida'] ?? null),
+            'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
+            'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
+            'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
             'monto_deposito' => number_format((float) ($impact['monto_diario_alimentos'] ?? 0), 2, '.', ''),
             'monto_deposito_hotel' => number_format((float) ($impact['monto_hospedaje'] ?? 0), 2, '.', ''),
             'monto_deposito_reservado' => number_format($nextReserved, 2, '.', ''),
+            'monto_deposito_operativo' => number_format((float) ($usuarioActual['monto_deposito_operativo'] ?? 0), 2, '.', ''),
+            'deposito_programado_estatus' => $nextReserved > 0 ? 'reservado' : 'sin_programa',
+            'tiene_alimentos' => (int) ($impact['monto_alimentos'] ?? 0) > 0 ? 1 : 0,
+            'tiene_hospedaje' => (int) ($impact['monto_hospedaje'] ?? 0) > 0 ? 1 : 0,
+            'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
+            'id_tipo_habitacion' => $this->nullableInt($data['id_tipo_habitacion'] ?? null),
+            'fecha_check_in' => $this->nullableString($data['fecha_check_in'] ?? null),
+            'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? null),
+            'hospedaje_plan_json' => $hospedajePlanJson,
+            'hospedaje_sobrerreserva' => $hospedajeSobrerreserva,
             'fec_vigencia_desde' => $impact['fec_vigencia_desde'] ?: null,
             'fec_vigencia_hasta' => $impact['fec_vigencia_hasta'] ?: null,
             'fec_vigencia_desde_hos' => $impact['fec_vigencia_desde_hos'] ?: null,
             'fec_vigencia_hasta_hos' => $impact['fec_vigencia_hasta_hos'] ?: null,
             'noche' => (int) ($impact['noches'] ?? 0) > 0 ? (int) $impact['noches'] : null,
             'tarifa_total' => number_format($nextReserved, 2, '.', ''),
+            'pax' => $this->nullableInt($data['pax'] ?? null),
+            'pax_total' => $this->nullableInt($data['pax_total'] ?? $data['pax'] ?? null),
+            'pax_secuencia' => $this->nullableInt($data['pax_secuencia'] ?? null),
+            'es_titular_folio' => $this->nullableInt($data['es_titular_folio'] ?? null),
+            'folio' => trim((string) ($data['folio'] ?? '')) ?: null,
+            'folio_grupo' => trim((string) ($data['folio_grupo'] ?? '')) ?: null,
+            'sub_folio' => trim((string) ($data['sub_folio'] ?? '')) ?: null,
+            'anf_gto' => trim((string) ($data['anf_gto'] ?? $data['anf_gto_ui'] ?? '')) ?: null,
             'fec_act' => $fechaAhora,
             'usu_act' => $idSesionUsuario,
         ], $assignment);
+
+        if ($contraseniaNueva !== '') {
+            $updateData['contrasenia'] = password_hash($contraseniaNueva, PASSWORD_BCRYPT);
+        }
 
         $response = $this->globals->saveTabla(
             $updateData,
@@ -3438,21 +3469,27 @@ class Usuario extends BaseController
 
     private function buildInstitutionalEditImpact(array $data, array $usuarioActual): array
     {
-        $tieneAlimentos = (int) ($usuarioActual['tiene_alimentos'] ?? 0) === 1;
-        $tieneHospedaje = (int) ($usuarioActual['tiene_hospedaje'] ?? 0) === 1;
+        $tieneAlimentos = array_key_exists('tiene_alimentos', $data)
+            ? (int) ($data['tiene_alimentos'] ?? 0) === 1
+            : (int) ($usuarioActual['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = array_key_exists('tiene_hospedaje', $data)
+            ? (int) ($data['tiene_hospedaje'] ?? 0) === 1
+            : (int) ($usuarioActual['tiene_hospedaje'] ?? 0) === 1;
         $idNivelCliente = (int) ($data['id_nivel_cliente'] ?? $usuarioActual['id_nivel_cliente'] ?? 0);
         $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? $usuarioActual['fec_vigencia_desde'] ?? ''));
         $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? $usuarioActual['fec_vigencia_hasta'] ?? ''));
         $vigenciaDesdeHos = trim((string) ($data['fec_vigencia_desde_hos'] ?? $usuarioActual['fec_vigencia_desde_hos'] ?? ''));
         $vigenciaHastaHos = trim((string) ($data['fec_vigencia_hasta_hos'] ?? $usuarioActual['fec_vigencia_hasta_hos'] ?? ''));
 
-        $montoDiario = 0.00;
+        $montoDiario = round((float) ($data['monto_deposito'] ?? $usuarioActual['monto_deposito'] ?? 0), 2);
         $montoAlimentos = 0.00;
         if ($tieneAlimentos) {
-            if ($idNivelCliente <= 0) {
+            if ($montoDiario <= 0 && $idNivelCliente <= 0) {
                 return ['error' => true, 'respuesta' => 'Selecciona una tarifa diaria válida.'];
             }
-            $montoDiario = $this->resolveNivelClienteMontoDeposito($idNivelCliente);
+            if ($montoDiario <= 0) {
+                $montoDiario = $this->resolveNivelClienteMontoDeposito($idNivelCliente);
+            }
             $dias = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
             if ($montoDiario <= 0 || $dias <= 0) {
                 return ['error' => true, 'respuesta' => 'Captura una tarifa y vigencia de alimentos válidas.'];
@@ -3464,12 +3501,15 @@ class Usuario extends BaseController
             $vigenciaHasta = '';
         }
 
-        $tarifaNoche = round((float) ($usuarioActual['tarifa_noche'] ?? 0), 2);
+        $tarifaNoche = round((float) ($data['tarifa_noche'] ?? $usuarioActual['tarifa_noche'] ?? 0), 2);
         $montoHospedaje = 0.00;
         $noches = 0;
         if ($tieneHospedaje) {
             $diasHospedaje = $this->calculateDateSpanDays($vigenciaDesdeHos, $vigenciaHastaHos);
-            $noches = max(0, $diasHospedaje - 1);
+            $noches = max(0, (int) ($data['noche'] ?? 0));
+            if ($noches <= 0) {
+                $noches = max(0, $diasHospedaje - 1);
+            }
             if ($tarifaNoche <= 0 || $noches <= 0) {
                 return ['error' => true, 'respuesta' => 'Captura una vigencia de hospedaje válida.'];
             }

@@ -1670,10 +1670,10 @@ window.cajeros = {
 
         $('.solicitud-partida-visual').addClass('d-none').hide();
         $('#id_partida').val('');
-        $('#usuario').prop('readonly', true);
-        $('#contrasenia').val('').prop('disabled', true).prop('required', false);
+        $('#usuario').prop('readonly', false);
+        $('#contrasenia').val('').prop('disabled', false).prop('required', false);
 
-        var bloqueados = [
+        var camposEditables = [
             '#categoria_ui',
             '#id_pais',
             '#id_estado',
@@ -1692,11 +1692,17 @@ window.cajeros = {
             '#noche',
             '#agregarHabitacionHospedaje',
             '#limpiarPlanHospedaje',
-            '#hospedaje_sobrerreserva_ui'
+            '#hospedaje_sobrerreserva_ui',
+            '#id_nivel_cliente',
+            '#fec_vigencia_desde',
+            '#fec_vigencia_hasta',
+            '#fec_vigencia_desde_hos',
+            '#fec_vigencia_hasta_hos',
+            '#monto_deposito'
         ];
 
-        $(bloqueados.join(',')).prop('disabled', true).trigger('change.select2');
-        $('#hospedajePlanContainer').find('input, select, button').prop('disabled', true);
+        $(camposEditables.join(',')).prop('disabled', false).prop('readonly', false).trigger('change.select2');
+        $('#hospedajePlanContainer').find('input, select, button').prop('disabled', false).prop('readonly', false);
         $('#cajeroPageTitle').text('Editar usuario institucional');
     },
 
@@ -1881,9 +1887,9 @@ window.cajeros = {
         var noches = this.calcularDiasVigencia($('#fec_vigencia_desde_hos').val(), $('#fec_vigencia_hasta_hos').val(), false);
         var total = tarifaNoche * noches;
 
-        $('#tarifa_noche').val(tarifaNoche > 0 ? tarifaNoche.toFixed(2) : '').prop('readonly', true);
+        $('#tarifa_noche').val(tarifaNoche > 0 ? tarifaNoche.toFixed(2) : '').prop('readonly', false);
         $('#noche').val(noches > 0 ? noches : '');
-        $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '').prop('readonly', true);
+        $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '').prop('readonly', false);
         if (this.isAltaPage) {
             this.actualizarResumenAltaUsuario();
         }

@@ -425,7 +425,7 @@ $inferHabitacionCapacidad = static function ($item) {
                     </div>
                     <div class="col-md-3 alimentos-field">
                         <label class="form-label" for="monto_deposito">Monto deposito individual</label>
-                        <input type="number" step="0.01" class="form-control" name="monto_deposito" id="monto_deposito" readonly>
+                        <input type="number" step="0.01" class="form-control" name="monto_deposito" id="monto_deposito">
                     </div>
                     <div class="col-md-3 alimentos-field">
                         <label class="form-label" for="monto_total_alimentos_ui">Monto total</label>

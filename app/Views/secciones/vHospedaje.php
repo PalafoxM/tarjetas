@@ -126,7 +126,14 @@ window.establecimientos = {
 
         var descargarReporteButton = document.getElementById('descargar_reporte_hospedaje');
         if (descargarReporteButton) {
-            descargarReporteButton.addEventListener('click', function () {
+            descargarReporteButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                    window.FicLoading.hide();
+                }
+
                 var baseUrl = String(this.dataset.downloadBaseUrl || '').trim();
                 var idEstablecimiento = String(this.dataset.idEstablecimiento || '').trim();
 
@@ -138,10 +145,32 @@ window.establecimientos = {
                 var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(idEstablecimiento);
                 if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
                     window.cajeros.descargarArchivoSinNavegar(downloadUrl);
+                    window.setTimeout(function () {
+                        if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                            window.FicLoading.hide();
+                        }
+                    }, 300);
                     return;
                 }
 
-                window.location.href = downloadUrl;
+                var previousFrame = document.getElementById('ficDownloadFrame');
+                if (previousFrame && previousFrame.parentNode) {
+                    previousFrame.setAttribute('src', 'about:blank');
+                    previousFrame.parentNode.removeChild(previousFrame);
+                }
+
+                var iframe = document.createElement('iframe');
+                iframe.id = 'ficDownloadFrame';
+                iframe.style.display = 'none';
+                iframe.setAttribute('aria-hidden', 'true');
+                iframe.src = downloadUrl;
+                document.body.appendChild(iframe);
+
+                window.setTimeout(function () {
+                    if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                        window.FicLoading.hide();
+                    }
+                }, 1000);
             });
         }
     },
