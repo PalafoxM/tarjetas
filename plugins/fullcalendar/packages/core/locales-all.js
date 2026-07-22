@@ -1046,7 +1046,7 @@
             next: "următoare",
             today: "Azi",
             month: "Lună",
-            week: "Săptămână",
+            week: "Săptăm nă",
             day: "Zi",
             list: "Agendă"
         },
@@ -1286,7 +1286,7 @@
             next: "Tiếp",
             today: "Hôm nay",
             month: "Tháng",
-            week: "Tuần",
+            week: "Tu ̀n",
             day: "Ngày",
             list: "Lịch biểu"
         },

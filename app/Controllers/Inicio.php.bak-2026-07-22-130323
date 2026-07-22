@@ -2208,6 +2208,7 @@ class Inicio extends BaseController {
             ->update([
                 'activo_qr' => 0,
                 'qr' => $usuario['qr'] ?? null,
+                'qr' => null,
                 'ine_firma_cajero' => null,
                 'ine_frontal' => null,
                 'ine_trasera' => null,
@@ -3088,6 +3089,7 @@ class Inicio extends BaseController {
             'monto_deposito_reservado' => 0.00,
             'monto_deposito_operativo' => 0.00,
             'deposito_programado_estatus' => 'sin_programa',
+            'qr' => null,
             'nip' => null,
             'folio' => null,
             'sub_folio' => null,

@@ -2,7 +2,7 @@
 import Parsley from '../parsley';
 
 Parsley.addMessages('ro', {
-  defaultMessage: "Acest câmp nu este completat corect.",
+  defaultMessage: "Acest c mp nu este completat corect.",
   type: {
     email:        "Trebuie să scrii un email valid.",
     url:          "Trebuie să scrii un link valid",
@@ -11,9 +11,9 @@ Parsley.addMessages('ro', {
     digits:       "Trebuie să conțină doar cifre.",
     alphanum:     "Trebuie să conțină doar cifre sau litere."
   },
-  notblank:       "Acest câmp nu poate fi lăsat gol.",
-  required:       "Acest câmp trebuie să fie completat.",
-  pattern:        "Acest câmp nu este completat corect.",
+  notblank:       "Acest c mp nu poate fi lăsat gol.",
+  required:       "Acest c mp trebuie să fie completat.",
+  pattern:        "Acest c mp nu este completat corect.",
   min:            "Trebuie să fie ceva mai mare sau egal cu %s.",
   max:            "Trebuie să fie ceva mai mic sau egal cu %s.",
   range:          "Valoarea trebuie să fie între %s și %s.",

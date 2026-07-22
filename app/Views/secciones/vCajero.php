@@ -503,7 +503,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             : `<button class="btn btn-outline-secondary" type="button" title="No tienes permisos para activar QR" disabled>
                     <i class="mdi mdi-qrcode-check"></i> Activar QR
                 </button>`;
-        const botonRechazarQr = `<button class="btn btn-outline-danger" type="button" title="Rechazar activaciÃ³n QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})">
+        const botonRechazarQr = `<button class="btn btn-outline-danger" type="button" title="Rechazar activación QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})">
                 <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
             </button>`;
         let botones = `
@@ -651,7 +651,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         }
 
         Swal.fire({
-            title: 'Ã‚Â¿Estas seguro de activar QR?',
+            title: '¿Estas seguro de activar QR?',
             text: 'Se marcará el QR del usuario como activo.',
             icon: 'question',
             showCancelButton: true,
@@ -667,7 +667,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 data: { id_usuario: idUsuario }
             }).done((response) => {
                 if (!response || response.success !== true) {
-                    Swal.fire('AtenciÃƒÆ’Ã‚Â³n', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
+                    Swal.fire('AtenciÃƒÂ³n', response && response.message ? response.message : 'No fue posible activar el QR.', 'warning');
                     return;
                 }
 
@@ -687,7 +687,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         if (!idUsuario) return;
 
         Swal.fire({
-            title: 'Ã‚Â¿Rechazar activación QR?',
+            title: '¿Rechazar activación QR?',
             text: 'Se retirará la activación y el usuario podrá iniciar nuevamente su proceso.',
             icon: 'warning',
             showCancelButton: true,
@@ -706,8 +706,18 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                     Swal.fire('Atención', response && response.message ? response.message : 'No fue posible rechazar la activación del QR.', 'warning');
                     return;
                 }
-                Swal.fire('Correcto', response.message || 'La activación fue rechazada.', 'success');
-                $('#cajerosTable').bootstrapTable('refresh', { silent: true });
+
+                Swal.fire('Correcto', response.message || 'La activaciÃ³n fue rechazada.', 'success');
+                cajeros.actualizarFilaLocal(idUsuario, {
+                    activo_qr: 0,
+                    qr_activo: 0,
+                    qr: '',
+                    ine_firma_cajero: '',
+                    ine_frontal: '',
+                    ine_trasera: '',
+                    firma: '',
+                    expediente_completo: false
+                });
             }).fail((request) => {
                 const response = request.responseJSON || {};
                 Swal.fire('Error', response.message || 'No fue posible rechazar la activación del QR.', 'error');
@@ -763,7 +773,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     eliminar(idUsuario) {
         Swal.fire({
-            title: 'Ã‚Â¿Eliminar cajero?',
+            title: '¿Eliminar cajero?',
             text: 'El registro dejará de mostrarse en la tabla.',
             icon: 'warning',
             showCancelButton: true,

@@ -6,7 +6,7 @@
         italic: 'Înclinat',
         underline: 'Subliniat',
         clear: 'Înlătură formatare font',
-        height: 'Înălțime rând',
+        height: 'Înălțime r nd',
         strikethrough: 'Tăiat',
         size: 'Dimensiune font'
       },
@@ -16,7 +16,7 @@
         resizeFull: 'Redimensionează complet',
         resizeHalf: 'Redimensionează 1/2',
         resizeQuarter: 'Redimensionează 1/4',
-        floatLeft: 'Aliniere la stânga',
+        floatLeft: 'Aliniere la st nga',
         floatRight: 'Aliniere la dreapta',
         floatNone: 'Fară aliniere',
         dragImageHere: 'Trage o imagine aici',
@@ -69,7 +69,7 @@
         paragraph: 'Paragraf',
         outdent: 'Creşte identarea',
         indent: 'Scade identarea',
-        left: 'Aliniere la stânga',
+        left: 'Aliniere la st nga',
         center: 'Aliniere centrală',
         right: 'Aliniere la dreapta',
         justify: 'Aliniere în bloc'
