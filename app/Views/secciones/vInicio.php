@@ -40,7 +40,7 @@
 
         <article class="fic-access-card fic-access-card--cyan">
             <div>
-                <span class="fic-access-card__category">Catálogo</span>
+                <span class="fic-access-card__category">Catálogo de participantes</span>
                 <h2>Establecimientos y proveedores FIC</h2>
                 <p>Da de alta proveedores y después registra o administra sus establecimientos relacionados.</p>
             </div>
@@ -78,7 +78,7 @@
                 <p>Consulta la orden del día para Caja SECTURI, activa o rechaza QR.</p>
             </div>
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Cajero') ?>">
-                Ver activaciones
+                Ver activaciones en modalidad cajero SECTURI
             </a>
         </article>
 
@@ -90,6 +90,17 @@
             </div>
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/FacturasFic') ?>">
                 Ver facturas
+            </a>
+        </article>
+
+        <article class="fic-access-card fic-access-card--teal">
+            <div>
+                <span class="fic-access-card__category">Reportes institucionales</span>
+                <h2>Reportes y movimientos</h2>
+                <p>Consulta reportes de saldos y movimientos de usuarios en perfiles FIC, UG y SECUL.</p>
+            </div>
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/ReportesInstitucionales') ?>">
+                Consultar reportes
             </a>
         </article>
     </section>
@@ -198,6 +209,7 @@
     .fic-access-card--green { --card-accent: #10cba1; }
     .fic-access-card--outline { --card-accent: #7c83ff; }
     .fic-access-card--amber { --card-accent: #fbbf24; }
+    .fic-access-card--teal { --card-accent: #2dd4bf; }
 
     .fic-access-card--outline .fic-access-card__button {
         background: transparent;

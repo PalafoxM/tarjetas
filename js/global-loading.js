@@ -5,6 +5,7 @@
     var hideDelay = 120;
     var activeRequests = 0;
     var hideTimer = null;
+    var suppressNextNavigationLoader = false;
 
     function getOverlay() {
         return document.getElementById(overlayId);
@@ -98,7 +99,42 @@
     }
 
     function bindNavigation() {
+        document.addEventListener('click', function (event) {
+            var target = event.target;
+            while (target && target !== document) {
+                if (target.tagName === 'A') {
+                    break;
+                }
+                target = target.parentNode;
+            }
+
+            if (!target || target === document) {
+                return;
+            }
+
+            var href = String(target.getAttribute('href') || '');
+            var isDownloadLink = target.hasAttribute('download')
+                || target.getAttribute('data-no-loading') === '1'
+                || target.classList.contains('js-download-no-loader')
+                || href.indexOf('exportarReporteInstitucionalSaldosPdf') !== -1;
+
+            if (!isDownloadLink) {
+                return;
+            }
+
+            suppressNextNavigationLoader = true;
+            window.setTimeout(function () {
+                suppressNextNavigationLoader = false;
+                hideOverlay();
+            }, 800);
+        }, true);
+
         window.addEventListener('beforeunload', function () {
+            if (suppressNextNavigationLoader) {
+                suppressNextNavigationLoader = false;
+                hideOverlay();
+                return;
+            }
             showOverlay();
         });
     }

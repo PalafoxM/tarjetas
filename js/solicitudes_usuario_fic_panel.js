@@ -401,18 +401,19 @@
         var buttons = [];
         var estatus = String(row.estatus || '').toLowerCase();
         var tienePayloadCompleto = Number(row.tiene_payload_completo || 0) === 1;
+        var tipoFlujo = String(row.tipo_flujo || '').toLowerCase();
         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-fic-panel-ver" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Ver"><i class="mdi mdi-eye"></i></button>');
 
         if (estatus === 'pendiente' || estatus === 'rechazada') {
             if (tienePayloadCompleto && state.canEditFolios) {
-                buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
+                buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" data-tipo-flujo="' + esc(tipoFlujo) + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
             } else if (!tienePayloadCompleto) {
                 buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Solicitud sin formulario completo"><i class="mdi mdi-alert-circle-outline"></i></button>');
             }
         }
 
         if (estatus === 'pendiente' && tienePayloadCompleto && state.canDecideFolios) {
-            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
+            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" data-tipo-flujo="' + esc(tipoFlujo) + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
             buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-fic-panel-rechazar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
         }
 
@@ -433,12 +434,13 @@
                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
                 loadFolioDetail(idSolicitud, function (data) {
                     var comentario = String(data.comentario_ti || '').trim();
+                    var tipoLabel = String(data.tipo_flujo_label || 'Nuevo folio');
                     var comentarioHtml = comentario !== ''
                         ? '<hr class="border-secondary my-3"><div><strong>Comentario TI:</strong><br><pre class="bg-transparent text-light border-0 p-0 m-0" style="white-space:pre-wrap;font-family:inherit;">' + esc(comentario) + '</pre></div>'
                         : '';
 
                     Swal.fire({
-                        title: 'Solicitud de folio',
+                        title: tipoLabel,
                         html: '<div class="text-start"><strong>Grupo:</strong> ' + esc(String(data.catalogo_grupo || '').toUpperCase()) + '<br><strong>Perfil:</strong> ' + esc(data.perfil_solicitado || '') + '<br><strong>Usuario:</strong> ' + (String(data.usuario || '').trim() !== '' ? esc(data.usuario || '') : 'Por asignar') + '<br><strong>Nombre:</strong> ' + esc(data.nombre_completo || '') + '<br><strong>Correo:</strong> ' + esc(data.correo || '') + '<br><strong>Estatus:</strong> ' + esc(data.estatus || '') + comentarioHtml + '</div>',
                         confirmButtonText: 'Cerrar'
                     });
@@ -446,6 +448,7 @@
             })
             .on('click.solicitudesFicPanel', '.js-fic-panel-editar', function () {
                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
+                var tipoFlujoBoton = String($(this).data('tipo-flujo') || '').toLowerCase();
                 if (!idSolicitud || !state.folioEditUrl) return;
 
                 loadFolioDetail(idSolicitud, function (data) {
@@ -455,7 +458,7 @@
                         return;
                     }
 
-                    if (state.folioEditorMode === 'visual' && state.folioEditorVisualBaseUrl) {
+                    if (tipoFlujoBoton !== 'edicion' && state.folioEditorMode === 'visual' && state.folioEditorVisualBaseUrl) {
                         var grupo = String(data.catalogo_grupo || data.grupo_solicitud || payload.grupo_usuario || '').toLowerCase();
                         if (['fic', 'secul', 'ug'].indexOf(grupo) === -1) {
                             Swal.fire('Atención', 'No fue posible identificar el grupo de la solicitud.', 'warning');
@@ -512,9 +515,43 @@
             })
             .on('click.solicitudesFicPanel', '.js-fic-panel-aprobar', function () {
                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
+                var tipoFlujo = String($(this).data('tipo-flujo') || '').toLowerCase();
                 if (!idSolicitud || !state.folioApproveUrl) return;
-                if (!state.partidaOptions.length) {
+                if (tipoFlujo !== 'edicion' && !state.partidaOptions.length) {
                     Swal.fire('Atención', 'No hay partidas disponibles para aprobar la solicitud.', 'warning');
+                    return;
+                }
+
+                if (tipoFlujo === 'edicion') {
+                    Swal.fire({
+                        title: 'Aceptar edición institucional',
+                        text: 'Se aplicará la edición solicitada y se reservará la diferencia correspondiente.',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Aceptar edición',
+                        cancelButtonText: 'Volver'
+                    }).then(function (result) {
+                        if (!result.isConfirmed) return;
+
+                        $.ajax({
+                            url: state.folioApproveUrl,
+                            method: 'POST',
+                            dataType: 'json',
+                            data: $.extend({
+                                id_solicitud_usuario: idSolicitud
+                            }, getCsrfPayload())
+                        }).done(function (response) {
+                            if (!response || response.ok !== true) {
+                                Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible aprobar la edición.'), 'warning');
+                                return;
+                            }
+
+                            Swal.fire('Listo', response.message || 'Edición aprobada.', 'success');
+                            refreshTable(state.folioTable);
+                        }).fail(function (jqXHR) {
+                            Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la edición.'), 'error');
+                        });
+                    });
                     return;
                 }
 

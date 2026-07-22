@@ -1259,6 +1259,258 @@ class Inicio extends BaseController {
             ->setBody($zipContent);
     }
 
+    public function exportarReporteInstitucionalSaldosPdf(string $grupo = 'fic')
+    {
+        $payload = $this->buildReporteInstitucionalSaldosPayload($grupo);
+        if ($payload === null) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este reporte.');
+        }
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        $filename = 'reporte_saldos_' . strtolower((string) ($payload['grupo'] ?? $grupo)) . '_' . date('Ymd_His') . '.pdf';
+
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'orientation' => 'L',
+                'tempDir' => $tempDir,
+                'margin_left' => 8,
+                'margin_right' => 8,
+                'margin_top' => 10,
+                'margin_bottom' => 10,
+            ]);
+
+            $mpdf->SetTitle((string) ($payload['titulo'] ?? 'Reporte de saldos institucionales'));
+            $mpdf->WriteHTML(view('pdfs/vPdfReporteInstitucionalSaldos', $payload));
+            $mpdf->Output($filename, 'D');
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF de reporte institucional de saldos: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
+        }
+
+        exit;
+    }
+
+    private function buildReporteInstitucionalSaldosPayload(string $grupo): ?array
+    {
+        $grupo = strtolower(trim($grupo));
+        $config = $this->getReporteInstitucionalGrupoConfig($grupo);
+        if (empty($config)) {
+            return null;
+        }
+
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        if (!$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
+            return null;
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('usuario u')
+            ->select("
+                u.id_usuario,
+                u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
+                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
+                u.folio,
+                u.folio_grupo,
+                u.sub_folio,
+                u.pax_total,
+                u.pax_secuencia,
+                u.{$config['field']} AS rol_grupo_id,
+                u.id_nivel_cliente,
+                COALESCE(cnc.dsc_nivel_cliente, '') AS tarifa_descripcion,
+                COALESCE(cnc.monto_deposito, u.monto_deposito, 0) AS tarifa_diaria,
+                u.fec_vigencia_desde,
+                u.fec_vigencia_hasta,
+                u.tiene_alimentos,
+                u.tiene_hospedaje,
+                u.monto_deposito_reservado,
+                u.monto_deposito_operativo,
+                u.visible
+            ", false)
+            ->join('cat_nivel_cliente cnc', 'cnc.id_nivel_cliente = u.id_nivel_cliente', 'left')
+            ->where('u.visible', 1)
+            ->where('u.' . $config['field'] . ' >', 0);
+
+        $vigenciaDesdeFiltro = trim((string) ($this->request->getGet('vigencia_desde') ?? ''));
+        $vigenciaHastaFiltro = trim((string) ($this->request->getGet('vigencia_hasta') ?? ''));
+        if ($vigenciaDesdeFiltro !== '') {
+            $builder->where('DATE(u.fec_vigencia_hasta) >= ' . $db->escape($vigenciaDesdeFiltro), null, false);
+        }
+        if ($vigenciaHastaFiltro !== '') {
+            $builder->where('DATE(u.fec_vigencia_desde) <= ' . $db->escape($vigenciaHastaFiltro), null, false);
+        }
+
+        $rows = $builder
+            ->orderBy('u.folio_grupo', 'ASC')
+            ->orderBy('u.pax_secuencia', 'ASC')
+            ->orderBy('u.id_usuario', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $hoy = new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City'));
+        $resumen = [
+            'total_usuarios' => 0,
+            'total_reservado' => 0.00,
+            'total_operativo' => 0.00,
+            'total_pendiente' => 0.00,
+        ];
+
+        $roles = $config['roles'];
+        $mappedRows = [];
+        foreach ($rows as $row) {
+            $row = (array) $row;
+            $diasVigencia = $this->calculateReporteInstitucionalDiasVigencia(
+                (string) ($row['fec_vigencia_desde'] ?? ''),
+                (string) ($row['fec_vigencia_hasta'] ?? '')
+            );
+            $tarifaDiaria = round((float) ($row['tarifa_diaria'] ?? 0), 2);
+            $tieneAlimentos = (int) ($row['tiene_alimentos'] ?? 0) === 1;
+            $reservadoCalculado = $tieneAlimentos && $tarifaDiaria > 0 && $diasVigencia > 0
+                ? round($tarifaDiaria * $diasVigencia, 2)
+                : round((float) ($row['monto_deposito_reservado'] ?? 0), 2);
+            $operativoActual = round((float) ($row['monto_deposito_operativo'] ?? 0), 2);
+            $vigenciaVencida = $this->isReporteInstitucionalVigenciaVencida((string) ($row['fec_vigencia_hasta'] ?? ''), $hoy);
+            $pendiente = $vigenciaVencida ? round(max(0.00, $operativoActual), 2) : 0.00;
+            $rolId = (int) ($row['rol_grupo_id'] ?? 0);
+
+            $mappedRows[] = [
+                'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+                'folio' => trim((string) ($row['folio_grupo'] ?? $row['folio'] ?? '')),
+                'sub_folio' => trim((string) ($row['sub_folio'] ?? '')),
+                'usuario' => (string) ($row['usuario'] ?? ''),
+                'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
+                'perfil' => $roles[$rolId] ?? ('Perfil ' . $rolId),
+                'tarifa_descripcion' => trim((string) ($row['tarifa_descripcion'] ?? '')),
+                'tarifa_diaria' => $tarifaDiaria,
+                'vigencia_desde' => (string) ($row['fec_vigencia_desde'] ?? ''),
+                'vigencia_hasta' => (string) ($row['fec_vigencia_hasta'] ?? ''),
+                'dias_vigencia' => $diasVigencia,
+                'beneficios' => $this->buildReporteInstitucionalBeneficiosLabel($row),
+                'monto_reservado' => $reservadoCalculado,
+                'monto_operativo' => $operativoActual,
+                'monto_pendiente' => $pendiente,
+            ];
+
+            $resumen['total_usuarios']++;
+            $resumen['total_reservado'] = round($resumen['total_reservado'] + $reservadoCalculado, 2);
+            $resumen['total_operativo'] = round($resumen['total_operativo'] + $operativoActual, 2);
+            $resumen['total_pendiente'] = round($resumen['total_pendiente'] + $pendiente, 2);
+        }
+
+        return [
+            'titulo' => 'Reporte de saldos institucionales',
+            'grupo' => $config['label'],
+            'generado_en' => date('Y-m-d H:i:s'),
+            'periodo_label' => $this->buildReporteInstitucionalPeriodoLabel($vigenciaDesdeFiltro, $vigenciaHastaFiltro),
+            'rows' => $mappedRows,
+            'resumen' => $resumen,
+        ];
+    }
+
+    private function getReporteInstitucionalGrupoConfig(string $grupo): array
+    {
+        $definitions = (new UsuarioPerfilResolver())->getDefinitions();
+        $configs = [
+            'fic' => ['label' => 'FIC', 'field' => 'id_fic_perfil', 'roles' => $definitions['fic']['roles'] ?? []],
+            'ug' => ['label' => 'UG', 'field' => 'id_ug_perfil', 'roles' => $definitions['ug']['roles'] ?? []],
+            'secul' => ['label' => 'SECUL', 'field' => 'id_secul_perfil', 'roles' => $definitions['secul']['roles'] ?? []],
+        ];
+
+        return $configs[$grupo] ?? [];
+    }
+
+    private function canExportReporteInstitucional(string $grupo, array $contextoUsuario): bool
+    {
+        if (!empty($contextoUsuario['is_ti_master'])) {
+            return true;
+        }
+
+        return (string) ($contextoUsuario['active_group'] ?? '') === $grupo
+            && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true);
+    }
+
+    private function calculateReporteInstitucionalDiasVigencia(string $desde, string $hasta): int
+    {
+        $desde = trim($desde);
+        $hasta = trim($hasta);
+        if ($desde === '' || $hasta === '') {
+            return 0;
+        }
+
+        try {
+            $inicio = new \DateTimeImmutable(substr($desde, 0, 10));
+            $fin = new \DateTimeImmutable(substr($hasta, 0, 10));
+        } catch (\Throwable $e) {
+            return 0;
+        }
+
+        if ($fin < $inicio) {
+            return 0;
+        }
+
+        return ((int) $inicio->diff($fin)->format('%a')) + 1;
+    }
+
+    private function isReporteInstitucionalVigenciaVencida(string $hasta, \DateTimeImmutable $hoy): bool
+    {
+        $hasta = trim($hasta);
+        if ($hasta === '') {
+            return false;
+        }
+
+        try {
+            $fin = new \DateTimeImmutable(substr($hasta, 0, 10), new \DateTimeZone('America/Mexico_City'));
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        return $fin < $hoy;
+    }
+
+    private function buildReporteInstitucionalBeneficiosLabel(array $row): string
+    {
+        $beneficios = [];
+        if ((int) ($row['tiene_alimentos'] ?? 0) === 1) {
+            $beneficios[] = 'Alimentos';
+        }
+        if ((int) ($row['tiene_hospedaje'] ?? 0) === 1) {
+            $beneficios[] = 'Hospedaje';
+        }
+
+        return !empty($beneficios) ? implode(' / ', $beneficios) : 'Sin beneficios';
+    }
+
+    private function buildReporteInstitucionalPeriodoLabel(string $desde, string $hasta): string
+    {
+        $desde = trim($desde);
+        $hasta = trim($hasta);
+        if ($desde === '' && $hasta === '') {
+            return 'Todos los usuarios visibles del grupo';
+        }
+        if ($desde !== '' && $hasta !== '') {
+            return 'Vigencias entre ' . $this->formatReporteVentasFecha($desde) . ' y ' . $this->formatReporteVentasFecha($hasta);
+        }
+        if ($desde !== '') {
+            return 'Vigencias desde ' . $this->formatReporteVentasFecha($desde);
+        }
+
+        return 'Vigencias hasta ' . $this->formatReporteVentasFecha($hasta);
+    }
+
     public function exportarReporteHospedajePdf()
     {
         $payload = $this->buildHospedajeReporteExportPayload();
@@ -1720,6 +1972,45 @@ class Inicio extends BaseController {
         $data['previewInterfaceLabel'] = 'Vista de referencia';
         $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de facturas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vFacturasFic';
+        $this->_renderView($data);
+    }
+
+    public function ReportesInstitucionales()
+    {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contentView'] = 'secciones/vReportesInstitucionales';
+        $data['reportesInstitucionalesTabs'] = [
+            [
+                'key' => 'fic',
+                'label' => 'FIC',
+                'title' => 'Festival Internacional Cervantino',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios FIC.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'),
+                'profile_url' => base_url('index.php/Inicio/PerfilFic'),
+            ],
+            [
+                'key' => 'ug',
+                'label' => 'UG',
+                'title' => 'Universidad de Guanajuato',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios UG.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'),
+                'profile_url' => base_url('index.php/Inicio/PerfilUg'),
+            ],
+            [
+                'key' => 'secul',
+                'label' => 'SECUL',
+                'title' => 'Secretaría de Cultura',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
+                'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
+            ],
+        ];
+
         $this->_renderView($data);
     }
 
@@ -2506,15 +2797,15 @@ class Inicio extends BaseController {
         $db = \Config\Database::connect(null, false);
         $builder = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, su.usu_reg, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
-            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
-            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
+            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
+            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
             ->where('su.id_solicitud_usuario', $idSolicitud)
             ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+            ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional());
 
         if ($grupo !== '' && in_array($grupo, ['fic', 'secul', 'ug'], true)) {
-            $builder->where('su.tipo_solicitud', 'alta_usuario_' . $grupo);
+            $builder->whereIn('su.tipo_solicitud', ['alta_usuario_' . $grupo, 'edicion_usuario_' . $grupo]);
         }
 
         $row = $builder->get()->getRowArray();
@@ -2522,7 +2813,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la solicitud.']);
         }
 
-        $grupoRow = str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? ''));
+        $grupoRow = preg_replace('/^(alta|edicion)_usuario_/', '', (string) ($row['tipo_solicitud'] ?? ''));
         $estatusRow = strtolower(trim((string) ($row['estatus'] ?? '')));
         $esPropietario = (int) ($row['usu_reg'] ?? 0) === $idSesionUsuario;
         $esAdminDelGrupo = empty($tiUsuario)
@@ -2806,7 +3097,9 @@ class Inicio extends BaseController {
             : [];
         $grupoSolicitud = $payloadInfo['grupo'] !== ''
             ? $payloadInfo['grupo']
-            : str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? 'fic'));
+            : preg_replace('/^(alta|edicion)_usuario_/', '', (string) ($row['tipo_solicitud'] ?? 'fic'));
+        $tipoSolicitud = strtolower((string) ($row['tipo_solicitud'] ?? ''));
+        $esEdicion = strpos($tipoSolicitud, 'edicion_usuario_') === 0;
         $nombreCompleto = trim(implode(' ', array_filter([
             trim((string) ($row['nombre'] ?? '')),
             trim((string) ($row['primer_apellido'] ?? '')),
@@ -2816,6 +3109,8 @@ class Inicio extends BaseController {
         return [
             'id_solicitud_usuario' => (int) ($row['id_solicitud_usuario'] ?? 0),
             'tipo_solicitud' => (string) ($row['tipo_solicitud'] ?? ''),
+            'tipo_flujo' => $esEdicion ? 'edicion' : 'alta',
+            'tipo_flujo_label' => $esEdicion ? 'Edición de usuario' : 'Nuevo folio',
             'id_proveedor' => (int) ($row['id_proveedor'] ?? 0),
             'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
             'id_perfil_solicitado' => (int) ($row['id_perfil_solicitado'] ?? 0),
@@ -3311,6 +3606,9 @@ class Inicio extends BaseController {
         if (strpos($tipoSolicitud, 'alta_usuario_') === 0) {
             $candidatos[] = substr($tipoSolicitud, strlen('alta_usuario_'));
         }
+        if (strpos($tipoSolicitud, 'edicion_usuario_') === 0) {
+            $candidatos[] = substr($tipoSolicitud, strlen('edicion_usuario_'));
+        }
 
         foreach ($candidatos as $candidato) {
             $candidato = strtolower(trim((string) $candidato));
@@ -3392,16 +3690,33 @@ class Inicio extends BaseController {
         $db = \Config\Database::connect();
         $row = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
-            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
-            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
+            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
+            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
             ->where('su.id_solicitud_usuario', $idSolicitud)
             ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug'])
+            ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional())
             ->get()
             ->getRowArray();
 
         return is_array($row) ? $row : [];
+    }
+
+    private function getTiposSolicitudFolioInstitucional(): array
+    {
+        return [
+            'alta_usuario_fic',
+            'alta_usuario_secul',
+            'alta_usuario_ug',
+            'edicion_usuario_fic',
+            'edicion_usuario_secul',
+            'edicion_usuario_ug',
+        ];
+    }
+
+    private function isSolicitudEdicionInstitucional(array $solicitud): bool
+    {
+        return strpos(strtolower((string) ($solicitud['tipo_solicitud'] ?? '')), 'edicion_usuario_') === 0;
     }
     private function buildPartidasDashboardSeed(): array
     {
@@ -6875,11 +7190,11 @@ class Inicio extends BaseController {
     $db = \Config\Database::connect();
     $builder = $db->table('solicitud_usuario su')
         ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
-        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
-        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
-        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
+        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
+        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
+        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
         ->where('su.visible', 1)
-        ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+        ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional());
 
     $search = trim((string) ($this->request->getGet('search') ?? ''));
     if ($search !== '') {
@@ -6945,9 +7260,6 @@ class Inicio extends BaseController {
 
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
         $idPartidaAprobacion = (int) ($this->request->getPost('id_partida') ?? 0);
-        if (!in_array($idPartidaAprobacion, [1, 2, 3], true)) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignara al folio antes de aprobar la solicitud.']);
-        }
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
@@ -6957,6 +7269,11 @@ class Inicio extends BaseController {
         if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
             $estatusActual = trim((string) ($solicitud['estatus'] ?? 'desconocido'));
             return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud institucional ya no está pendiente. Estatus actual: ' . $estatusActual . '.']);
+        }
+
+        $esSolicitudEdicion = $this->isSolicitudEdicionInstitucional($solicitud);
+        if (!$esSolicitudEdicion && !in_array($idPartidaAprobacion, [1, 2, 3], true)) {
+            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignará al folio antes de aprobar la solicitud.']);
         }
 
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
@@ -6969,6 +7286,43 @@ class Inicio extends BaseController {
         }
         $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
         $payload = $this->normalizeSolicitudFolioPayload($grupoSolicitud, $payload);
+        if ($esSolicitudEdicion) {
+            $session = \Config\Services::session();
+            $resolver = new UsuarioPerfilResolver();
+            $actorContext = $resolver->resolve($session->get());
+            if (empty($actorContext['is_ti_master'])) {
+                $actorContext['is_ti_master'] = true;
+                $actorContext['can_edit_user_catalog'] = true;
+            }
+
+            $usuarioController = new Usuario();
+            $usuarioController->initController($this->request, $this->response, \Config\Services::logger());
+            $saveResponse = $usuarioController->applyInstitutionalUserEditPayload(
+                $payload,
+                $actorContext,
+                (int) ($session->get('id_usuario') ?? 0),
+                'Inicio.aprobarSolicitudNuevoFolioTi.edicion'
+            );
+            $saveBody = json_decode((string) $saveResponse->getBody(), true);
+
+            if (!is_array($saveBody) || !empty($saveBody['error'])) {
+                return $this->response->setStatusCode(409)->setJSON([
+                    'ok' => false,
+                    'message' => (string) ($saveBody['respuesta'] ?? 'No fue posible aplicar la edición solicitada.'),
+                ]);
+            }
+
+            $payloadLimpio = $this->removeSensitiveSolicitudFolioPayload($payload);
+            $fechaAhora = date('Y-m-d H:i:s');
+            $db->table('solicitud_usuario')->where('id_solicitud_usuario', $idSolicitud)->update([
+                'estatus' => 'aprobada',
+                'comentario_ti' => $this->encodeSolicitudFolioPayload($grupoSolicitud, $payloadLimpio),
+                'fec_act' => $fechaAhora,
+                'usu_act' => (int) ($session->get('id_usuario') ?? 0),
+            ]);
+
+            return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y edición aplicada correctamente.']);
+        }
         $payload['id_partida'] = $idPartidaAprobacion;
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
             return $this->response->setStatusCode(422)->setJSON([

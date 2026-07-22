@@ -415,11 +415,12 @@ window.cajeros = {
         this.folioSuggestionsEnabled = this.isAltaPage && String(contenedor.dataset.folioSuggestionsEnabled || '0') === '1';
         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
         this.isSolicitudFolioMode = this.isAltaPage && String(contenedor.dataset.solicitudFolioMode || '') === '1';
+        this.idUsuarioEditar = this.isAltaPage ? Number(altaPagina.dataset.idUsuario || 0) : 0;
 
         if (this.isAltaPage) {
             this.inicializarSelect2();
 
-            var idUsuario = Number(altaPagina.dataset.idUsuario || 0);
+            var idUsuario = this.idUsuarioEditar;
 
             if (this.isProviderMode) {
                 this.inicializarFlujoProveedor();
@@ -1651,6 +1652,54 @@ window.cajeros = {
         return grupo === 'fic' || grupo === 'ug';
     },
 
+    esEdicionInstitucionalAdmin: function () {
+        var grupo = String(this.contexto.active_group || '').toLowerCase();
+        var rol = Number(this.contexto.group_role || 0);
+        var idUsuario = Number($('#id_usuario').val() || this.idUsuarioEditar || 0);
+        return this.isAltaPage
+            && idUsuario > 0
+            && ['fic', 'ug', 'secul'].indexOf(grupo) !== -1
+            && rol === 1
+            && !this.contexto.is_ti_master;
+    },
+
+    aplicarModoEdicionInstitucional: function () {
+        if (!this.esEdicionInstitucionalAdmin()) {
+            return;
+        }
+
+        $('.solicitud-partida-visual').addClass('d-none').hide();
+        $('#id_partida').val('');
+        $('#usuario').prop('readonly', true);
+        $('#contrasenia').val('').prop('disabled', true).prop('required', false);
+
+        var bloqueados = [
+            '#categoria_ui',
+            '#id_pais',
+            '#id_estado',
+            '#disciplina_ui',
+            '#id_establecimiento',
+            '#folio_ui',
+            '#subf_ui',
+            '#pax_ui',
+            '#anf_gto_ui',
+            '#tiene_alimentos',
+            '#tiene_hospedaje',
+            '#id_establecimiento_hotel',
+            '#id_tipo_habitacion',
+            '#tarifa_noche',
+            '#tarifa_total',
+            '#noche',
+            '#agregarHabitacionHospedaje',
+            '#limpiarPlanHospedaje',
+            '#hospedaje_sobrerreserva_ui'
+        ];
+
+        $(bloqueados.join(',')).prop('disabled', true).trigger('change.select2');
+        $('#hospedajePlanContainer').find('input, select, button').prop('disabled', true);
+        $('#cajeroPageTitle').text('Editar usuario institucional');
+    },
+
     resolverPartidaAutomatica: function () {
         if ($('#tiene_hospedaje').val() === '1') {
             return '2';
@@ -1671,7 +1720,7 @@ window.cajeros = {
         var wrapper = $('#partidaManualWrapper');
         var valor = String(hidden.val() || select.val() || '');
 
-        if (this.isSolicitudFolioMode) {
+        if (this.isSolicitudFolioMode || this.esEdicionInstitucionalAdmin()) {
             hidden.val('');
             if (select.length) {
                 select.val('').prop('disabled', true).trigger('change.select2');
@@ -2256,7 +2305,7 @@ window.cajeros = {
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
 
-        if (!this.isSolicitudFolioMode && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
+        if (!this.isSolicitudFolioMode && !this.esEdicionInstitucionalAdmin() && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
             Swal.fire('Atencion', 'Selecciona una partida antes de guardar.', 'warning');
             return;
         }
@@ -2288,7 +2337,7 @@ window.cajeros = {
             var paxCount = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
             var mensaje = cajeros.isSolicitudFolioMode
                 ? (response.message || 'Solicitud enviada correctamente.')
-                : (paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.');
+                : (response.message || response.respuesta || (paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.'));
             Swal.fire('Correcto', mensaje, 'success').then(function () {
                 window.location.href = cajeros.listUrl;
             });
@@ -2504,8 +2553,10 @@ window.cajeros = {
 
         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
         this.aplicarModoFormulario(soloConsulta);
+        this.aplicarModoEdicionInstitucional();
         this.actualizarResumenAltaUsuario();
         $('#cajeroPageTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
+        this.aplicarModoEdicionInstitucional();
     },
 
     aplicarModoFormulario: function (soloConsulta) {
@@ -2554,7 +2605,7 @@ window.cajeros = {
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
 
-        if (!this.isSolicitudFolioMode && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
+        if (!this.isSolicitudFolioMode && !this.esEdicionInstitucionalAdmin() && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
             Swal.fire('Atención', 'Selecciona una partida antes de guardar.', 'warning');
             return;
         }

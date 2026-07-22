@@ -291,6 +291,7 @@ $solicitudesPartidaOptionsJson = json_encode($solicitudesPartidaOptions, JSON_HE
                     <thead>
                         <tr>
                             <th data-field="id_solicitud_usuario" data-sortable="true">ID solicitud</th>
+                            <th data-field="tipo_flujo_label" data-sortable="true">Tipo</th>
                             <th data-field="catalogo_grupo" data-sortable="true">Grupo</th>
                             <th data-field="perfil_solicitado" data-sortable="true">Perfil solicitado</th>
                             <th data-field="usuario" data-formatter="solicitudesFicPanelUsuarioFormatter">Usuario</th>

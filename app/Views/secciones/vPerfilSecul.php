@@ -47,11 +47,16 @@ $solicitudEstablecimientoId = (int) ($seculSolicitudEstablecimientoId ?? 0);
                     <h4 class="mb-1 text-white">Usuarios SECUL</h4>
                     <p class="text-muted mb-0">Consulta el catálogo visible de usuarios SECUL según tu perfil.</p>
                 </div>
-                <?php if ($mostrarEdicion): ?>
-                    <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/secul'), 'attr') ?>">
-                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'), 'attr') ?>">
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de saldos
                     </a>
-                <?php endif; ?>
+                    <?php if ($mostrarEdicion): ?>
+                        <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/secul'), 'attr') ?>">
+                            <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
+                        </a>
+                    <?php endif; ?>
+                </div>
             </div>
             <div class="row g-2 align-items-end mb-3">
                 <div class="col-12 col-md-4 col-lg-3">

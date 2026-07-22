@@ -109,6 +109,93 @@ class DepositosProgramadosService
         }
     }
 
+    public function adjustReservationForInstitutionalEdit(array $currentUser, array $nextUser, int $actorUserId): object
+    {
+        $response = new stdClass();
+        $response->error = true;
+        $response->respuesta = 'Error | No fue posible ajustar la reserva del usuario.';
+
+        $currentReserved = round((float) ($currentUser['monto_deposito_reservado'] ?? 0), 2);
+        $currentOperative = round((float) ($currentUser['monto_deposito_operativo'] ?? 0), 2);
+        $currentHotel = round(max(0.00, (float) ($currentUser['monto_deposito_hotel'] ?? 0)), 2);
+        $currentHotel = min($currentHotel, $currentReserved);
+        $currentFood = round(max(0.00, $currentReserved - $currentHotel), 2);
+
+        $nextReserved = round((float) ($nextUser['monto_deposito_reservado'] ?? 0), 2);
+        $nextHotel = round(max(0.00, (float) ($nextUser['monto_deposito_hotel'] ?? 0)), 2);
+        $nextHotel = min($nextHotel, $nextReserved);
+        $nextFood = round(max(0.00, $nextReserved - $nextHotel), 2);
+
+        if ($nextReserved < $currentOperative) {
+            $response->respuesta = 'Error | El nuevo total no puede ser menor al saldo operativo ya liberado.';
+            return $response;
+        }
+
+        $foodDelta = round($nextFood - $currentFood, 2);
+        $hotelDelta = round($nextHotel - $currentHotel, 2);
+        $reserveRows = [];
+        if ($foodDelta > 0) {
+            $foodAllocation = $this->buildPartidaDepositAllocations($nextUser, $foodDelta, 0.00);
+            if (!empty($foodAllocation['error'])) {
+                $response->respuesta = (string) ($foodAllocation['respuesta'] ?? 'Error | No fue posible calcular la partida de alimentos.');
+                return $response;
+            }
+            $reserveRows = array_merge($reserveRows, $foodAllocation['data'] ?? []);
+        }
+        if ($hotelDelta > 0) {
+            $hotelAllocation = $this->buildPartidaDepositAllocations($nextUser, 0.00, $hotelDelta);
+            if (!empty($hotelAllocation['error'])) {
+                $response->respuesta = (string) ($hotelAllocation['respuesta'] ?? 'Error | No fue posible calcular la partida de hospedaje.');
+                return $response;
+            }
+            $reserveRows = array_merge($reserveRows, $hotelAllocation['data'] ?? []);
+        }
+
+        $releaseRows = [];
+        if ($foodDelta < 0) {
+            $foodAllocation = $this->buildPartidaDepositAllocations($currentUser, abs($foodDelta), 0.00);
+            if (!empty($foodAllocation['error'])) {
+                $response->respuesta = (string) ($foodAllocation['respuesta'] ?? 'Error | No fue posible calcular la devolución de alimentos.');
+                return $response;
+            }
+            $releaseRows = array_merge($releaseRows, $foodAllocation['data'] ?? []);
+        }
+        if ($hotelDelta < 0) {
+            $hotelAllocation = $this->buildPartidaDepositAllocations($currentUser, 0.00, abs($hotelDelta));
+            if (!empty($hotelAllocation['error'])) {
+                $response->respuesta = (string) ($hotelAllocation['respuesta'] ?? 'Error | No fue posible calcular la devolución de hospedaje.');
+                return $response;
+            }
+            $releaseRows = array_merge($releaseRows, $hotelAllocation['data'] ?? []);
+        }
+
+        $this->db->transBegin();
+        try {
+            $this->applyPartidaReservations($this->mergePartidaAllocations($reserveRows), $actorUserId);
+            foreach ($this->mergePartidaAllocations($releaseRows) as $row) {
+                $this->releasePartidaAmount((int) ($row['id_partida'] ?? 0), (float) ($row['monto'] ?? 0), $actorUserId);
+            }
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException('La transaccion de ajuste presupuestal no pudo completarse.');
+            }
+
+            $this->db->transCommit();
+            $response->error = false;
+            $response->respuesta = 'Reserva ajustada correctamente.';
+            $response->monto_reservado_anterior = $currentReserved;
+            $response->monto_reservado_nuevo = $nextReserved;
+            $response->monto_devuelto = round(max(0.00, $currentReserved - $nextReserved), 2);
+            $response->monto_incremento = round(max(0.00, $nextReserved - $currentReserved), 2);
+            return $response;
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            log_message('error', 'DepositosProgramadosService.adjustReservationForInstitutionalEdit: ' . $e->getMessage());
+            $response->respuesta = 'Error | ' . $e->getMessage();
+            return $response;
+        }
+    }
+
     public function activateQrAndApplyDeposits(int $idUsuario, int $actorUserId = 0, ?string $referenceDate = null): object
     {
         $response = new stdClass();
