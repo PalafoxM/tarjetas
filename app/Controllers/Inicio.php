@@ -2207,7 +2207,6 @@ class Inicio extends BaseController {
             ->where('id_usuario', $idUsuario)
             ->update([
                 'activo_qr' => 0,
-                'qr' => null,
                 'ine_firma_cajero' => null,
                 'ine_frontal' => null,
                 'ine_trasera' => null,
