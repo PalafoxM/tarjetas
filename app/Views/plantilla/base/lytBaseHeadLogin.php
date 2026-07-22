@@ -114,7 +114,7 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
     <meta name="csrf-header" content="<?= esc(csrf_header(), 'attr'); ?>">
     <meta name="csrf-token-name" content="<?= esc(csrf_token(), 'attr'); ?>">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <link rel="shortcut icon" href="<?= base_url(); ?>assets/images/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="<?= base_url(); ?>assets/images/proyecto/favicon.png" type="image/x-icon">
 
     <link rel="stylesheet" type="text/css" href="<?= base_url('css/fic-common.css') ?>">
     <link rel="stylesheet" type="text/css" href="<?= base_url('parallax.js_files/styles.css') ?>">
@@ -154,3 +154,4 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
         <span class="global-loading-overlay__text">Preparando la interfaz</span>
     </div>
 </div>
+

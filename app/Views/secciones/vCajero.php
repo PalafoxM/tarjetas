@@ -487,7 +487,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         row = row || {};
         const idUsuario = Number(row.id_usuario || 0);
         const puedeGestionarQr = !!cajeroPuedeGestionarQr;
-        if (cajeroSoloConsulta && !puedeGestionarQr) {
+        const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
+        if (!puedeGestionarQr || !expedienteCompleto) {
             return `
                 <div class="cajero-actions">
                     <button class="btn btn-primary" type="button" title="Ver orden" onclick="st.agregar.verPdf(${idUsuario})">
@@ -496,20 +497,24 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 </div>`;
         }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
-        const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
-        const botonAccionQr = qrActivo
-            ? `<button class="btn btn-outline-danger" type="button" title="Rechazar activaciÃ³n QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})">
-                    <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
+        const botonActivarQr = qrActivo
+            ? `<button class="btn btn-outline-success" type="button" title="QR ya activo" disabled>
+                    <i class="mdi mdi-qrcode-check"></i> Activar QR
                 </button>`
             : cajeroPuedeActivarQr
-                ? expedienteCompleto
-                    ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">
-                            <i class="mdi mdi-qrcode-check"></i> Activar QR
-                        </button>`
-                    : `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>
-                            <i class="mdi mdi-qrcode-check"></i> Activar QR
-                        </button>`
-                : '';
+                ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">
+                        <i class="mdi mdi-qrcode-check"></i> Activar QR
+                    </button>`
+                : `<button class="btn btn-outline-secondary" type="button" title="No tienes permisos para activar QR" disabled>
+                        <i class="mdi mdi-qrcode-check"></i> Activar QR
+                    </button>`;
+        const botonRechazarQr = qrActivo
+            ? `<button class="btn btn-outline-danger" type="button" title="Rechazar activación QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})">
+                    <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
+                </button>`
+            : `<button class="btn btn-outline-secondary" type="button" title="No se puede rechazar hasta que el QR esté activo" disabled>
+                    <i class="mdi mdi-qrcode-remove"></i> Rechazar QR
+                </button>`;
         let botones = `
             <div class="cajero-actions">
               
@@ -519,7 +524,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
-                ${puedeGestionarQr ? botonAccionQr : ''}`;
+                ${botonActivarQr}
+                ${botonRechazarQr}`;
 
         if (!cajeroSoloConsulta) {
             botones += `
@@ -802,3 +808,4 @@ $(function () {
     cajeros.iniciar();
 });
 </script>
+

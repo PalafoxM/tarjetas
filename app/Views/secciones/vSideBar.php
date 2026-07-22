@@ -5,20 +5,20 @@
         <!-- LOGO -->
         <a href="#" class="logo text-center logo-light mt-2">
             <span class="logo-lg">
-                <img src="<?php echo base_url()?>/assets/images/st4.png" alt="" height="90">
+                <img src="<?php echo base_url()?>/assets/images/proyecto/logo.png" alt="" height="90">
             </span>
             <span class="logo-sm">
-                <img src="<?php echo base_url();?>/assets/images/st4.png" alt="" height="48">
+                <img src="<?php echo base_url();?>/assets/images/proyecto/logo_side.png" alt="" height="48">
             </span>
         </a>
 
         <!-- LOGO -->
         <a href="#" class="logo text-center logo-dark">
             <span class="logo-lg">
-                <img src="<?php echo base_url();?>/assets/images/st4.png" alt="" height="16">
+                <img src="<?php echo base_url();?>/assets/images/proyecto/logo.png" alt="" height="16">
             </span>
             <span class="logo-sm">
-                <img src="<?php echo base_url();?>/assets/images/st4.png" alt="" height="16">
+                <img src="<?php echo base_url();?>/assets/images/proyecto/logo_side.png" alt="" height="16">
             </span>
         </a>
 
@@ -149,3 +149,4 @@
 
 </div>
 <!-- Left Sidebar End -->
+
