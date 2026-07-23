@@ -73,12 +73,16 @@
 
         <article class="fic-access-card fic-access-card--outline">
             <div>
-                <span class="fic-access-card__category">Activaciones de usuarios</span>
+                <span class="fic-access-card__category">Vista Caja SECTURI</span>
                 <h2>Activaciones QR</h2>
-                <p>Consulta la orden del día para Caja SECTURI, activa o rechaza QR.</p>
+                <p>Consulta orden del día, activaciones y rechazos en modo cajero.</p>
             </div>
             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Cajero') ?>">
+<<<<<<< HEAD
                 Ver activaciones en modalidad cajero SECTURI
+=======
+                Ver usuarios en modo Caja SECTURI
+>>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
             </a>
         </article>
 

@@ -664,7 +664,15 @@ class Usuario extends BaseController
         }
 
         if ($idUsuario > 0) {
-            $budgetEditError = $this->validateBudgetImmutableOnEdit($usuarioActual ?? [], $dataInsert);
+            $updateDataPreview = $dataInsert;
+            $updateDataPreview['pax_secuencia'] = (int) ($usuarioActual['pax_secuencia'] ?? 1);
+            $updateDataPreview['es_titular_folio'] = (int) ($usuarioActual['es_titular_folio'] ?? 1);
+            $updateDataPreview['folio'] = trim((string) ($usuarioActual['folio'] ?? ($updateDataPreview['folio'] ?? '')));
+            $updateDataPreview['folio_grupo'] = trim((string) ($usuarioActual['folio_grupo'] ?? ($updateDataPreview['folio_grupo'] ?? '')));
+            $updateDataPreview['sub_folio'] = trim((string) ($usuarioActual['sub_folio'] ?? ($updateDataPreview['sub_folio'] ?? '')));
+            $updateDataPreview = $this->preserveInstitutionalFolioFields($updateDataPreview, $usuarioActual ?? []);
+
+            $budgetEditError = $this->validateBudgetChangeOnEdit($usuarioActual ?? [], $updateDataPreview);
             if ($budgetEditError !== null) {
                 return $this->respond([
                     'error' => true,
@@ -1100,14 +1108,10 @@ class Usuario extends BaseController
                 'tarifa_total' => $montoTotalPax,
                 'pax' => $paxTotal,
                 'pax_total' => $paxTotal,
-                'pax_secuencia' => 1,
-                'es_titular_folio' => 1,
-                'folio' => $folio,
-                'folio_grupo' => $folioGrupo,
-                'sub_folio' => $subFolioBase !== '' ? $subFolioBase : null,
                 'fec_act' => $fechaAhora,
                 'usu_act' => $idSesionUsuario,
             ];
+            $updateData = $this->preserveInstitutionalFolioFields($updateData, $usuarioActual ?? []);
 
             $contraseniaNueva = trim((string) ($data['contrasenia'] ?? ''));
             if ($contraseniaNueva !== '') {
@@ -1155,8 +1159,8 @@ class Usuario extends BaseController
             $qrPath = null;
             try {
                 $qrPath = $this->generateInstitutionalQrForUser($idUsuario, $apiTokenToUse, $personas[0], [
-                    'folio_grupo' => $folioGrupo,
-                    'sub_folio' => $subFolioBase,
+                    'folio_grupo' => (string) ($updateData['folio_grupo'] ?? $folioGrupo),
+                    'sub_folio' => (string) ($updateData['sub_folio'] ?? $subFolioBase),
                     'grupo_usuario' => $grupoUsuario,
                 ]);
                 if ($qrPath !== null) {
@@ -3230,6 +3234,7 @@ class Usuario extends BaseController
         return (int) ($result->data[0]->id_usuario ?? 0);
     }
 
+<<<<<<< HEAD
     public function applyInstitutionalUserEditPayload(array $payload, array $actorContext, int $idSesionUsuario, string $scriptName = 'Usuario.applyInstitutionalUserEditPayload')
     {
         $idUsuario = (int) ($payload['id_usuario'] ?? 0);
@@ -3688,32 +3693,45 @@ class Usuario extends BaseController
     }
 
     private function validateBudgetImmutableOnEdit(array $usuarioActual, array $dataInsert): ?string
+=======
+    private function validateBudgetChangeOnEdit(array $usuarioActual, array $dataInsert): ?string
+>>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
     {
-        $fields = [
-            'id_partida' => 'Partida presupuestal',
-            'monto_deposito' => 'Deposito alimentos',
-            'monto_deposito_hotel' => 'Deposito hospedaje',
-            'tiene_alimentos' => 'Beneficio alimentos',
-            'tiene_hospedaje' => 'Beneficio hospedaje',
-            'tarifa_total' => 'Tarifa total hospedaje',
-            'tarifa_noche' => 'Tarifa por noche',
-            'noche' => 'Noches',
-        ];
+        $hasBudgetChange = !$this->budgetFieldEquals('id_partida', $usuarioActual['id_partida'] ?? null, $dataInsert['id_partida'] ?? null)
+            || !$this->budgetFieldEquals('monto_deposito', $usuarioActual['monto_deposito'] ?? null, $dataInsert['monto_deposito'] ?? null)
+            || !$this->budgetFieldEquals('monto_deposito_hotel', $usuarioActual['monto_deposito_hotel'] ?? null, $dataInsert['monto_deposito_hotel'] ?? null)
+            || !$this->budgetFieldEquals('tiene_alimentos', $usuarioActual['tiene_alimentos'] ?? null, $dataInsert['tiene_alimentos'] ?? null)
+            || !$this->budgetFieldEquals('tiene_hospedaje', $usuarioActual['tiene_hospedaje'] ?? null, $dataInsert['tiene_hospedaje'] ?? null)
+            || !$this->budgetFieldEquals('tarifa_total', $usuarioActual['tarifa_total'] ?? null, $dataInsert['tarifa_total'] ?? null)
+            || !$this->budgetFieldEquals('tarifa_noche', $usuarioActual['tarifa_noche'] ?? null, $dataInsert['tarifa_noche'] ?? null)
+            || !$this->budgetFieldEquals('noche', $usuarioActual['noche'] ?? null, $dataInsert['noche'] ?? null);
 
-        $changed = [];
-        foreach ($fields as $field => $label) {
-            if (!$this->budgetFieldEquals($field, $usuarioActual[$field] ?? null, $dataInsert[$field] ?? null)) {
-                $changed[] = $label;
-            }
-        }
-
-        if (empty($changed)) {
+        if (!$hasBudgetChange) {
             return null;
         }
 
-        return 'Los campos presupuestales de un usuario ya creado no se pueden editar desde este flujo para evitar dobles descuentos en cat_partida. Campos detectados: '
-            . implode(', ', $changed)
-            . '.';
+        if ((int) ($usuarioActual['activo_qr'] ?? 0) === 1) {
+            return 'El usuario ya tiene QR activo; cualquier ajuste presupuestal requiere revisión por TI o admin secturi.';
+        }
+
+        $originalTotal = round((float) ($usuarioActual['monto_deposito'] ?? 0), 2) + round((float) ($usuarioActual['monto_deposito_hotel'] ?? 0), 2);
+        $nextTotal = round((float) ($dataInsert['monto_deposito'] ?? 0), 2) + round((float) ($dataInsert['monto_deposito_hotel'] ?? 0), 2);
+        if ($nextTotal > $originalTotal) {
+            return 'El ajuste incrementa el monto original y requiere revisión por TI o admin secturi.';
+        }
+
+        return null;
+    }
+
+    private function preserveInstitutionalFolioFields(array $payload, array $usuarioActual): array
+    {
+        $payload['pax_secuencia'] = (int) ($usuarioActual['pax_secuencia'] ?? ($payload['pax_secuencia'] ?? 1));
+        $payload['es_titular_folio'] = (int) ($usuarioActual['es_titular_folio'] ?? ($payload['es_titular_folio'] ?? 1));
+        $payload['folio'] = trim((string) ($usuarioActual['folio'] ?? ($payload['folio'] ?? '')));
+        $payload['folio_grupo'] = trim((string) ($usuarioActual['folio_grupo'] ?? ($payload['folio_grupo'] ?? ($payload['folio'] ?? ''))));
+        $payload['sub_folio'] = trim((string) ($usuarioActual['sub_folio'] ?? ($payload['sub_folio'] ?? '')));
+
+        return $payload;
     }
 
     private function budgetFieldEquals(string $field, $current, $next): bool

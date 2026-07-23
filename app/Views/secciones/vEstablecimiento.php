@@ -40,37 +40,108 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
         </div>
     <?php endif; ?>
 
+    <?php
+        $proveedoresLigadosTab = array_values(array_map(static function ($item) {
+            return is_object($item) ? get_object_vars($item) : (array) $item;
+        }, is_array($proveedoresLigados ?? null) ? $proveedoresLigados : []));
+        $fullName = static function (array $row): string {
+            $nombreCompleto = trim(implode(' ', array_filter([
+                trim((string) ($row['nombre'] ?? '')),
+                trim((string) ($row['primer_apellido'] ?? '')),
+                trim((string) ($row['segundo_apellido'] ?? '')),
+            ])));
+
+            return $nombreCompleto !== '' ? $nombreCompleto : trim((string) ($row['usuario'] ?? 'Sin nombre'));
+        };
+    ?>
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-dark table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Establecimiento</th>
-                            <th>Tipo</th>
-                            <th>Proveedor</th>
-                            <th>Padron</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($establecimientos)): ?>
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-4">No hay establecimientos visibles para mostrar.</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($establecimientos as $establecimiento): ?>
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="establecimientos-tab" data-bs-toggle="tab" data-bs-target="#establecimientos-pane" type="button" role="tab" aria-controls="establecimientos-pane" aria-selected="true">
+                        Establecimientos participantes
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="proveedores-tab" data-bs-toggle="tab" data-bs-target="#proveedores-pane" type="button" role="tab" aria-controls="proveedores-pane" aria-selected="false">
+                        Proveedores y usuarios ligados
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="establecimientos-pane" role="tabpanel" aria-labelledby="establecimientos-tab">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle mb-0">
+                            <thead>
                                 <tr>
-                                    <td><?= esc((string) ($establecimiento->id_establecimiento ?? '')) ?></td>
-                                    <td><?= esc((string) ($establecimiento->dsc_establecimiento ?? '')) ?></td>
-                                    <td><?= esc((string) ($establecimiento->dsc_tipo ?? '')) ?></td>
-                                    <td><?= esc((string) ($establecimiento->dsc_proveedor ?? 'Sin proveedor')) ?></td>
-                                    <td><?= esc((string) ($establecimiento->no_proveedor ?? '')) ?></td>
+                                    <th>ID</th>
+                                    <th>Establecimiento</th>
+                                    <th>Tipo</th>
+                                    <th>Proveedor</th>
+                                    <th>Padrón</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($establecimientos)): ?>
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">No hay establecimientos visibles para mostrar.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($establecimientos as $establecimiento): ?>
+                                        <tr>
+                                            <td><?= esc((string) ($establecimiento->id_establecimiento ?? '')) ?></td>
+                                            <td><?= esc((string) ($establecimiento->dsc_establecimiento ?? '')) ?></td>
+                                            <td><?= esc((string) ($establecimiento->dsc_tipo ?? '')) ?></td>
+                                            <td><?= esc((string) ($establecimiento->dsc_proveedor ?? 'Sin proveedor')) ?></td>
+                                            <td><?= esc((string) ($establecimiento->no_proveedor ?? '')) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="proveedores-pane" role="tabpanel" aria-labelledby="proveedores-tab">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Establecimiento</th>
+                                    <th>Padrón</th>
+                                    <th>Proveedor</th>
+                                    <th>Usuario</th>
+                                    <th>Tipo usuario</th>
+                                    <th>Tipo establecimiento</th>
+                                    <th>RFC</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($proveedoresLigadosTab)): ?>
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">No hay usuarios ligados para mostrar.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($proveedoresLigadosTab as $item): ?>
+                                        <tr>
+                                            <td><?= esc((string) ($item['dsc_establecimiento'] ?? '')) ?></td>
+                                            <td><?= esc((string) ($item['no_proveedor'] ?? '')) ?></td>
+                                            <td><?= esc((string) ($item['razon_social'] ?? 'Sin proveedor')) ?></td>
+                                            <td>
+                                                <div class="fw-semibold"><?= esc($fullName($item)) ?></div>
+                                                <div class="text-muted small"><?= esc((string) ($item['usuario'] ?? '')) ?></div>
+                                            </td>
+                                            <td><?= esc((string) ($item['tipo_usuario_label'] ?? 'Usuario ligado')) ?></td>
+                                            <td><?= esc((string) ($item['dsc_tipo'] ?? '')) ?></td>
+                                            <td><?= esc((string) ($item['rfc'] ?? '')) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

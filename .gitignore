@@ -6,3 +6,5 @@ app/Config/Database.php
 
 .env.env
 .env
+
+app/Config/Database.php
