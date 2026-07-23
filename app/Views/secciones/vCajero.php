@@ -491,14 +491,6 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const idUsuario = Number(row.id_usuario || 0);
         const puedeGestionarQr = !!cajeroPuedeGestionarQr;
         const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
-        if (!puedeGestionarQr || !expedienteCompleto) {
-            return `
-                <div class="cajero-actions">
-                    <button class="btn btn-primary" type="button" title="Ver orden" onclick="st.agregar.verPdf(${idUsuario})">
-                        <i class="mdi mdi-file-pdf-box"></i>
-                    </button>
-                </div>`;
-        }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
         const botonActivarQr = !expedienteCompleto
             ? `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`
@@ -514,14 +506,17 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-primary" type="button" title="Orden de Hospedaje y Alimentos" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
-                <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
-                    <i class="mdi mdi-file-upload-outline"></i>
-                </button>
-                ${botonActivarQr}
-                ${botonRechazarQr}`;
+                ${puedeGestionarQr ? botonActivarQr : ''}
+                ${puedeGestionarQr ? botonRechazarQr : ''}`;
 
         if (!cajeroSoloConsulta) {
             botones += `
+                <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
+                    <i class="mdi mdi-file-upload-outline"></i>
+                </button>
+                <button class="btn btn-outline-warning" type="button" title="Editar" onclick="cajeros.editar(${idUsuario})">
+                    <i class="mdi mdi-account-edit"></i>
+                </button>
                 <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${idUsuario})">
                     <i class="mdi mdi-account-remove"></i>
                 </button>`;
