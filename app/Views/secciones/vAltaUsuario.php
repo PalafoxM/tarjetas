@@ -738,8 +738,46 @@ $inferHabitacionCapacidad = static function ($item) {
         return field ? String(field.value || '').trim() : '';
     };
 
+    const getErrorMessage = (request, fallback) => {
+        const defaultMessage = fallback || 'No fue posible guardar el usuario.';
+        if (!request) {
+            return defaultMessage;
+        }
+
+        if (request.respuesta || request.message) {
+            return request.respuesta || request.message;
+        }
+
+        if (request.responseJSON && (request.responseJSON.respuesta || request.responseJSON.message)) {
+            return request.responseJSON.respuesta || request.responseJSON.message;
+        }
+
+        const responseText = String(request.responseText || '').trim();
+        if (!responseText) {
+            return defaultMessage;
+        }
+
+        try {
+            const parsed = JSON.parse(responseText);
+            return parsed.respuesta || parsed.message || defaultMessage;
+        } catch (error) {
+            const match = responseText.match(/"respuesta"\s*:\s*"([^"]+)"/);
+            if (match && match[1]) {
+                return match[1].replace(/\\u([0-9a-fA-F]{4})/g, function (_, code) {
+                    return String.fromCharCode(parseInt(code, 16));
+                }).replace(/\\"/g, '"');
+            }
+        }
+
+        return defaultMessage;
+    };
+
     const showError = (message) => {
-        Swal.fire('Atencion', message || 'No fue posible guardar el usuario.', 'warning');
+        Swal.fire({
+            icon: 'warning',
+            title: 'No fue posible guardar el usuario',
+            text: message || 'Revisa la informacion capturada.'
+        });
     };
 
     const showSuccess = (message) => {
@@ -804,14 +842,13 @@ $inferHabitacionCapacidad = static function ($item) {
             data: $(form).serialize()
         }).done(function (response) {
             if (!response || response.error === true || response.ok === false) {
-                showError((response && (response.respuesta || response.message)) || 'No fue posible guardar el usuario.');
+                showError(getErrorMessage(response));
                 return;
             }
 
             showSuccess(response.respuesta || response.message || 'Usuario guardado correctamente.');
         }).fail(function (request) {
-            const response = request && request.responseJSON ? request.responseJSON : {};
-            showError(response.respuesta || response.message || 'No fue posible guardar el usuario.');
+            showError(getErrorMessage(request));
         }).always(function () {
             isSubmitting = false;
             boton.disabled = false;
