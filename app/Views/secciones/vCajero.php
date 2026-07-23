@@ -500,7 +500,6 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 </div>`;
         }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
-        const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
         const botonActivarQr = !expedienteCompleto
             ? `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`
             : qrActivo
@@ -533,20 +532,9 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     tieneExpedienteCompleto(row) {
         row = row || {};
-        const pdfIneYFirma = String(row.ine_firma_cajero || '').trim() !== '';
-        const ineCompleta = String(row.ine_frontal || '').trim() !== ''
-            && String(row.ine_trasera || '').trim() !== ''
-            && String(row.firma || '').trim() !== '';
-
-<<<<<<< HEAD
-        const pdfIneYFirma = String(row.ine_firma_cajero || '').trim() !== '';
-        const ineCompleta = String(row.ine_frontal || '').trim() !== ''
-            && String(row.ine_trasera || '').trim() !== ''
-            && String(row.firma || '').trim() !== '';
-
-=======
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
-        return pdfIneYFirma || ineCompleta;
+        return ['ine_firma_cajero', 'ine_frontal', 'ine_trasera', 'firma'].some((field) => {
+            return String(row[field] || '').trim() !== '';
+        });
     },
 
     seleccionarFirmaCajero(idUsuario) {
