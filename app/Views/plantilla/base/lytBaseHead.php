@@ -9,7 +9,7 @@
         <meta content="Sistema de Junta de Gobierno" name="description" />
         <meta content="ISAPEG" name="author" />
         <!-- App favicon -->
-        <link rel="shortcut icon" href="<?php echo base_url();?>/assets/images/proyecto/favicon.png">
+        <link rel="shortcut icon" href="<?php echo base_url();?>/assets/images/favicon.ico">
         
         <link href="<?php echo base_url(); ?>/assets/css/main.css" rel="stylesheet" type="text/css" />
         <!-- third party css -->

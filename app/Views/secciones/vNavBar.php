@@ -255,8 +255,13 @@
     <div class="app-search dropdown d-none d-lg-block">
 
         <div id="titulo">
-            <!-- <h4 class="neon">SISTEMA DE TURNOS 2.0</h4> -->
-            <h4>Comisión de Alimentos y Hospedajes  </h4>
+            <div class="d-flex align-items-center gap-2">
+                <img src="<?php echo base_url();?>/assets/images/st4.png" alt="SECTUR/FIC" style="height: 28px; width: 28px; object-fit: contain;">
+                <div class="d-flex flex-column lh-1">
+                    <span class="text-white fw-semibold" style="font-size: 1rem; letter-spacing: .02em;">SECTUR/FIC</span>
+                    <small class="text-muted" style="font-size: .72rem;">Comisión de Alimentos y Hospedajes</small>
+                </div>
+            </div>
         </div>
         
     </div>

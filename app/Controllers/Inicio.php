@@ -4255,6 +4255,75 @@ class Inicio extends BaseController {
             $establecimientos[] = (object) $item;
         }
 
+        $proveedoresLigados = [];
+        $db = \Config\Database::connect();
+        $relaciones = $db->table('usuario_establecimiento ue')
+            ->select('
+                ue.id_usuario_establecimiento,
+                ue.id_establecimiento,
+                ue.id_tipo_proveedor AS tipo_relacion,
+                u.id_usuario,
+                u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
+                u.id_perfil,
+                u.id_tipo_proveedor AS usuario_tipo_proveedor,
+                e.dsc_establecimiento,
+                e.id_tipo,
+                cte.dsc_tipo,
+                e.no_proveedor,
+                p.id_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->join('usuario u', 'u.id_usuario = ue.id_usuario', 'inner')
+            ->join('establecimiento e', 'e.id_establecimiento = ue.id_establecimiento', 'inner')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('ue.visible', 1)
+            ->where('u.visible', 1)
+            ->where('e.visible', 1)
+            ->groupStart()
+                ->where('u.id_tipo_proveedor >', 0)
+                ->orWhereIn('u.id_perfil', [2, 6, 7])
+            ->groupEnd()
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->orderBy('u.id_tipo_proveedor', 'ASC')
+            ->orderBy('u.nombre', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $tipoProveedorLabels = [
+            1 => 'Proveedor',
+            2 => 'Gerente',
+            3 => 'Recepción',
+        ];
+
+        foreach ($relaciones as $row) {
+            $nombreCompleto = trim(implode(' ', array_filter([
+                (string) ($row['nombre'] ?? ''),
+                (string) ($row['primer_apellido'] ?? ''),
+                (string) ($row['segundo_apellido'] ?? ''),
+            ])));
+            $tipoProveedor = (int) ($row['tipo_relacion'] ?? $row['usuario_tipo_proveedor'] ?? 0);
+            $proveedoresLigados[] = [
+                'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+                'usuario' => (string) ($row['usuario'] ?? ''),
+                'nombre_completo' => $nombreCompleto !== '' ? $nombreCompleto : (string) ($row['usuario'] ?? 'Sin nombre'),
+                'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+                'dsc_establecimiento' => (string) ($row['dsc_establecimiento'] ?? ''),
+                'id_tipo' => (int) ($row['id_tipo'] ?? 0),
+                'dsc_tipo' => (string) ($row['dsc_tipo'] ?? ''),
+                'no_proveedor' => (string) ($row['no_proveedor'] ?? ''),
+                'razon_social' => (string) ($row['razon_social'] ?? ''),
+                'rfc' => (string) ($row['rfc'] ?? ''),
+                'id_proveedor' => (int) ($row['id_proveedor'] ?? 0),
+                'id_perfil' => (int) ($row['id_perfil'] ?? 0),
+                'tipo_usuario_label' => $tipoProveedorLabels[$tipoProveedor] ?? 'Usuario ligado',
+            ];
+        }
+
         $data = array();
         $data['scripts'] = array('principal','agregar');
         $data['contextoUsuario'] = $contextoUsuario;
@@ -4264,6 +4333,7 @@ class Inicio extends BaseController {
         $data['altaProveedorUrl'] = base_url('index.php/Inicio/AltaUsuario?modo=proveedor');
         $data['usuariosUrl'] = base_url('index.php/Inicio/Usuarios');
         $data['datosEstablecimiento'] = $establecimientos;
+        $data['proveedoresLigados'] = $proveedoresLigados;
         $data['contentView'] = 'secciones/vEstablecimiento';
         $this->_renderView($data);
     }
