@@ -729,6 +729,10 @@ $inferHabitacionCapacidad = static function ($item) {
         return;
     }
 
+    if (window.cajeros && typeof window.cajeros.guardarAltaUsuario === 'function') {
+        return;
+    }
+
     const saveUrl = String(page.dataset.saveUrl || '').trim();
     const listUrl = String(page.dataset.listUrl || '').trim();
     let isSubmitting = false;
