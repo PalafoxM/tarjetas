@@ -5,6 +5,14 @@ $esAdministradorEstablecimientosFic = !empty($esAdministradorEstablecimientosFic
 $soloConsultaEstablecimientosFic = !empty($soloConsultaEstablecimientosFic);
 $altaProveedorUrl = $altaProveedorUrl ?? base_url('index.php/Inicio/AltaUsuario?modo=proveedor');
 $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
+
+$idEstablecimientoFactura = 0;
+$nombreEstablecimiento = '';
+if (!empty($establecimientos)) {
+    $primerEstablecimiento = is_object($establecimientos[0]) ? get_object_vars($establecimientos[0]) : $establecimientos[0];
+    $idEstablecimientoFactura = (int) ($primerEstablecimiento['id_establecimiento'] ?? 0);
+    $nombreEstablecimiento = (string) ($primerEstablecimiento['dsc_establecimiento'] ?? 'Establecimiento');
+}
 ?>
 <?php if ($modoEstablecimientosFic): ?>
 <div class="container-fluid py-4" id="establecimientos-fic-root">
@@ -151,27 +159,47 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
 <link rel="stylesheet" href="<?= base_url('css/fic-hotel.css') ?>?filever=<?= time() ?>">
 
 <div class="container-fluid py-4 hotel-app" id="establecimientoApp"
-     data-id-establecimiento="<?= esc((string) ($establecimientos[0]->id_establecimiento ?? ''), 'attr') ?>"
-     data-nombre="<?= esc((string) ($establecimientos[0]->dsc_establecimiento ?? 'Establecimiento'), 'attr') ?>">
-    <div class="module-actions">
+     data-id-establecimiento="<?= esc((string) ($idEstablecimientoFactura), 'attr') ?>"
+     data-nombre="<?= esc((string) ($nombreEstablecimiento), 'attr') ?>">
+    
+   
+    <div class="module-actions d-flex flex-wrap align-items-center gap-2 mb-3">
+        <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
+            <i class="mdi mdi-arrow-left me-1"></i> Atrás
+        </a>
         <button
             type="button"
             class="btn btn-outline-primary"
             id="personalEstablecimiento"
-            data-solicitud-personal-url="<?= esc(base_url('index.php/Inicio') . '?solicitud_personal=1&id_establecimiento=' . (int) ($establecimientos[0]->id_establecimiento ?? 0), 'attr') ?>">
+            data-solicitud-personal-url="<?= esc(base_url('index.php/Inicio') . '?solicitud_personal=1&id_establecimiento=' . (int) ($idEstablecimientoFactura), 'attr') ?>">
             <i class="mdi mdi-account-group me-1"></i> Personal del establecimiento
+        </button>
+        <label class="btn btn-outline-info mb-0" for="hotel_factura_xml">
+            <i class="mdi mdi-file-xml-box me-1"></i> Subir XML
+            <input id="hotel_factura_xml" type="file" accept="application/xml,text/xml,.xml" hidden>
+        </label>
+        <label class="btn btn-outline-info mb-0" for="hotel_factura_pdf">
+            <i class="mdi mdi-file-pdf-box me-1"></i> Subir PDF
+            <input id="hotel_factura_pdf" type="file" accept="application/pdf,.pdf" hidden>
+        </label>
+        <button
+            type="button"
+            class="btn btn-primary"
+            id="hotel_enviar_factura"
+            data-id-establecimiento="<?= esc((string) ($idEstablecimientoFactura), 'attr') ?>"
+            disabled>
+            <i class="mdi mdi-send-check-outline me-1"></i> Cargar documentos
         </button>
         <button
             type="button"
             class="btn btn-outline-info"
             id="descargar_reporte_ventas_hotel"
-            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteHospedajePdf') . '?download=1', 'attr') ?>">
+            data-download-base-url="<?= esc(base_url('index.php/Inicio/exportarReporteHospedajePdf') . '?download=1', 'attr') ?>"
+            data-id-establecimiento="<?= esc((string) ($idEstablecimientoFactura), 'attr') ?>">
             <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte
         </button>
     </div>
-   <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary mb-3">
-     <i class="mdi mdi-arrow-left me-1"></i> Atrás
-    </a>
+
 
     <?php if (empty($establecimientos)): ?>
         <section class="module-shell">
@@ -184,76 +212,19 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
                 </div>
             </div>
         </section>
-<?php else: ?>
-       
-
+    <?php else: ?>
         <section class="module-shell">
             <div class="module-body">
                 <div class="hotel-summary">
                     <div>
                         <h2 class="hotel-section-title" id="establecimientoNombre">
-                            <?= esc((string) ($establecimientos[0]->dsc_establecimiento ?? 'Establecimiento')) ?>
+                            <?= esc((string) ($nombreEstablecimiento)) ?>
                         </h2>
                         <p class="hotel-section-copy">La tabla muestra únicamente las órdenes activas ligadas al establecimiento seleccionado.</p>
                     </div>
                     <div class="hotel-summary-badges">
                         <span class="badge bg-primary">Recepción</span>
                         <span class="badge bg-info">Check in controlado</span>
-                    </div>
-                </div>
-
-                <div class="ventas-corte-card">
-                    <div class="ventas-corte-card__header">
-                        <div>
-                            <span class="ventas-corte-card__kicker">Consumo acumulado</span>
-                            <h3 class="ventas-corte-card__amount" id="consumoAcumulado">$0.00</h3>
-                        </div>
-                        <div class="ventas-corte-card__meta">
-                            <span class="ventas-corte-card__count" id="totalOrdenes">0 órdenes</span>
-                            <span class="ventas-corte-card__window" id="totalNoches">0 noches acumuladas</span>
-                        </div>
-                    </div>
-                    <div class="ventas-corte-card__body">
-                        <strong class="ventas-corte-card__status" id="estadoOrdenes">0 pendientes / 0 check in</strong>
-                        <p class="ventas-corte-card__message">El total suma solo las noches efectivamente ocupadas. El remanente sigue reservado al usuario hasta su vencimiento.</p>
-                    </div>
-                </div>
-
-                <div class="ventas-corte-card">
-                    <div class="ventas-corte-card__header">
-                        <div>
-                            <span class="ventas-corte-card__kicker">Facturación</span>
-                            <h3 class="ventas-corte-card__amount">Formatos FIC</h3>
-                        </div>
-                        <div class="ventas-corte-card__meta">
-                            <span class="ventas-corte-card__count">XML + PDF</span>
-                            <span class="ventas-corte-card__window">Generación de formatos</span>
-                        </div>
-                    </div>
-                    <div class="ventas-corte-card__body">
-                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                            <label class="btn btn-outline-info mb-0" for="hotel_factura_xml">
-                                <i class="mdi mdi-file-xml-box me-1"></i> SUBIR XML
-                                <input id="hotel_factura_xml" type="file" accept="application/xml,text/xml,.xml" hidden>
-                            </label>
-                            <label class="btn btn-outline-info mb-0" for="hotel_factura_pdf">
-                                <i class="mdi mdi-file-pdf-box me-1"></i> SUBIR PDF
-                                <input id="hotel_factura_pdf" type="file" accept="application/pdf,.pdf" hidden>
-                            </label>
-                            <button type="button" class="btn btn-primary" id="hotel_enviar_factura" disabled>
-                                <i class="mdi mdi-send-check-outline me-1"></i> Enviar factura
-                            </button>
-                            <a class="btn btn-outline-light hotel-formato-link" id="hotel_formato_encabezado" target="_blank" rel="noopener">
-                                <i class="mdi mdi-file-document-outline me-1"></i> Encabezado
-                            </a>
-                            <a class="btn btn-outline-light hotel-formato-link" id="hotel_formato_pt" target="_blank" rel="noopener">
-                                <i class="mdi mdi-file-pdf-box me-1"></i> Formato PT
-                            </a>
-                            <a class="btn btn-outline-light hotel-formato-link" id="hotel_formato_liberacion" target="_blank" rel="noopener">
-                                <i class="mdi mdi-file-check-outline me-1"></i> Liberación
-                            </a>
-                        </div>
-                        <p class="ventas-corte-card__message mt-2 mb-0">Selecciona el XML y PDF de la factura para habilitar el envío. Después podrás generar los formatos del establecimiento seleccionado.</p>
                     </div>
                 </div>
 
@@ -266,7 +237,7 @@ $usuariosUrl = $usuariosUrl ?? base_url('index.php/Inicio/Usuarios');
                            data-page-size="25"
                            data-page-list="[5,10,25,50,100]"
                            data-locale="es-MX"
-                           >
+                           data-id-establecimiento="<?= esc((string) ($idEstablecimientoFactura), 'attr') ?>">
                         <thead>
                             <tr>
                                 <th data-field="folio_hospedaje" data-sortable="true">Folio</th>
@@ -295,15 +266,29 @@ window.establecimientos = {
 
     iniciar: function () {
         var app = document.getElementById('establecimientoApp');
-        var primeraPestana = app ? app.querySelector('.establecimiento-tab') : null;
         var tabla = document.getElementById('RecepcionTable');
         if (!app || !tabla || typeof $.fn.bootstrapTable !== 'function') return;
 
-        app.querySelectorAll('.establecimiento-tab').forEach(function (pestana) {
-            pestana.addEventListener('click', function () {
-                establecimientos.seleccionar(pestana);
+       
+        var xmlInput = document.getElementById('hotel_factura_xml');
+        var pdfInput = document.getElementById('hotel_factura_pdf');
+        var enviarFactura = document.getElementById('hotel_enviar_factura');
+
+        if (xmlInput) {
+            xmlInput.addEventListener('change', function () {
+                establecimientos.actualizarFacturaControls();
             });
-        });
+        }
+        if (pdfInput) {
+            pdfInput.addEventListener('change', function () {
+                establecimientos.actualizarFacturaControls();
+            });
+        }
+        if (enviarFactura) {
+            enviarFactura.addEventListener('click', function () {
+                establecimientos.enviarFactura();
+            });
+        }
 
         $('#RecepcionTable')
             .off('click.establecimientos')
@@ -331,12 +316,14 @@ window.establecimientos = {
         if (botonReporte) {
             botonReporte.addEventListener('click', function () {
                 var baseUrl = String(this.dataset.downloadBaseUrl || '').trim();
-                if (!baseUrl || !establecimientos.idEstablecimiento) {
+                var idEstablecimiento = String(this.dataset.idEstablecimiento || '').trim();
+
+                if (!baseUrl || !idEstablecimiento) {
                     return;
                 }
 
                 var joiner = baseUrl.indexOf('?') === -1 ? '?' : '&';
-                var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(establecimientos.idEstablecimiento);
+                var downloadUrl = baseUrl + joiner + 'id_establecimiento=' + encodeURIComponent(idEstablecimiento);
 
                 if (window.cajeros && typeof window.cajeros.descargarArchivoSinNavegar === 'function') {
                     window.cajeros.descargarArchivoSinNavegar(downloadUrl);
@@ -347,57 +334,49 @@ window.establecimientos = {
             });
         }
 
-        var xmlInput = document.getElementById('hotel_factura_xml');
-        var pdfInput = document.getElementById('hotel_factura_pdf');
-        var enviarFactura = document.getElementById('hotel_enviar_factura');
-        if (xmlInput) {
-            xmlInput.addEventListener('change', function () {
-                establecimientos.actualizarFacturaControls();
-            });
-        }
-        if (pdfInput) {
-            pdfInput.addEventListener('change', function () {
-                establecimientos.actualizarFacturaControls();
-            });
-        }
-        if (enviarFactura) {
-            enviarFactura.addEventListener('click', function () {
-                establecimientos.enviarFactura();
-            });
-        }
-
-        $('#RecepcionTable').bootstrapTable({
-            data: [],
-            formatNoMatches: function () {
-                return 'Este hotel aún no tiene huéspedes asignados.';
-            }
-        });
-
-        if (primeraPestana) {
-            this.seleccionar(primeraPestana);
-            return;
-        }
-
         this.idEstablecimiento = app.dataset.idEstablecimiento || '';
         var nombreEstablecimiento = app.dataset.nombre || '';
         if (nombreEstablecimiento && document.getElementById('establecimientoNombre')) {
             document.getElementById('establecimientoNombre').textContent = nombreEstablecimiento;
         }
-        this.cargar();
-    },
 
-    seleccionar: function (pestana) {
-        document.querySelectorAll('.establecimiento-tab').forEach(function (item) {
-            var activo = item === pestana;
-            item.classList.toggle('is-active', activo);
-            item.setAttribute('aria-pressed', activo ? 'true' : 'false');
+        var url = base_url + 'index.php/Usuario/getRecepcion';
+        if (this.idEstablecimiento) {
+            url += '?id_establecimiento=' + encodeURIComponent(this.idEstablecimiento);
+        }
+
+        $('#RecepcionTable').bootstrapTable({
+            url: url,
+            method: 'GET',
+            dataType: 'json',
+            formatNoMatches: function () {
+                return 'Este hotel aún no tiene huéspedes asignados.';
+            },
+            responseHandler: function (response) {
+                if (Array.isArray(response)) {
+                    establecimientos.filas = response.map(establecimientos.normalizar.bind(establecimientos));
+                    establecimientos.actualizarResumen();
+                    return establecimientos.filas;
+                }
+                if (response && Array.isArray(response.data)) {
+                    establecimientos.filas = response.data.map(establecimientos.normalizar.bind(establecimientos));
+                    establecimientos.actualizarResumen();
+                    return establecimientos.filas;
+                }
+                console.error('Respuesta invalida al cargar RecepcionTable:', response);
+                establecimientos.filas = [];
+                establecimientos.actualizarResumen();
+                return [];
+            },
+            onLoadError: function (status, request) {
+                console.error('Error al cargar RecepcionTable:', status, request.responseText);
+                Swal.fire('Error', 'No fue posible consultar las órdenes del establecimiento.', 'error');
+                establecimientos.filas = [];
+                establecimientos.actualizarResumen();
+            }
         });
 
-        document.getElementById('establecimientoNombre').textContent = pestana.dataset.nombre;
-        this.idEstablecimiento = pestana.dataset.idEstablecimiento;
-        this.actualizarFormatoUrls();
         this.actualizarFacturaControls();
-        this.cargar();
     },
 
     fileMatches: function (file, extension, mimeTypes) {
@@ -420,49 +399,36 @@ window.establecimientos = {
         if (!controls.button) return;
         var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
         var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+        var idEstablecimiento = String(controls.button.dataset.idEstablecimiento || '').trim();
         var validXml = this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']);
         var validPdf = this.fileMatches(pdfFile, '.pdf', ['application/pdf']);
-        controls.button.disabled = !(this.idEstablecimiento && validXml && validPdf);
-    },
-
-    actualizarFormatoUrls: function () {
-        var id = encodeURIComponent(this.idEstablecimiento || '');
-        var links = {
-            hotel_formato_encabezado: base_url + 'index.php/Inicio/pdfProveedorEncabezadoFactura/' + id,
-            hotel_formato_pt: base_url + 'index.php/Inicio/pdfProveedorFormatoPT/' + id,
-            hotel_formato_liberacion: base_url + 'index.php/Inicio/pdfProveedorLiberacionPago/' + id
-        };
-
-        Object.keys(links).forEach(function (key) {
-            var link = document.getElementById(key);
-            if (!link) return;
-            if (id) {
-                link.href = links[key];
-                link.classList.remove('disabled');
-            } else {
-                link.removeAttribute('href');
-                link.classList.add('disabled');
-            }
-        });
+        controls.button.disabled = !(idEstablecimiento && validXml && validPdf);
     },
 
     enviarFactura: function () {
         var controls = this.facturaControls();
         var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
         var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
+        var idEstablecimiento = controls.button ? String(controls.button.dataset.idEstablecimiento || '').trim() : '';
 
-        if (!this.idEstablecimiento || !this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']) || !this.fileMatches(pdfFile, '.pdf', ['application/pdf'])) {
+        if (!idEstablecimiento) {
+            Swal.fire('Atencion', 'No se encontro el establecimiento de la sesion.', 'warning');
+            return;
+        }
+
+        if (!this.fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']) || !this.fileMatches(pdfFile, '.pdf', ['application/pdf'])) {
             Swal.fire('Atencion', 'Selecciona un XML y un PDF validos.', 'warning');
             return;
         }
 
         var data = new FormData();
-        data.append('id_establecimiento', this.idEstablecimiento);
+        data.append('id_establecimiento', idEstablecimiento);
         data.append('xml', xmlFile);
         data.append('pdf', pdfFile);
 
+        controls.button.disabled = true;
         Swal.fire({
-            title: 'Enviando factura',
+            title: 'Subiendo archivos',
             text: 'Espera un momento...',
             allowOutsideClick: false,
             allowEscapeKey: false,
@@ -480,49 +446,20 @@ window.establecimientos = {
             contentType: false
         }).done(function (response) {
             if (!response || response.error) {
-                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible enviar la factura.', 'warning');
+                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible guardar la factura.', 'warning');
+                establecimientos.actualizarFacturaControls();
                 return;
             }
 
             if (controls.xml) controls.xml.value = '';
             if (controls.pdf) controls.pdf.value = '';
             establecimientos.actualizarFacturaControls();
-            Swal.fire('Correcto', response.respuesta || 'Factura enviada correctamente.', 'success');
+            Swal.fire('Correcto', response.respuesta || 'Factura guardada correctamente.', 'success');
         }).fail(function (request) {
             var response = request.responseJSON || {};
-            Swal.fire('Error', response.respuesta || 'No fue posible enviar la factura.', 'error');
+            Swal.fire('Error', response.respuesta || 'No fue posible guardar la factura.', 'error');
+            establecimientos.actualizarFacturaControls();
         });
-    },
-
-    cargar: function () {
-        if (!this.idEstablecimiento) return;
-
-        $('#RecepcionTable').bootstrapTable('showLoading');
-        $.ajax({
-            url: base_url + 'index.php/Usuario/getRecepcion',
-            type: 'GET',
-            dataType: 'json',
-            data: { id_establecimiento: this.idEstablecimiento }
-        }).done(function (respuesta) {
-            establecimientos.filas = Array.isArray(respuesta) ? respuesta.map(establecimientos.normalizar.bind(establecimientos)) : [];
-            $('#RecepcionTable').bootstrapTable('load', establecimientos.filas);
-            establecimientos.actualizarResumen();
-        }).fail(function () {
-            establecimientos.filas = [];
-            $('#RecepcionTable').bootstrapTable('load', []);
-            establecimientos.actualizarResumen();
-            Swal.fire('Error', 'No fue posible consultar las órdenes del establecimiento.', 'error');
-        }).always(function () {
-            $('#RecepcionTable').bootstrapTable('hideLoading');
-        });
-    },
-
-    beneficios: function (row) {
-        var datos = row && row.beneficios ? row.beneficios : {};
-        if (typeof datos === 'string') {
-            try { datos = JSON.parse(datos); } catch (error) { datos = {}; }
-        }
-        return datos && typeof datos === 'object' ? datos : {};
     },
 
     normalizar: function (row) {
@@ -537,6 +474,14 @@ window.establecimientos = {
         fila.usuario = usuario && typeof usuario === 'object' ? (usuario.usuario || '') : (usuario || '');
 
         return fila;
+    },
+
+    beneficios: function (row) {
+        var datos = row && row.beneficios ? row.beneficios : {};
+        if (typeof datos === 'string') {
+            try { datos = JSON.parse(datos); } catch (error) { datos = {}; }
+        }
+        return datos && typeof datos === 'object' ? datos : {};
     },
 
     obtener: function (row, campos, defecto) {
@@ -650,7 +595,7 @@ window.establecimientos = {
         }).then(function (result) {
             if (result.isConfirmed) {
                 Swal.fire('Check in registrado', 'El check in se ha registrado correctamente.', 'success');
-                establecimientos.cargar();
+                $('#RecepcionTable').bootstrapTable('refresh');
             }
         });
     },
@@ -666,10 +611,23 @@ window.establecimientos = {
             return total;
         }, { noches: 0, devengado: 0, pendiente: 0, checkin: 0, checkout: 0, cancelado: 0 });
 
-        document.getElementById('consumoAcumulado').textContent = this.moneda(resumen.devengado);
-        document.getElementById('totalOrdenes').textContent = this.filas.length + (this.filas.length === 1 ? ' orden' : ' órdenes');
-        document.getElementById('totalNoches').textContent = resumen.noches + (resumen.noches === 1 ? ' noche acumulada' : ' noches acumuladas');
-        document.getElementById('estadoOrdenes').textContent = resumen.pendiente + ' pendientes / ' + resumen.checkin + ' check in';
+        var consumoAcumulado = document.getElementById('consumoAcumulado');
+        var totalOrdenes = document.getElementById('totalOrdenes');
+        var totalNoches = document.getElementById('totalNoches');
+        var estadoOrdenes = document.getElementById('estadoOrdenes');
+
+        if (consumoAcumulado) {
+            consumoAcumulado.textContent = this.moneda(resumen.devengado);
+        }
+        if (totalOrdenes) {
+            totalOrdenes.textContent = this.filas.length + (this.filas.length === 1 ? ' orden' : ' órdenes');
+        }
+        if (totalNoches) {
+            totalNoches.textContent = resumen.noches + (resumen.noches === 1 ? ' noche acumulada' : ' noches acumuladas');
+        }
+        if (estadoOrdenes) {
+            estadoOrdenes.textContent = resumen.pendiente + ' pendientes / ' + resumen.checkin + ' check in';
+        }
     }
 };
 

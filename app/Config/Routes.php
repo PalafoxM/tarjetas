@@ -9,6 +9,7 @@ $routes->get('/', 'Login::index');
 $routes->get('Login', 'Login::index');
 $routes->get('Login/cerrar', 'Login::cerrar');
 $routes->post('Login/validar_usuario', 'Login::validar_usuario');
+$routes->get('Inicio/getPagosPorEstablecimiento', 'Inicio::getPagosPorEstablecimiento');
 $routes->get('Inicio', 'Inicio::index');
 $routes->get('Inicio/ProveedorEstablecimiento/(:num)', 'Inicio::ProveedorEstablecimiento/$1');
 $routes->get('Inicio/EstablecimientosFic', 'Inicio::EstablecimientosFic');
