@@ -5,3 +5,5 @@ writable/*.env
 
 .env.env
 .env
+
+ app/Config/Database.php
