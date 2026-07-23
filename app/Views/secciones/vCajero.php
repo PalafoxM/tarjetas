@@ -493,13 +493,17 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
         const botonActivarQr = !expedienteCompleto
-            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`
+            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede validar QR sin documentos cargados" disabled><i class="mdi mdi-check-circle-outline"></i></button>`
             : qrActivo
-                ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i> Activar QR</button>`
-                : `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})"><i class="mdi mdi-qrcode-check"></i> Activar QR</button>`;
-        const botonRechazarQr = !expedienteCompleto
-            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede rechazar sin documentos cargados" disabled><i class="mdi mdi-qrcode-remove"></i> Rechazar QR</button>`
+                ? `<button class="btn btn-success" type="button" title="QR validado" disabled><i class="mdi mdi-check-circle-outline"></i></button>`
+                : `<button class="btn btn-outline-success" type="button" title="Validar QR" onclick="cajeros.activarQr(${idUsuario})"><i class="mdi mdi-check-circle-outline"></i></button>`;
+        let botonRechazarQr = !expedienteCompleto
+            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede declinar QR sin documentos cargados" disabled><i class="mdi mdi-close-circle-outline"></i></button>`
             : `<button class="btn btn-outline-danger" type="button" title="Rechazar activación QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})"><i class="mdi mdi-qrcode-remove"></i> Rechazar QR</button>`;
+        if (expedienteCompleto) {
+            botonRechazarQr = `<button class="btn btn-outline-danger" type="button" title="Declinar QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})"><i class="mdi mdi-close-circle-outline"></i></button>`;
+        }
+
         let botones = `
             <div class="cajero-actions">
               
@@ -725,17 +729,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     },
 
     editar(idUsuario) {
-        $.post(base_url + 'index.php/Usuario/getUsuario', { id_usuario: idUsuario }, (data) => {
-            $('#id_usuario').val(data.id_usuario);
-            $('#nombre').val(data.nombre);
-            $('#primer_apellido').val(data.primer_apellido);
-            $('#segundo_apellido').val(data.segundo_apellido);
-            $('#correo').val(data.correo);
-            $('#usuario').val(data.usuario);
-            $('#contrasenia').val('').prop('required', false);
-            $('#cajeroModalTitle').text('Editar cajero');
-            if (this.modal) this.modal.show();
-        }, 'json').fail(() => Swal.fire('Error', 'No fue posible obtener el cajero.', 'error'));
+        if (!idUsuario) return;
+        window.location.href = base_url + 'index.php/Inicio/AltaUsuario/' + encodeURIComponent(idUsuario);
     },
 
     verPdf(idUsuario) {
