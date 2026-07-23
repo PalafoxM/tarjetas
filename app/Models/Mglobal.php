@@ -26,6 +26,11 @@ class Mglobal extends Model {
         $baseUrl = (string) env('NODE_API_BASE_URL');
         return rtrim($baseUrl, '/') . '/';
     }
+    private function getBackMovilBaseUrl(): string
+    {
+        $baseUrl = (string) env('NODE_API_MOVIL');
+        return rtrim($baseUrl, '/') . '/';
+    }
 
     /**
      *   getTabla
@@ -78,6 +83,56 @@ class Mglobal extends Model {
             ]);
     
             $result = json_decode($apiResponse->getBody());
+          
+            if (isset($result->error) && $result->error === false) {
+                $response->error = false;
+                $response->respuesta = $result->respuesta ?? 'Operación exitosa';
+                $response->data = $result->data ?? [];
+            } else {
+                $response->respuesta = $result->respuesta ?? 'Error desconocido en la respuesta';
+            }
+        
+            } catch (\Exception $e) {
+            log_message('error', 'Error al conectar con la API backSti: ' . $e->getMessage());
+            $response->respuesta = 'Error | Conexión fallida con backSti';
+        }
+        return $response;
+    }
+    public function setNotification($idUsuario)
+    {
+       
+        $client = \Config\Services::curlrequest();
+        $session = \Config\Services::session();
+        $response = new \stdClass();
+        $response->error = true;
+        $response->respuesta = 'Error | Parámetros de entrada';
+
+        $jwt = new Funciones();
+        $userData = [
+            'id' => $session->id_perfil,
+            'nombre' => $session->nombre_completo
+        ];
+        $token = $jwt->generateToken($userData);
+        // Verificar el token
+        
+        $verificacion = $jwt->verifyToken($token);
+        if (!$verificacion) {
+            echo "Token inválido";
+            
+        } 
+        try {
+            // Hacemos la peticion POST a backSti.
+            $baseUrl = $this->getBackMovilBaseUrl();
+
+            $apiResponse = $client->post($baseUrl.'ineDeclinado', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token  // Agregar el token al header
+                ],
+                'json' => ['id_usuario' => $idUsuario]
+            ]);
+     die( var_dump($apiResponse));
+            $result = json_decode($apiResponse->getBody());
+            
           
             if (isset($result->error) && $result->error === false) {
                 $response->error = false;
