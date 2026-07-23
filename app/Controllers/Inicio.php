@@ -114,13 +114,80 @@ class Inicio extends BaseController {
         } elseif (($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true)) {
             return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
-            $data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
-            $data['contextoUsuario'] = $contextoUsuario;
+      
 
-            $tipoProveedor = (int) ($data['proveedorPerfil']['id_tipo_proveedor'] ?? $session->get('id_tipo_proveedor') ?? 0);
-            $vista = $tipoProveedor === 2 || !empty($contextoUsuario['is_recepcion_flow'])
-                ? 'secciones/vHospedaje'
-                : 'secciones/vProveedor';
+            //$data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
+           // var_dump( $data);
+            $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
+            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+              //  die('ok');
+            if(!empty($datosProveedor->data)){
+                $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+                $tabla = ["tabla" => "establecimiento", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
+                $proveedor = $Mglobal->getTabla($tabla);
+                $proveedorEstablecimientos = $this->resolveProviderEstablishments(\Config\Database::connect(), $proveedor->data[0] ?? (object) []);
+                $rfc = $Mglobal->getTabla(['tabla' => "proveedor", "where" =>['visible' =>1, "no_proveedor" =>$proveedor->data[0]->no_proveedor]]);
+              
+                $data['rfc'] = (!empty($rfc->data) && isset($rfc->data))?$rfc->data[0]->rfc:'Sin RFC';
+                $noEstablecimientos = ["tabla" => "usuario_establecimiento", "where" => ['visible' => 1, "id_usuario" =>$session->get('id_usuario')]];
+                $e = $Mglobal->getTabla($noEstablecimientos);
+                $data['establecimiento'] = (!empty($e->data) && isset($e->data))?count($e->data):'0';
+                $data['proveedorEstablecimientos'] = array_values(array_map(static function ($item) {
+                    return is_object($item) ? get_object_vars($item) : (array) $item;
+                }, $proveedorEstablecimientos));
+                $pagos = $Mglobal->getTabla(['tabla' =>"solicitud_pago", "where" =>['visible' =>1, "id_establecimiento" =>$idEstablecimiento]]);
+                if(!empty($pagos->data) && isset($pagos->data)){
+                    $data['total'] = 0;
+                    $data['aprobados'] = [];
+                    $data['pendiente'] = [];
+                    $data['rechazado'] = [];
+
+                    
+                    foreach($pagos->data as $a){
+                        switch($a->estatus){
+                            case 'autorizado':
+                                $data['aprobados'][] = $a->estatus;
+                                 $data['total'] += $a->monto_solicitado; //11.00
+
+                                break;
+                            case 'pendiente':
+                                $data['pendiente'][] = $a->estatus;
+                                break;
+                            case 'rechazado':
+                                $data['rechazado'][] = $a->estatus;
+                                break;
+                        }
+
+                    }
+
+                }
+
+                  
+                $pagos = $Mglobal->getTabla(["tabla" =>"pagos", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
+            //    die( var_dump( $pagos  ) );
+                $solicitudPago = $Mglobal->getTabla(["tabla" =>"solicitud_pago", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
+                if(!empty($pagos->data) && isset($pagos->data)){
+                     $data['proveedorPagos'] = $pagos->data;
+                }
+                if(!empty($solicitudPago->data) && isset($solicitudPago->data)){
+                     $data['solicitudPago'] = $solicitudPago->data;
+                }
+
+                //die( var_dump($data['proveedorPagos']) );
+                $data['datosProveedor'] = $proveedor->data[0];
+
+            }
+             
+            if(!empty($datosProveedor->data[0]->id_tipo_proveedor) && $datosProveedor->data[0]->id_tipo_proveedor == 1){
+               $vista = 'secciones/vProveedor';
+            }else{
+               $vista = 'secciones/vHospedaje';
+            }
+       // die( var_dump( $data['datosProveedor'] ) );
+          
+            
+            
+           // die('ok');
         } elseif ($contextoUsuario['is_client_like']) {
             $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
             $solicitud_pago = $Mglobal->getTabla(['tabla' => 'solicitud_pago', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
@@ -146,12 +213,7 @@ class Inicio extends BaseController {
            }else{
              $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
             $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-            $idEstablecimiento = !empty($datosProveedor->data[0]->id_establecimiento)
-                ? (int) $datosProveedor->data[0]->id_establecimiento
-                : 0;
-            if ($idEstablecimiento > 0) {
-                $data['hospedajeEstablecimientoId'] = $idEstablecimiento;
-            }
+            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
            /*  $tabla = ["tabla" => "vw_usuario", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
             $cliente = $Mglobal->getTabla($tabla);
             $data['usuarioHotel'] = (!empty($cliente->data) && isset($cliente->data))?$cliente->data:[]; */
@@ -212,45 +274,6 @@ class Inicio extends BaseController {
         
     }
 
-    public function EstablecimientosFic()
-    {
-        $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
-        if (empty($usuarioDashboard)) {
-            return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        $db = \Config\Database::connect();
-        $establecimientos = $db->table('establecimiento e')
-            ->select('
-                e.id_establecimiento,
-                e.dsc_establecimiento,
-                e.id_tipo,
-                cte.dsc_tipo,
-                e.no_proveedor,
-                COALESCE(p.razon_social, "Sin proveedor") AS dsc_proveedor
-            ')
-            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor AND p.visible = 1', 'left')
-            ->where('e.visible', 1)
-            ->orderBy('e.dsc_establecimiento', 'ASC')
-            ->get()
-            ->getResultArray();
-
-        $data = [];
-        $data['scripts'] = ['principal', 'agregar'];
-        $data['datosEstablecimiento'] = array_map(static function (array $row): object {
-            return (object) $row;
-        }, $establecimientos);
-        $data['modoEstablecimientosFic'] = true;
-        $data['esAdministradorEstablecimientosFic'] = !empty($this->resolveSecturiAdminUsuario());
-        $data['soloConsultaEstablecimientosFic'] = empty($data['esAdministradorEstablecimientosFic']);
-        $data['altaProveedorUrl'] = base_url('index.php/Inicio/AltaUsuario?modo=proveedor');
-        $data['usuariosUrl'] = base_url('index.php/Inicio/Usuarios');
-        $data['contentView'] = 'secciones/vEstablecimiento';
-
-        $this->_renderView($data);
-    }
-
     private function resolveSessionEstablecimientos(int $idEstablecimiento = 0): array
     {
         $session = \Config\Services::session();
@@ -302,428 +325,6 @@ class Inicio extends BaseController {
         $data['contextoUsuario'] = $contextoUsuario;
         $data['contentView'] = 'secciones/vProveedorFormatos';
         $this->_renderView($data);
-    }
-
-    private function buildProviderDashboardData(int $idUsuario): array
-    {
-        $db = \Config\Database::connect();
-        $usuario = $this->resolveProviderUserRow($db, $idUsuario);
-        $proveedorPerfil = $this->resolveProviderProfile($db, $usuario);
-        $establecimientos = $this->resolveProviderEstablishments($db, $proveedorPerfil, $usuario);
-        $establecimientoIds = array_values(array_filter(array_map(static function (array $row): int {
-            return (int) ($row['id_establecimiento'] ?? 0);
-        }, $establecimientos)));
-
-        $solicitudesPago = $this->resolveProviderPaymentRequests($db, $establecimientoIds);
-        $pagos = $this->resolveProviderPayments($db, $establecimientoIds, $solicitudesPago);
-        $resumen = $this->buildProviderPaymentSummary($solicitudesPago);
-        $primerEstablecimiento = $establecimientos[0] ?? [];
-
-        return [
-            'proveedorPerfil' => $proveedorPerfil,
-            'proveedorEstablecimientos' => $establecimientos,
-            'proveedorPagos' => $pagos,
-            'solicitudPago' => $solicitudesPago,
-            'datosProveedor' => (object) ($primerEstablecimiento ?: $proveedorPerfil),
-            'rfc' => (string) ($proveedorPerfil['rfc'] ?? 'Sin RFC'),
-            'establecimiento' => count($establecimientos),
-            'total' => $resumen['total'],
-            'aprobados' => $resumen['aprobados'],
-            'pendiente' => $resumen['pendiente'],
-            'rechazado' => $resumen['rechazado'],
-            'ventasCorteContexto' => [
-                'monto_total' => $resumen['total'],
-                'estado_corte' => count($solicitudesPago) > 0 ? 'Con movimientos' : 'Sin movimientos',
-                'fecha_corte_desde' => $resumen['fecha_desde'],
-            ],
-        ];
-    }
-
-    private function filterProviderDashboardByEstablecimiento(array $dashboard, int $idEstablecimiento): array
-    {
-        if ($idEstablecimiento <= 0) {
-            return $dashboard;
-        }
-
-        $establecimientos = array_values(array_filter(
-            is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [],
-            static function ($item) use ($idEstablecimiento): bool {
-                $row = is_object($item) ? get_object_vars($item) : (array) $item;
-                return (int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento;
-            }
-        ));
-
-        $solicitudes = array_values(array_filter(
-            is_array($dashboard['solicitudPago'] ?? null) ? $dashboard['solicitudPago'] : [],
-            static function ($item) use ($idEstablecimiento): bool {
-                $row = is_object($item) ? get_object_vars($item) : (array) $item;
-                return (int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento;
-            }
-        ));
-
-        $pagos = array_values(array_filter(
-            is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : [],
-            static function ($item) use ($idEstablecimiento): bool {
-                $row = is_object($item) ? get_object_vars($item) : (array) $item;
-                return (int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento;
-            }
-        ));
-
-        $resumen = $this->buildProviderPaymentSummary(array_map(static function ($item): array {
-            return is_object($item) ? get_object_vars($item) : (array) $item;
-        }, $solicitudes));
-
-        $dashboard['proveedorEstablecimientos'] = $establecimientos;
-        $dashboard['solicitudPago'] = $solicitudes;
-        $dashboard['proveedorPagos'] = $pagos;
-        $dashboard['datosProveedor'] = (object) ($establecimientos[0] ?? ($dashboard['proveedorPerfil'] ?? []));
-        $dashboard['establecimiento'] = count($establecimientos);
-        $dashboard['total'] = $resumen['total'];
-        $dashboard['aprobados'] = $resumen['aprobados'];
-        $dashboard['pendiente'] = $resumen['pendiente'];
-        $dashboard['rechazado'] = $resumen['rechazado'];
-        $dashboard['ventasCorteContexto'] = [
-            'monto_total' => $resumen['total'],
-            'estado_corte' => count($solicitudes) > 0 ? 'Con movimientos' : 'Sin movimientos',
-            'fecha_corte_desde' => $resumen['fecha_desde'],
-        ];
-
-        return $dashboard;
-    }
-
-    private function resolveProviderUserRow($db, int $idUsuario): array
-    {
-        if ($idUsuario <= 0) {
-            return [];
-        }
-
-        $row = $db->table('usuario')
-            ->where('id_usuario', $idUsuario)
-            ->where('visible', 1)
-            ->get()
-            ->getRowArray();
-
-        return is_array($row) ? $row : [];
-    }
-
-    private function resolveProviderProfile($db, array $usuario): array
-    {
-        $idProveedor = (int) ($usuario['id_proveedor'] ?? 0);
-        $proveedor = [];
-
-        if ($idProveedor > 0) {
-            $proveedor = $db->table('proveedor')
-                ->where('id_proveedor', $idProveedor)
-                ->where('visible', 1)
-                ->get()
-                ->getRowArray() ?? [];
-        }
-
-        if (empty($proveedor)) {
-            $noProveedor = trim((string) ($usuario['no_proveedor'] ?? $usuario['id_usuario'] ?? ''));
-            if ($noProveedor !== '') {
-                $proveedor = $db->table('proveedor')
-                    ->where('no_proveedor', $noProveedor)
-                    ->where('visible', 1)
-                    ->get()
-                    ->getRowArray() ?? [];
-            }
-        }
-
-        if (empty($proveedor)) {
-            $proveedor = [
-                'id_proveedor' => $idProveedor,
-                'id_tipo_proveedor' => (int) ($usuario['id_tipo_proveedor'] ?? 0),
-                'no_proveedor' => (string) ($usuario['id_usuario'] ?? ''),
-                'razon_social' => trim(implode(' ', array_filter([
-                    $usuario['nombre'] ?? '',
-                    $usuario['primer_apellido'] ?? '',
-                    $usuario['segundo_apellido'] ?? '',
-                ]))) ?: (string) ($usuario['usuario'] ?? 'Proveedor'),
-                'rfc' => '',
-                'visible' => 1,
-            ];
-        }
-
-        if (empty($proveedor['id_tipo_proveedor'])) {
-            $proveedor['id_tipo_proveedor'] = (int) ($usuario['id_tipo_proveedor'] ?? 0);
-        }
-
-        return $proveedor;
-    }
-
-    private function resolveProviderEstablishments($db, array $proveedorPerfil, array $usuario = []): array
-    {
-        $idUsuario = (int) ($usuario['id_usuario'] ?? 0);
-        $noProveedor = trim((string) ($proveedorPerfil['no_proveedor'] ?? ''));
-
-        $builder = $db->table('establecimiento e')
-            ->select('
-                e.id_establecimiento,
-                e.id_tipo,
-                e.no_proveedor,
-                e.dsc_establecimiento,
-                e.direccion,
-                e.telefono,
-                e.ubicacion,
-                cte.dsc_tipo
-            ')
-            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-            ->join('usuario_establecimiento ue', 'ue.id_establecimiento = e.id_establecimiento AND ue.visible = 1' . ($idUsuario > 0 ? ' AND ue.id_usuario = ' . $idUsuario : ''), 'left')
-            ->where('e.visible', 1);
-
-        $builder->groupStart();
-        if ($noProveedor !== '') {
-            $builder->where('e.no_proveedor', $noProveedor);
-        }
-        if ($idUsuario > 0) {
-            $builder->orWhere('ue.id_usuario IS NOT NULL', null, false);
-        }
-        $builder->groupEnd();
-
-        return $builder
-            ->groupBy('e.id_establecimiento')
-            ->orderBy('e.dsc_establecimiento', 'ASC')
-            ->get()
-            ->getResultArray();
-    }
-
-    private function resolveProviderPaymentRequests($db, array $establecimientoIds): array
-    {
-        if (empty($establecimientoIds) || !$db->tableExists('solicitud_pago')) {
-            return [];
-        }
-
-        return $db->table('solicitud_pago sp')
-            ->select('sp.*, e.dsc_establecimiento, e.no_proveedor, e.id_tipo, cte.dsc_tipo')
-            ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
-            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-            ->where('sp.visible', 1)
-            ->whereIn('sp.id_establecimiento', $establecimientoIds)
-            ->orderBy('sp.fec_reg', 'DESC')
-            ->get()
-            ->getResultArray();
-    }
-
-    private function resolveProviderPayments($db, array $establecimientoIds, array $fallbackRows): array
-    {
-        if (empty($establecimientoIds) || !$db->tableExists('pagos') || !$db->fieldExists('id_establecimiento', 'pagos')) {
-            return $fallbackRows;
-        }
-
-        return $db->table('pagos p')
-            ->select('p.*, e.dsc_establecimiento, e.no_proveedor, e.id_tipo, cte.dsc_tipo')
-            ->join('establecimiento e', 'e.id_establecimiento = p.id_establecimiento', 'left')
-            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-            ->where('p.visible', 1)
-            ->whereIn('p.id_establecimiento', $establecimientoIds)
-            ->orderBy('p.fec_reg', 'DESC')
-            ->get()
-            ->getResultArray();
-    }
-
-    private function buildProviderPaymentSummary(array $rows): array
-    {
-        $summary = [
-            'total' => 0.0,
-            'aprobados' => [],
-            'pendiente' => [],
-            'rechazado' => [],
-            'fecha_desde' => 'sin fecha',
-        ];
-        $fechas = [];
-
-        foreach ($rows as $row) {
-            $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
-            $monto = (float) ($row['monto_solicitado'] ?? $row['monto_total'] ?? $row['total'] ?? 0);
-            if (in_array($estatus, ['autorizado', 'autorizada', 'aprobado', 'aprobada', 'pagado', 'pagada'], true)) {
-                $summary['aprobados'][] = $estatus;
-                $summary['total'] += $monto;
-            } elseif (in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
-                $summary['pendiente'][] = $estatus;
-            } elseif (in_array($estatus, ['rechazado', 'rechazada', 'cancelado', 'cancelada'], true)) {
-                $summary['rechazado'][] = $estatus;
-            }
-
-            $fecha = trim((string) ($row['fec_reg'] ?? $row['fecha_respuesta'] ?? ''));
-            if ($fecha !== '') {
-                $fechas[] = $fecha;
-            }
-        }
-
-        if (!empty($fechas)) {
-            sort($fechas);
-            $summary['fecha_desde'] = date('d/m/Y', strtotime((string) reset($fechas)));
-        }
-
-        return $summary;
-    }
-
-    public function getEstablecimientosProveedor()
-    {
-        $session = \Config\Services::session();
-        $resolver = new UsuarioPerfilResolver();
-        $contextoUsuario = $resolver->resolve($session->get());
-
-        if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'ok' => false,
-                'message' => 'No tienes permisos para consultar establecimientos.',
-                'establecimientos' => [],
-            ]);
-        }
-
-        $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
-
-        return $this->response->setJSON([
-            'ok' => true,
-            'establecimientos' => array_values(is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []),
-        ]);
-    }
-
-    public function guardarSolicitudUsuarioProveedor()
-    {
-        $session = \Config\Services::session();
-        $resolver = new UsuarioPerfilResolver();
-        $contextoUsuario = $resolver->resolve($session->get());
-
-        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Solo proveedor puede enviar solicitudes de personal.']);
-        }
-
-        $idUsuario = (int) $session->get('id_usuario');
-        $idEstablecimiento = (int) ($this->request->getPost('id_establecimiento') ?? 0);
-        $nombre = trim((string) ($this->request->getPost('nombre') ?? ''));
-        $primerApellido = trim((string) ($this->request->getPost('primer_apellido') ?? ''));
-        $segundoApellido = trim((string) ($this->request->getPost('segundo_apellido') ?? ''));
-        $correo = trim((string) ($this->request->getPost('correo') ?? ''));
-
-        $nombre = function_exists('mb_strtoupper') ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
-        $primerApellido = function_exists('mb_strtoupper') ? mb_strtoupper($primerApellido, 'UTF-8') : strtoupper($primerApellido);
-        $segundoApellido = function_exists('mb_strtoupper') ? mb_strtoupper($segundoApellido, 'UTF-8') : strtoupper($segundoApellido);
-        $correo = function_exists('mb_strtolower') ? mb_strtolower($correo, 'UTF-8') : strtolower($correo);
-
-        if ($idUsuario <= 0 || $idEstablecimiento <= 0 || $nombre === '' || $primerApellido === '') {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Completa los campos obligatorios.']);
-        }
-
-        $db = \Config\Database::connect();
-        $dashboard = $this->buildProviderDashboardData($idUsuario);
-        $establecimiento = [];
-        foreach (is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [] as $row) {
-            $row = is_object($row) ? get_object_vars($row) : (array) $row;
-            if ((int) ($row['id_establecimiento'] ?? 0) === $idEstablecimiento) {
-                $establecimiento = $row;
-                break;
-            }
-        }
-
-        if (empty($establecimiento)) {
-            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'El establecimiento no pertenece al proveedor autenticado.']);
-        }
-
-        $tipoInfo = $this->resolveSolicitudUsuarioOperativoTipo((int) ($establecimiento['id_tipo'] ?? 0));
-        if ((int) ($tipoInfo['id_perfil_solicitado'] ?? 0) <= 0) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'El tipo de establecimiento no soporta esta solicitud.']);
-        }
-
-        if ($db->fieldExists('id_establecimiento', 'usuario')) {
-            $usuarioOperativo = $db->table('usuario')
-                ->select('id_usuario')
-                ->where('visible', 1)
-                ->where('id_establecimiento', $idEstablecimiento)
-                ->where('id_perfil', (int) $tipoInfo['id_perfil_solicitado'])
-                ->limit(1)
-                ->get()
-                ->getRowArray();
-
-            if (!empty($usuarioOperativo)) {
-                return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Ya existe un usuario operativo activo para este establecimiento y perfil.']);
-            }
-        }
-
-        $solicitudPendiente = $db->table('solicitud_usuario')
-            ->select('id_solicitud_usuario')
-            ->where('visible', 1)
-            ->where('estatus', 'pendiente')
-            ->where('id_establecimiento', $idEstablecimiento)
-            ->where('id_perfil_solicitado', (int) $tipoInfo['id_perfil_solicitado'])
-            ->limit(1)
-            ->get()
-            ->getRowArray();
-
-        if (!empty($solicitudPendiente)) {
-            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Ya existe una solicitud pendiente para este establecimiento y perfil.']);
-        }
-
-        $usuarioSolicitud = $this->buildProviderRequestedUsername($db, $correo, $nombre, $primerApellido, $idEstablecimiento, (int) $tipoInfo['id_perfil_solicitado']);
-        $proveedorPerfil = is_array($dashboard['proveedorPerfil'] ?? null) ? $dashboard['proveedorPerfil'] : [];
-        $fechaAhora = date('Y-m-d H:i:s');
-        $insertOk = $db->table('solicitud_usuario')->insert([
-            'tipo_solicitud' => (string) $tipoInfo['tipo_solicitud'],
-            'id_proveedor' => (int) ($proveedorPerfil['id_proveedor'] ?? $session->get('id_proveedor') ?? 0),
-            'id_establecimiento' => $idEstablecimiento,
-            'id_perfil_solicitado' => (int) $tipoInfo['id_perfil_solicitado'],
-            'usuario' => $usuarioSolicitud,
-            'nombre' => $nombre,
-            'primer_apellido' => $primerApellido,
-            'segundo_apellido' => $segundoApellido !== '' ? $segundoApellido : null,
-            'correo' => $correo !== '' ? $correo : null,
-            'estatus' => 'pendiente',
-            'comentario_ti' => null,
-            'id_usuario_creado' => null,
-            'fec_reg' => $fechaAhora,
-            'usu_reg' => $idUsuario,
-            'fec_act' => $fechaAhora,
-            'usu_act' => $idUsuario,
-            'visible' => 1,
-        ]);
-
-        if (!$insertOk) {
-            return $this->response->setStatusCode(500)->setJSON(['ok' => false, 'message' => 'No fue posible guardar la solicitud.']);
-        }
-
-        return $this->response->setJSON([
-            'ok' => true,
-            'message' => 'Solicitud enviada correctamente.',
-            'data' => [
-                'id_solicitud_usuario' => (int) $db->insertID(),
-                'tipo_solicitud' => (string) $tipoInfo['tipo_solicitud'],
-                'id_establecimiento' => $idEstablecimiento,
-                'id_perfil_solicitado' => (int) $tipoInfo['id_perfil_solicitado'],
-                'usuario' => $usuarioSolicitud,
-            ],
-        ]);
-    }
-
-    private function buildProviderRequestedUsername($db, string $correo, string $nombre, string $primerApellido, int $idEstablecimiento, int $idPerfilSolicitado): string
-    {
-        $base = trim(strtolower(explode('@', $correo)[0] ?? ''));
-        if ($base === '') {
-            $base = strtolower(trim($nombre . '.' . $primerApellido));
-        }
-
-        $base = preg_replace('/[^a-z0-9._-]+/', '.', $base) ?? '';
-        $base = trim(preg_replace('/\.+/', '.', $base) ?? '', '._-');
-        if ($base === '') {
-            $base = 'prov_' . $idEstablecimiento . '_' . $idPerfilSolicitado;
-        }
-
-        $candidate = $base;
-        for ($i = 0; $i < 5; $i++) {
-            $candidate = $i === 0 ? $base : $base . ($i + 1);
-            $exists = $db->table('usuario')
-                ->select('id_usuario')
-                ->where('usuario', $candidate)
-                ->limit(1)
-                ->get()
-                ->getRowArray();
-            if (empty($exists)) {
-                return $candidate;
-            }
-        }
-
-        return $base . '_' . date('His');
     }
 
     private function resolveProveedorReporteConfig(array $establecimiento): array
@@ -1101,7 +702,7 @@ class Inicio extends BaseController {
             ->setFontBold()
             ->build();
 
-        $writer->addRow(WriterEntityFactory::createRowFromArray(['SECRETARíA DE TURISMO E IDENTIDAD', '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray(['SECRETARÍA DE TURISMO E IDENTIDAD', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['53 FESTIVAL INTERNACIONAL CERVANTINO', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['REPORTE DE CONSUMOS FACTURADOS', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray([$this->buildReporteVentasPeriodoLabel($rows), '', '', '', '', ''], $titleStyle));
@@ -1178,7 +779,7 @@ class Inicio extends BaseController {
 
         $idUsuario = (int) $session->get('id_usuario');
         if ($idUsuario <= 0) {
-            return $this->response->setStatusCode(401)->setBody('SesiÃƒÆ’³n invÃƒÆ’¡lida.');
+            return $this->response->setStatusCode(401)->setBody('SesiÃ³n invÃ¡lida.');
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
@@ -1253,12 +854,6 @@ class Inicio extends BaseController {
         }
 
         return 'Sin partida';
-    }
-
-    private function formatReportePartidaPublicLabel(string $partida): string
-    {
-        $partida = trim($partida);
-        return in_array(strtoupper($partida), ['3390A', '3390B'], true) ? '3390' : $partida;
     }
 
     private function buildReporteVentasProveedorRows(array $dashboard): array
@@ -1372,7 +967,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
-        $partida = $this->formatReportePartidaPublicLabel((string) ($layout['partida'] ?? ''));
+        $partida = (string) ($layout['partida'] ?? '');
 
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
@@ -1447,7 +1042,7 @@ class Inicio extends BaseController {
         </head>
         <body>
             <div class="header">
-                <div class="title-main">SECRETARíA DE TURISMO E IDENTIDAD</div>
+                <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
                 <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
                 <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
                 <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
@@ -1469,7 +1064,7 @@ class Inicio extends BaseController {
                             <th>Orden pago</th>
                             <th>Fecha</th>
                             <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                            <th>ítem</th>
+                            <th>Ítem</th>
                             <th>Transacción</th>
                             <th>Importe</th>
                         </tr>
@@ -1541,7 +1136,7 @@ class Inicio extends BaseController {
         $session = \Config\Services::session();
         $idUsuario = (int) $session->get('id_usuario');
         if ($idUsuario <= 0) {
-            return $this->response->setStatusCode(401)->setBody('SesiÃƒÆ’³n invÃƒÆ’¡lida.');
+            return $this->response->setStatusCode(401)->setBody('SesiÃ³n invÃ¡lida.');
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
@@ -1651,258 +1246,6 @@ class Inicio extends BaseController {
             ->setHeader('Content-Disposition', 'attachment; filename="' . $zipFilename . '"')
             ->setHeader('Content-Length', (string) strlen($zipContent))
             ->setBody($zipContent);
-    }
-
-    public function exportarReporteInstitucionalSaldosPdf(string $grupo = 'fic')
-    {
-        $payload = $this->buildReporteInstitucionalSaldosPayload($grupo);
-        if ($payload === null) {
-            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este reporte.');
-        }
-
-        $tempDir = WRITEPATH . 'mpdf-temp';
-        if (!is_dir($tempDir)) {
-            @mkdir($tempDir, 0775, true);
-        }
-
-        $filename = 'reporte_saldos_' . strtolower((string) ($payload['grupo'] ?? $grupo)) . '_' . date('Ymd_His') . '.pdf';
-
-        try {
-            $mpdf = new \Mpdf\Mpdf([
-                'mode' => 'utf-8',
-                'format' => 'Letter',
-                'orientation' => 'L',
-                'tempDir' => $tempDir,
-                'margin_left' => 8,
-                'margin_right' => 8,
-                'margin_top' => 10,
-                'margin_bottom' => 10,
-            ]);
-
-            $mpdf->SetTitle((string) ($payload['titulo'] ?? 'Reporte de saldos institucionales'));
-            $mpdf->WriteHTML(view('pdfs/vPdfReporteInstitucionalSaldos', $payload));
-            $mpdf->Output($filename, 'D');
-        } catch (\Throwable $e) {
-            log_message('error', 'Error al generar PDF de reporte institucional de saldos: ' . $e->getMessage());
-            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
-        }
-
-        exit;
-    }
-
-    private function buildReporteInstitucionalSaldosPayload(string $grupo): ?array
-    {
-        $grupo = strtolower(trim($grupo));
-        $config = $this->getReporteInstitucionalGrupoConfig($grupo);
-        if (empty($config)) {
-            return null;
-        }
-
-        $session = \Config\Services::session();
-        $resolver = new UsuarioPerfilResolver();
-        $contextoUsuario = $resolver->resolve($session->get());
-        if (!$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
-            return null;
-        }
-
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_write_close();
-        }
-
-        $db = \Config\Database::connect();
-        $builder = $db->table('usuario u')
-            ->select("
-                u.id_usuario,
-                u.usuario,
-                u.nombre,
-                u.primer_apellido,
-                u.segundo_apellido,
-                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
-                u.folio,
-                u.folio_grupo,
-                u.sub_folio,
-                u.pax_total,
-                u.pax_secuencia,
-                u.{$config['field']} AS rol_grupo_id,
-                u.id_nivel_cliente,
-                COALESCE(cnc.dsc_nivel_cliente, '') AS tarifa_descripcion,
-                COALESCE(cnc.monto_deposito, u.monto_deposito, 0) AS tarifa_diaria,
-                u.fec_vigencia_desde,
-                u.fec_vigencia_hasta,
-                u.tiene_alimentos,
-                u.tiene_hospedaje,
-                u.monto_deposito_reservado,
-                u.monto_deposito_operativo,
-                u.visible
-            ", false)
-            ->join('cat_nivel_cliente cnc', 'cnc.id_nivel_cliente = u.id_nivel_cliente', 'left')
-            ->where('u.visible', 1)
-            ->where('u.' . $config['field'] . ' >', 0);
-
-        $vigenciaDesdeFiltro = trim((string) ($this->request->getGet('vigencia_desde') ?? ''));
-        $vigenciaHastaFiltro = trim((string) ($this->request->getGet('vigencia_hasta') ?? ''));
-        if ($vigenciaDesdeFiltro !== '') {
-            $builder->where('DATE(u.fec_vigencia_hasta) >= ' . $db->escape($vigenciaDesdeFiltro), null, false);
-        }
-        if ($vigenciaHastaFiltro !== '') {
-            $builder->where('DATE(u.fec_vigencia_desde) <= ' . $db->escape($vigenciaHastaFiltro), null, false);
-        }
-
-        $rows = $builder
-            ->orderBy('u.folio_grupo', 'ASC')
-            ->orderBy('u.pax_secuencia', 'ASC')
-            ->orderBy('u.id_usuario', 'ASC')
-            ->get()
-            ->getResultArray();
-
-        $hoy = new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City'));
-        $resumen = [
-            'total_usuarios' => 0,
-            'total_reservado' => 0.00,
-            'total_operativo' => 0.00,
-            'total_pendiente' => 0.00,
-        ];
-
-        $roles = $config['roles'];
-        $mappedRows = [];
-        foreach ($rows as $row) {
-            $row = (array) $row;
-            $diasVigencia = $this->calculateReporteInstitucionalDiasVigencia(
-                (string) ($row['fec_vigencia_desde'] ?? ''),
-                (string) ($row['fec_vigencia_hasta'] ?? '')
-            );
-            $tarifaDiaria = round((float) ($row['tarifa_diaria'] ?? 0), 2);
-            $tieneAlimentos = (int) ($row['tiene_alimentos'] ?? 0) === 1;
-            $reservadoCalculado = $tieneAlimentos && $tarifaDiaria > 0 && $diasVigencia > 0
-                ? round($tarifaDiaria * $diasVigencia, 2)
-                : round((float) ($row['monto_deposito_reservado'] ?? 0), 2);
-            $operativoActual = round((float) ($row['monto_deposito_operativo'] ?? 0), 2);
-            $vigenciaVencida = $this->isReporteInstitucionalVigenciaVencida((string) ($row['fec_vigencia_hasta'] ?? ''), $hoy);
-            $pendiente = $vigenciaVencida ? round(max(0.00, $operativoActual), 2) : 0.00;
-            $rolId = (int) ($row['rol_grupo_id'] ?? 0);
-
-            $mappedRows[] = [
-                'id_usuario' => (int) ($row['id_usuario'] ?? 0),
-                'folio' => trim((string) ($row['folio_grupo'] ?? $row['folio'] ?? '')),
-                'sub_folio' => trim((string) ($row['sub_folio'] ?? '')),
-                'usuario' => (string) ($row['usuario'] ?? ''),
-                'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
-                'perfil' => $roles[$rolId] ?? ('Perfil ' . $rolId),
-                'tarifa_descripcion' => trim((string) ($row['tarifa_descripcion'] ?? '')),
-                'tarifa_diaria' => $tarifaDiaria,
-                'vigencia_desde' => (string) ($row['fec_vigencia_desde'] ?? ''),
-                'vigencia_hasta' => (string) ($row['fec_vigencia_hasta'] ?? ''),
-                'dias_vigencia' => $diasVigencia,
-                'beneficios' => $this->buildReporteInstitucionalBeneficiosLabel($row),
-                'monto_reservado' => $reservadoCalculado,
-                'monto_operativo' => $operativoActual,
-                'monto_pendiente' => $pendiente,
-            ];
-
-            $resumen['total_usuarios']++;
-            $resumen['total_reservado'] = round($resumen['total_reservado'] + $reservadoCalculado, 2);
-            $resumen['total_operativo'] = round($resumen['total_operativo'] + $operativoActual, 2);
-            $resumen['total_pendiente'] = round($resumen['total_pendiente'] + $pendiente, 2);
-        }
-
-        return [
-            'titulo' => 'Reporte de saldos institucionales',
-            'grupo' => $config['label'],
-            'generado_en' => date('Y-m-d H:i:s'),
-            'periodo_label' => $this->buildReporteInstitucionalPeriodoLabel($vigenciaDesdeFiltro, $vigenciaHastaFiltro),
-            'rows' => $mappedRows,
-            'resumen' => $resumen,
-        ];
-    }
-
-    private function getReporteInstitucionalGrupoConfig(string $grupo): array
-    {
-        $definitions = (new UsuarioPerfilResolver())->getDefinitions();
-        $configs = [
-            'fic' => ['label' => 'FIC', 'field' => 'id_fic_perfil', 'roles' => $definitions['fic']['roles'] ?? []],
-            'ug' => ['label' => 'UG', 'field' => 'id_ug_perfil', 'roles' => $definitions['ug']['roles'] ?? []],
-            'secul' => ['label' => 'SECUL', 'field' => 'id_secul_perfil', 'roles' => $definitions['secul']['roles'] ?? []],
-        ];
-
-        return $configs[$grupo] ?? [];
-    }
-
-    private function canExportReporteInstitucional(string $grupo, array $contextoUsuario): bool
-    {
-        if (!empty($contextoUsuario['is_ti_master'])) {
-            return true;
-        }
-
-        return (string) ($contextoUsuario['active_group'] ?? '') === $grupo
-            && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true);
-    }
-
-    private function calculateReporteInstitucionalDiasVigencia(string $desde, string $hasta): int
-    {
-        $desde = trim($desde);
-        $hasta = trim($hasta);
-        if ($desde === '' || $hasta === '') {
-            return 0;
-        }
-
-        try {
-            $inicio = new \DateTimeImmutable(substr($desde, 0, 10));
-            $fin = new \DateTimeImmutable(substr($hasta, 0, 10));
-        } catch (\Throwable $e) {
-            return 0;
-        }
-
-        if ($fin < $inicio) {
-            return 0;
-        }
-
-        return ((int) $inicio->diff($fin)->format('%a')) + 1;
-    }
-
-    private function isReporteInstitucionalVigenciaVencida(string $hasta, \DateTimeImmutable $hoy): bool
-    {
-        $hasta = trim($hasta);
-        if ($hasta === '') {
-            return false;
-        }
-
-        try {
-            $fin = new \DateTimeImmutable(substr($hasta, 0, 10), new \DateTimeZone('America/Mexico_City'));
-        } catch (\Throwable $e) {
-            return false;
-        }
-
-        return $fin < $hoy;
-    }
-
-    private function buildReporteInstitucionalBeneficiosLabel(array $row): string
-    {
-        $beneficios = [];
-        if ((int) ($row['tiene_alimentos'] ?? 0) === 1) {
-            $beneficios[] = 'Alimentos';
-        }
-        if ((int) ($row['tiene_hospedaje'] ?? 0) === 1) {
-            $beneficios[] = 'Hospedaje';
-        }
-
-        return !empty($beneficios) ? implode(' / ', $beneficios) : 'Sin beneficios';
-    }
-
-    private function buildReporteInstitucionalPeriodoLabel(string $desde, string $hasta): string
-    {
-        $desde = trim($desde);
-        $hasta = trim($hasta);
-        if ($desde === '' && $hasta === '') {
-            return 'Todos los usuarios visibles del grupo';
-        }
-        if ($desde !== '' && $hasta !== '') {
-            return 'Vigencias entre ' . $this->formatReporteVentasFecha($desde) . ' y ' . $this->formatReporteVentasFecha($hasta);
-        }
-        if ($desde !== '') {
-            return 'Vigencias desde ' . $this->formatReporteVentasFecha($desde);
-        }
-
-        return 'Vigencias hasta ' . $this->formatReporteVentasFecha($hasta);
     }
 
     public function exportarReporteHospedajePdf()
@@ -2150,7 +1493,7 @@ class Inicio extends BaseController {
         $titulo = (string) ($layout['titulo'] ?? 'Reporte de consumos facturados');
         $subtitulo = (string) ($layout['subtitulo'] ?? 'Proveedor');
         $etiquetaEstablecimiento = (string) ($layout['etiqueta_establecimiento'] ?? 'Restaurante / Hotel');
-        $partida = $this->formatReportePartidaPublicLabel((string) ($layout['partida'] ?? ''));
+        $partida = (string) ($layout['partida'] ?? '');
 
         $rowsByOrdenPago = [];
         foreach ($rows as $row) {
@@ -2225,7 +1568,7 @@ class Inicio extends BaseController {
         </head>
         <body>
             <div class="header">
-                <div class="title-main">SECRETARíA DE TURISMO E IDENTIDAD</div>
+                <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
                 <div class="title-sub">54 FESTIVAL INTERNACIONAL CERVANTINO</div>
                 <div class="title-sub">' . htmlspecialchars(strtoupper($titulo), ENT_QUOTES, 'UTF-8') . '</div>
                 <div class="subtitle">' . htmlspecialchars($subtitulo, ENT_QUOTES, 'UTF-8') . '</div>
@@ -2247,7 +1590,7 @@ class Inicio extends BaseController {
                             <th>Orden pago</th>
                             <th>Fecha</th>
                             <th>' . htmlspecialchars($etiquetaEstablecimiento, ENT_QUOTES, 'UTF-8') . '</th>
-                            <th>ítem</th>
+                            <th>Ítem</th>
                             <th>Transacción</th>
                             <th>Importe</th>
                         </tr>
@@ -2292,9 +1635,7 @@ class Inicio extends BaseController {
 
         $puedeExportarHospedaje = !empty($session->get('id_proveedor'))
             || !empty($contextoUsuario['is_provider_flow'])
-            || !empty($contextoUsuario['is_recepcion_flow'])
-            || !empty($contextoUsuario['can_access_secturi_dashboard'])
-            || !empty($contextoUsuario['is_ti_master']);
+            || !empty($contextoUsuario['is_recepcion_flow']);
 
         if (!$puedeExportarHospedaje) {
             return null;
@@ -2384,7 +1725,7 @@ class Inicio extends BaseController {
             }
             $totalTarifa += (float) ($row['tarifa_noche'] ?? 0);
 
-            $partidaActual = $this->formatReportePartidaPublicLabel((string) ($row['partida_usuario'] ?? ''));
+            $partidaActual = trim((string) ($row['partida_usuario'] ?? ''));
             if ($partidaActual !== '' && $partidaUnica === '') {
                 $partidaUnica = $partidaActual;
             }
@@ -2427,17 +1768,6 @@ class Inicio extends BaseController {
         }
 
         $db = \Config\Database::connect();
-        if (!empty($contextoUsuario['can_access_secturi_dashboard']) || !empty($contextoUsuario['is_ti_master'])) {
-            $row = $db->table('establecimiento e')
-                ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
-                ->where('e.visible', 1)
-                ->where('e.id_establecimiento', $idEstablecimiento)
-                ->get()
-                ->getRowArray();
-
-            return is_array($row) ? $row : [];
-        }
-
         $builder = $db->table('establecimiento e')
             ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
             ->join('usuario u', 'u.id_usuario = ' . $idUsuario, 'left')
@@ -2472,7 +1802,6 @@ class Inicio extends BaseController {
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
-        $data['hospedajeEstablecimientoId'] = (int) ($this->request->getGet('id_establecimiento') ?? 0);
         $data['contentView'] = 'secciones/vHospedaje';
         $this->_renderView($data);
     }
@@ -2491,325 +1820,13 @@ class Inicio extends BaseController {
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['cajeroAccesoTiInicio'] = true;
-<<<<<<< HEAD
-        $data['cajeroPuedeRechazarQr'] = !empty($usuarioCapazQr);
-        $data['cajeroPuedeActivarQr'] = !empty($usuarioCapazQr);
-=======
         $data['cajeroPuedeRechazarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
         $data['cajeroPuedeActivarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
         $data['cajeroPuedeGestionarQr'] = !empty($data['cajeroPuedeRechazarQr']) || !empty($data['cajeroPuedeActivarQr']);
         $data['cajeroSoloConsulta'] = empty($data['cajeroPuedeGestionarQr']);
         $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
         $data['contentView'] = 'secciones/vCajero';
         $this->_renderView($data);
-    }
-
-    public function SolicitudesUsuarioFic()
-    {
-        $session = \Config\Services::session();
-        $resolver = new UsuarioPerfilResolver();
-        $contextoUsuario = $resolver->resolve($session->get());
-        $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
-        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
-        $usuarioDecisionFolios = $this->resolveFolioDecisionUsuario();
-
-        $puedeGestionarFolios = !empty($usuarioDashboard) || !empty($usuarioDecisionFolios);
-        $puedeGestionarQr = !empty($usuarioCapazQr);
-        $puedeGestionarOperativo = !empty($usuarioDashboard);
-
-        if (!$puedeGestionarFolios && !$puedeGestionarQr && !$puedeGestionarOperativo) {
-            return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        $data = [];
-        $data['scripts'] = ['principal', 'agregar', 'solicitudes_usuario_fic_panel', 'solicitudes_usuario_operativo'];
-        $data['contextoUsuario'] = $contextoUsuario;
-        $data['solicitudesPuedeEditarFolios'] = $puedeGestionarFolios;
-        $data['solicitudesPuedeDecidirFolios'] = $puedeGestionarFolios;
-        $data['solicitudesPuedeGestionarQr'] = $puedeGestionarQr;
-        $data['solicitudesPuedeGestionarOperativo'] = $puedeGestionarOperativo;
-        $data['solicitudesPartidaOptions'] = $this->buildSolicitudesPartidaOptions();
-        $data['contentView'] = 'secciones/vSolicitudesUsuarioFic';
-        $this->_renderView($data);
-    }
-
-    private function buildSolicitudesPartidaOptions(): array
-    {
-        $db = \Config\Database::connect();
-
-        if (!$db->tableExists('cat_partida')) {
-            return [];
-        }
-
-        $builder = $db->table('cat_partida');
-
-        if ($db->fieldExists('visible', 'cat_partida')) {
-            $builder->where('visible', 1);
-        }
-
-        if ($db->fieldExists('id_partida', 'cat_partida')) {
-            $builder->whereIn('id_partida', [1, 2, 3]);
-            $builder->orderBy('id_partida', 'ASC');
-        }
-
-        return array_map(static function (array $row): array {
-            return [
-                'id_partida' => (int) ($row['id_partida'] ?? 0),
-                'partida' => (string) ($row['partida'] ?? ''),
-                'des_partida' => (string) ($row['des_partida'] ?? $row['dsc_partida'] ?? ''),
-            ];
-        }, $builder->get()->getResultArray());
-    }
-
-    private function buildPartidasDashboardSeed(): array
-    {
-        $db = \Config\Database::connect();
-        $partidas = [];
-        $usuariosPorPartida = [];
-
-        if ($db->tableExists('usuario') && $db->fieldExists('id_partida', 'usuario')) {
-            $usuariosBuilder = $db->table('usuario')
-                ->select('id_partida, COUNT(*) AS total')
-                ->where('id_partida IS NOT NULL', null, false)
-                ->groupBy('id_partida');
-
-            if ($db->fieldExists('visible', 'usuario')) {
-                $usuariosBuilder->where('visible', 1);
-            }
-
-            foreach ($usuariosBuilder->get()->getResultArray() as $row) {
-                $usuariosPorPartida[(int) ($row['id_partida'] ?? 0)] = (int) ($row['total'] ?? 0);
-            }
-        }
-
-        if ($db->tableExists('cat_partida')) {
-            $builder = $db->table('cat_partida');
-
-            if ($db->fieldExists('visible', 'cat_partida')) {
-                $builder->where('visible', 1);
-            }
-
-            if ($db->fieldExists('id_partida', 'cat_partida')) {
-                $builder->orderBy('id_partida', 'ASC');
-            }
-
-            foreach ($builder->get()->getResultArray() as $row) {
-                $idPartida = (int) ($row['id_partida'] ?? 0);
-                $presupuesto = $this->firstNumericValue($row, ['monto_presupuesto', 'presupuesto', 'monto_total', 'monto']);
-                $ejercido = $this->firstNumericValue($row, ['monto_ejercido', 'monto_utilizado', 'monto_usado', 'ejercido']);
-                $disponible = $this->firstNumericValue($row, ['monto_disponible', 'saldo_disponible', 'saldo', 'disponible']);
-
-                if ($disponible <= 0 && $presupuesto > 0 && $ejercido >= 0) {
-                    $disponible = max(0, $presupuesto - $ejercido);
-                }
-
-                $partidas[] = [
-                    'id_partida' => $idPartida,
-                    'partida' => (string) ($row['partida'] ?? 'Partida ' . $idPartida),
-                    'des_partida' => (string) ($row['des_partida'] ?? $row['dsc_partida'] ?? ''),
-                    'monto_presupuesto_num' => $presupuesto,
-                    'monto_ejercido_num' => $ejercido,
-                    'monto_disponible_num' => $disponible,
-                    'monto_presupuesto' => $this->formatFicCurrency($presupuesto),
-                    'monto_ejercido' => $this->formatFicCurrency($ejercido),
-                    'monto_disponible' => $this->formatFicCurrency($disponible),
-                    'usuarios_asignados' => $usuariosPorPartida[$idPartida] ?? 0,
-                ];
-            }
-        }
-
-        $presupuestoTotal = array_sum(array_column($partidas, 'monto_presupuesto_num'));
-        $ejercidoTotal = array_sum(array_column($partidas, 'monto_ejercido_num'));
-        $disponibleTotal = array_sum(array_column($partidas, 'monto_disponible_num'));
-        $usuariosTotal = array_sum(array_column($partidas, 'usuarios_asignados'));
-
-        return [
-            'resumen' => [
-                'monto_presupuesto' => $this->formatFicCurrency($presupuestoTotal),
-                'monto_ejercido' => $this->formatFicCurrency($ejercidoTotal),
-                'monto_disponible' => $this->formatFicCurrency($disponibleTotal),
-                'usuarios_asignados' => (string) $usuariosTotal,
-            ],
-            'partidas' => $partidas,
-            'meta' => [
-                'ultima_actualizacion' => date('d/m/Y H:i'),
-                'source' => 'bd',
-            ],
-        ];
-    }
-
-    private function buildPagosFicDashboardData(): array
-    {
-        $db = \Config\Database::connect();
-        $rows = [];
-
-        if ($db->tableExists('solicitud_pago')) {
-            $builder = $db->table('solicitud_pago sp')->select('sp.*');
-            $joinedEstablecimiento = false;
-
-            if ($db->tableExists('establecimiento') && $db->fieldExists('id_establecimiento', 'solicitud_pago')) {
-                $builder
-                    ->select('e.dsc_establecimiento, e.no_proveedor')
-                    ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left');
-                $joinedEstablecimiento = true;
-            }
-
-            if ($joinedEstablecimiento && $db->tableExists('proveedor')) {
-                $builder
-                    ->select('p.razon_social')
-                    ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left');
-            }
-
-            if ($db->fieldExists('visible', 'solicitud_pago')) {
-                $builder->where('sp.visible', 1);
-            }
-
-            if ($db->fieldExists('fec_reg', 'solicitud_pago')) {
-                $builder->orderBy('sp.fec_reg', 'DESC');
-            }
-
-            $rows = $builder->limit(500)->get()->getResultArray();
-        }
-
-        $resumen = [
-            'total_registros' => count($rows),
-            'monto_total' => 0.0,
-            'pendientes' => 0,
-            'monto_pendiente' => 0.0,
-            'aprobados' => 0,
-            'rechazados' => 0,
-            'estado_corte' => count($rows) > 0 ? 'Con movimientos' : 'Sin movimientos',
-            'fecha_corte_desde' => '',
-            'fecha_corte_hasta' => '',
-        ];
-
-        foreach ($rows as $row) {
-            $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
-            $monto = $this->firstNumericValue($row, ['monto_solicitado', 'monto_total', 'total', 'monto']);
-            $fecha = trim((string) ($row['fec_reg'] ?? ''));
-
-            $resumen['monto_total'] += $monto;
-
-            if (in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
-                $resumen['pendientes']++;
-                $resumen['monto_pendiente'] += $monto;
-            } elseif (in_array($estatus, ['aprobada', 'aprobado', 'aceptada', 'aceptado', 'autorizada', 'autorizado', 'pagada', 'pagado'], true)) {
-                $resumen['aprobados']++;
-            } elseif (in_array($estatus, ['rechazada', 'rechazado', 'cancelada', 'cancelado'], true)) {
-                $resumen['rechazados']++;
-            }
-
-            if ($fecha !== '') {
-                if ($resumen['fecha_corte_desde'] === '' || $fecha < $resumen['fecha_corte_desde']) {
-                    $resumen['fecha_corte_desde'] = $fecha;
-                }
-                if ($resumen['fecha_corte_hasta'] === '' || $fecha > $resumen['fecha_corte_hasta']) {
-                    $resumen['fecha_corte_hasta'] = $fecha;
-                }
-            }
-        }
-
-        return [
-            'resumen' => $resumen,
-            'pagos' => $rows,
-        ];
-    }
-
-    private function buildPagosFicEstablecimientosData(): array
-    {
-        $db = \Config\Database::connect();
-
-        if (!$db->tableExists('establecimiento')) {
-            return [];
-        }
-
-        $builder = $db->table('establecimiento e')->select('e.*');
-
-        if ($db->fieldExists('visible', 'establecimiento')) {
-            $builder->where('e.visible', 1);
-        }
-
-        if ($db->fieldExists('dsc_establecimiento', 'establecimiento')) {
-            $builder->orderBy('e.dsc_establecimiento', 'ASC');
-        }
-
-        $facturasPorEstablecimiento = $this->buildLatestFacturasByEstablecimiento();
-
-        return array_map(function (array $row) use ($facturasPorEstablecimiento): array {
-            $idEstablecimiento = (int) ($row['id_establecimiento'] ?? 0);
-            $factura = $facturasPorEstablecimiento[$idEstablecimiento] ?? [];
-
-            return [
-                'id_establecimiento' => $idEstablecimiento,
-                'establecimiento' => (string) ($row['dsc_establecimiento'] ?? $row['nombre'] ?? 'Sin establecimiento'),
-                'no_proveedor' => (string) ($row['no_proveedor'] ?? ''),
-                'factura_id' => (int) ($factura['id_factura'] ?? 0),
-                'tiene_xml' => trim((string) ($factura['xml'] ?? '')) !== '',
-                'xml_url' => $this->buildFacturaArchivoUrl($factura, 'xml'),
-                'pdf_url' => $this->buildFacturaArchivoUrl($factura, 'pdf'),
-                'reporte_url' => $idEstablecimiento > 0
-                    ? base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato?id_establecimiento=' . $idEstablecimiento)
-                    : '',
-            ];
-        }, $builder->get()->getResultArray());
-    }
-
-    private function buildLatestFacturasByEstablecimiento(): array
-    {
-        $db = \Config\Database::connect();
-
-        if (!$db->tableExists('facturas')) {
-            return [];
-        }
-
-        $builder = $db->table('facturas f')->select('f.*');
-
-        if ($db->fieldExists('visible', 'facturas')) {
-            $builder->where('f.visible', 1);
-        }
-
-        if ($db->fieldExists('fec_reg', 'facturas')) {
-            $builder->orderBy('f.fec_reg', 'DESC');
-        }
-
-        $facturas = [];
-        foreach ($builder->get()->getResultArray() as $row) {
-            $idEstablecimiento = (int) ($row['id_establecimiento'] ?? $row['id_estableciemiento'] ?? 0);
-            if ($idEstablecimiento > 0 && !isset($facturas[$idEstablecimiento])) {
-                $facturas[$idEstablecimiento] = $row;
-            }
-        }
-
-        return $facturas;
-    }
-
-    private function buildFacturaArchivoUrl(array $factura, string $tipo): string
-    {
-        $idFactura = (int) ($factura['id_factura'] ?? 0);
-        $archivo = trim((string) ($factura[$tipo] ?? ''));
-
-        if ($idFactura <= 0 || $archivo === '') {
-            return '';
-        }
-
-        return base_url('index.php/Inicio/verFacturaProveedorArchivo?id_factura=' . $idFactura . '&tipo=' . rawurlencode($tipo));
-    }
-
-    private function firstNumericValue(array $row, array $keys): float
-    {
-        foreach ($keys as $key) {
-            if (array_key_exists($key, $row) && is_numeric($row[$key])) {
-                return (float) $row[$key];
-            }
-        }
-
-        return 0.0;
-    }
-
-    private function formatFicCurrency(float $amount): string
-    {
-        return '$' . number_format($amount, 2);
     }
 
     public function PartidasFic()
@@ -2887,45 +1904,6 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
-    public function ReportesInstitucionales()
-    {
-        if (empty($this->resolveSecturiDashboardUsuario())) {
-            return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        $data = [];
-        $data['scripts'] = ['principal', 'agregar'];
-        $data['contentView'] = 'secciones/vReportesInstitucionales';
-        $data['reportesInstitucionalesTabs'] = [
-            [
-                'key' => 'fic',
-                'label' => 'FIC',
-                'title' => 'Festival Internacional Cervantino',
-                'description' => 'Reporte de saldos y consulta de movimientos de usuarios FIC.',
-                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'),
-                'profile_url' => base_url('index.php/Inicio/PerfilFic'),
-            ],
-            [
-                'key' => 'ug',
-                'label' => 'UG',
-                'title' => 'Universidad de Guanajuato',
-                'description' => 'Reporte de saldos y consulta de movimientos de usuarios UG.',
-                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'),
-                'profile_url' => base_url('index.php/Inicio/PerfilUg'),
-            ],
-            [
-                'key' => 'secul',
-                'label' => 'SECUL',
-                'title' => 'Secretarí­a de Cultura',
-                'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
-                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
-                'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
-            ],
-        ];
-
-        $this->_renderView($data);
-    }
-
     public function getFacturasFic()
     {
         if (empty($this->resolveSecturiDashboardUsuario())) {
@@ -2945,54 +1923,37 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $establecimientoFacturaField = $db->fieldExists('id_establecimiento', 'facturas')
-            ? 'id_establecimiento'
-            : ($db->fieldExists('id_estableciemiento', 'facturas') ? 'id_estableciemiento' : '');
+        $rows = $db->table('facturas f')
+            ->select('
+                f.id_factura,
+                f.xml,
+                f.pdf,
+                f.id_estableciemiento AS id_establecimiento,
+                f.id_estatus,
+                f.fec_reg,
+                f.usu_reg,
+                f.visible,
+                e.dsc_establecimiento,
+                e.no_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->join('establecimiento e', 'e.id_establecimiento = f.id_estableciemiento', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('f.visible', 1)
+            ->orderBy('f.fec_reg', 'DESC')
+            ->get()
+            ->getResultArray();
 
-        $builder = $db->table('facturas f')->select('f.*');
-
-        if ($establecimientoFacturaField !== '' && $db->tableExists('establecimiento')) {
-            $builder
-                ->select('e.dsc_establecimiento, e.no_proveedor')
-                ->join('establecimiento e', 'e.id_establecimiento = f.' . $establecimientoFacturaField, 'left');
-
-            if ($db->tableExists('proveedor')) {
-                $builder
-                    ->select('p.razon_social, p.rfc')
-                    ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left');
-            }
-        }
-
-        if ($db->fieldExists('visible', 'facturas')) {
-            $builder->where('f.visible', 1);
-        }
-
-        if ($db->fieldExists('fec_reg', 'facturas')) {
-            $builder->orderBy('f.fec_reg', 'DESC');
-        }
-
-        $rows = $builder->get()->getResultArray();
-
-        $mapped = array_map(function (array $row) use ($establecimientoFacturaField): array {
-            $idFactura = (int) ($row['id_factura'] ?? 0);
-            $idEstablecimiento = (int) ($row['id_establecimiento'] ?? ($establecimientoFacturaField !== '' ? ($row[$establecimientoFacturaField] ?? 0) : 0));
-            $xml = trim((string) ($row['xml'] ?? ''));
-            $pdf = trim((string) ($row['pdf'] ?? ''));
-
+        $mapped = array_map(static function (array $row): array {
+            $idEstatus = (int) ($row['id_estatus'] ?? 0);
             return [
-                'id_factura' => $idFactura,
-                'id_establecimiento' => $idEstablecimiento,
-                'dsc_establecimiento' => (string) ($row['dsc_establecimiento'] ?? 'Sin establecimiento'),
+                'id_factura' => (int) ($row['id_factura'] ?? 0),
+                'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+                'establecimiento' => (string) ($row['dsc_establecimiento'] ?? 'Sin establecimiento'),
                 'no_proveedor' => (string) ($row['no_proveedor'] ?? ''),
-                'razon_social' => (string) ($row['razon_social'] ?? ''),
+                'proveedor' => (string) ($row['razon_social'] ?? 'Sin proveedor'),
                 'rfc' => (string) ($row['rfc'] ?? ''),
-<<<<<<< HEAD
-                'xml' => $xml,
-                'pdf' => $pdf,
-                'xml_url' => $this->buildFacturaArchivoUrl($row, 'xml'),
-                'pdf_url' => $this->buildFacturaArchivoUrl($row, 'pdf'),
-                'id_estatus' => (int) ($row['id_estatus'] ?? 0),
-=======
                 'id_estatus' => $idEstatus,
                 'estatus' => $idEstatus === 1 ? 'Registrada' : 'Estatus ' . $idEstatus,
                 'fec_reg' => (string) ($row['fec_reg'] ?? ''),
@@ -6973,17 +5934,16 @@ class Inicio extends BaseController {
                 'expediente_completo' => $tieneDocumentoCargado,
                 'activo_qr' => $activoQr,
                 'qr_activo' => $activoQr,
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
                 'fec_reg' => (string) ($row['fec_reg'] ?? ''),
                 'fec_act' => (string) ($row['fec_act'] ?? ''),
-                'visible' => (int) ($row['visible'] ?? 1),
+                'visible' => (int) ($row['visible'] ?? 0),
             ];
         }, $rows);
 
         return $this->response->setJSON([
             'ok' => true,
             'success' => true,
-            'total' => count($mapped),
+            'total' => $total,
             'rows' => $mapped,
         ]);
     }
@@ -6991,20 +5951,15 @@ class Inicio extends BaseController {
     public function activarQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
-<<<<<<< HEAD
-        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
-        if (empty($tiUsuario) && empty($usuarioCapazQr)) {
-=======
         $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $usuarioCapazQr = $this->resolveUsuarioCapazQr();
         if (empty($tiUsuario) && empty($secturiAdminUsuario) && empty($usuarioCapazQr)) {
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
             return $this->response->setStatusCode(403)->setJSON([
                 'success' => false,
                 'message' => 'No tienes permisos para activar usuarios.',
             ]);
         }
-
+       
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
         if ($idUsuario <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -7033,20 +5988,31 @@ class Inicio extends BaseController {
             ]);
         }
 
-        if (!$this->usuarioTieneFolioQrCompleto($usuario)) {
+        $qr = trim((string) ($usuario['qr'] ?? ''));
+        $ineFirmaCajero = trim((string) ($usuario['ine_firma_cajero'] ?? ''));
+        $ineFrontal = trim((string) ($usuario['ine_frontal'] ?? ''));
+        $ineTrasera = trim((string) ($usuario['ine_trasera'] ?? ''));
+        $firma = trim((string) ($usuario['firma'] ?? ''));
+        $tieneDocumentoCargado = $qr !== ''
+            || $ineFirmaCajero !== ''
+            || $ineFrontal !== ''
+            || $ineTrasera !== ''
+            || $firma !== '';
+      /*   if ($qr === '' || $ineFrontal === '' || $ineTrasera === '' || $firma === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
-                'message' => 'Falta un folio documental completo para activar el QR.',
+                'message' => 'El expediente está incompleto o falta el QR generado.',
             ]);
         }
-<<<<<<< HEAD
-
-        $service = new DepositosProgramadosService($db);
-        $actorId = (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0));
-=======
+ */
+        if (!$tieneDocumentoCargado) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success' => false,
+                'message' => 'Falta al menos un documento cargado.',
+            ]);
+        }
         $actorId = (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($secturiAdminUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0));
         $service = new DepositosProgramadosService($db);
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
         $result = $service->activateQrAndApplyDeposits($idUsuario, $actorId);
         if (!empty($result->error)) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -7065,16 +6031,10 @@ class Inicio extends BaseController {
 
     public function rechazarActivacionQrUsuarioFic()
     {
-        $Mglobal = new Mglobal();
         $tiUsuario = $this->resolveTiMasterUsuario();
-<<<<<<< HEAD
-        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
-        if (empty($tiUsuario) && empty($usuarioCapazQr)) {
-=======
         $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
         $usuarioCapazQr = $this->resolveUsuarioCapazQr();
         if (empty($tiUsuario) && empty($secturiAdminUsuario) && empty($usuarioCapazQr)) {
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
             return $this->response->setStatusCode(403)->setJSON([
                 'success' => false,
                 'message' => 'No tienes permisos para rechazar solicitudes de QR.',
@@ -7082,9 +6042,6 @@ class Inicio extends BaseController {
         }
 
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
-        
-        $Mglobal->setNotification($idUsuario);
-        die();
         if ($idUsuario <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
@@ -7094,7 +6051,7 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $usuario = $db->table('usuario')
-            ->select('id_usuario, visible, qr')
+            ->select('id_usuario, visible')
             ->where('id_usuario', $idUsuario)
             ->get()
             ->getRowArray();
@@ -7116,17 +6073,11 @@ class Inicio extends BaseController {
             ->where('id_usuario', $idUsuario)
             ->update([
                 'activo_qr' => 0,
-                'qr' => $usuario['qr'] ?? null,
-                'ine_firma_cajero' => null,
                 'ine_frontal' => null,
                 'ine_trasera' => null,
                 'firma' => null,
                 'fec_act' => date('Y-m-d H:i:s'),
-<<<<<<< HEAD
-                'usu_act' => (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0)),
-=======
                 'usu_act' => (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($secturiAdminUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0)),
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
             ]);
 
         return $this->response->setJSON([
@@ -7660,8 +6611,6 @@ class Inicio extends BaseController {
 
     private function resolveUsuarioCapazQr(): array
     {
-<<<<<<< HEAD
-=======
         $usuario = $this->resolveTiMasterUsuario();
         if (!empty($usuario)) {
             return $usuario;
@@ -7677,7 +6626,6 @@ class Inicio extends BaseController {
 
     private function resolveSecturiCajeroUsuario(): array
     {
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
         $session = \Config\Services::session();
         $idUsuario = (int) ($session->get('id_usuario') ?? 0);
         if ($idUsuario <= 0) {
@@ -7686,11 +6634,7 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $usuario = $db->table('usuario')
-<<<<<<< HEAD
-            ->select('id_usuario, id_perfil, id_proveedor, id_tipo_proveedor, id_fic_perfil, id_ug_perfil, id_secul_perfil, id_secturi_perfil, visible')
-=======
             ->select('id_usuario, id_perfil, id_secturi_perfil, visible')
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
             ->where('id_usuario', $idUsuario)
             ->where('visible', 1)
             ->get()
@@ -7702,45 +6646,13 @@ class Inicio extends BaseController {
 
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($usuario);
-<<<<<<< HEAD
-        $grupo = (string) ($contextoUsuario['active_group'] ?? '');
-        $rol = (int) ($contextoUsuario['group_role'] ?? 0);
-
-        if (!empty($contextoUsuario['is_ti_master'])) {
-            return $usuario;
-        }
-
-        if ($grupo === 'secturi' && in_array($rol, [1, 2, 4], true)) {
-=======
         if (($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 4) {
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
             return $usuario;
         }
 
         return [];
     }
 
-<<<<<<< HEAD
-
-    private function usuarioTieneFolioQrCompleto(array $usuario): bool
-    {
-        if (empty($usuario)) {
-            return false;
-        }
-
-        if (in_array(($usuario['expediente_completo'] ?? null), [true, 1, '1'], true)) {
-            return true;
-        }
-
-        $pdfIneYFirma = trim((string) ($usuario['ine_firma_cajero'] ?? '')) !== '';
-        $ineCompleta = trim((string) ($usuario['ine_frontal'] ?? '')) !== ''
-            && trim((string) ($usuario['ine_trasera'] ?? '')) !== ''
-            && trim((string) ($usuario['firma'] ?? '')) !== '';
-
-        return $pdfIneYFirma || $ineCompleta;
-    }
-=======
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
     private function resolveFolioDecisionUsuario(): array
     {
         return $this->resolveUsuarioPorCapacidad('can_decide_institutional_folios');
@@ -7894,7 +6806,7 @@ class Inicio extends BaseController {
         if ($idSolicitud <= 0 || $usuario === '' || $contrasenia === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa usuario y contraseí±a.',
+                'message' => 'Completa usuario y contraseña.',
             ]);
         }
 
@@ -8030,6 +6942,7 @@ class Inicio extends BaseController {
             'monto_deposito_reservado' => 0.00,
             'monto_deposito_operativo' => 0.00,
             'deposito_programado_estatus' => 'sin_programa',
+            'qr' => null,
             'nip' => null,
             'folio' => null,
             'sub_folio' => null,
@@ -8230,70 +7143,6 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
-    public function SolicitudAlta($grupo = 'fic')
-    {
-        $grupo = strtolower(trim((string) $grupo));
-        $cfg = $this->getSolicitudCatalogoConfig($grupo);
-        if (empty($cfg)) {
-            return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        $session = \Config\Services::session();
-        $resolver = new UsuarioPerfilResolver();
-        $contextoUsuario = $resolver->resolve($session->get());
-        $tiUsuario = $this->resolveTiMasterUsuario();
-        $esGrupo = (string) ($contextoUsuario['active_group'] ?? '') === $grupo;
-        $rolGrupo = (int) ($contextoUsuario['group_role'] ?? 0);
-
-        if (empty($tiUsuario) && (!$esGrupo || !in_array($rolGrupo, [1, 2, 4], true))) {
-            return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        $db = \Config\Database::connect();
-        $perfiles = $db->table($cfg['catalog_table'])
-            ->select($cfg['catalog_id'] . ', ' . $cfg['catalog_label'])
-            ->where('visible', 1)
-            ->orderBy($cfg['catalog_id'], 'ASC')
-            ->get()
-            ->getResultArray();
-
-        $methodSuffix = ucfirst($grupo);
-        $profileRoutes = [
-            'fic' => 'PerfilFic',
-            'secul' => 'PerfilSecul',
-            'ug' => 'PerfilUg',
-        ];
-        $perfilOptions = array_map(static function (array $row) use ($cfg, $grupo): array {
-            if ($grupo === 'fic') {
-                return [
-                    'id_perfil_fic' => (int) ($row[$cfg['catalog_id']] ?? 0),
-                    'dsc_perfil' => (string) ($row[$cfg['catalog_label']] ?? ''),
-                ];
-            }
-
-            return [
-                'id_perfil' => (int) ($row[$cfg['catalog_id']] ?? 0),
-                'dsc_perfil' => (string) ($row[$cfg['catalog_label']] ?? ''),
-            ];
-        }, $perfiles);
-
-        $data = [];
-        $data['scripts'] = ['principal', 'agregar', 'solicitud_alta'];
-        $data['solicitudAlta'] = [
-            'grupo' => $grupo,
-            'perfil_options' => $perfilOptions,
-            'establecimiento_id' => (int) ($session->get('id_establecimiento') ?? 0),
-            'title' => 'Solicitud de folio ' . $cfg['label'],
-            'subtitle' => 'Captura los datos del usuario y el perfil solicitado para enviarlo a revisión.',
-            'back_url' => base_url('index.php/Inicio/' . ($profileRoutes[$grupo] ?? 'Inicio')),
-            'save_url' => base_url('index.php/Inicio/guardarSolicitudUsuario' . $methodSuffix . 'Perfil'),
-            'catalogos_url' => base_url('index.php/Usuario/getCatalogosCrud'),
-        ];
-        $data['contentView'] = 'secciones/vSolicitudAlta';
-
-        $this->_renderView($data);
-    }
-
     public function getSolicitudesNuevoFolioTi()
 {
     if (empty($this->resolveSecturiDashboardUsuario())) {
@@ -8308,11 +7157,11 @@ class Inicio extends BaseController {
     $db = \Config\Database::connect();
     $builder = $db->table('solicitud_usuario su')
         ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
-        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
-        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
-        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
+        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
         ->where('su.visible', 1)
-        ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional());
+        ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
 
     $search = trim((string) ($this->request->getGet('search') ?? ''));
     if ($search !== '') {
@@ -8350,269 +7199,6 @@ class Inicio extends BaseController {
     ]);
 }
 
-    private function getTiposSolicitudFolioInstitucional(): array
-    {
-        return [
-            'alta_usuario_fic',
-            'alta_usuario_secul',
-            'alta_usuario_ug',
-            'edicion_usuario_fic',
-            'edicion_usuario_secul',
-            'edicion_usuario_ug',
-        ];
-    }
-
-    private function isSolicitudEdicionInstitucional(array $solicitud): bool
-    {
-        return str_starts_with((string) ($solicitud['tipo_solicitud'] ?? ''), 'edicion_usuario_');
-    }
-
-    private function findSolicitudNuevoFolioTi(int $idSolicitud): array
-    {
-        if ($idSolicitud <= 0) {
-            return [];
-        }
-
-        $db = \Config\Database::connect();
-        $row = $db->table('solicitud_usuario su')
-            ->select('su.*, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
-            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
-            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
-            ->where('su.id_solicitud_usuario', $idSolicitud)
-            ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional())
-            ->get()
-            ->getRowArray();
-
-        return is_array($row) ? $row : [];
-    }
-
-    private function mapSolicitudUsuarioFicPerfilRow(array $row): array
-    {
-        $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($row['comentario_ti'] ?? ''));
-        $payload = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
-        $grupo = $this->resolveSolicitudFolioGrupo($row, (string) ($payloadInfo['grupo'] ?? ''), $payload);
-        $nombreCompleto = trim(implode(' ', array_filter([
-            trim((string) ($row['nombre'] ?? '')),
-            trim((string) ($row['primer_apellido'] ?? '')),
-            trim((string) ($row['segundo_apellido'] ?? '')),
-        ])));
-
-        return [
-            'id_solicitud_usuario' => (int) ($row['id_solicitud_usuario'] ?? 0),
-            'tipo_solicitud' => (string) ($row['tipo_solicitud'] ?? ''),
-            'tipo_flujo' => $this->isSolicitudEdicionInstitucional($row) ? 'edicion' : 'alta',
-            'tipo_flujo_label' => $this->isSolicitudEdicionInstitucional($row) ? 'Edición' : 'Alta',
-            'catalogo_grupo' => $grupo,
-            'grupo_solicitud' => $grupo,
-            'id_proveedor' => (int) ($row['id_proveedor'] ?? 0),
-            'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
-            'id_perfil_solicitado' => (int) ($row['id_perfil_solicitado'] ?? 0),
-            'perfil_solicitado' => (string) ($row['perfil_solicitado'] ?? ''),
-            'usuario' => (string) ($row['usuario'] ?? ''),
-            'nombre' => (string) ($row['nombre'] ?? ''),
-            'primer_apellido' => (string) ($row['primer_apellido'] ?? ''),
-            'segundo_apellido' => (string) ($row['segundo_apellido'] ?? ''),
-            'correo' => (string) ($row['correo'] ?? ''),
-            'nombre_completo' => $nombreCompleto,
-            'estatus' => (string) ($row['estatus'] ?? ''),
-            'comentario_ti' => (string) ($row['comentario_ti'] ?? ''),
-            'payload' => $payload,
-            'payload_json' => !empty($payload) ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '',
-            'id_usuario_creado' => (int) ($row['id_usuario_creado'] ?? 0),
-            'fec_reg' => (string) ($row['fec_reg'] ?? ''),
-            'visible' => (int) ($row['visible'] ?? 0),
-        ];
-    }
-
-    private function isSolicitudFolioAltaPayload(array $payload): bool
-    {
-        return array_key_exists('id_clave', $payload)
-            || array_key_exists('folio', $payload)
-            || array_key_exists('sub_folio', $payload)
-            || array_key_exists('anf_gto', $payload);
-    }
-
-    private function guardarSolicitudFolioDesdeAlta(string $grupo, array $cfg)
-    {
-        $session = \Config\Services::session();
-        $idSesionUsuario = (int) ($session->get('id_usuario') ?? 0);
-        $payload = $this->normalizeSolicitudFolioPayload($grupo, $this->request->getPost());
-
-        $perfilGrupo = (int) ($payload['perfil_grupo'] ?? 0);
-        $usuario = strtolower(trim((string) ($payload['usuario'] ?? '')));
-        $nombre = trim((string) ($payload['nombre'] ?? ''));
-        $primerApellido = trim((string) ($payload['primer_apellido'] ?? ''));
-        $folioGrupo = trim((string) ($payload['folio_grupo'] ?? ''));
-
-        if ($perfilGrupo <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Completa perfil, folio, nombre y primer apellido.']);
-        }
-
-        $db = \Config\Database::connect();
-        $duplicada = $db->table('solicitud_usuario')
-            ->select('id_solicitud_usuario')
-            ->where('visible', 1)
-            ->where('estatus', 'pendiente')
-            ->where('tipo_solicitud', $cfg['tipo_solicitud'])
-            ->where('usuario', $usuario)
-            ->limit(1)
-            ->get()
-            ->getRowArray();
-
-        if (!empty($duplicada)) {
-            return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'Ya existe una solicitud pendiente para este usuario.']);
-        }
-
-        $fechaAhora = date('Y-m-d H:i:s');
-        $insertOk = $db->table('solicitud_usuario')->insert([
-            'tipo_solicitud' => $cfg['tipo_solicitud'],
-            'id_proveedor' => 0,
-            'id_establecimiento' => (int) ($payload['id_establecimiento'] ?? $session->get('id_establecimiento') ?? 0),
-            'id_perfil_solicitado' => $perfilGrupo,
-            'usuario' => $usuario,
-            'nombre' => $nombre,
-            'primer_apellido' => $primerApellido,
-            'segundo_apellido' => trim((string) ($payload['segundo_apellido'] ?? '')),
-            'correo' => strtolower(trim((string) ($payload['correo'] ?? ''))),
-            'estatus' => 'pendiente',
-            'comentario_ti' => $this->encodeSolicitudFolioPayload($grupo, $this->removeSensitiveSolicitudFolioPayload($payload)),
-            'id_usuario_creado' => null,
-            'fec_reg' => $fechaAhora,
-            'usu_reg' => $idSesionUsuario,
-            'fec_act' => $fechaAhora,
-            'usu_act' => $idSesionUsuario,
-            'visible' => 1,
-        ]);
-
-        if (!$insertOk) {
-            return $this->response->setStatusCode(500)->setJSON(['ok' => false, 'message' => 'No fue posible guardar la solicitud.']);
-        }
-
-        return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud enviada correctamente.', 'data' => ['id_solicitud_usuario' => (int) $db->insertID()]]);
-    }
-
-    private function encodeSolicitudFolioPayload(string $grupo, array $payload): string
-    {
-        return 'SOLICITUD_FOLIO_JSON:' . json_encode([
-            'grupo' => strtolower(trim($grupo)),
-            'payload' => $payload,
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-
-    private function decodeSolicitudFolioPayload(string $comentario): array
-    {
-        $comentario = trim($comentario);
-        $prefix = 'SOLICITUD_FOLIO_JSON:';
-        if (!str_starts_with($comentario, $prefix)) {
-            return ['grupo' => '', 'payload' => []];
-        }
-
-        $decoded = json_decode(substr($comentario, strlen($prefix)), true);
-        if (!is_array($decoded)) {
-            return ['grupo' => '', 'payload' => []];
-        }
-
-        return [
-            'grupo' => strtolower(trim((string) ($decoded['grupo'] ?? ''))),
-            'payload' => is_array($decoded['payload'] ?? null) ? $decoded['payload'] : [],
-        ];
-    }
-
-    private function normalizeSolicitudFolioPayload(string $grupo, array $payload): array
-    {
-        $grupo = strtolower(trim($grupo));
-        $perfil = (int) ($payload['perfil_grupo'] ?? $payload['id_perfil_solicitado'] ?? 0);
-        $folio = trim((string) ($payload['folio_grupo'] ?? $payload['folio'] ?? ''));
-        $subFolio = trim((string) ($payload['sub_folio'] ?? $payload['subf_ui'] ?? ''));
-        $nombre = trim((string) ($payload['nombre'] ?? ''));
-        $primerApellido = trim((string) ($payload['primer_apellido'] ?? ''));
-        $usuario = strtolower(trim((string) ($payload['usuario'] ?? '')));
-        $beneficios = strtolower(trim((string) ($payload['beneficios'] ?? 'ninguno')));
-
-        if ($usuario === '') {
-            $usuario = strtolower(preg_replace('/[^a-z0-9._-]+/i', '.', trim($folio . '.' . $subFolio . '.' . $nombre . '.' . $primerApellido)) ?? '');
-            $usuario = trim(preg_replace('/\.+/', '.', $usuario) ?? '', '.-_');
-        }
-
-        $payload['grupo_usuario'] = $grupo;
-        $payload['perfil_grupo'] = $perfil;
-        $payload['id_perfil_solicitado'] = $perfil;
-        $payload['id_perfil'] = 3;
-        $payload['folio_grupo'] = $folio;
-        $payload['sub_folio'] = $subFolio;
-        $payload['pax'] = max(1, (int) ($payload['pax_total'] ?? $payload['pax'] ?? 1));
-        $payload['pax_total'] = $payload['pax'];
-        $payload['usuario'] = $usuario;
-        $payload['nombre'] = function_exists('mb_strtoupper') ? mb_strtoupper($nombre, 'UTF-8') : strtoupper($nombre);
-        $payload['primer_apellido'] = function_exists('mb_strtoupper') ? mb_strtoupper($primerApellido, 'UTF-8') : strtoupper($primerApellido);
-        $payload['segundo_apellido'] = function_exists('mb_strtoupper') ? mb_strtoupper(trim((string) ($payload['segundo_apellido'] ?? '')), 'UTF-8') : strtoupper(trim((string) ($payload['segundo_apellido'] ?? '')));
-        $payload['correo'] = strtolower(trim((string) ($payload['correo'] ?? '')));
-        $payload['tiene_hospedaje'] = in_array($beneficios, ['hospedaje', 'ambos'], true) ? 1 : 0;
-        $payload['tiene_alimentos'] = in_array($beneficios, ['alimentos', 'ambos'], true) ? 1 : 0;
-        $payload['visible'] = 1;
-
-        return $payload;
-    }
-
-    private function removeSensitiveSolicitudFolioPayload(array $payload): array
-    {
-        unset($payload['contrasenia'], $payload['password'], $payload['token']);
-        return $payload;
-    }
-
-    private function resolveSolicitudFolioGrupo(array $solicitud, string $grupoPayload = '', array $payload = []): string
-    {
-        $grupo = strtolower(trim($grupoPayload ?: (string) ($payload['grupo_usuario'] ?? '')));
-        if (in_array($grupo, ['fic', 'secul', 'ug'], true)) {
-            return $grupo;
-        }
-
-        $tipo = (string) ($solicitud['tipo_solicitud'] ?? '');
-        foreach (['fic', 'secul', 'ug'] as $candidate) {
-            if (str_contains($tipo, '_' . $candidate)) {
-                return $candidate;
-            }
-        }
-
-        return 'fic';
-    }
-
-    private function buildSolicitudFolioEditUrl(string $grupo, int $idSolicitud): string
-    {
-        return base_url('index.php/Inicio/SolicitudAlta/' . strtolower($grupo) . '?id_solicitud_usuario=' . $idSolicitud);
-    }
-
-    private function getNotificationAudienceRecipients(string $grupo): array
-    {
-        $grupo = strtolower(trim($grupo));
-        $fieldByGroup = [
-            'fic' => 'id_fic_perfil',
-            'secul' => 'id_secul_perfil',
-            'ug' => 'id_ug_perfil',
-        ];
-        $field = $fieldByGroup[$grupo] ?? '';
-        if ($field === '') {
-            return [];
-        }
-
-        $db = \Config\Database::connect();
-        $rows = $db->table('usuario')
-            ->select('id_usuario')
-            ->where('visible', 1)
-            ->groupStart()
-                ->where($field, 1)
-                ->orWhere($field, 2)
-            ->groupEnd()
-            ->get()
-            ->getResultArray();
-
-        return array_values(array_filter(array_map(static function (array $row): int {
-            return (int) ($row['id_usuario'] ?? 0);
-        }, $rows)));
-    }
-
     public function getSolicitudNuevoFolioTi()
     {
         if (empty($this->resolveSecturiDashboardUsuario())) {
@@ -8640,7 +7226,6 @@ class Inicio extends BaseController {
         }
 
         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
-        $idPartidaAprobacion = (int) ($this->request->getPost('id_partida') ?? 0);
         if ($idSolicitud <= 0) {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
         }
@@ -8650,11 +7235,6 @@ class Inicio extends BaseController {
         if (empty($solicitud) || (string) ($solicitud['estatus'] ?? '') !== 'pendiente') {
             $estatusActual = trim((string) ($solicitud['estatus'] ?? 'desconocido'));
             return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud institucional ya no está pendiente. Estatus actual: ' . $estatusActual . '.']);
-        }
-
-        $esSolicitudEdicion = $this->isSolicitudEdicionInstitucional($solicitud);
-        if (!$esSolicitudEdicion && !in_array($idPartidaAprobacion, [1, 2, 3], true)) {
-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignará al folio antes de aprobar la solicitud.']);
         }
 
         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
@@ -8667,44 +7247,6 @@ class Inicio extends BaseController {
         }
         $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
         $payload = $this->normalizeSolicitudFolioPayload($grupoSolicitud, $payload);
-        if ($esSolicitudEdicion) {
-            $session = \Config\Services::session();
-            $resolver = new UsuarioPerfilResolver();
-            $actorContext = $resolver->resolve($session->get());
-            if (empty($actorContext['is_ti_master'])) {
-                $actorContext['is_ti_master'] = true;
-                $actorContext['can_edit_user_catalog'] = true;
-            }
-
-            $usuarioController = new Usuario();
-            $usuarioController->initController($this->request, $this->response, \Config\Services::logger());
-            $saveResponse = $usuarioController->applyInstitutionalUserEditPayload(
-                $payload,
-                $actorContext,
-                (int) ($session->get('id_usuario') ?? 0),
-                'Inicio.aprobarSolicitudNuevoFolioTi.edicion'
-            );
-            $saveBody = json_decode((string) $saveResponse->getBody(), true);
-
-            if (!is_array($saveBody) || !empty($saveBody['error'])) {
-                return $this->response->setStatusCode(409)->setJSON([
-                    'ok' => false,
-                    'message' => (string) ($saveBody['respuesta'] ?? 'No fue posible aplicar la edición solicitada.'),
-                ]);
-            }
-
-            $payloadLimpio = $this->removeSensitiveSolicitudFolioPayload($payload);
-            $fechaAhora = date('Y-m-d H:i:s');
-            $db->table('solicitud_usuario')->where('id_solicitud_usuario', $idSolicitud)->update([
-                'estatus' => 'aprobada',
-                'comentario_ti' => $this->encodeSolicitudFolioPayload($grupoSolicitud, $payloadLimpio),
-                'fec_act' => $fechaAhora,
-                'usu_act' => (int) ($session->get('id_usuario') ?? 0),
-            ]);
-
-            return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y edición aplicada correctamente.']);
-        }
-        $payload['id_partida'] = $idPartidaAprobacion;
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
@@ -8777,20 +7319,6 @@ class Inicio extends BaseController {
 
         $grupo = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payloadEditado);
         $payload = $this->normalizeSolicitudFolioPayload($grupo, $payloadEditado);
-        $payload['comentario_usuario'] = trim((string) ($payload['comentario_usuario'] ?? ''));
-        $estatusActual = strtolower(trim((string) ($solicitud['estatus'] ?? '')));
-        if ($estatusActual === 'rechazada') {
-            $payloadAnterior = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
-            $comentarioUsuarioAnterior = trim((string) ($payloadAnterior['comentario_usuario'] ?? ''));
-            $motivoRechazoAnterior = trim((string) ($payloadAnterior['motivo_rechazo'] ?? ''));
-            if ($comentarioUsuarioAnterior !== '') {
-                $payload['comentario_usuario_anterior'] = $comentarioUsuarioAnterior;
-            }
-            if ($motivoRechazoAnterior !== '') {
-                $payload['motivo_rechazo_anterior'] = $motivoRechazoAnterior;
-            }
-            unset($payload['motivo_rechazo']);
-        }
         $perfilGrupo = (int) ($payload['perfil_grupo'] ?? 0);
         $idPerfilSolicitado = $perfilGrupo;
         $usuario = strtolower(trim((string) ($payload['usuario'] ?? '')));
@@ -8808,6 +7336,7 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $fechaAhora = date('Y-m-d H:i:s');
+        $estatusActual = strtolower(trim((string) ($solicitud['estatus'] ?? '')));
         $nuevoEstatus = $estatusActual === 'rechazada' ? 'pendiente' : (string) ($solicitud['estatus'] ?? 'pendiente');
         $db->table('solicitud_usuario')
             ->where('id_solicitud_usuario', $idSolicitud)
@@ -9057,24 +7586,9 @@ class Inicio extends BaseController {
         return $this->renderPerfilUgHub('consulta');
     }
 
-    public function PerfilFic()
-    {
-        return $this->renderPerfilFicHub('admin');
-    }
-
-    public function PerfilFicConsulta()
-    {
-        return $this->renderPerfilFicHub('consulta');
-    }
-
     private function renderPerfilSeculHub(string $modo = 'admin')
     {
         return $this->renderPerfilCatalogoHub('secul', $modo);
-    }
-
-    private function renderPerfilFicHub(string $modo = 'admin')
-    {
-        return $this->renderPerfilCatalogoHub('fic', $modo);
     }
 
     private function renderPerfilUgHub(string $modo = 'admin')
@@ -9164,26 +7678,6 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
-    public function getSolicitudesUsuarioFicPerfil()
-    {
-        return $this->getSolicitudesUsuarioCatalogoPerfil('fic');
-    }
-
-    public function getSolicitudUsuarioFicPerfil()
-    {
-        return $this->getSolicitudUsuarioCatalogoPerfil('fic');
-    }
-
-    public function guardarSolicitudUsuarioFicPerfil()
-    {
-        return $this->guardarSolicitudUsuarioCatalogoPerfil('fic');
-    }
-
-    public function cancelarSolicitudUsuarioFicPerfil()
-    {
-        return $this->cancelarSolicitudUsuarioCatalogoPerfil('fic');
-    }
-
     public function getSolicitudesUsuarioSeculPerfil()
     {
         return $this->getSolicitudesUsuarioCatalogoPerfil('secul');
@@ -9226,7 +7720,7 @@ class Inicio extends BaseController {
 
     private function getSolicitudesUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = \Config\Services::session();
+        $session = ConfigServices::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -9242,7 +7736,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'total' => 0, 'rows' => [], 'message' => 'No tienes permisos para consultar solicitudes.']);
         }
 
-        $db = \Config\Database::connect();
+        $db = ConfigDatabase::connect();
         $builder = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, c.' . $cfg['catalog_label'] . ' AS perfil_solicitado')
             ->join($cfg['catalog_table'] . ' c', 'c.' . $cfg['catalog_id'] . ' = su.id_perfil_solicitado', 'left')
@@ -9282,7 +7776,7 @@ class Inicio extends BaseController {
 
     private function getSolicitudUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = \Config\Services::session();
+        $session = ConfigServices::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -9303,7 +7797,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no v?lida.']);
         }
 
-        $db = \Config\Database::connect();
+        $db = ConfigDatabase::connect();
         $row = $db->table('solicitud_usuario su')
             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, c.' . $cfg['catalog_label'] . ' AS perfil_solicitado')
             ->join($cfg['catalog_table'] . ' c', 'c.' . $cfg['catalog_id'] . ' = su.id_perfil_solicitado', 'left')
@@ -9323,7 +7817,7 @@ class Inicio extends BaseController {
 
     private function guardarSolicitudUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = \Config\Services::session();
+        $session = ConfigServices::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -9364,7 +7858,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Completa los campos obligatorios.']);
         }
 
-        $db = \Config\Database::connect();
+        $db = ConfigDatabase::connect();
         $perfilSolicitado = $db->table($cfg['catalog_table'])
             ->where($cfg['catalog_id'], $idPerfilSolicitado)
             ->where('visible', 1)
@@ -9417,10 +7911,10 @@ class Inicio extends BaseController {
         ][$beneficiosKey] ?? 'Ninguno';
         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Hospedaje: sí­­';
+            $detalleSolicitud[] = 'Hospedaje: sí­';
         }
         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
-            $detalleSolicitud[] = 'Alimentos: sí­­';
+            $detalleSolicitud[] = 'Alimentos: sí­';
         }
         if ($observaciones !== '') {
             $detalleSolicitud[] = '';
@@ -9458,7 +7952,7 @@ class Inicio extends BaseController {
 
     private function cancelarSolicitudUsuarioCatalogoPerfil(string $grupo)
     {
-        $session = \Config\Services::session();
+        $session = ConfigServices::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
         $tiUsuario = $this->resolveTiMasterUsuario();
@@ -9479,7 +7973,7 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no v?lida.']);
         }
 
-        $db = \Config\Database::connect();
+        $db = ConfigDatabase::connect();
         $solicitud = $db->table('solicitud_usuario')
             ->where('id_solicitud_usuario', $idSolicitud)
             ->where('visible', 1)
@@ -9538,23 +8032,6 @@ class Inicio extends BaseController {
     private function getSolicitudCatalogoConfig(string $grupo): array
     {
         $configs = [
-            'fic' => [
-                'label' => 'FIC',
-                'view' => 'secciones/vPerfilFic',
-                'mode_key' => 'perfilFicMode',
-                'can_create_key' => 'ficSolicitudPuedeCrear',
-                'perfil_options_key' => 'ficSolicitudPerfilOptions',
-                'list_url_key' => 'ficSolicitudListadoUrl',
-                'detail_url_key' => 'ficSolicitudDetalleUrl',
-                'save_url_key' => 'ficSolicitudGuardarUrl',
-                'cancel_url_key' => 'ficSolicitudCancelarUrl',
-                'establecimiento_id_key' => 'ficSolicitudEstablecimientoId',
-                'catalog_table' => 'cat_fic',
-                'catalog_id' => 'id_perfil_fic',
-                'catalog_label' => 'dsc_perfil',
-                'tipo_solicitud' => 'alta_usuario_fic',
-                'usuario_group_field' => 'id_fic_perfil',
-            ],
             'secul' => [
                 'label' => 'SECUL',
                 'view' => 'secciones/vPerfilSecul',
