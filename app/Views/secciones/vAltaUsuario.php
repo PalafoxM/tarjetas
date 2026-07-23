@@ -731,6 +731,7 @@ $inferHabitacionCapacidad = static function ($item) {
 
     const saveUrl = String(page.dataset.saveUrl || '').trim();
     const listUrl = String(page.dataset.listUrl || '').trim();
+    let isSubmitting = false;
 
     const getValue = (name) => {
         const field = form.querySelector('[name="' + name + '"]');
@@ -772,6 +773,10 @@ $inferHabitacionCapacidad = static function ($item) {
     form.addEventListener('submit', function (event) {
         event.preventDefault();
 
+        if (isSubmitting) {
+            return;
+        }
+
         if (!saveUrl) {
             showError('No fue posible resolver la ruta de guardado.');
             return;
@@ -787,6 +792,7 @@ $inferHabitacionCapacidad = static function ($item) {
             return;
         }
 
+        isSubmitting = true;
         const textoOriginal = boton.innerHTML;
         boton.disabled = true;
         boton.innerHTML = 'Guardando...';
@@ -807,6 +813,7 @@ $inferHabitacionCapacidad = static function ($item) {
             const response = request && request.responseJSON ? request.responseJSON : {};
             showError(response.respuesta || response.message || 'No fue posible guardar el usuario.');
         }).always(function () {
+            isSubmitting = false;
             boton.disabled = false;
             boton.innerHTML = textoOriginal;
         });

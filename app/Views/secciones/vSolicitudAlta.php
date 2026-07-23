@@ -196,6 +196,7 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
 
     const saveUrl = String(page.dataset.saveUrl || '').trim();
     const backUrl = String(page.dataset.backUrl || '').trim();
+    let isSubmitting = false;
 
     const getValue = (name) => {
         const field = form.querySelector('[name="' + name + '"]');
@@ -237,6 +238,10 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
     form.addEventListener('submit', function (event) {
         event.preventDefault();
 
+        if (isSubmitting) {
+            return;
+        }
+
         if (!saveUrl) {
             showError('No fue posible resolver la ruta de guardado.');
             return;
@@ -252,6 +257,7 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
             return;
         }
 
+        isSubmitting = true;
         const botonOriginal = boton.innerHTML;
         boton.disabled = true;
         boton.innerHTML = 'Enviando...';
@@ -272,6 +278,7 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
             const response = request && request.responseJSON ? request.responseJSON : {};
             showError(response.message || response.respuesta || 'No fue posible completar la solicitud.');
         }).always(function () {
+            isSubmitting = false;
             boton.disabled = false;
             boton.innerHTML = botonOriginal;
         });

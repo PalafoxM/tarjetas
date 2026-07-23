@@ -2827,9 +2827,13 @@ class Inicio extends BaseController {
             ->getRowArray();
 
         if (!empty($solicitudDuplicada)) {
-            return $this->response->setStatusCode(409)->setJSON([
-                'ok' => false,
-                'message' => 'Ya existe una solicitud pendiente para este perfil y este nombre.',
+            return $this->response->setJSON([
+                'ok' => true,
+                'message' => 'La solicitud ya se encontraba pendiente.',
+                'data' => [
+                    'id_solicitud_usuario' => (int) ($solicitudDuplicada['id_solicitud_usuario'] ?? 0),
+                    'duplicada' => true,
+                ],
             ]);
         }
 
@@ -3211,9 +3215,13 @@ class Inicio extends BaseController {
             ->getRowArray();
 
         if (!empty($solicitudUsuarioDuplicada)) {
-            return $this->response->setStatusCode(409)->setJSON([
-                'ok' => false,
-                'message' => 'Ya existe una solicitud pendiente para este usuario.',
+            return $this->response->setJSON([
+                'ok' => true,
+                'message' => 'Ya existía una solicitud pendiente para este usuario.',
+                'data' => [
+                    'id_solicitud_usuario' => (int) ($solicitudUsuarioDuplicada['id_solicitud_usuario'] ?? 0),
+                    'duplicada' => true,
+                ],
             ]);
         }
 
