@@ -183,3 +183,98 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const page = document.getElementById('solicitudAltaPage');
+    const form = page ? page.querySelector('form[id="formSolicitudUsuarioFic"], form[id="formSolicitudUsuarioCatalogo"]') : null;
+    const boton = form ? form.querySelector('button[type="submit"]') : null;
+
+    if (!page || !form || !boton || typeof Swal === 'undefined' || typeof $ === 'undefined') {
+        return;
+    }
+
+    const saveUrl = String(page.dataset.saveUrl || '').trim();
+    const backUrl = String(page.dataset.backUrl || '').trim();
+
+    const getValue = (name) => {
+        const field = form.querySelector('[name="' + name + '"]');
+        return field ? String(field.value || '').trim() : '';
+    };
+
+    const showError = (message) => {
+        Swal.fire('Atencion', message || 'No fue posible completar la solicitud.', 'warning');
+    };
+
+    const showSuccess = (message) => {
+        Swal.fire('Correcto', message || 'Solicitud enviada correctamente.', 'success')
+            .then(() => {
+                if (backUrl) {
+                    window.location.href = backUrl;
+                }
+            });
+    };
+
+    const validarFechas = () => {
+        const vigDesde = getValue('fec_vigencia_desde');
+        const vigHasta = getValue('fec_vigencia_hasta');
+        const vigDesdeHos = getValue('fec_vigencia_desde_hos');
+        const vigHastaHos = getValue('fec_vigencia_hasta_hos');
+
+        if (vigDesde && vigHasta && vigDesde > vigHasta) {
+            showError('La vigencia de alimentos no puede terminar antes de iniciar.');
+            return false;
+        }
+
+        if (vigDesdeHos && vigHastaHos && vigDesdeHos > vigHastaHos) {
+            showError('La vigencia de hospedaje no puede terminar antes de iniciar.');
+            return false;
+        }
+
+        return true;
+    };
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        if (!saveUrl) {
+            showError('No fue posible resolver la ruta de guardado.');
+            return;
+        }
+
+        if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+            form.classList.add('was-validated');
+            showError('Completa los campos obligatorios.');
+            return;
+        }
+
+        if (!validarFechas()) {
+            return;
+        }
+
+        const botonOriginal = boton.innerHTML;
+        boton.disabled = true;
+        boton.innerHTML = 'Enviando...';
+
+        $.ajax({
+            url: saveUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: $(form).serialize()
+        }).done(function (response) {
+            if (!response || response.ok !== true) {
+                showError((response && (response.message || response.respuesta)) || 'No fue posible completar la solicitud.');
+                return;
+            }
+
+            showSuccess(response.message || 'Solicitud enviada correctamente.');
+        }).fail(function (request) {
+            const response = request && request.responseJSON ? request.responseJSON : {};
+            showError(response.message || response.respuesta || 'No fue posible completar la solicitud.');
+        }).always(function () {
+            boton.disabled = false;
+            boton.innerHTML = botonOriginal;
+        });
+    });
+})();
+</script>

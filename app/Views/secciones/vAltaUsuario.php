@@ -689,3 +689,98 @@ $inferHabitacionCapacidad = static function ($item) {
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    const page = document.getElementById('altaUsuarioPage');
+    const form = document.getElementById('cajeroForm');
+    const boton = document.getElementById('guardarCajero');
+
+    if (!page || !form || !boton || typeof Swal === 'undefined' || typeof $ === 'undefined') {
+        return;
+    }
+
+    const saveUrl = String(page.dataset.saveUrl || '').trim();
+    const listUrl = String(page.dataset.listUrl || '').trim();
+
+    const getValue = (name) => {
+        const field = form.querySelector('[name="' + name + '"]');
+        return field ? String(field.value || '').trim() : '';
+    };
+
+    const showError = (message) => {
+        Swal.fire('Atencion', message || 'No fue posible guardar el usuario.', 'warning');
+    };
+
+    const showSuccess = (message) => {
+        Swal.fire('Correcto', message || 'Usuario guardado correctamente.', 'success')
+            .then(() => {
+                if (listUrl) {
+                    window.location.href = listUrl;
+                }
+            });
+    };
+
+    const validarFechas = () => {
+        const vigDesde = getValue('fec_vigencia_desde');
+        const vigHasta = getValue('fec_vigencia_hasta');
+        const vigDesdeHos = getValue('fec_vigencia_desde_hos');
+        const vigHastaHos = getValue('fec_vigencia_hasta_hos');
+
+        if (vigDesde && vigHasta && vigDesde > vigHasta) {
+            showError('La vigencia de alimentos no puede terminar antes de iniciar.');
+            return false;
+        }
+
+        if (vigDesdeHos && vigHastaHos && vigDesdeHos > vigHastaHos) {
+            showError('La vigencia de hospedaje no puede terminar antes de iniciar.');
+            return false;
+        }
+
+        return true;
+    };
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        if (!saveUrl) {
+            showError('No fue posible resolver la ruta de guardado.');
+            return;
+        }
+
+        if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+            form.classList.add('was-validated');
+            showError('Completa los campos obligatorios.');
+            return;
+        }
+
+        if (!validarFechas()) {
+            return;
+        }
+
+        const textoOriginal = boton.innerHTML;
+        boton.disabled = true;
+        boton.innerHTML = 'Guardando...';
+
+        $.ajax({
+            url: saveUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: $(form).serialize()
+        }).done(function (response) {
+            if (!response || response.error === true || response.ok === false) {
+                showError((response && (response.respuesta || response.message)) || 'No fue posible guardar el usuario.');
+                return;
+            }
+
+            showSuccess(response.respuesta || response.message || 'Usuario guardado correctamente.');
+        }).fail(function (request) {
+            const response = request && request.responseJSON ? request.responseJSON : {};
+            showError(response.respuesta || response.message || 'No fue posible guardar el usuario.');
+        }).always(function () {
+            boton.disabled = false;
+            boton.innerHTML = textoOriginal;
+        });
+    });
+})();
+</script>
