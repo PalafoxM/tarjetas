@@ -2166,6 +2166,7 @@ class Inicio extends BaseController {
 
     public function rechazarActivacionQrUsuarioFic()
     {
+        $Mglobal = new Mglobal();
         $tiUsuario = $this->resolveTiMasterUsuario();
         $usuarioCapazQr = $this->resolveUsuarioCapazQr();
         if (empty($tiUsuario) && empty($usuarioCapazQr)) {
@@ -2176,6 +2177,9 @@ class Inicio extends BaseController {
         }
 
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
+        
+        $Mglobal->setNotification($idUsuario);
+        die();
         if ($idUsuario <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
