@@ -26,12 +26,12 @@ class Database extends Config
      */
      public array $default = [
       'DSN'          => '',
-        //'hostname'     => '127.0.0.1',
-        'hostname'     => '18.222.102.91',
-        'username'     => 'adminSecturi',
-        //'username'     => 'root',
-        //'password'     => 'yDEa&3FeCT1v@z',
-        'password'     => 'admin%53cturi.2025',
+        'hostname'     => '127.0.0.1',
+        //'hostname'     => '18.222.102.91',
+        //'username'     => 'adminSecturi',
+        'username'     => 'root',
+        'password'     => 'yDEa&3FeCT1v@z',
+        //'password'     => 'admin%53cturi.2025',
         'database'     => 'tarjetas',
         'DBDriver'     => 'MySQLi',
         'DBPrefix'     => '',
