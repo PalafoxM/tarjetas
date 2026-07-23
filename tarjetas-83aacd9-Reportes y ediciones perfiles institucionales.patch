@@ -1,0 +1,1786 @@
+From 83aacd99a6965ec3a41943037fb753d0bf445d97 Mon Sep 17 00:00:00 2001
+From: Sama-93 <rsalbap@guanajuato.gob.mx>
+Date: Tue, 21 Jul 2026 18:49:33 -0600
+Subject: [PATCH] Reportes y ediciones perfiles institucionales
+
+---
+ app/Config/Routes.php                         |   2 +
+ app/Controllers/Inicio.php                    | 390 +++++++++++++++-
+ app/Controllers/Usuario.php                   | 424 ++++++++++++++++++
+ app/Libraries/DepositosProgramadosService.php |  87 ++++
+ .../pdfs/vPdfReporteInstitucionalSaldos.php   | 119 +++++
+ app/Views/secciones/vInicio.php               |  16 +-
+ app/Views/secciones/vPerfilFic.php            |  13 +-
+ app/Views/secciones/vPerfilSecul.php          |  13 +-
+ app/Views/secciones/vPerfilUG.php             |  13 +-
+ .../secciones/vReportesInstitucionales.php    | 169 +++++++
+ .../secciones/vSolicitudesUsuarioFic.php      |   1 +
+ js/global-loading.js                          |  36 ++
+ js/principal.js                               |  61 ++-
+ js/solicitudes_usuario_fic_panel.js           |  47 +-
+ 14 files changed, 1349 insertions(+), 42 deletions(-)
+ create mode 100644 app/Views/pdfs/vPdfReporteInstitucionalSaldos.php
+ create mode 100644 app/Views/secciones/vReportesInstitucionales.php
+
+diff --git a/app/Config/Routes.php b/app/Config/Routes.php
+index 8c298cf..384c321 100644
+--- a/app/Config/Routes.php
++++ b/app/Config/Routes.php
+@@ -18,6 +18,8 @@ $routes->get('Inicio/Cajero', 'Inicio::Cajero');
+ $routes->get('Inicio/getDashboardPartidasFic', 'Inicio::getDashboardPartidasFic');
+ $routes->get('Inicio/ProveedorFormatos', 'Inicio::ProveedorFormatos');
+ $routes->get('Inicio/FacturasFic', 'Inicio::FacturasFic');
++$routes->get('Inicio/ReportesInstitucionales', 'Inicio::ReportesInstitucionales');
++$routes->get('Inicio/exportarReporteInstitucionalSaldosPdf/(:segment)', 'Inicio::exportarReporteInstitucionalSaldosPdf/$1');
+ $routes->get('Inicio/getFacturasFic', 'Inicio::getFacturasFic');
+ $routes->get('Inicio/verFacturaProveedorArchivo', 'Inicio::verFacturaProveedorArchivo');
+ $routes->get('Inicio/pdfPagoTerceros', 'Inicio::pdfPagoTerceros');
+diff --git a/app/Controllers/Inicio.php b/app/Controllers/Inicio.php
+index 4a2575f..bc15087 100644
+--- a/app/Controllers/Inicio.php
++++ b/app/Controllers/Inicio.php
+@@ -1259,6 +1259,258 @@ class Inicio extends BaseController {
+             ->setBody($zipContent);
+     }
+ 
++    public function exportarReporteInstitucionalSaldosPdf(string $grupo = 'fic')
++    {
++        $payload = $this->buildReporteInstitucionalSaldosPayload($grupo);
++        if ($payload === null) {
++            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este reporte.');
++        }
++
++        $tempDir = WRITEPATH . 'mpdf-temp';
++        if (!is_dir($tempDir)) {
++            @mkdir($tempDir, 0775, true);
++        }
++
++        $filename = 'reporte_saldos_' . strtolower((string) ($payload['grupo'] ?? $grupo)) . '_' . date('Ymd_His') . '.pdf';
++
++        try {
++            $mpdf = new \Mpdf\Mpdf([
++                'mode' => 'utf-8',
++                'format' => 'Letter',
++                'orientation' => 'L',
++                'tempDir' => $tempDir,
++                'margin_left' => 8,
++                'margin_right' => 8,
++                'margin_top' => 10,
++                'margin_bottom' => 10,
++            ]);
++
++            $mpdf->SetTitle((string) ($payload['titulo'] ?? 'Reporte de saldos institucionales'));
++            $mpdf->WriteHTML(view('pdfs/vPdfReporteInstitucionalSaldos', $payload));
++            $mpdf->Output($filename, 'D');
++        } catch (\Throwable $e) {
++            log_message('error', 'Error al generar PDF de reporte institucional de saldos: ' . $e->getMessage());
++            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');
++        }
++
++        exit;
++    }
++
++    private function buildReporteInstitucionalSaldosPayload(string $grupo): ?array
++    {
++        $grupo = strtolower(trim($grupo));
++        $config = $this->getReporteInstitucionalGrupoConfig($grupo);
++        if (empty($config)) {
++            return null;
++        }
++
++        $session = \Config\Services::session();
++        $resolver = new UsuarioPerfilResolver();
++        $contextoUsuario = $resolver->resolve($session->get());
++        if (!$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
++            return null;
++        }
++
++        if (session_status() === PHP_SESSION_ACTIVE) {
++            session_write_close();
++        }
++
++        $db = \Config\Database::connect();
++        $builder = $db->table('usuario u')
++            ->select("
++                u.id_usuario,
++                u.usuario,
++                u.nombre,
++                u.primer_apellido,
++                u.segundo_apellido,
++                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS nombre_completo,
++                u.folio,
++                u.folio_grupo,
++                u.sub_folio,
++                u.pax_total,
++                u.pax_secuencia,
++                u.{$config['field']} AS rol_grupo_id,
++                u.id_nivel_cliente,
++                COALESCE(cnc.dsc_nivel_cliente, '') AS tarifa_descripcion,
++                COALESCE(cnc.monto_deposito, u.monto_deposito, 0) AS tarifa_diaria,
++                u.fec_vigencia_desde,
++                u.fec_vigencia_hasta,
++                u.tiene_alimentos,
++                u.tiene_hospedaje,
++                u.monto_deposito_reservado,
++                u.monto_deposito_operativo,
++                u.visible
++            ", false)
++            ->join('cat_nivel_cliente cnc', 'cnc.id_nivel_cliente = u.id_nivel_cliente', 'left')
++            ->where('u.visible', 1)
++            ->where('u.' . $config['field'] . ' >', 0);
++
++        $vigenciaDesdeFiltro = trim((string) ($this->request->getGet('vigencia_desde') ?? ''));
++        $vigenciaHastaFiltro = trim((string) ($this->request->getGet('vigencia_hasta') ?? ''));
++        if ($vigenciaDesdeFiltro !== '') {
++            $builder->where('DATE(u.fec_vigencia_hasta) >= ' . $db->escape($vigenciaDesdeFiltro), null, false);
++        }
++        if ($vigenciaHastaFiltro !== '') {
++            $builder->where('DATE(u.fec_vigencia_desde) <= ' . $db->escape($vigenciaHastaFiltro), null, false);
++        }
++
++        $rows = $builder
++            ->orderBy('u.folio_grupo', 'ASC')
++            ->orderBy('u.pax_secuencia', 'ASC')
++            ->orderBy('u.id_usuario', 'ASC')
++            ->get()
++            ->getResultArray();
++
++        $hoy = new \DateTimeImmutable('today', new \DateTimeZone('America/Mexico_City'));
++        $resumen = [
++            'total_usuarios' => 0,
++            'total_reservado' => 0.00,
++            'total_operativo' => 0.00,
++            'total_pendiente' => 0.00,
++        ];
++
++        $roles = $config['roles'];
++        $mappedRows = [];
++        foreach ($rows as $row) {
++            $row = (array) $row;
++            $diasVigencia = $this->calculateReporteInstitucionalDiasVigencia(
++                (string) ($row['fec_vigencia_desde'] ?? ''),
++                (string) ($row['fec_vigencia_hasta'] ?? '')
++            );
++            $tarifaDiaria = round((float) ($row['tarifa_diaria'] ?? 0), 2);
++            $tieneAlimentos = (int) ($row['tiene_alimentos'] ?? 0) === 1;
++            $reservadoCalculado = $tieneAlimentos && $tarifaDiaria > 0 && $diasVigencia > 0
++                ? round($tarifaDiaria * $diasVigencia, 2)
++                : round((float) ($row['monto_deposito_reservado'] ?? 0), 2);
++            $operativoActual = round((float) ($row['monto_deposito_operativo'] ?? 0), 2);
++            $vigenciaVencida = $this->isReporteInstitucionalVigenciaVencida((string) ($row['fec_vigencia_hasta'] ?? ''), $hoy);
++            $pendiente = $vigenciaVencida ? round(max(0.00, $operativoActual), 2) : 0.00;
++            $rolId = (int) ($row['rol_grupo_id'] ?? 0);
++
++            $mappedRows[] = [
++                'id_usuario' => (int) ($row['id_usuario'] ?? 0),
++                'folio' => trim((string) ($row['folio_grupo'] ?? $row['folio'] ?? '')),
++                'sub_folio' => trim((string) ($row['sub_folio'] ?? '')),
++                'usuario' => (string) ($row['usuario'] ?? ''),
++                'nombre_completo' => trim((string) ($row['nombre_completo'] ?? '')),
++                'perfil' => $roles[$rolId] ?? ('Perfil ' . $rolId),
++                'tarifa_descripcion' => trim((string) ($row['tarifa_descripcion'] ?? '')),
++                'tarifa_diaria' => $tarifaDiaria,
++                'vigencia_desde' => (string) ($row['fec_vigencia_desde'] ?? ''),
++                'vigencia_hasta' => (string) ($row['fec_vigencia_hasta'] ?? ''),
++                'dias_vigencia' => $diasVigencia,
++                'beneficios' => $this->buildReporteInstitucionalBeneficiosLabel($row),
++                'monto_reservado' => $reservadoCalculado,
++                'monto_operativo' => $operativoActual,
++                'monto_pendiente' => $pendiente,
++            ];
++
++            $resumen['total_usuarios']++;
++            $resumen['total_reservado'] = round($resumen['total_reservado'] + $reservadoCalculado, 2);
++            $resumen['total_operativo'] = round($resumen['total_operativo'] + $operativoActual, 2);
++            $resumen['total_pendiente'] = round($resumen['total_pendiente'] + $pendiente, 2);
++        }
++
++        return [
++            'titulo' => 'Reporte de saldos institucionales',
++            'grupo' => $config['label'],
++            'generado_en' => date('Y-m-d H:i:s'),
++            'periodo_label' => $this->buildReporteInstitucionalPeriodoLabel($vigenciaDesdeFiltro, $vigenciaHastaFiltro),
++            'rows' => $mappedRows,
++            'resumen' => $resumen,
++        ];
++    }
++
++    private function getReporteInstitucionalGrupoConfig(string $grupo): array
++    {
++        $definitions = (new UsuarioPerfilResolver())->getDefinitions();
++        $configs = [
++            'fic' => ['label' => 'FIC', 'field' => 'id_fic_perfil', 'roles' => $definitions['fic']['roles'] ?? []],
++            'ug' => ['label' => 'UG', 'field' => 'id_ug_perfil', 'roles' => $definitions['ug']['roles'] ?? []],
++            'secul' => ['label' => 'SECUL', 'field' => 'id_secul_perfil', 'roles' => $definitions['secul']['roles'] ?? []],
++        ];
++
++        return $configs[$grupo] ?? [];
++    }
++
++    private function canExportReporteInstitucional(string $grupo, array $contextoUsuario): bool
++    {
++        if (!empty($contextoUsuario['is_ti_master'])) {
++            return true;
++        }
++
++        return (string) ($contextoUsuario['active_group'] ?? '') === $grupo
++            && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true);
++    }
++
++    private function calculateReporteInstitucionalDiasVigencia(string $desde, string $hasta): int
++    {
++        $desde = trim($desde);
++        $hasta = trim($hasta);
++        if ($desde === '' || $hasta === '') {
++            return 0;
++        }
++
++        try {
++            $inicio = new \DateTimeImmutable(substr($desde, 0, 10));
++            $fin = new \DateTimeImmutable(substr($hasta, 0, 10));
++        } catch (\Throwable $e) {
++            return 0;
++        }
++
++        if ($fin < $inicio) {
++            return 0;
++        }
++
++        return ((int) $inicio->diff($fin)->format('%a')) + 1;
++    }
++
++    private function isReporteInstitucionalVigenciaVencida(string $hasta, \DateTimeImmutable $hoy): bool
++    {
++        $hasta = trim($hasta);
++        if ($hasta === '') {
++            return false;
++        }
++
++        try {
++            $fin = new \DateTimeImmutable(substr($hasta, 0, 10), new \DateTimeZone('America/Mexico_City'));
++        } catch (\Throwable $e) {
++            return false;
++        }
++
++        return $fin < $hoy;
++    }
++
++    private function buildReporteInstitucionalBeneficiosLabel(array $row): string
++    {
++        $beneficios = [];
++        if ((int) ($row['tiene_alimentos'] ?? 0) === 1) {
++            $beneficios[] = 'Alimentos';
++        }
++        if ((int) ($row['tiene_hospedaje'] ?? 0) === 1) {
++            $beneficios[] = 'Hospedaje';
++        }
++
++        return !empty($beneficios) ? implode(' / ', $beneficios) : 'Sin beneficios';
++    }
++
++    private function buildReporteInstitucionalPeriodoLabel(string $desde, string $hasta): string
++    {
++        $desde = trim($desde);
++        $hasta = trim($hasta);
++        if ($desde === '' && $hasta === '') {
++            return 'Todos los usuarios visibles del grupo';
++        }
++        if ($desde !== '' && $hasta !== '') {
++            return 'Vigencias entre ' . $this->formatReporteVentasFecha($desde) . ' y ' . $this->formatReporteVentasFecha($hasta);
++        }
++        if ($desde !== '') {
++            return 'Vigencias desde ' . $this->formatReporteVentasFecha($desde);
++        }
++
++        return 'Vigencias hasta ' . $this->formatReporteVentasFecha($hasta);
++    }
++
+     public function exportarReporteHospedajePdf()
+     {
+         $payload = $this->buildHospedajeReporteExportPayload();
+@@ -1723,6 +1975,45 @@ class Inicio extends BaseController {
+         $this->_renderView($data);
+     }
+ 
++    public function ReportesInstitucionales()
++    {
++        if (empty($this->resolveSecturiDashboardUsuario())) {
++            return redirect()->to(base_url('index.php/Inicio'));
++        }
++
++        $data = [];
++        $data['scripts'] = ['principal', 'agregar'];
++        $data['contentView'] = 'secciones/vReportesInstitucionales';
++        $data['reportesInstitucionalesTabs'] = [
++            [
++                'key' => 'fic',
++                'label' => 'FIC',
++                'title' => 'Festival Internacional Cervantino',
++                'description' => 'Reporte de saldos y consulta de movimientos de usuarios FIC.',
++                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'),
++                'profile_url' => base_url('index.php/Inicio/PerfilFic'),
++            ],
++            [
++                'key' => 'ug',
++                'label' => 'UG',
++                'title' => 'Universidad de Guanajuato',
++                'description' => 'Reporte de saldos y consulta de movimientos de usuarios UG.',
++                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'),
++                'profile_url' => base_url('index.php/Inicio/PerfilUg'),
++            ],
++            [
++                'key' => 'secul',
++                'label' => 'SECUL',
++                'title' => 'Secretaría de Cultura',
++                'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
++                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
++                'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
++            ],
++        ];
++
++        $this->_renderView($data);
++    }
++
+     public function getFacturasFic()
+     {
+         if (empty($this->resolveSecturiDashboardUsuario())) {
+@@ -2506,15 +2797,15 @@ class Inicio extends BaseController {
+         $db = \Config\Database::connect(null, false);
+         $builder = $db->table('solicitud_usuario su')
+             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, su.usu_reg, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+-            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+-            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
++            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
++            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
++            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
+             ->where('su.id_solicitud_usuario', $idSolicitud)
+             ->where('su.visible', 1)
+-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
++            ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional());
+ 
+         if ($grupo !== '' && in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+-            $builder->where('su.tipo_solicitud', 'alta_usuario_' . $grupo);
++            $builder->whereIn('su.tipo_solicitud', ['alta_usuario_' . $grupo, 'edicion_usuario_' . $grupo]);
+         }
+ 
+         $row = $builder->get()->getRowArray();
+@@ -2522,7 +2813,7 @@ class Inicio extends BaseController {
+             return $this->response->setStatusCode(404)->setJSON(['ok' => false, 'message' => 'No se encontró la solicitud.']);
+         }
+ 
+-        $grupoRow = str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? ''));
++        $grupoRow = preg_replace('/^(alta|edicion)_usuario_/', '', (string) ($row['tipo_solicitud'] ?? ''));
+         $estatusRow = strtolower(trim((string) ($row['estatus'] ?? '')));
+         $esPropietario = (int) ($row['usu_reg'] ?? 0) === $idSesionUsuario;
+         $esAdminDelGrupo = empty($tiUsuario)
+@@ -2806,7 +3097,9 @@ class Inicio extends BaseController {
+             : [];
+         $grupoSolicitud = $payloadInfo['grupo'] !== ''
+             ? $payloadInfo['grupo']
+-            : str_replace('alta_usuario_', '', (string) ($row['tipo_solicitud'] ?? 'fic'));
++            : preg_replace('/^(alta|edicion)_usuario_/', '', (string) ($row['tipo_solicitud'] ?? 'fic'));
++        $tipoSolicitud = strtolower((string) ($row['tipo_solicitud'] ?? ''));
++        $esEdicion = strpos($tipoSolicitud, 'edicion_usuario_') === 0;
+         $nombreCompleto = trim(implode(' ', array_filter([
+             trim((string) ($row['nombre'] ?? '')),
+             trim((string) ($row['primer_apellido'] ?? '')),
+@@ -2816,6 +3109,8 @@ class Inicio extends BaseController {
+         return [
+             'id_solicitud_usuario' => (int) ($row['id_solicitud_usuario'] ?? 0),
+             'tipo_solicitud' => (string) ($row['tipo_solicitud'] ?? ''),
++            'tipo_flujo' => $esEdicion ? 'edicion' : 'alta',
++            'tipo_flujo_label' => $esEdicion ? 'Edición de usuario' : 'Nuevo folio',
+             'id_proveedor' => (int) ($row['id_proveedor'] ?? 0),
+             'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+             'id_perfil_solicitado' => (int) ($row['id_perfil_solicitado'] ?? 0),
+@@ -3311,6 +3606,9 @@ class Inicio extends BaseController {
+         if (strpos($tipoSolicitud, 'alta_usuario_') === 0) {
+             $candidatos[] = substr($tipoSolicitud, strlen('alta_usuario_'));
+         }
++        if (strpos($tipoSolicitud, 'edicion_usuario_') === 0) {
++            $candidatos[] = substr($tipoSolicitud, strlen('edicion_usuario_'));
++        }
+ 
+         foreach ($candidatos as $candidato) {
+             $candidato = strtolower(trim((string) $candidato));
+@@ -3392,17 +3690,34 @@ class Inicio extends BaseController {
+         $db = \Config\Database::connect();
+         $row = $db->table('solicitud_usuario su')
+             ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+-            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+-            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+-            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
++            ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
++            ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
++            ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
+             ->where('su.id_solicitud_usuario', $idSolicitud)
+             ->where('su.visible', 1)
+-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug'])
++            ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional())
+             ->get()
+             ->getRowArray();
+ 
+         return is_array($row) ? $row : [];
+     }
++
++    private function getTiposSolicitudFolioInstitucional(): array
++    {
++        return [
++            'alta_usuario_fic',
++            'alta_usuario_secul',
++            'alta_usuario_ug',
++            'edicion_usuario_fic',
++            'edicion_usuario_secul',
++            'edicion_usuario_ug',
++        ];
++    }
++
++    private function isSolicitudEdicionInstitucional(array $solicitud): bool
++    {
++        return strpos(strtolower((string) ($solicitud['tipo_solicitud'] ?? '')), 'edicion_usuario_') === 0;
++    }
+     private function buildPartidasDashboardSeed(): array
+     {
+         $defaultSeed = [
+@@ -6875,11 +7190,11 @@ class Inicio extends BaseController {
+     $db = \Config\Database::connect();
+     $builder = $db->table('solicitud_usuario su')
+         ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+-        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
+-        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
+-        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
++        ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_fic", "edicion_usuario_fic")', 'left')
++        ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_secul", "edicion_usuario_secul")', 'left')
++        ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud IN ("alta_usuario_ug", "edicion_usuario_ug")', 'left')
+         ->where('su.visible', 1)
+-        ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
++        ->whereIn('su.tipo_solicitud', $this->getTiposSolicitudFolioInstitucional());
+ 
+     $search = trim((string) ($this->request->getGet('search') ?? ''));
+     if ($search !== '') {
+@@ -6945,9 +7260,6 @@ class Inicio extends BaseController {
+ 
+         $idSolicitud = (int) ($this->request->getPost('id_solicitud_usuario') ?? 0);
+         $idPartidaAprobacion = (int) ($this->request->getPost('id_partida') ?? 0);
+-        if (!in_array($idPartidaAprobacion, [1, 2, 3], true)) {
+-            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignara al folio antes de aprobar la solicitud.']);
+-        }
+         if ($idSolicitud <= 0) {
+             return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Solicitud no válida.']);
+         }
+@@ -6959,6 +7271,11 @@ class Inicio extends BaseController {
+             return $this->response->setStatusCode(409)->setJSON(['ok' => false, 'message' => 'La solicitud institucional ya no está pendiente. Estatus actual: ' . $estatusActual . '.']);
+         }
+ 
++        $esSolicitudEdicion = $this->isSolicitudEdicionInstitucional($solicitud);
++        if (!$esSolicitudEdicion && !in_array($idPartidaAprobacion, [1, 2, 3], true)) {
++            return $this->response->setStatusCode(422)->setJSON(['ok' => false, 'message' => 'Selecciona la partida que se asignará al folio antes de aprobar la solicitud.']);
++        }
++
+         $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
+         $payload = $payloadInfo['payload'];
+         if (empty($payload)) {
+@@ -6969,6 +7286,43 @@ class Inicio extends BaseController {
+         }
+         $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
+         $payload = $this->normalizeSolicitudFolioPayload($grupoSolicitud, $payload);
++        if ($esSolicitudEdicion) {
++            $session = \Config\Services::session();
++            $resolver = new UsuarioPerfilResolver();
++            $actorContext = $resolver->resolve($session->get());
++            if (empty($actorContext['is_ti_master'])) {
++                $actorContext['is_ti_master'] = true;
++                $actorContext['can_edit_user_catalog'] = true;
++            }
++
++            $usuarioController = new Usuario();
++            $usuarioController->initController($this->request, $this->response, \Config\Services::logger());
++            $saveResponse = $usuarioController->applyInstitutionalUserEditPayload(
++                $payload,
++                $actorContext,
++                (int) ($session->get('id_usuario') ?? 0),
++                'Inicio.aprobarSolicitudNuevoFolioTi.edicion'
++            );
++            $saveBody = json_decode((string) $saveResponse->getBody(), true);
++
++            if (!is_array($saveBody) || !empty($saveBody['error'])) {
++                return $this->response->setStatusCode(409)->setJSON([
++                    'ok' => false,
++                    'message' => (string) ($saveBody['respuesta'] ?? 'No fue posible aplicar la edición solicitada.'),
++                ]);
++            }
++
++            $payloadLimpio = $this->removeSensitiveSolicitudFolioPayload($payload);
++            $fechaAhora = date('Y-m-d H:i:s');
++            $db->table('solicitud_usuario')->where('id_solicitud_usuario', $idSolicitud)->update([
++                'estatus' => 'aprobada',
++                'comentario_ti' => $this->encodeSolicitudFolioPayload($grupoSolicitud, $payloadLimpio),
++                'fec_act' => $fechaAhora,
++                'usu_act' => (int) ($session->get('id_usuario') ?? 0),
++            ]);
++
++            return $this->response->setJSON(['ok' => true, 'message' => 'Solicitud aprobada y edición aplicada correctamente.']);
++        }
+         $payload['id_partida'] = $idPartidaAprobacion;
+         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
+             return $this->response->setStatusCode(422)->setJSON([
+diff --git a/app/Controllers/Usuario.php b/app/Controllers/Usuario.php
+index 7374e61..88157af 100644
+--- a/app/Controllers/Usuario.php
++++ b/app/Controllers/Usuario.php
+@@ -1052,6 +1052,17 @@ class Usuario extends BaseController
+         $hospedajePlanJson = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? null);
+         $hospedajeSobrerreserva = $this->normalizeHospedajeSobrerreserva($data['hospedaje_sobrerreserva'] ?? null, $hospedajePlanJson);
+ 
++        if ($idUsuario > 0 && $this->isInstitutionalAdminEditContext($actorContext, $usuarioActual ?? [])) {
++            return $this->handleInstitutionalUserEdit(
++                $data,
++                $usuarioActual ?? [],
++                $actorContext,
++                $idSesionUsuario,
++                $scriptName,
++                false
++            );
++        }
++
+         if ($idUsuario > 0) {
+             $fechaAhora = date('Y-m-d H:i:s');
+             $updateData = [
+@@ -3219,6 +3230,419 @@ class Usuario extends BaseController
+         return (int) ($result->data[0]->id_usuario ?? 0);
+     }
+ 
++    public function applyInstitutionalUserEditPayload(array $payload, array $actorContext, int $idSesionUsuario, string $scriptName = 'Usuario.applyInstitutionalUserEditPayload')
++    {
++        $idUsuario = (int) ($payload['id_usuario'] ?? 0);
++        if ($idUsuario <= 0) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'La solicitud no contiene el usuario a editar.',
++            ]);
++        }
++
++        $usuarioActual = $this->getBaseUserRow($idUsuario);
++        if (!$usuarioActual) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'El usuario que intentas editar no existe.',
++            ]);
++        }
++
++        if (!$this->resolver->canMutateRow($actorContext, $usuarioActual)) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'No tienes permisos para aplicar esta edición.',
++            ]);
++        }
++
++        return $this->handleInstitutionalUserEdit($payload, $usuarioActual, $actorContext, $idSesionUsuario, $scriptName, true);
++    }
++
++    private function isInstitutionalAdminEditContext(array $actorContext, array $usuarioActual): bool
++    {
++        $grupoActor = strtolower((string) ($actorContext['active_group'] ?? ''));
++        if (!in_array($grupoActor, ['fic', 'ug', 'secul'], true)) {
++            return false;
++        }
++
++        if (!empty($actorContext['is_ti_master']) || (int) ($actorContext['group_role'] ?? 0) !== 1) {
++            return false;
++        }
++
++        $targetContext = $this->resolver->resolve($usuarioActual);
++
++        return (string) ($targetContext['active_group'] ?? '') === $grupoActor;
++    }
++
++    private function handleInstitutionalUserEdit(
++        array $data,
++        array $usuarioActual,
++        array $actorContext,
++        int $idSesionUsuario,
++        string $scriptName,
++        bool $allowBudgetIncrease
++    ) {
++        $idUsuario = (int) ($usuarioActual['id_usuario'] ?? $data['id_usuario'] ?? 0);
++        $targetContext = $this->resolver->resolve($usuarioActual);
++        $grupoUsuario = strtolower((string) ($targetContext['active_group'] ?? ''));
++        if (!in_array($grupoUsuario, ['fic', 'ug', 'secul'], true)) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'Este flujo solo aplica para usuarios institucionales FIC, UG o SECUL.',
++            ]);
++        }
++
++        if (!$this->resolver->canMutateRow($actorContext, $usuarioActual)) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'No tienes permisos para editar este usuario.',
++            ]);
++        }
++
++        if (!$allowBudgetIncrease && !$this->isInstitutionalAdminEditContext($actorContext, $usuarioActual)) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'No tienes permisos para editar directamente este usuario.',
++            ]);
++        }
++
++        $idPerfilCatalogo = (int) ($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? $this->getInstitutionalBaseProfileId($grupoUsuario));
++        if ($idPerfilCatalogo !== $this->getInstitutionalBaseProfileId($grupoUsuario)) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'No puedes mover usuarios a otro grupo institucional desde esta edición.',
++            ]);
++        }
++
++        $perfilGrupo = (int) ($data['perfil_grupo'] ?? $data['id_perfil_solicitado'] ?? ($targetContext['group_role'] ?? 0));
++        if (!$this->isInstitutionalGroupRoleValid($grupoUsuario, $perfilGrupo)) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'Selecciona un perfil visible válido para el grupo institucional.',
++            ]);
++        }
++
++        $nombre = trim((string) ($data['nombre'] ?? ''));
++        $primerApellido = trim((string) ($data['primer_apellido'] ?? ''));
++        $segundoApellido = trim((string) ($data['segundo_apellido'] ?? ''));
++        $correo = strtolower(trim((string) ($data['correo'] ?? '')));
++        if ($nombre === '' || $primerApellido === '' || $correo === '') {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => 'Completa nombre, primer apellido y correo antes de guardar.',
++            ]);
++        }
++
++        $impact = $this->buildInstitutionalEditImpact($data, $usuarioActual);
++        if (!empty($impact['error'])) {
++            return $this->respond([
++                'error' => true,
++                'respuesta' => (string) ($impact['respuesta'] ?? 'No fue posible calcular el ajuste de reserva.'),
++            ]);
++        }
++
++        $currentReserved = round((float) ($usuarioActual['monto_deposito_reservado'] ?? 0), 2);
++        $nextReserved = round((float) ($impact['monto_total'] ?? 0), 2);
++        if ($nextReserved > $currentReserved && !$allowBudgetIncrease) {
++            $solicitud = $this->createInstitutionalEditRequest($data, $usuarioActual, $impact, $grupoUsuario, $perfilGrupo, $idSesionUsuario);
++            if (!empty($solicitud['error'])) {
++                return $this->respond([
++                    'error' => true,
++                    'respuesta' => (string) ($solicitud['respuesta'] ?? 'No fue posible enviar la solicitud de edición.'),
++                ]);
++            }
++
++            return $this->respond([
++                'error' => false,
++                'respuesta' => 'El cambio rebasa la reserva original y fue enviado a revisión de TI/admin SECTURI.',
++                'message' => 'El cambio rebasa la reserva original y fue enviado a revisión de TI/admin SECTURI.',
++                'solicitud_generada' => true,
++                'id_solicitud_usuario' => (int) ($solicitud['id_solicitud_usuario'] ?? 0),
++            ]);
++        }
++
++        $nextUserForBudget = array_merge($usuarioActual, [
++            'id_nivel_cliente' => (int) ($impact['id_nivel_cliente'] ?? 0) ?: null,
++            'monto_deposito' => number_format((float) ($impact['monto_diario_alimentos'] ?? 0), 2, '.', ''),
++            'monto_deposito_hotel' => number_format((float) ($impact['monto_hospedaje'] ?? 0), 2, '.', ''),
++            'monto_deposito_reservado' => number_format($nextReserved, 2, '.', ''),
++            'tiene_alimentos' => (int) ($usuarioActual['tiene_alimentos'] ?? 0),
++            'tiene_hospedaje' => (int) ($usuarioActual['tiene_hospedaje'] ?? 0),
++        ]);
++
++        $service = new DepositosProgramadosService();
++        $budgetAdjust = $service->adjustReservationForInstitutionalEdit($usuarioActual, $nextUserForBudget, $idSesionUsuario);
++        if (!empty($budgetAdjust->error)) {
++            return $this->respond($budgetAdjust);
++        }
++
++        $assignment = $this->buildInstitutionalAssignment($grupoUsuario, $perfilGrupo);
++        $fechaAhora = date('Y-m-d H:i:s');
++        $updateData = array_merge([
++            'nombre' => $nombre,
++            'primer_apellido' => $primerApellido,
++            'segundo_apellido' => $segundoApellido,
++            'correo' => $correo,
++            'id_perfil' => $this->getInstitutionalBaseProfileId($grupoUsuario),
++            'id_nivel_cliente' => (int) ($impact['id_nivel_cliente'] ?? 0) ?: null,
++            'monto_deposito' => number_format((float) ($impact['monto_diario_alimentos'] ?? 0), 2, '.', ''),
++            'monto_deposito_hotel' => number_format((float) ($impact['monto_hospedaje'] ?? 0), 2, '.', ''),
++            'monto_deposito_reservado' => number_format($nextReserved, 2, '.', ''),
++            'fec_vigencia_desde' => $impact['fec_vigencia_desde'] ?: null,
++            'fec_vigencia_hasta' => $impact['fec_vigencia_hasta'] ?: null,
++            'fec_vigencia_desde_hos' => $impact['fec_vigencia_desde_hos'] ?: null,
++            'fec_vigencia_hasta_hos' => $impact['fec_vigencia_hasta_hos'] ?: null,
++            'noche' => (int) ($impact['noches'] ?? 0) > 0 ? (int) $impact['noches'] : null,
++            'tarifa_total' => number_format($nextReserved, 2, '.', ''),
++            'fec_act' => $fechaAhora,
++            'usu_act' => $idSesionUsuario,
++        ], $assignment);
++
++        $response = $this->globals->saveTabla(
++            $updateData,
++            [
++                'tabla' => 'usuario',
++                'editar' => 'true',
++                'idEditar' => ['id_usuario' => $idUsuario],
++            ],
++            [
++                'id_user' => $idSesionUsuario,
++                'script' => $scriptName,
++            ]
++        );
++
++        if ($response->error) {
++            return $this->respond($response);
++        }
++
++        \Config\Database::connect()
++            ->table('usuario')
++            ->where('id_usuario', $idUsuario)
++            ->update($updateData);
++
++        return $this->respond([
++            'error' => false,
++            'respuesta' => $allowBudgetIncrease
++                ? 'Solicitud aprobada y edición aplicada correctamente.'
++                : 'Usuario actualizado correctamente.',
++            'message' => $allowBudgetIncrease
++                ? 'Solicitud aprobada y edición aplicada correctamente.'
++                : 'Usuario actualizado correctamente.',
++            'id_usuario' => $idUsuario,
++            'monto_reservado_anterior' => $currentReserved,
++            'monto_reservado_nuevo' => $nextReserved,
++            'monto_devuelto' => (float) ($budgetAdjust->monto_devuelto ?? 0),
++            'monto_incremento' => (float) ($budgetAdjust->monto_incremento ?? 0),
++        ]);
++    }
++
++    private function buildInstitutionalEditImpact(array $data, array $usuarioActual): array
++    {
++        $tieneAlimentos = (int) ($usuarioActual['tiene_alimentos'] ?? 0) === 1;
++        $tieneHospedaje = (int) ($usuarioActual['tiene_hospedaje'] ?? 0) === 1;
++        $idNivelCliente = (int) ($data['id_nivel_cliente'] ?? $usuarioActual['id_nivel_cliente'] ?? 0);
++        $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? $usuarioActual['fec_vigencia_desde'] ?? ''));
++        $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? $usuarioActual['fec_vigencia_hasta'] ?? ''));
++        $vigenciaDesdeHos = trim((string) ($data['fec_vigencia_desde_hos'] ?? $usuarioActual['fec_vigencia_desde_hos'] ?? ''));
++        $vigenciaHastaHos = trim((string) ($data['fec_vigencia_hasta_hos'] ?? $usuarioActual['fec_vigencia_hasta_hos'] ?? ''));
++
++        $montoDiario = 0.00;
++        $montoAlimentos = 0.00;
++        if ($tieneAlimentos) {
++            if ($idNivelCliente <= 0) {
++                return ['error' => true, 'respuesta' => 'Selecciona una tarifa diaria válida.'];
++            }
++            $montoDiario = $this->resolveNivelClienteMontoDeposito($idNivelCliente);
++            $dias = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
++            if ($montoDiario <= 0 || $dias <= 0) {
++                return ['error' => true, 'respuesta' => 'Captura una tarifa y vigencia de alimentos válidas.'];
++            }
++            $montoAlimentos = round($montoDiario * $dias, 2);
++        } else {
++            $dias = 0;
++            $vigenciaDesde = '';
++            $vigenciaHasta = '';
++        }
++
++        $tarifaNoche = round((float) ($usuarioActual['tarifa_noche'] ?? 0), 2);
++        $montoHospedaje = 0.00;
++        $noches = 0;
++        if ($tieneHospedaje) {
++            $diasHospedaje = $this->calculateDateSpanDays($vigenciaDesdeHos, $vigenciaHastaHos);
++            $noches = max(0, $diasHospedaje - 1);
++            if ($tarifaNoche <= 0 || $noches <= 0) {
++                return ['error' => true, 'respuesta' => 'Captura una vigencia de hospedaje válida.'];
++            }
++            $montoHospedaje = round($tarifaNoche * $noches, 2);
++        } else {
++            $vigenciaDesdeHos = '';
++            $vigenciaHastaHos = '';
++        }
++
++        $montoTotal = round($montoAlimentos + $montoHospedaje, 2);
++        $montoOperativo = round((float) ($usuarioActual['monto_deposito_operativo'] ?? 0), 2);
++        if ($montoTotal < $montoOperativo) {
++            return [
++                'error' => true,
++                'respuesta' => 'El nuevo total no puede ser menor al saldo operativo ya liberado.',
++            ];
++        }
++
++        return [
++            'error' => false,
++            'id_nivel_cliente' => $idNivelCliente,
++            'monto_diario_alimentos' => $montoDiario,
++            'dias_alimentos' => $dias,
++            'monto_alimentos' => $montoAlimentos,
++            'tarifa_noche' => $tarifaNoche,
++            'noches' => $noches,
++            'monto_hospedaje' => $montoHospedaje,
++            'monto_total' => $montoTotal,
++            'fec_vigencia_desde' => $vigenciaDesde,
++            'fec_vigencia_hasta' => $vigenciaHasta,
++            'fec_vigencia_desde_hos' => $vigenciaDesdeHos,
++            'fec_vigencia_hasta_hos' => $vigenciaHastaHos,
++        ];
++    }
++
++    private function createInstitutionalEditRequest(array $data, array $usuarioActual, array $impact, string $grupo, int $perfilGrupo, int $idSesionUsuario): array
++    {
++        $db = \Config\Database::connect();
++        $idUsuario = (int) ($usuarioActual['id_usuario'] ?? 0);
++        $tipoSolicitud = 'edicion_usuario_' . $grupo;
++        $pendiente = $db->table('solicitud_usuario')
++            ->select('id_solicitud_usuario')
++            ->where('visible', 1)
++            ->where('estatus', 'pendiente')
++            ->where('tipo_solicitud', $tipoSolicitud)
++            ->where('id_usuario_creado', $idUsuario)
++            ->limit(1)
++            ->get()
++            ->getRowArray();
++
++        if (!empty($pendiente)) {
++            return [
++                'error' => false,
++                'id_solicitud_usuario' => (int) ($pendiente['id_solicitud_usuario'] ?? 0),
++            ];
++        }
++
++        $payload = $data;
++        $payload['id_usuario'] = $idUsuario;
++        $payload['grupo_usuario'] = $grupo;
++        $payload['id_perfil_catalogo'] = $this->getInstitutionalBaseProfileId($grupo);
++        $payload['perfil_grupo'] = $perfilGrupo;
++        $payload['id_perfil_solicitado'] = $perfilGrupo;
++        $payload['reserva_actual'] = round((float) ($usuarioActual['monto_deposito_reservado'] ?? 0), 2);
++        $payload['reserva_solicitada'] = round((float) ($impact['monto_total'] ?? 0), 2);
++        $payload['diferencia_solicitada'] = round($payload['reserva_solicitada'] - $payload['reserva_actual'], 2);
++        unset($payload['contrasenia'], $payload['id_partida']);
++
++        $comentario = "__SOLICITUD_FOLIO_PAYLOAD__\n" . json_encode([
++            'grupo' => $grupo,
++            'payload' => $payload,
++            'summary' => $this->buildInstitutionalEditSummary($payload),
++        ], JSON_UNESCAPED_UNICODE);
++
++        $fechaAhora = date('Y-m-d H:i:s');
++        $insertOk = $db->table('solicitud_usuario')->insert([
++            'tipo_solicitud' => $tipoSolicitud,
++            'id_proveedor' => 0,
++            'id_establecimiento' => (int) ($usuarioActual['id_establecimiento'] ?? 0),
++            'id_perfil_solicitado' => $perfilGrupo,
++            'usuario' => (string) ($usuarioActual['usuario'] ?? ''),
++            'nombre' => trim((string) ($data['nombre'] ?? $usuarioActual['nombre'] ?? '')),
++            'primer_apellido' => trim((string) ($data['primer_apellido'] ?? $usuarioActual['primer_apellido'] ?? '')),
++            'segundo_apellido' => trim((string) ($data['segundo_apellido'] ?? $usuarioActual['segundo_apellido'] ?? '')),
++            'correo' => strtolower(trim((string) ($data['correo'] ?? $usuarioActual['correo'] ?? ''))),
++            'estatus' => 'pendiente',
++            'comentario_ti' => $comentario,
++            'id_usuario_creado' => $idUsuario,
++            'fec_reg' => $fechaAhora,
++            'usu_reg' => $idSesionUsuario,
++            'fec_act' => $fechaAhora,
++            'usu_act' => $idSesionUsuario,
++            'visible' => 1,
++        ]);
++
++        if (!$insertOk) {
++            return ['error' => true, 'respuesta' => 'No fue posible crear la solicitud de edición.'];
++        }
++
++        return [
++            'error' => false,
++            'id_solicitud_usuario' => (int) $db->insertID(),
++        ];
++    }
++
++    private function buildInstitutionalEditSummary(array $payload): string
++    {
++        $lines = [
++            'Tipo: Edición de usuario institucional',
++            'Usuario ID: ' . (string) ($payload['id_usuario'] ?? ''),
++            'Reserva actual: $' . number_format((float) ($payload['reserva_actual'] ?? 0), 2, '.', ','),
++            'Reserva solicitada: $' . number_format((float) ($payload['reserva_solicitada'] ?? 0), 2, '.', ','),
++            'Diferencia: $' . number_format((float) ($payload['diferencia_solicitada'] ?? 0), 2, '.', ','),
++        ];
++
++        foreach ([
++            'id_nivel_cliente' => 'Tarifa diaria',
++            'fec_vigencia_desde' => 'Vigencia alimentos desde',
++            'fec_vigencia_hasta' => 'Vigencia alimentos hasta',
++            'fec_vigencia_desde_hos' => 'Vigencia hospedaje desde',
++            'fec_vigencia_hasta_hos' => 'Vigencia hospedaje hasta',
++        ] as $key => $label) {
++            if (isset($payload[$key]) && trim((string) $payload[$key]) !== '') {
++                $lines[] = $label . ': ' . (string) $payload[$key];
++            }
++        }
++
++        return implode("\n", $lines);
++    }
++
++    private function getInstitutionalBaseProfileId(string $grupo): int
++    {
++        $map = [
++            'fic' => 9,
++            'ug' => 10,
++            'secul' => 8,
++        ];
++
++        return (int) ($map[strtolower(trim($grupo))] ?? 0);
++    }
++
++    private function isInstitutionalGroupRoleValid(string $grupo, int $perfilGrupo): bool
++    {
++        $allowed = [
++            'fic' => [1, 2, 3, 4],
++            'ug' => [1, 2, 3, 4],
++            'secul' => [1, 2, 3, 4],
++        ];
++
++        return in_array($perfilGrupo, $allowed[strtolower(trim($grupo))] ?? [], true);
++    }
++
++    private function buildInstitutionalAssignment(string $grupo, int $perfilGrupo): array
++    {
++        $assignment = [
++            'id_fic_perfil' => null,
++            'id_ug_perfil' => null,
++            'id_secul_perfil' => null,
++            'id_secturi_perfil' => null,
++            'id_tipo_proveedor' => null,
++        ];
++
++        if ($grupo === 'fic') {
++            $assignment['id_fic_perfil'] = $perfilGrupo;
++        } elseif ($grupo === 'ug') {
++            $assignment['id_ug_perfil'] = $perfilGrupo;
++        } elseif ($grupo === 'secul') {
++            $assignment['id_secul_perfil'] = $perfilGrupo;
++        }
++
++        return $assignment;
++    }
++
+     private function validateBudgetImmutableOnEdit(array $usuarioActual, array $dataInsert): ?string
+     {
+         $fields = [
+diff --git a/app/Libraries/DepositosProgramadosService.php b/app/Libraries/DepositosProgramadosService.php
+index 0b6b0fd..90eecf5 100644
+--- a/app/Libraries/DepositosProgramadosService.php
++++ b/app/Libraries/DepositosProgramadosService.php
+@@ -109,6 +109,93 @@ class DepositosProgramadosService
+         }
+     }
+ 
++    public function adjustReservationForInstitutionalEdit(array $currentUser, array $nextUser, int $actorUserId): object
++    {
++        $response = new stdClass();
++        $response->error = true;
++        $response->respuesta = 'Error | No fue posible ajustar la reserva del usuario.';
++
++        $currentReserved = round((float) ($currentUser['monto_deposito_reservado'] ?? 0), 2);
++        $currentOperative = round((float) ($currentUser['monto_deposito_operativo'] ?? 0), 2);
++        $currentHotel = round(max(0.00, (float) ($currentUser['monto_deposito_hotel'] ?? 0)), 2);
++        $currentHotel = min($currentHotel, $currentReserved);
++        $currentFood = round(max(0.00, $currentReserved - $currentHotel), 2);
++
++        $nextReserved = round((float) ($nextUser['monto_deposito_reservado'] ?? 0), 2);
++        $nextHotel = round(max(0.00, (float) ($nextUser['monto_deposito_hotel'] ?? 0)), 2);
++        $nextHotel = min($nextHotel, $nextReserved);
++        $nextFood = round(max(0.00, $nextReserved - $nextHotel), 2);
++
++        if ($nextReserved < $currentOperative) {
++            $response->respuesta = 'Error | El nuevo total no puede ser menor al saldo operativo ya liberado.';
++            return $response;
++        }
++
++        $foodDelta = round($nextFood - $currentFood, 2);
++        $hotelDelta = round($nextHotel - $currentHotel, 2);
++        $reserveRows = [];
++        if ($foodDelta > 0) {
++            $foodAllocation = $this->buildPartidaDepositAllocations($nextUser, $foodDelta, 0.00);
++            if (!empty($foodAllocation['error'])) {
++                $response->respuesta = (string) ($foodAllocation['respuesta'] ?? 'Error | No fue posible calcular la partida de alimentos.');
++                return $response;
++            }
++            $reserveRows = array_merge($reserveRows, $foodAllocation['data'] ?? []);
++        }
++        if ($hotelDelta > 0) {
++            $hotelAllocation = $this->buildPartidaDepositAllocations($nextUser, 0.00, $hotelDelta);
++            if (!empty($hotelAllocation['error'])) {
++                $response->respuesta = (string) ($hotelAllocation['respuesta'] ?? 'Error | No fue posible calcular la partida de hospedaje.');
++                return $response;
++            }
++            $reserveRows = array_merge($reserveRows, $hotelAllocation['data'] ?? []);
++        }
++
++        $releaseRows = [];
++        if ($foodDelta < 0) {
++            $foodAllocation = $this->buildPartidaDepositAllocations($currentUser, abs($foodDelta), 0.00);
++            if (!empty($foodAllocation['error'])) {
++                $response->respuesta = (string) ($foodAllocation['respuesta'] ?? 'Error | No fue posible calcular la devolución de alimentos.');
++                return $response;
++            }
++            $releaseRows = array_merge($releaseRows, $foodAllocation['data'] ?? []);
++        }
++        if ($hotelDelta < 0) {
++            $hotelAllocation = $this->buildPartidaDepositAllocations($currentUser, 0.00, abs($hotelDelta));
++            if (!empty($hotelAllocation['error'])) {
++                $response->respuesta = (string) ($hotelAllocation['respuesta'] ?? 'Error | No fue posible calcular la devolución de hospedaje.');
++                return $response;
++            }
++            $releaseRows = array_merge($releaseRows, $hotelAllocation['data'] ?? []);
++        }
++
++        $this->db->transBegin();
++        try {
++            $this->applyPartidaReservations($this->mergePartidaAllocations($reserveRows), $actorUserId);
++            foreach ($this->mergePartidaAllocations($releaseRows) as $row) {
++                $this->releasePartidaAmount((int) ($row['id_partida'] ?? 0), (float) ($row['monto'] ?? 0), $actorUserId);
++            }
++
++            if ($this->db->transStatus() === false) {
++                throw new RuntimeException('La transaccion de ajuste presupuestal no pudo completarse.');
++            }
++
++            $this->db->transCommit();
++            $response->error = false;
++            $response->respuesta = 'Reserva ajustada correctamente.';
++            $response->monto_reservado_anterior = $currentReserved;
++            $response->monto_reservado_nuevo = $nextReserved;
++            $response->monto_devuelto = round(max(0.00, $currentReserved - $nextReserved), 2);
++            $response->monto_incremento = round(max(0.00, $nextReserved - $currentReserved), 2);
++            return $response;
++        } catch (\Throwable $e) {
++            $this->db->transRollback();
++            log_message('error', 'DepositosProgramadosService.adjustReservationForInstitutionalEdit: ' . $e->getMessage());
++            $response->respuesta = 'Error | ' . $e->getMessage();
++            return $response;
++        }
++    }
++
+     public function activateQrAndApplyDeposits(int $idUsuario, int $actorUserId = 0, ?string $referenceDate = null): object
+     {
+         $response = new stdClass();
+diff --git a/app/Views/pdfs/vPdfReporteInstitucionalSaldos.php b/app/Views/pdfs/vPdfReporteInstitucionalSaldos.php
+new file mode 100644
+index 0000000..5a17da3
+--- /dev/null
++++ b/app/Views/pdfs/vPdfReporteInstitucionalSaldos.php
+@@ -0,0 +1,119 @@
++<?php
++$titulo = (string) ($titulo ?? 'Reporte de saldos institucionales');
++$grupo = (string) ($grupo ?? 'Institucional');
++$generadoEn = (string) ($generado_en ?? date('Y-m-d H:i:s'));
++$periodoLabel = (string) ($periodo_label ?? 'Todos los usuarios visibles del grupo');
++$rows = array_values(is_array($rows ?? null) ? $rows : []);
++$resumen = is_array($resumen ?? null) ? $resumen : [];
++
++$formatMoney = static function ($value): string {
++    return '$' . number_format((float) $value, 2);
++};
++
++$formatDate = static function ($value): string {
++    $value = trim((string) $value);
++    if ($value === '') {
++        return 'Sin fecha';
++    }
++
++    $timestamp = strtotime($value);
++    return $timestamp !== false ? date('d/m/Y', $timestamp) : $value;
++};
++
++?>
++<!DOCTYPE html>
++<html lang="es">
++<head>
++    <meta charset="UTF-8">
++    <title><?= esc($titulo) ?></title>
++    <style>
++        body { font-family: DejaVu Sans, Arial, sans-serif; color: #172033; padding: 12px 8px; text-align: center; }
++        .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 12px; margin-bottom: 14px; text-align: center; }
++        .title-main { font-size: 20px; font-weight: bold; color: #000000; }
++        .title-sub { font-size: 15px; font-weight: bold; color: #111827; margin-top: 3px; }
++        .meta { font-size: 10.5pt; color: #475569; margin-top: 5px; }
++        .summary { width: 100%; border-collapse: collapse; margin: 12px 0 14px; }
++        .summary td { border: 1px solid #cbd5e1; padding: 6px 8px; }
++        .summary .label { background: #eff6ff; font-weight: bold; color: #111827; width: 18%; }
++        .summary .value { width: 32%; text-align: center; }
++        .money { text-align: center; font-weight: bold; white-space: nowrap; }
++        .table-container { margin-top: 10px; }
++        table.report { width: 100%; border-collapse: collapse; font-size: 7.6pt; table-layout: fixed; }
++        table.report th, table.report td { border: 1px solid #94a3b8; padding: 4px 5px; vertical-align: top; }
++        table.report th { background: #0f172a; color: #ffffff; text-align: center; font-weight: bold; }
++        table.report tr:nth-child(even) td { background: #f8fafc; }
++        .empty { border: 1px solid #d1d5db; background: #f9fafb; padding: 16px; text-align: center; }
++    </style>
++</head>
++<body>
++    <div class="header">
++        <div class="title-main">SECRETARÍA DE TURISMO E IDENTIDAD</div>
++        <div class="title-sub"><?= esc(strtoupper($titulo)) ?></div>
++        <div class="title-sub">PERFIL <?= esc(strtoupper($grupo)) ?></div>
++        <div class="meta"><?= esc($periodoLabel) ?></div>
++        <div class="meta">Generado: <?= esc($formatDate($generadoEn)) ?></div>
++    </div>
++
++    <table class="summary">
++        <tr>
++            <td class="label">Total usuarios</td>
++            <td class="value"><?= esc((string) ($resumen['total_usuarios'] ?? 0)) ?></td>
++            <td class="label">Total reservado</td>
++            <td class="value money"><?= esc($formatMoney($resumen['total_reservado'] ?? 0)) ?></td>
++        </tr>
++        <tr>
++            <td class="label">Total operativo</td>
++            <td class="value money"><?= esc($formatMoney($resumen['total_operativo'] ?? 0)) ?></td>
++            <td class="label">Total pendiente</td>
++            <td class="value money"><?= esc($formatMoney($resumen['total_pendiente'] ?? 0)) ?></td>
++        </tr>
++    </table>
++
++    <div class="table-container">
++        <?php if (empty($rows)): ?>
++            <div class="empty">Sin usuarios visibles para generar el reporte.</div>
++        <?php else: ?>
++            <table class="report">
++                <thead>
++                    <tr>
++                        <th width="6%">Folio</th>
++                        <th width="7%">Usuario</th>
++                        <th width="17%">Nombre</th>
++                        <th width="7%">Perfil</th>
++                        <th width="9%">Beneficios</th>
++                        <th width="12%">Tarifa diaria</th>
++                        <th width="12%">Vigencia</th>
++                        <th width="5%">Días</th>
++                        <th width="8%">Reservado</th>
++                        <th width="8%">Operativo</th>
++                        <th width="9%">Pendiente</th>
++                    </tr>
++                </thead>
++                <tbody>
++                    <?php foreach ($rows as $row): ?>
++                        <?php
++                            $folio = trim((string) ($row['folio'] ?? ''));
++                            $subFolio = trim((string) ($row['sub_folio'] ?? ''));
++                            $folioLabel = trim($folio . ($subFolio !== '' ? '-' . $subFolio : ''));
++                            $vigencia = $formatDate($row['vigencia_desde'] ?? '') . ' al ' . $formatDate($row['vigencia_hasta'] ?? '');
++                        ?>
++                        <tr>
++                            <td><?= esc($folioLabel !== '' ? $folioLabel : 'Sin folio') ?></td>
++                            <td><?= esc((string) ($row['usuario'] ?? '')) ?></td>
++                            <td><?= esc((string) ($row['nombre_completo'] ?? '')) ?></td>
++                            <td><?= esc((string) ($row['perfil'] ?? '')) ?></td>
++                            <td><?= esc((string) ($row['beneficios'] ?? '')) ?></td>
++                            <td class="money"><?= esc($formatMoney($row['tarifa_diaria'] ?? 0)) ?></td>
++                            <td><?= esc($vigencia) ?></td>
++                            <td class="money"><?= esc((string) ($row['dias_vigencia'] ?? 0)) ?></td>
++                            <td class="money"><?= esc($formatMoney($row['monto_reservado'] ?? 0)) ?></td>
++                            <td class="money"><?= esc($formatMoney($row['monto_operativo'] ?? 0)) ?></td>
++                            <td class="money"><?= esc($formatMoney($row['monto_pendiente'] ?? 0)) ?></td>
++                        </tr>
++                    <?php endforeach; ?>
++                </tbody>
++            </table>
++        <?php endif; ?>
++    </div>
++</body>
++</html>
+diff --git a/app/Views/secciones/vInicio.php b/app/Views/secciones/vInicio.php
+index 8a05228..5acb437 100644
+--- a/app/Views/secciones/vInicio.php
++++ b/app/Views/secciones/vInicio.php
+@@ -40,7 +40,7 @@
+ 
+         <article class="fic-access-card fic-access-card--cyan">
+             <div>
+-                <span class="fic-access-card__category">Catálogo</span>
++                <span class="fic-access-card__category">Catálogo de participantes</span>
+                 <h2>Establecimientos y proveedores FIC</h2>
+                 <p>Da de alta proveedores y después registra o administra sus establecimientos relacionados.</p>
+             </div>
+@@ -78,7 +78,7 @@
+                 <p>Consulta la orden del día para Caja SECTURI, activa o rechaza QR.</p>
+             </div>
+             <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Cajero') ?>">
+-                Ver activaciones
++                Ver activaciones en modalidad cajero SECTURI
+             </a>
+         </article>
+ 
+@@ -92,6 +92,17 @@
+                 Ver facturas
+             </a>
+         </article>
++
++        <article class="fic-access-card fic-access-card--teal">
++            <div>
++                <span class="fic-access-card__category">Reportes institucionales</span>
++                <h2>Reportes y movimientos</h2>
++                <p>Consulta reportes de saldos y movimientos de usuarios en perfiles FIC, UG y SECUL.</p>
++            </div>
++            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/ReportesInstitucionales') ?>">
++                Consultar reportes
++            </a>
++        </article>
+     </section>
+ </div>
+ 
+@@ -198,6 +209,7 @@
+     .fic-access-card--green { --card-accent: #10cba1; }
+     .fic-access-card--outline { --card-accent: #7c83ff; }
+     .fic-access-card--amber { --card-accent: #fbbf24; }
++    .fic-access-card--teal { --card-accent: #2dd4bf; }
+ 
+     .fic-access-card--outline .fic-access-card__button {
+         background: transparent;
+diff --git a/app/Views/secciones/vPerfilFic.php b/app/Views/secciones/vPerfilFic.php
+index da14355..7403cb2 100644
+--- a/app/Views/secciones/vPerfilFic.php
++++ b/app/Views/secciones/vPerfilFic.php
+@@ -97,11 +97,16 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
+                     <h4 class="mb-1 text-white">Usuarios FIC</h4>
+                     <p class="text-muted mb-0">Consulta el catálogo visible de usuarios FIC según tu perfil.</p>
+                 </div>
+-                <?php if ($mostrarEdicion): ?>
+-                    <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/fic'), 'attr') ?>">
+-                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
++                <div class="d-flex flex-wrap gap-2">
++                    <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'), 'attr') ?>">
++                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de saldos
+                     </a>
+-                <?php endif; ?>
++                    <?php if ($mostrarEdicion): ?>
++                        <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/fic'), 'attr') ?>">
++                            <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
++                        </a>
++                    <?php endif; ?>
++                </div>
+             </div>
+             <div class="row g-2 align-items-end mb-3">
+                 <div class="col-12 col-md-4 col-lg-3">
+diff --git a/app/Views/secciones/vPerfilSecul.php b/app/Views/secciones/vPerfilSecul.php
+index 82467b9..a045eb3 100644
+--- a/app/Views/secciones/vPerfilSecul.php
++++ b/app/Views/secciones/vPerfilSecul.php
+@@ -47,11 +47,16 @@ $solicitudEstablecimientoId = (int) ($seculSolicitudEstablecimientoId ?? 0);
+                     <h4 class="mb-1 text-white">Usuarios SECUL</h4>
+                     <p class="text-muted mb-0">Consulta el catálogo visible de usuarios SECUL según tu perfil.</p>
+                 </div>
+-                <?php if ($mostrarEdicion): ?>
+-                    <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/secul'), 'attr') ?>">
+-                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
++                <div class="d-flex flex-wrap gap-2">
++                    <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'), 'attr') ?>">
++                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de saldos
+                     </a>
+-                <?php endif; ?>
++                    <?php if ($mostrarEdicion): ?>
++                        <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/secul'), 'attr') ?>">
++                            <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
++                        </a>
++                    <?php endif; ?>
++                </div>
+             </div>
+             <div class="row g-2 align-items-end mb-3">
+                 <div class="col-12 col-md-4 col-lg-3">
+diff --git a/app/Views/secciones/vPerfilUG.php b/app/Views/secciones/vPerfilUG.php
+index beb4c07..f4fedc2 100644
+--- a/app/Views/secciones/vPerfilUG.php
++++ b/app/Views/secciones/vPerfilUG.php
+@@ -47,11 +47,16 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
+                     <h4 class="mb-1 text-white">Usuarios UG</h4>
+                     <p class="text-muted mb-0">Consulta el catálogo visible de usuarios UG según tu perfil.</p>
+                 </div>
+-                <?php if ($mostrarEdicion): ?>
+-                    <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/ug'), 'attr') ?>">
+-                        <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
++                <div class="d-flex flex-wrap gap-2">
++                    <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'), 'attr') ?>">
++                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de saldos
+                     </a>
+-                <?php endif; ?>
++                    <?php if ($mostrarEdicion): ?>
++                        <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/ug'), 'attr') ?>">
++                            <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
++                        </a>
++                    <?php endif; ?>
++                </div>
+             </div>
+             <div class="row g-2 align-items-end mb-3">
+                 <div class="col-12 col-md-4 col-lg-3">
+diff --git a/app/Views/secciones/vReportesInstitucionales.php b/app/Views/secciones/vReportesInstitucionales.php
+new file mode 100644
+index 0000000..1ec60f0
+--- /dev/null
++++ b/app/Views/secciones/vReportesInstitucionales.php
+@@ -0,0 +1,169 @@
++<?php
++$tabs = array_values(is_array($reportesInstitucionalesTabs ?? null) ? $reportesInstitucionalesTabs : []);
++$activeKey = (string) ($tabs[0]['key'] ?? 'fic');
++?>
++
++<style>
++    .reportes-institucionales-page {
++        min-height: calc(100vh - 70px);
++        padding: 32px 24px 46px;
++        background:
++            radial-gradient(circle at 86% 8%, rgba(45, 212, 191, .08), transparent 30%),
++            #111b2a;
++        color: #f8fafc;
++    }
++
++    .reportes-institucionales-header {
++        max-width: 980px;
++        margin-bottom: 24px;
++    }
++
++    .reportes-institucionales-header h3 {
++        color: #ffffff;
++        margin-bottom: .35rem;
++        font-weight: 700;
++    }
++
++    .reportes-institucionales-header p {
++        color: #c9d4e5;
++        margin-bottom: 0;
++    }
++
++    .reportes-card {
++        background: linear-gradient(180deg, rgba(24, 31, 48, .96), rgba(18, 24, 37, .98));
++        border: 1px solid rgba(148, 163, 184, .16);
++        border-radius: 16px;
++    }
++
++    .reportes-tabs {
++        border-bottom: 1px solid rgba(148, 163, 184, .18);
++        gap: .35rem;
++    }
++
++    .reportes-tabs .nav-link {
++        border: 1px solid rgba(148, 163, 184, .18);
++        border-bottom: 0;
++        color: #cbd5e1;
++        background: rgba(15, 23, 42, .58);
++        font-weight: 700;
++        letter-spacing: .03em;
++    }
++
++    .reportes-tabs .nav-link.active {
++        background: #2dd4bf;
++        border-color: #2dd4bf;
++        color: #0f172a;
++    }
++
++    .reportes-panel {
++        padding: 1.25rem;
++    }
++
++    .reportes-action-card {
++        min-height: 220px;
++        border: 1px solid rgba(148, 163, 184, .16);
++        border-radius: 16px;
++        background: rgba(15, 23, 42, .72);
++        padding: 1.25rem;
++    }
++
++    .reportes-action-card h4 {
++        color: #ffffff;
++        margin-bottom: .5rem;
++    }
++
++    .reportes-action-card p,
++    .reportes-action-list {
++        color: #cbd5e1;
++    }
++
++    .reportes-action-list {
++        margin: 1rem 0;
++        padding-left: 1.1rem;
++    }
++
++    .reportes-action-list li {
++        margin-bottom: .35rem;
++    }
++
++    .reportes-actions {
++        display: flex;
++        flex-wrap: wrap;
++        gap: .65rem;
++    }
++</style>
++
++<div class="reportes-institucionales-page">
++    <div class="reportes-institucionales-header">
++        <h3>Consulta de reportes y movimientos de perfiles institucionales</h3>
++        <p>Descarga reportes PDF de saldos y consulta los movimientos/catálogos visibles de FIC, UG y SECUL.</p>
++    </div>
++
++    <div class="card reportes-card">
++        <div class="card-body">
++            <?php if (empty($tabs)): ?>
++                <div class="alert alert-warning mb-0" role="alert">No hay perfiles institucionales configurados para consulta.</div>
++            <?php else: ?>
++                <ul class="nav nav-tabs reportes-tabs" id="reportesInstitucionalesTabs" role="tablist">
++                    <?php foreach ($tabs as $index => $tab): ?>
++                        <?php
++                            $key = (string) ($tab['key'] ?? ('tab' . $index));
++                            $isActive = $key === $activeKey;
++                        ?>
++                        <li class="nav-item" role="presentation">
++                            <button
++                                class="nav-link <?= $isActive ? 'active' : '' ?>"
++                                id="tab-<?= esc($key, 'attr') ?>"
++                                data-bs-toggle="tab"
++                                data-bs-target="#panel-<?= esc($key, 'attr') ?>"
++                                type="button"
++                                role="tab"
++                                aria-controls="panel-<?= esc($key, 'attr') ?>"
++                                aria-selected="<?= $isActive ? 'true' : 'false' ?>">
++                                <?= esc((string) ($tab['label'] ?? strtoupper($key))) ?>
++                            </button>
++                        </li>
++                    <?php endforeach; ?>
++                </ul>
++
++                <div class="tab-content" id="reportesInstitucionalesTabsContent">
++                    <?php foreach ($tabs as $index => $tab): ?>
++                        <?php
++                            $key = (string) ($tab['key'] ?? ('tab' . $index));
++                            $isActive = $key === $activeKey;
++                        ?>
++                        <div
++                            class="tab-pane fade <?= $isActive ? 'show active' : '' ?>"
++                            id="panel-<?= esc($key, 'attr') ?>"
++                            role="tabpanel"
++                            aria-labelledby="tab-<?= esc($key, 'attr') ?>"
++                            tabindex="0">
++                            <div class="reportes-panel">
++                                <div class="reportes-action-card">
++                                    <span class="badge bg-info mb-3">Perfil <?= esc((string) ($tab['label'] ?? strtoupper($key))) ?></span>
++                                    <h4><?= esc((string) ($tab['title'] ?? 'Perfil institucional')) ?></h4>
++                                    <p><?= esc((string) ($tab['description'] ?? 'Consulta y descarga de reportes institucionales.')) ?></p>
++
++                                    <ul class="reportes-action-list">
++                                        <li>El PDF incluye tarifa diaria, reservado por vigencia, saldo operativo y pendiente vencido.</li>
++                                        <li>La consulta de movimientos abre el catálogo institucional correspondiente.</li>
++                                        <li>No se muestra información de partida en el reporte.</li>
++                                    </ul>
++
++                                    <div class="reportes-actions">
++                                        <a class="btn btn-primary js-download-no-loader" data-no-loading="1" href="<?= esc((string) ($tab['download_url'] ?? '#'), 'attr') ?>">
++                                            <i class="mdi mdi-file-pdf-box me-1"></i> Descargar PDF
++                                        </a>
++                                        <a class="btn btn-outline-light" href="<?= esc((string) ($tab['profile_url'] ?? '#'), 'attr') ?>">
++                                            <i class="mdi mdi-table-search me-1"></i> Consultar movimientos
++                                        </a>
++                                    </div>
++                                </div>
++                            </div>
++                        </div>
++                    <?php endforeach; ?>
++                </div>
++            <?php endif; ?>
++        </div>
++    </div>
++</div>
+diff --git a/app/Views/secciones/vSolicitudesUsuarioFic.php b/app/Views/secciones/vSolicitudesUsuarioFic.php
+index 4105476..8e727f3 100644
+--- a/app/Views/secciones/vSolicitudesUsuarioFic.php
++++ b/app/Views/secciones/vSolicitudesUsuarioFic.php
+@@ -291,6 +291,7 @@ $solicitudesPartidaOptionsJson = json_encode($solicitudesPartidaOptions, JSON_HE
+                     <thead>
+                         <tr>
+                             <th data-field="id_solicitud_usuario" data-sortable="true">ID solicitud</th>
++                            <th data-field="tipo_flujo_label" data-sortable="true">Tipo</th>
+                             <th data-field="catalogo_grupo" data-sortable="true">Grupo</th>
+                             <th data-field="perfil_solicitado" data-sortable="true">Perfil solicitado</th>
+                             <th data-field="usuario" data-formatter="solicitudesFicPanelUsuarioFormatter">Usuario</th>
+diff --git a/js/global-loading.js b/js/global-loading.js
+index f7eb41a..93b9a8d 100644
+--- a/js/global-loading.js
++++ b/js/global-loading.js
+@@ -5,6 +5,7 @@
+     var hideDelay = 120;
+     var activeRequests = 0;
+     var hideTimer = null;
++    var suppressNextNavigationLoader = false;
+ 
+     function getOverlay() {
+         return document.getElementById(overlayId);
+@@ -98,7 +99,42 @@
+     }
+ 
+     function bindNavigation() {
++        document.addEventListener('click', function (event) {
++            var target = event.target;
++            while (target && target !== document) {
++                if (target.tagName === 'A') {
++                    break;
++                }
++                target = target.parentNode;
++            }
++
++            if (!target || target === document) {
++                return;
++            }
++
++            var href = String(target.getAttribute('href') || '');
++            var isDownloadLink = target.hasAttribute('download')
++                || target.getAttribute('data-no-loading') === '1'
++                || target.classList.contains('js-download-no-loader')
++                || href.indexOf('exportarReporteInstitucionalSaldosPdf') !== -1;
++
++            if (!isDownloadLink) {
++                return;
++            }
++
++            suppressNextNavigationLoader = true;
++            window.setTimeout(function () {
++                suppressNextNavigationLoader = false;
++                hideOverlay();
++            }, 800);
++        }, true);
++
+         window.addEventListener('beforeunload', function () {
++            if (suppressNextNavigationLoader) {
++                suppressNextNavigationLoader = false;
++                hideOverlay();
++                return;
++            }
+             showOverlay();
+         });
+     }
+diff --git a/js/principal.js b/js/principal.js
+index 0fbcdbf..7334c9a 100644
+--- a/js/principal.js
++++ b/js/principal.js
+@@ -415,11 +415,12 @@ window.cajeros = {
+         this.folioSuggestionsEnabled = this.isAltaPage && String(contenedor.dataset.folioSuggestionsEnabled || '0') === '1';
+         this.isProviderMode = this.isAltaPage && String(contenedor.dataset.providerMode || '') === '1';
+         this.isSolicitudFolioMode = this.isAltaPage && String(contenedor.dataset.solicitudFolioMode || '') === '1';
++        this.idUsuarioEditar = this.isAltaPage ? Number(altaPagina.dataset.idUsuario || 0) : 0;
+ 
+         if (this.isAltaPage) {
+             this.inicializarSelect2();
+ 
+-            var idUsuario = Number(altaPagina.dataset.idUsuario || 0);
++            var idUsuario = this.idUsuarioEditar;
+ 
+             if (this.isProviderMode) {
+                 this.inicializarFlujoProveedor();
+@@ -1651,6 +1652,54 @@ window.cajeros = {
+         return grupo === 'fic' || grupo === 'ug';
+     },
+ 
++    esEdicionInstitucionalAdmin: function () {
++        var grupo = String(this.contexto.active_group || '').toLowerCase();
++        var rol = Number(this.contexto.group_role || 0);
++        var idUsuario = Number($('#id_usuario').val() || this.idUsuarioEditar || 0);
++        return this.isAltaPage
++            && idUsuario > 0
++            && ['fic', 'ug', 'secul'].indexOf(grupo) !== -1
++            && rol === 1
++            && !this.contexto.is_ti_master;
++    },
++
++    aplicarModoEdicionInstitucional: function () {
++        if (!this.esEdicionInstitucionalAdmin()) {
++            return;
++        }
++
++        $('.solicitud-partida-visual').addClass('d-none').hide();
++        $('#id_partida').val('');
++        $('#usuario').prop('readonly', true);
++        $('#contrasenia').val('').prop('disabled', true).prop('required', false);
++
++        var bloqueados = [
++            '#categoria_ui',
++            '#id_pais',
++            '#id_estado',
++            '#disciplina_ui',
++            '#id_establecimiento',
++            '#folio_ui',
++            '#subf_ui',
++            '#pax_ui',
++            '#anf_gto_ui',
++            '#tiene_alimentos',
++            '#tiene_hospedaje',
++            '#id_establecimiento_hotel',
++            '#id_tipo_habitacion',
++            '#tarifa_noche',
++            '#tarifa_total',
++            '#noche',
++            '#agregarHabitacionHospedaje',
++            '#limpiarPlanHospedaje',
++            '#hospedaje_sobrerreserva_ui'
++        ];
++
++        $(bloqueados.join(',')).prop('disabled', true).trigger('change.select2');
++        $('#hospedajePlanContainer').find('input, select, button').prop('disabled', true);
++        $('#cajeroPageTitle').text('Editar usuario institucional');
++    },
++
+     resolverPartidaAutomatica: function () {
+         if ($('#tiene_hospedaje').val() === '1') {
+             return '2';
+@@ -1671,7 +1720,7 @@ window.cajeros = {
+         var wrapper = $('#partidaManualWrapper');
+         var valor = String(hidden.val() || select.val() || '');
+ 
+-        if (this.isSolicitudFolioMode) {
++        if (this.isSolicitudFolioMode || this.esEdicionInstitucionalAdmin()) {
+             hidden.val('');
+             if (select.length) {
+                 select.val('').prop('disabled', true).trigger('change.select2');
+@@ -2256,7 +2305,7 @@ window.cajeros = {
+         var textoOriginal = boton.html();
+         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
+ 
+-        if (!this.isSolicitudFolioMode && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
++        if (!this.isSolicitudFolioMode && !this.esEdicionInstitucionalAdmin() && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
+             Swal.fire('Atencion', 'Selecciona una partida antes de guardar.', 'warning');
+             return;
+         }
+@@ -2288,7 +2337,7 @@ window.cajeros = {
+             var paxCount = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
+             var mensaje = cajeros.isSolicitudFolioMode
+                 ? (response.message || 'Solicitud enviada correctamente.')
+-                : (paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.');
++                : (response.message || response.respuesta || (paxCount > 1 ? 'Usuarios guardados correctamente.' : 'Usuario guardado correctamente.'));
+             Swal.fire('Correcto', mensaje, 'success').then(function () {
+                 window.location.href = cajeros.listUrl;
+             });
+@@ -2504,8 +2553,10 @@ window.cajeros = {
+ 
+         var soloConsulta = Number(data.permiso_editar || 0) !== 1;
+         this.aplicarModoFormulario(soloConsulta);
++        this.aplicarModoEdicionInstitucional();
+         this.actualizarResumenAltaUsuario();
+         $('#cajeroPageTitle').text(soloConsulta ? 'Consultar usuario' : 'Editar usuario');
++        this.aplicarModoEdicionInstitucional();
+     },
+ 
+     aplicarModoFormulario: function (soloConsulta) {
+@@ -2554,7 +2605,7 @@ window.cajeros = {
+         var textoOriginal = boton.html();
+         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
+ 
+-        if (!this.isSolicitudFolioMode && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
++        if (!this.isSolicitudFolioMode && !this.esEdicionInstitucionalAdmin() && !this.esPerfilTi() && !this.esPartidaAutomaticaFicUg() && partida === '') {
+             Swal.fire('Atención', 'Selecciona una partida antes de guardar.', 'warning');
+             return;
+         }
+diff --git a/js/solicitudes_usuario_fic_panel.js b/js/solicitudes_usuario_fic_panel.js
+index 9edeb1c..986ab7d 100644
+--- a/js/solicitudes_usuario_fic_panel.js
++++ b/js/solicitudes_usuario_fic_panel.js
+@@ -401,18 +401,19 @@
+         var buttons = [];
+         var estatus = String(row.estatus || '').toLowerCase();
+         var tienePayloadCompleto = Number(row.tiene_payload_completo || 0) === 1;
++        var tipoFlujo = String(row.tipo_flujo || '').toLowerCase();
+         buttons.push('<button type="button" class="btn btn-outline-info btn-sm js-fic-panel-ver" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Ver"><i class="mdi mdi-eye"></i></button>');
+ 
+         if (estatus === 'pendiente' || estatus === 'rechazada') {
+             if (tienePayloadCompleto && state.canEditFolios) {
+-                buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
++                buttons.push('<button type="button" class="btn btn-outline-warning btn-sm js-fic-panel-editar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" data-tipo-flujo="' + esc(tipoFlujo) + '" title="Editar solicitud"><i class="mdi mdi-pencil"></i></button>');
+             } else if (!tienePayloadCompleto) {
+                 buttons.push('<button type="button" class="btn btn-outline-secondary btn-sm" disabled title="Solicitud sin formulario completo"><i class="mdi mdi-alert-circle-outline"></i></button>');
+             }
+         }
+ 
+         if (estatus === 'pendiente' && tienePayloadCompleto && state.canDecideFolios) {
+-            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
++            buttons.push('<button type="button" class="btn btn-outline-success btn-sm js-fic-panel-aprobar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" data-tipo-flujo="' + esc(tipoFlujo) + '" title="Aceptar solicitud"><i class="mdi mdi-check"></i></button>');
+             buttons.push('<button type="button" class="btn btn-outline-danger btn-sm js-fic-panel-rechazar" data-id-solicitud="' + esc(row.id_solicitud_usuario || '') + '" title="Rechazar solicitud"><i class="mdi mdi-times"></i></button>');
+         }
+ 
+@@ -433,12 +434,13 @@
+                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
+                 loadFolioDetail(idSolicitud, function (data) {
+                     var comentario = String(data.comentario_ti || '').trim();
++                    var tipoLabel = String(data.tipo_flujo_label || 'Nuevo folio');
+                     var comentarioHtml = comentario !== ''
+                         ? '<hr class="border-secondary my-3"><div><strong>Comentario TI:</strong><br><pre class="bg-transparent text-light border-0 p-0 m-0" style="white-space:pre-wrap;font-family:inherit;">' + esc(comentario) + '</pre></div>'
+                         : '';
+ 
+                     Swal.fire({
+-                        title: 'Solicitud de folio',
++                        title: tipoLabel,
+                         html: '<div class="text-start"><strong>Grupo:</strong> ' + esc(String(data.catalogo_grupo || '').toUpperCase()) + '<br><strong>Perfil:</strong> ' + esc(data.perfil_solicitado || '') + '<br><strong>Usuario:</strong> ' + (String(data.usuario || '').trim() !== '' ? esc(data.usuario || '') : 'Por asignar') + '<br><strong>Nombre:</strong> ' + esc(data.nombre_completo || '') + '<br><strong>Correo:</strong> ' + esc(data.correo || '') + '<br><strong>Estatus:</strong> ' + esc(data.estatus || '') + comentarioHtml + '</div>',
+                         confirmButtonText: 'Cerrar'
+                     });
+@@ -446,6 +448,7 @@
+             })
+             .on('click.solicitudesFicPanel', '.js-fic-panel-editar', function () {
+                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
++                var tipoFlujoBoton = String($(this).data('tipo-flujo') || '').toLowerCase();
+                 if (!idSolicitud || !state.folioEditUrl) return;
+ 
+                 loadFolioDetail(idSolicitud, function (data) {
+@@ -455,7 +458,7 @@
+                         return;
+                     }
+ 
+-                    if (state.folioEditorMode === 'visual' && state.folioEditorVisualBaseUrl) {
++                    if (tipoFlujoBoton !== 'edicion' && state.folioEditorMode === 'visual' && state.folioEditorVisualBaseUrl) {
+                         var grupo = String(data.catalogo_grupo || data.grupo_solicitud || payload.grupo_usuario || '').toLowerCase();
+                         if (['fic', 'secul', 'ug'].indexOf(grupo) === -1) {
+                             Swal.fire('Atención', 'No fue posible identificar el grupo de la solicitud.', 'warning');
+@@ -512,12 +515,46 @@
+             })
+             .on('click.solicitudesFicPanel', '.js-fic-panel-aprobar', function () {
+                 var idSolicitud = Number($(this).data('id-solicitud') || 0);
++                var tipoFlujo = String($(this).data('tipo-flujo') || '').toLowerCase();
+                 if (!idSolicitud || !state.folioApproveUrl) return;
+-                if (!state.partidaOptions.length) {
++                if (tipoFlujo !== 'edicion' && !state.partidaOptions.length) {
+                     Swal.fire('Atención', 'No hay partidas disponibles para aprobar la solicitud.', 'warning');
+                     return;
+                 }
+ 
++                if (tipoFlujo === 'edicion') {
++                    Swal.fire({
++                        title: 'Aceptar edición institucional',
++                        text: 'Se aplicará la edición solicitada y se reservará la diferencia correspondiente.',
++                        icon: 'question',
++                        showCancelButton: true,
++                        confirmButtonText: 'Aceptar edición',
++                        cancelButtonText: 'Volver'
++                    }).then(function (result) {
++                        if (!result.isConfirmed) return;
++
++                        $.ajax({
++                            url: state.folioApproveUrl,
++                            method: 'POST',
++                            dataType: 'json',
++                            data: $.extend({
++                                id_solicitud_usuario: idSolicitud
++                            }, getCsrfPayload())
++                        }).done(function (response) {
++                            if (!response || response.ok !== true) {
++                                Swal.fire('Atención', extraerMensajeRespuesta(response, 'No fue posible aprobar la edición.'), 'warning');
++                                return;
++                            }
++
++                            Swal.fire('Listo', response.message || 'Edición aprobada.', 'success');
++                            refreshTable(state.folioTable);
++                        }).fail(function (jqXHR) {
++                            Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la edición.'), 'error');
++                        });
++                    });
++                    return;
++                }
++
+                 Swal.fire({
+                     title: 'Aceptar solicitud',
+                     html: '<div class="text-start">'
+-- 
+2.50.1.windows.1
+

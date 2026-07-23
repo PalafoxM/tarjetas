@@ -1620,13 +1620,14 @@ class Usuario extends BaseController
 
     public function getRecepcion()
     {
+        $actorContext = $this->getActorContext();
         $idEstablecimiento = (int) $this->request->getGet('id_establecimiento');
 
         if ($idEstablecimiento <= 0) {
             return $this->respond([]);
         }
 
-        if (empty($this->resolveSessionEstablecimiento($idEstablecimiento))) {
+        if (empty($this->resolveSessionEstablecimiento($idEstablecimiento, $actorContext))) {
             return $this->respond([]);
         }
 
@@ -1688,6 +1689,7 @@ class Usuario extends BaseController
     public function checkInHospedaje()
     {
         $session = \Config\Services::session();
+        $actorContext = $this->getActorContext();
         $idUsuario = (int) $this->request->getPost('id_usuario');
         $idEstablecimiento = (int) $this->request->getPost('id_establecimiento');
         $observaciones = trim((string) $this->request->getPost('observaciones', FILTER_SANITIZE_STRING));
@@ -1699,7 +1701,7 @@ class Usuario extends BaseController
             ]);
         }
 
-        if ($idEstablecimiento <= 0 || empty($this->resolveSessionEstablecimiento($idEstablecimiento))) {
+        if ($idEstablecimiento <= 0 || empty($this->resolveSessionEstablecimiento($idEstablecimiento, $actorContext))) {
             return $this->respond([
                 'error' => true,
                 'respuesta' => 'No tienes acceso al hotel seleccionado.',
@@ -1868,7 +1870,7 @@ class Usuario extends BaseController
         return $count > 0 ? (string) $count : 'Sin documentos';
     }
 
-    private function resolveSessionEstablecimiento(int $idEstablecimiento): array
+    private function resolveSessionEstablecimiento(int $idEstablecimiento, ?array $contextoUsuario = null): array
     {
         $session = \Config\Services::session();
         $idSesionUsuario = (int) $session->get('id_usuario');
@@ -1877,6 +1879,19 @@ class Usuario extends BaseController
         }
 
         $db = \Config\Database::connect();
+        $contextoUsuario = $contextoUsuario ?? $this->getActorContext();
+
+        if (!empty($contextoUsuario['can_access_secturi_dashboard']) || !empty($contextoUsuario['is_ti_master'])) {
+            $row = $db->table('establecimiento e')
+                ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
+                ->where('e.visible', 1)
+                ->where('e.id_establecimiento', $idEstablecimiento)
+                ->get()
+                ->getRowArray();
+
+            return is_array($row) ? $row : [];
+        }
+
         $row = $db->table('establecimiento e')
             ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, e.no_proveedor')
             ->join('usuario u', 'u.id_usuario = ' . $idSesionUsuario, 'left')

@@ -1287,6 +1287,206 @@ class Inicio extends BaseController {
         exit;
     }
 
+    public function exportarReporteInstitucionalSaldosPdf(string $grupo = 'fic')
+    {
+        $grupo = strtolower(trim($grupo));
+        if (!in_array($grupo, ['fic', 'ug', 'secul'], true)) {
+            return $this->response->setStatusCode(404)->setBody('Reporte no válido.');
+        }
+
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        if (!$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este reporte.');
+        }
+
+        $config = $this->getReporteInstitucionalGrupoConfig($grupo);
+        if (empty($config)) {
+            return $this->response->setStatusCode(404)->setBody('Reporte no configurado.');
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('usuario u')
+            ->select("
+                u.id_usuario,
+                u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
+                u.folio,
+                u.sub_folio,
+                u.monto_deposito,
+                u.monto_deposito_reservado,
+                u.monto_deposito_operativo,
+                u.activo_qr,
+                u.tiene_hospedaje,
+                u.tiene_alimentos,
+                u.fec_vigencia_desde,
+                u.fec_vigencia_hasta,
+                u.fec_reg
+            ", false)
+            ->where('u.visible', 1)
+            ->where($config['field'] . ' >', 0)
+            ->orderBy('u.folio', 'ASC')
+            ->orderBy('u.sub_folio', 'ASC')
+            ->orderBy('u.nombre', 'ASC')
+            ->orderBy('u.id_usuario', 'ASC');
+
+        $rows = $builder->get()->getResultArray();
+        $totalReservado = 0.0;
+        $totalOperativo = 0.0;
+        foreach ($rows as $row) {
+            $totalReservado += (float) ($row['monto_deposito_reservado'] ?? 0);
+            $totalOperativo += (float) ($row['monto_deposito_operativo'] ?? 0);
+        }
+
+        $htmlRows = '';
+        foreach ($rows as $row) {
+            $nombreCompleto = trim(implode(' ', array_filter([
+                trim((string) ($row['nombre'] ?? '')),
+                trim((string) ($row['primer_apellido'] ?? '')),
+                trim((string) ($row['segundo_apellido'] ?? '')),
+            ])));
+
+            $htmlRows .= '<tr>'
+                . '<td>' . htmlspecialchars((string) ($row['usuario'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($nombreCompleto !== '' ? $nombreCompleto : '-', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars(trim((string) (($row['folio'] ?? '') . ($row['sub_folio'] ?? ''))), ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="money">$' . number_format((float) ($row['monto_deposito'] ?? 0), 2) . '</td>'
+                . '<td class="money">$' . number_format((float) ($row['monto_deposito_reservado'] ?? 0), 2) . '</td>'
+                . '<td class="money">$' . number_format((float) ($row['monto_deposito_operativo'] ?? 0), 2) . '</td>'
+                . '<td>' . ((int) ($row['activo_qr'] ?? 0) === 1 ? 'Activo' : 'Pendiente') . '</td>'
+                . '<td>' . ((int) ($row['tiene_hospedaje'] ?? 0) === 1 ? 'Sí' : 'No') . '</td>'
+                . '<td>' . ((int) ($row['tiene_alimentos'] ?? 0) === 1 ? 'Sí' : 'No') . '</td>'
+                . '</tr>';
+        }
+
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: DejaVu Sans, Arial, sans-serif; color: #172033; font-size: 10pt; text-align: center; }
+                .header { text-align: center; margin-bottom: 18px; }
+                .title { font-size: 18pt; font-weight: bold; }
+                .subtitle { font-size: 11pt; color: #475569; margin-top: 4px; }
+                .summary { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+                .summary td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: center; }
+                .summary .label { background: #f8fafc; font-weight: bold; width: 20%; }
+                .summary .value { width: 30%; }
+                table.data { width: 100%; border-collapse: collapse; margin: 0 auto; }
+                table.data th, table.data td { border: 1px solid #94a3b8; padding: 5px 6px; text-align: center; }
+                table.data th { background: #0f172a; color: #fff; }
+                .money { text-align: center; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="title">Reporte de saldos institucionales</div>
+                <div class="subtitle">Perfil ' . strtoupper($grupo) . '</div>
+            </div>
+            <table class="summary">
+                <tr>
+                    <td class="label">Total usuarios</td>
+                    <td class="value">' . count($rows) . '</td>
+                    <td class="label">Total reservado</td>
+                    <td class="value money">$' . number_format($totalReservado, 2) . '</td>
+                </tr>
+                <tr>
+                    <td class="label">Total operativo</td>
+                    <td class="value money">$' . number_format($totalOperativo, 2) . '</td>
+                    <td class="label">Generado</td>
+                    <td class="value">' . date('Y-m-d H:i:s') . '</td>
+                </tr>
+            </table>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Nombre</th>
+                        <th>Folio</th>
+                        <th>Monto</th>
+                        <th>Saldo reservado</th>
+                        <th>Saldo operativo</th>
+                        <th>QR</th>
+                        <th>Hospedaje</th>
+                        <th>Alimentos</th>
+                    </tr>
+                </thead>
+                <tbody>' . ($htmlRows !== '' ? $htmlRows : '<tr><td colspan="9">Sin registros visibles.</td></tr>') . '</tbody>
+            </table>
+        </body>
+        </html>';
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        $filename = 'reporte_saldos_' . $grupo . '_' . date('Ymd_His') . '.pdf';
+
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'orientation' => 'L',
+                'tempDir' => $tempDir,
+                'margin_left' => 10,
+                'margin_right' => 10,
+                'margin_top' => 12,
+                'margin_bottom' => 12,
+            ]);
+
+            $mpdf->SetTitle('Reporte de saldos institucionales');
+            $mpdf->WriteHTML($html);
+            $salida = $this->request->getGet('download') ? 'D' : 'I';
+            $mpdf->Output($filename, $salida);
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF de reporte institucional de saldos: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de saldos solicitado.');
+        }
+
+        exit;
+    }
+
+    private function getReporteInstitucionalGrupoConfig(string $grupo): array
+    {
+        $grupo = strtolower(trim($grupo));
+        $fieldMap = [
+            'fic' => 'id_fic_perfil',
+            'ug' => 'id_ug_perfil',
+            'secul' => 'id_secul_perfil',
+        ];
+
+        if (!isset($fieldMap[$grupo])) {
+            return [];
+        }
+
+        return [
+            'grupo' => $grupo,
+            'field' => $fieldMap[$grupo],
+        ];
+    }
+
+    private function canExportReporteInstitucional(string $grupo, array $contextoUsuario): bool
+    {
+        $grupo = strtolower(trim($grupo));
+        if (!in_array($grupo, ['fic', 'ug', 'secul'], true)) {
+            return false;
+        }
+
+        if (!empty($contextoUsuario['is_ti_master']) || !empty($contextoUsuario['can_access_secturi_dashboard'])) {
+            return true;
+        }
+
+        $activeGroup = (string) ($contextoUsuario['active_group'] ?? '');
+        $groupRole = (int) ($contextoUsuario['group_role'] ?? 0);
+
+        return $activeGroup === $grupo && in_array($groupRole, [1, 2, 4], true);
+    }
+
     private function buildReporteVentasProveedorPdfHtmlHomologado(array $rows, string $periodoLabel, array $layout = []): string
     {
         $layout = is_array($layout) ? $layout : [];
@@ -1609,15 +1809,21 @@ class Inicio extends BaseController {
     public function Cajero()
     {
         $usuarioDashboard = $this->resolveSecturiDashboardUsuario();
+        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
+        $tiUsuario = $this->resolveTiMasterUsuario();
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
 
-        if (empty($usuarioDashboard)) {
+        if (empty($usuarioDashboard) && empty($usuarioCapazQr)) {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['cajeroAccesoTiInicio'] = true;
-        $data['cajeroSoloConsulta'] = empty($this->resolveSecturiAdminUsuario());
+        $data['cajeroPuedeRechazarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
+        $data['cajeroPuedeActivarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
+        $data['cajeroPuedeGestionarQr'] = !empty($data['cajeroPuedeRechazarQr']) || !empty($data['cajeroPuedeActivarQr']);
+        $data['cajeroSoloConsulta'] = empty($data['cajeroPuedeGestionarQr']);
         $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
         $data['contentView'] = 'secciones/vCajero';
         $this->_renderView($data);
@@ -5675,17 +5881,13 @@ class Inicio extends BaseController {
     public function activarQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
-        if (empty($tiUsuario)) {
-            $resolver = new UsuarioPerfilResolver();
-            $contextoUsuario = $resolver->resolve(\Config\Services::session()->get());
-            $esCajeroSecturi = (string) ($contextoUsuario['active_group'] ?? '') === 'secturi'
-                && (int) ($contextoUsuario['group_role'] ?? 0) === 4;
-            if (!$esCajeroSecturi) {
-                return $this->response->setStatusCode(403)->setJSON([
-                    'success' => false,
-                    'message' => 'No tienes permisos para activar usuarios.',
-                ]);
-            }
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
+        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
+        if (empty($tiUsuario) && empty($secturiAdminUsuario) && empty($usuarioCapazQr)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'No tienes permisos para activar usuarios.',
+            ]);
         }
        
         $idUsuario = (int) ($this->request->getPost('id_usuario') ?? $this->request->getGet('id_usuario') ?? 0);
@@ -5739,8 +5941,9 @@ class Inicio extends BaseController {
                 'message' => 'Falta al menos un documento cargado.',
             ]);
         }
+        $actorId = (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($secturiAdminUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0));
         $service = new DepositosProgramadosService($db);
-        $result = $service->activateQrAndApplyDeposits($idUsuario, (int) ($tiUsuario['id_usuario'] ?? 0));
+        $result = $service->activateQrAndApplyDeposits($idUsuario, $actorId);
         if (!empty($result->error)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
@@ -5759,7 +5962,9 @@ class Inicio extends BaseController {
     public function rechazarActivacionQrUsuarioFic()
     {
         $tiUsuario = $this->resolveTiMasterUsuario();
-        if (empty($tiUsuario)) {
+        $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
+        $usuarioCapazQr = $this->resolveUsuarioCapazQr();
+        if (empty($tiUsuario) && empty($secturiAdminUsuario) && empty($usuarioCapazQr)) {
             return $this->response->setStatusCode(403)->setJSON([
                 'success' => false,
                 'message' => 'No tienes permisos para rechazar solicitudes de QR.',
@@ -5802,7 +6007,7 @@ class Inicio extends BaseController {
                 'ine_trasera' => null,
                 'firma' => null,
                 'fec_act' => date('Y-m-d H:i:s'),
-                'usu_act' => (int) ($tiUsuario['id_usuario'] ?? 0),
+                'usu_act' => (int) (($tiUsuario['id_usuario'] ?? 0) ?: ($secturiAdminUsuario['id_usuario'] ?? 0) ?: ($usuarioCapazQr['id_usuario'] ?? 0)),
             ]);
 
         return $this->response->setJSON([
@@ -6332,6 +6537,50 @@ class Inicio extends BaseController {
     private function resolveSecturiDashboardUsuario(): array
     {
         return $this->resolveUsuarioPorCapacidad('can_access_secturi_dashboard');
+    }
+
+    private function resolveUsuarioCapazQr(): array
+    {
+        $usuario = $this->resolveTiMasterUsuario();
+        if (!empty($usuario)) {
+            return $usuario;
+        }
+
+        $usuario = $this->resolveSecturiAdminUsuario();
+        if (!empty($usuario)) {
+            return $usuario;
+        }
+
+        return $this->resolveSecturiCajeroUsuario();
+    }
+
+    private function resolveSecturiCajeroUsuario(): array
+    {
+        $session = \Config\Services::session();
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+        if ($idUsuario <= 0) {
+            return [];
+        }
+
+        $db = \Config\Database::connect();
+        $usuario = $db->table('usuario')
+            ->select('id_usuario, id_perfil, id_secturi_perfil, visible')
+            ->where('id_usuario', $idUsuario)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($usuario)) {
+            return [];
+        }
+
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($usuario);
+        if (($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 4) {
+            return $usuario;
+        }
+
+        return [];
     }
 
     private function resolveFolioDecisionUsuario(): array

@@ -1,6 +1,9 @@
 <?php
 $cajeroAccesoTiInicio = !empty($cajeroAccesoTiInicio);
 $cajeroSoloConsulta = !empty($cajeroSoloConsulta);
+$cajeroPuedeGestionarQr = !empty($cajeroPuedeGestionarQr);
+$cajeroPuedeActivarQr = !empty($cajeroPuedeActivarQr);
+$cajeroPuedeRechazarQr = !empty($cajeroPuedeRechazarQr);
 $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
 ?>
 <style>
@@ -31,7 +34,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
         text-align: left;
     }
 </style>
-<div class="container-fluid py-4"
+    <div class="container-fluid py-4"
      id="cajeroPage"
      data-solo-consulta="<?= $cajeroSoloConsulta ? '1' : '0' ?>"
      data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>"
@@ -494,11 +497,14 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
         const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
-        const botonActivarQr = qrActivo
-            ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i></button>`
-            : expedienteCompleto
-                ? `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})">Activar QR</button>`
-                : `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`;
+        const botonActivarQr = !expedienteCompleto
+            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`
+            : qrActivo
+                ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i> Activar QR</button>`
+                : `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})"><i class="mdi mdi-qrcode-check"></i> Activar QR</button>`;
+        const botonRechazarQr = !expedienteCompleto
+            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede rechazar sin documentos cargados" disabled><i class="mdi mdi-qrcode-remove"></i> Rechazar QR</button>`
+            : `<button class="btn btn-outline-danger" type="button" title="Rechazar activación QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})"><i class="mdi mdi-qrcode-remove"></i> Rechazar QR</button>`;
         let botones = `
             <div class="cajero-actions">
               
@@ -508,7 +514,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
-                ${botonActivarQr}`;
+                ${botonActivarQr}
+                ${botonRechazarQr}`;
 
         if (!cajeroSoloConsulta) {
             botones += `
@@ -522,17 +529,12 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     tieneExpedienteCompleto(row) {
         row = row || {};
-        if (row.expediente_completo === true || row.expediente_completo === 1 || row.expediente_completo === '1') {
-            return true;
-        }
+        const pdfIneYFirma = String(row.ine_firma_cajero || '').trim() !== '';
+        const ineCompleta = String(row.ine_frontal || '').trim() !== ''
+            && String(row.ine_trasera || '').trim() !== ''
+            && String(row.firma || '').trim() !== '';
 
-        return [
-            row.qr,
-            row.ine_firma_cajero,
-            row.ine_frontal,
-            row.ine_trasera,
-            row.firma
-        ].some((path) => String(path || '').trim() !== '');
+        return pdfIneYFirma || ineCompleta;
     },
 
     seleccionarFirmaCajero(idUsuario) {
@@ -672,6 +674,39 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             }).fail((request) => {
                 const response = request.responseJSON || {};
                 Swal.fire('Error', response.message || 'No fue posible activar el QR.', 'error');
+            });
+        });
+    },
+
+    rechazarActivacionQr(idUsuario) {
+        if (!idUsuario) return;
+
+        Swal.fire({
+            title: '¿Rechazar activación QR?',
+            text: 'Se retirará la activación y el usuario podrá iniciar nuevamente su proceso.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, rechazar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            $.ajax({
+                url: base_url + 'index.php/Inicio/rechazarActivacionQrUsuarioFic',
+                type: 'POST',
+                dataType: 'json',
+                data: { id_usuario: idUsuario }
+            }).done((response) => {
+                if (!response || response.success !== true) {
+                    Swal.fire('Atención', response && response.message ? response.message : 'No fue posible rechazar la activación del QR.', 'warning');
+                    return;
+                }
+
+                Swal.fire('Correcto', response.message || 'La activación fue rechazada.', 'success');
+                $('#cajerosTable').bootstrapTable('refresh', { silent: true });
+            }).fail((request) => {
+                const response = request.responseJSON || {};
+                Swal.fire('Error', response.message || 'No fue posible rechazar la activación del QR.', 'error');
             });
         });
     },
