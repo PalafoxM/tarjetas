@@ -388,7 +388,7 @@ $formatDate = static function (?string $value): string {
                                 <td><?= esc((string) ($pago['folio_solicitud'] ?? 'Sin folio')) ?></td>
                                 <td>
                                     <div class="fw-semibold"><?= esc((string) ($pago['razon_social'] ?? 'Sin proveedor')) ?></div>
-                                    <div class="text-muted small"><?= esc((string) ($pago['no_proveedor'] ?? '')) ?><?= !empty($pago['usuario_solicitante']) ? ' Â· ' . esc((string) $pago['usuario_solicitante']) : '' ?></div>
+                                    <div class="text-muted small"><?= esc((string) ($pago['no_proveedor'] ?? '')) ?><?= !empty($pago['usuario_solicitante']) ? '  · ' . esc((string) $pago['usuario_solicitante']) : '' ?></div>
                                 </td>
                                 <td><?= esc((string) ($pago['dsc_establecimiento'] ?? 'Sin establecimiento')) ?></td>
                                 <td><?= esc((string) ($pago['metodo_autorizacion'] ?? 'Sin tipo')) ?></td>

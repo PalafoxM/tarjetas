@@ -25,11 +25,12 @@ class Database extends Config
      * The default database connection.
      */
      public array $default = [
-        'DSN'          => '',
-        //'hostname'     => '172.16.1.220',
+      'DSN'          => '',
+        //'hostname'     => '127.0.0.1',
         'hostname'     => '18.222.102.91',
         'username'     => 'adminSecturi',
-        //'password'     => 'PalafoxMarin1989',
+        //'username'     => 'root',
+        //'password'     => 'yDEa&3FeCT1v@z',
         'password'     => 'admin%53cturi.2025',
         'database'     => 'tarjetas',
         'DBDriver'     => 'MySQLi',
@@ -52,27 +53,27 @@ class Database extends Config
      * running PHPUnit database tests.
      */
     public array $bitacora = [
-        'DSN'         => '',
-        //'hostname'    => '172.31.113.61',
+        'DSN'          => '',
+        //'hostname'     => '127.0.0.1',
         'hostname'     => '18.222.102.91',
-        'username'    => 'adminSecturi',
-        //'password'    => 'Gnosis01',
+        'username'     => 'adminSecturi',
+        //'username'     => 'root',
+        //'password'     => 'yDEa&3FeCT1v@z',
         'password'     => 'admin%53cturi.2025',
-        'database'    => 'bitacora',
-        'DBDriver'    => 'MySQLi',
-        'DBPrefix'    => '',  // Needed to ensure we're working correctly with prefixes live. DO NOT REMOVE FOR CI DEVS
-        'pConnect'    => false,
-        'DBDebug'     => true,
-        'charset'     => 'utf8',
-        'DBCollat'    => 'utf8_general_ci',
-        'swapPre'     => '',
-        'encrypt'     => false,
-        'compress'    => false,
-        'strictOn'    => false,
-        'failover'    => [],
-        'port'        => 3306,
-        'foreignKeys' => true,
-        'busyTimeout' => 1000,
+        'database'     => 'tarjetas',
+        'DBDriver'     => 'MySQLi',
+        'DBPrefix'     => '',
+        'pConnect'     => false,
+        'DBDebug'      => true,
+        'charset'      => 'utf8',
+        'DBCollat'     => 'utf8_general_ci',
+        'swapPre'      => '',
+        'encrypt'      => false,
+        'compress'     => false,
+        'strictOn'     => false,
+        'failover'     => [],
+        'port'         => 3306,
+        'numberNative' => false,
     ];
 
      public array $tests = [

@@ -97,7 +97,7 @@
             uploadBatch: 'batch file upload',
             uploadExtra: 'form data upload'
         },
-        dropZoneTitle: 'Kéo thả tập tin vào đây &hellip;',
+        dropZoneTitle: 'Kéo thả tập tin vào đ y &hellip;',
         dropZoneClickTitle: '<br>(hoặc click để chọn {files})',
         fileActionSettings: {
             removeTitle: 'Gỡ bỏ',

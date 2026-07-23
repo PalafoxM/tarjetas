@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PHP_BIN="/c/wamp64/bin/php/php8.2.29/php.exe"
+PHP_BIN="php"
 LOG_DIR="$PROJECT_DIR/writable/logs"
 LOG_FILE="$LOG_DIR/depositos_programados.log"
 LOG_ROTATED="$LOG_DIR/depositos_programados.log.1"

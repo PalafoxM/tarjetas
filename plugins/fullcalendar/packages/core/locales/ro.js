@@ -15,7 +15,7 @@
             next: "următoare",
             today: "Azi",
             month: "Lună",
-            week: "Săptămână",
+            week: "Săptăm nă",
             day: "Zi",
             list: "Agendă"
         },

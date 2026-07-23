@@ -1,0 +1,82 @@
+diff --git a/app/Controllers/Inicio.php b/app/Controllers/Inicio.php
+index bd76044..68bb405 100644
+--- a/app/Controllers/Inicio.php
++++ b/app/Controllers/Inicio.php
+@@ -784,7 +784,7 @@ class Inicio extends BaseController {
+ 
+         $idUsuario = (int) $session->get('id_usuario');
+         if ($idUsuario <= 0) {
+-            return $this->response->setStatusCode(401)->setBody('SesiÃƒÆ’Ã‚Â³n invÃƒÆ’Ã‚Â¡lida.');
++            return $this->response->setStatusCode(401)->setBody('SesiÃƒÆ’³n invÃƒÆ’¡lida.');
+         }
+ 
+         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+@@ -1147,7 +1147,7 @@ class Inicio extends BaseController {
+         $session = \Config\Services::session();
+         $idUsuario = (int) $session->get('id_usuario');
+         if ($idUsuario <= 0) {
+-            return $this->response->setStatusCode(401)->setBody('SesiÃƒÆ’Ã‚Â³n invÃƒÆ’Ã‚Â¡lida.');
++            return $this->response->setStatusCode(401)->setBody('SesiÃƒÆ’³n invÃƒÆ’¡lida.');
+         }
+ 
+         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+@@ -2208,7 +2208,6 @@ class Inicio extends BaseController {
+             ->update([
+                 'activo_qr' => 0,
+                 'qr' => $usuario['qr'] ?? null,
+-                'qr' => null,
+                 'ine_firma_cajero' => null,
+                 'ine_frontal' => null,
+                 'ine_trasera' => null,
+@@ -3089,7 +3088,6 @@ class Inicio extends BaseController {
+             'monto_deposito_reservado' => 0.00,
+             'monto_deposito_operativo' => 0.00,
+             'deposito_programado_estatus' => 'sin_programa',
+-            'qr' => null,
+             'nip' => null,
+             'folio' => null,
+             'sub_folio' => null,
+@@ -4115,10 +4113,10 @@ class Inicio extends BaseController {
+         ][$beneficiosKey] ?? 'Ninguno';
+         $detalleSolicitud[] = 'Beneficios: ' . $beneficiosLabel;
+         if (in_array($beneficiosKey, ['hospedaje', 'ambos'], true)) {
+-            $detalleSolicitud[] = 'Hospedaje: sí­Ã‚Â­';
++            $detalleSolicitud[] = 'Hospedaje: sí­­';
+         }
+         if (in_array($beneficiosKey, ['alimentos', 'ambos'], true)) {
+-            $detalleSolicitud[] = 'Alimentos: sí­Ã‚Â­';
++            $detalleSolicitud[] = 'Alimentos: sí­­';
+         }
+         if ($observaciones !== '') {
+             $detalleSolicitud[] = '';
+diff --git a/app/Views/secciones/vCajero.php b/app/Views/secciones/vCajero.php
+index 05d1a1c..3f73641 100644
+--- a/app/Views/secciones/vCajero.php
++++ b/app/Views/secciones/vCajero.php
+@@ -651,7 +651,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
+         }
+ 
+         Swal.fire({
+-            title: 'Ã‚Â¿Estas seguro de activar QR?',
++            title: '¿Estas seguro de activar QR?',
+             text: 'Se marcará el QR del usuario como activo.',
+             icon: 'question',
+             showCancelButton: true,
+@@ -687,7 +687,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
+         if (!idUsuario) return;
+ 
+         Swal.fire({
+-            title: 'Ã‚Â¿Rechazar activación QR?',
++            title: '¿Rechazar activación QR?',
+             text: 'Se retirará la activación y el usuario podrá iniciar nuevamente su proceso.',
+             icon: 'warning',
+             showCancelButton: true,
+@@ -773,7 +773,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
+ 
+     eliminar(idUsuario) {
+         Swal.fire({
+-            title: 'Ã‚Â¿Eliminar cajero?',
++            title: '¿Eliminar cajero?',
+             text: 'El registro dejará de mostrarse en la tabla.',
+             icon: 'warning',
+             showCancelButton: true,

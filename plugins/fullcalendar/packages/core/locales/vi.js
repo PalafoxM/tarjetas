@@ -15,7 +15,7 @@
             next: "Tiếp",
             today: "Hôm nay",
             month: "Tháng",
-            week: "Tuần",
+            week: "Tu ̀n",
             day: "Ngày",
             list: "Lịch biểu"
         },
