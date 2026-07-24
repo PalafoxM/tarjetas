@@ -9,6 +9,7 @@ $routes->get('/', 'Login::index');
 $routes->get('Login', 'Login::index');
 $routes->get('Login/cerrar', 'Login::cerrar');
 $routes->post('Login/validar_usuario', 'Login::validar_usuario');
+$routes->get('Inicio/getPagosPorEstablecimiento', 'Inicio::getPagosPorEstablecimiento');
 $routes->get('Inicio', 'Inicio::index');
 $routes->get('Inicio/ProveedorEstablecimiento/(:num)', 'Inicio::ProveedorEstablecimiento/$1');
 $routes->get('Inicio/EstablecimientosFic', 'Inicio::EstablecimientosFic');
@@ -42,6 +43,7 @@ $routes->get('Inicio/exportarReporteVentasProveedorXlsx', 'Inicio::exportarRepor
 $routes->get('Inicio/exportarReporteVentasProveedorPdf', 'Inicio::exportarReporteVentasProveedorPdf');
 $routes->get('Inicio/exportarReporteVentasProveedorPdfFormato', 'Inicio::exportarReporteVentasProveedorPdfFormato');
 $routes->get('Usuario/getCatalogosCrud', 'Usuario::getCatalogosCrud');
+$routes->post('Usuario/saveAltaUsuario', 'Usuario::saveAltaUsuario');
 $routes->get('Inicio/getSugerenciasFolioInstitucional', 'Inicio::getSugerenciasFolioInstitucional');
 $routes->get('Inicio/getSolicitudFolioEditable', 'Inicio::getSolicitudFolioEditable');
 $routes->get('Inicio/getSolicitudesUsuarioFicPerfil', 'Inicio::getSolicitudesUsuarioFicPerfil');

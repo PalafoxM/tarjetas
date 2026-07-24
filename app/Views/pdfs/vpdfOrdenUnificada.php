@@ -35,7 +35,6 @@ $qrUsuarioUrl = trim((string) ($qr_usuario_url ?? ''));
 $tieneHospedaje = (int) ($tiene_hospedaje ?? 0) === 1;
 $tieneAlimentos = (int) ($tiene_alimentos ?? 0) === 1;
 
-
 if ($tieneHospedaje && $tieneAlimentos) {
     $tituloOrden = 'Orden de hospedaje y alimentos';
     $leyendaDocumento = 'Este documento acredita la orden de hospedaje y alimentos asociada al beneficiario para su periodo de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
@@ -78,46 +77,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
 <head>
     <meta charset="UTF-8">
     <title><?= esc($tituloOrden) ?> - FIC</title>
-    <style>
-        body { font-family: dejavusans, sans-serif; color: #172033; font-size: 11px; margin: 12px 15px; padding: 0; }
-        .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 8px; margin-bottom: 14px; }
-        .title { font-size: 20px; font-weight: bold; color: #0f172a; }
-        .subtitle { font-size: 11px; color: #475569; margin-top: 3px; }
-        .section-title { font-size: 13px; font-weight: bold; color: #0f172a; margin: 10px 0 5px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
-        td, th { border: 1px solid #d7dee8; padding: 6px 8px; }
-        th { background: #e2e8f0; color: #0f172a; text-align: left; font-size: 10px; padding: 5px 8px; }
-        .label { background: #f8fafc; font-weight: bold; color: #334155; white-space: nowrap; font-size: 10px; padding: 5px 8px; width: 18%; }
-        .label-small { background: #f8fafc; font-weight: bold; color: #334155; white-space: nowrap; font-size: 9px; padding: 4px 6px; width: 14%; }
-        .qr-value { font-size: 8px; line-height: 1.3; word-break: normal; overflow-wrap: break-word; }
-        .money { text-align: right; font-weight: bold; }
-        .note { margin-top: 10px; padding: 8px 10px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 10px; }
-        .signature { margin-top: 150px; width: 400px; text-align: center; color: #475569; margin-left: auto; margin-right: auto; padding-top: 15px; }
-        .signature img { display: block; margin: 0 auto 10px; max-width: 220px; max-height: 80px; }
-        .signature-line { border-top: 2px solid #64748b; padding-top: 12px; font-size: 12px; font-weight: bold; color: #0f172a; }
-        .beneficiary-section { margin-bottom: 8px; }
-        .vigencia-row { display: flex; gap: 20px; margin-top: 4px; font-size: 10px; padding: 3px 0; }
-        .vigencia-item { flex: 1; padding: 4px 8px; background: #f8fafc; border-radius: 4px; }
-        .vigencia-label { font-weight: bold; color: #0f172a; display: block; margin-bottom: 2px; }
-        .two-columns { display: flex; gap: 20px; margin-top: 6px; }
-        .column { flex: 1; }
-        .signature-name { font-size: 11px; color: #475569; margin-top: 8px; font-weight: normal; }
-        .obs-text { font-size: 9px; margin-top: 3px; color: #475569; padding: 3px 6px; background: #f1f5f9; border-radius: 3px; }
-        .signature-space { height: 60px; }
-        .beneficiario-label { font-size: 12px; padding: 6px 10px; }
-        .beneficiario-value { font-size: 12px; padding: 6px 10px; }
-        .detalle-label { width: 22%; font-size: 9px; padding: 4px 6px; }
-        .detalle-value { font-size: 10px; padding: 4px 6px; }
-        .firma-texto { font-size: 11px; color: #475569; margin-top: 5px; }
-        .access-block { margin-top: 12px; border: 1px solid #cbd5e1; background: #f8fafc; padding: 10px 12px; }
-        .access-table { margin-bottom: 0; }
-        .access-table td { vertical-align: middle; }
-        .nip-value { font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #0f172a; text-align: center; }
-        .qr-image-cell { width: 140px; text-align: center; }
-        .qr-image { width: 118px; height: 118px; object-fit: contain; }
-        .qr-caption { font-size: 8px; color: #475569; margin-top: 4px; word-break: break-all; }
-        @page { margin: 10mm 12mm 10mm 12mm; }
-    </style>
+    <style>body{font-family:dejavusans,sans-serif;color:#172033;font-size:10px;margin:10px 12px;padding:0}.header{border-bottom:2px solid #1d4ed8;padding-bottom:6px;margin-bottom:8px}.title{font-size:18px;font-weight:bold;color:#0f172a}.subtitle{font-size:10px;color:#475569;margin-top:2px}.section-title{font-size:12px;font-weight:bold;color:#0f172a;margin:6px 0 4px}table{width:100%;border-collapse:collapse;margin-bottom:4px}td,th{border:1px solid #d7dee8;padding:5px 7px}th{background:#e2e8f0;color:#0f172a;text-align:left;font-size:9px;padding:4px 7px}.label{background:#f8fafc;font-weight:bold;color:#334155;white-space:nowrap;font-size:9px;padding:5px 7px;width:18%}.label-small{background:#f8fafc;font-weight:bold;color:#334155;white-space:nowrap;font-size:8px;padding:4px 6px;width:14%}.qr-value{font-size:8px;line-height:1.2;word-break:normal;overflow-wrap:break-word}.money{text-align:right;font-weight:bold}.note{margin-top:6px;padding:6px 8px;border:1px solid #cbd5e1;background:#f8fafc;font-size:9px}.signature{margin-top:5px;width:100%;text-align:center;color:#475569;padding-top:5px}.signature img{display:block;margin:0 auto 6px;max-width:120px;max-height:48px}.signature-line{padding-top:8px;font-size:11px;font-weight:bold;color:#0f172a}.beneficiary-section{margin-bottom:6px}.vigencia-row{display:flex;gap:12px;margin-top:2px;font-size:9px;padding:2px 0}.vigencia-item{flex:1;padding:3px 6px;background:#f8fafc;border-radius:4px}.vigencia-label{font-weight:bold;color:#0f172a;display:block;margin-bottom:1px}.two-columns{display:flex;gap:12px;margin-top:4px}.column{flex:1}.signature-name{font-size:11px;color:#475569;margin-top:2px;font-weight:normal;letter-spacing:1px;padding:90px 0 5px 0}.obs-text{font-size:8px;margin-top:2px;color:#475569;padding:2px 5px;background:#f1f5f9;border-radius:3px}.access-block{margin-top:8px;border:1px solid #cbd5e1;background:#f8fafc;padding:12px 15px}.access-table{margin-bottom:0}.access-table td{vertical-align:middle;padding:8px 12px}.nip-value{font-size:20px;font-weight:bold;letter-spacing:3px;color:#0f172a;text-align:center}.qr-image-cell{width:130px;text-align:center}.qr-image{width:110px;height:110px;object-fit:contain}.qr-caption{font-size:7px;color:#475569;margin-top:2px;word-break:break-all}@page{margin:10mm 12mm 10mm 12mm}.compact td{padding:4px 6px}.detalle-table td{font-size:9px}.detalle-table th{font-size:8px}.beneficiary-table td{padding:5px 8px;font-size:10px}.beneficiary-table .label{font-size:10px;padding:5px 8px}.signature-space{height:40px}</style>
 </head>
 <body>
     <section>
@@ -125,31 +85,30 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
             <div class="title"><?= esc($tituloOrden) ?></div>
             <div class="subtitle">Festival Internacional Cervantino / SECTURI &nbsp;|&nbsp; Emitido: <?= esc($fechaEmision) ?></div>
         </div>
-
         <div class="beneficiary-section">
             <div class="section-title">Datos del beneficiario</div>
-            <table>
+            <table class="beneficiary-table">
                 <tr>
-                    <td class="label" style="width:12%; font-size:12px; padding:8px 10px;">Nombre completo</td>
-                    <td style="width:30%; font-size:13px; padding:8px 10px;"><?= esc($nombreCompleto !== '' ? $nombreCompleto : 'Sin nombre') ?></td>
-                    <td class="label" style="width:10%; font-size:12px; padding:8px 10px;">Folio</td>
-                    <td style="width:15%; font-size:12px; padding:8px 10px; "><?= esc($folioEntrega !== '' ? $folioEntrega : 'Sin folio') ?></td>
-                    <td class="label" style="width:8%; font-size:12px; padding:8px 10px;">Pax</td>
-                    <td style="width:10%; font-size:12px; padding:8px 10px; font-weight:bold;"><?= esc((string) $paxEntrega) ?></td>
+                    <td class="label" style="width:12%; font-size:11px; padding:6px 9px;">Nombre completo</td>
+                    <td style="width:30%; font-size:12px; padding:6px 9px;"><?= esc($nombreCompleto !== '' ? $nombreCompleto : 'Sin nombre') ?></td>
+                    <td class="label" style="width:10%; font-size:11px; padding:6px 9px;">Folio</td>
+                    <td style="width:15%; font-size:11px; padding:6px 9px;"><?= esc($folioEntrega !== '' ? $folioEntrega : 'Sin folio') ?></td>
+                    <td class="label" style="width:8%; font-size:11px; padding:6px 9px;">Pax</td>
+                    <td style="width:10%; font-size:12px; padding:6px 9px; font-weight:bold;"><?= esc((string) $paxEntrega) ?></td>
                 </tr>
                 <tr>
-                    <td class="label" style="font-size:12px; padding:8px 10px;">Usuario</td>
-                    <td style="font-size:12px; padding:8px 10px;"><?= esc($usuarioLogin !== '' ? $usuarioLogin : 'Sin usuario') ?></td>
-                    <td class="label" style="font-size:12px; padding:8px 10px;">Subfolio</td>
-                    <td style="font-size:12px; padding:8px 10px;"><?= esc($subFolioEntrega !== '' ? $subFolioEntrega : 'Sin subfolio') ?></td>
-                    <td class="label" style="font-size:12px; padding:8px 10px;">Código QR</td>
-                    <td class="qr-value" style="font-size:10px; padding:8px 10px; word-break: normal;"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></td>
+                    <td class="label" style="font-size:11px; padding:6px 9px;">Usuario</td>
+                    <td style="font-size:11px; padding:6px 9px;"><?= esc($usuarioLogin !== '' ? $usuarioLogin : 'Sin usuario') ?></td>
+                    <td class="label" style="font-size:11px; padding:6px 9px;">Subfolio</td>
+                    <td style="font-size:11px; padding:6px 9px;"><?= esc($subFolioEntrega !== '' ? $subFolioEntrega : 'Sin subfolio') ?></td>
+                    <td class="label" style="font-size:11px; padding:6px 9px;">Código QR</td>
+                    <td class="qr-value" style="font-size:9px; padding:6px 9px; word-break: normal;"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></td>
                 </tr>
                 <tr>
-                    <td class="label" style="font-size:12px; padding:8px 10px;">Beneficio asignado</td>
-                    <td colspan="2" style="font-size:12px; padding:8px 10px; "><?= esc($beneficioLabel) ?></td>
-                    <td class="label" colspan="1" style="font-size:12px; padding:8px 10px;">Vigencias</td>
-                    <td colspan="2" style="padding:6px 10px;">
+                    <td class="label" style="font-size:11px; padding:6px 9px;">Beneficio asignado</td>
+                    <td colspan="2" style="font-size:11px; padding:6px 9px;"><?= esc($beneficioLabel) ?></td>
+                    <td class="label" colspan="1" style="font-size:11px; padding:6px 9px;">Vigencias</td>
+                    <td colspan="2" style="padding:4px 9px;">
                         <div class="vigencia-row">
                             <div class="vigencia-item">
                                 <span class="vigencia-label">Hospedaje</span>
@@ -164,12 +123,11 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                 </tr>
             </table>
         </div>
-
         <div class="two-columns">
             <div class="column">
                 <?php if ($tieneHospedaje): ?>
                     <div class="section-title">Detalle de hospedaje</div>
-                    <table>
+                    <table class="compact detalle-table">
                         <tr>
                             <td class="label-small" style="width:25%;">Hotel</td>
                             <td style="width:25%;"><?= esc((string) ($beneficios['hotel_nombre'] ?? 'Sin hotel')) ?></td>
@@ -189,9 +147,8 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                             <td><?= esc((string) ($beneficios['folio_hospedaje'] ?? ($folio_entrega ?? ''))) ?></td>
                         </tr>
                     </table>
-
-                    <div class="section-title" style="font-size:11px; margin-top:8px;">Importe autorizado - Hospedaje</div>
-                    <table>
+                    <div class="section-title" style="font-size:10px; margin-top:5px;">Importe autorizado - Hospedaje</div>
+                    <table class="compact detalle-table">
                         <thead>
                             <tr>
                                 <th>Concepto</th>
@@ -203,29 +160,27 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                         <tbody>
                             <tr>
                                 <td><?= esc((string) ($beneficios['tipo_habitacion'] ?? 'Hospedaje')) ?> en <?= esc((string) ($beneficios['hotel_nombre'] ?? 'Hotel asignado')) ?></td>
-                                <td><?= esc((string) ($beneficios['noches'] ?? 0)) ?></td>
+                                <td style="text-align:center;"><?= esc((string) ($beneficios['noches'] ?? 0)) ?></td>
                                 <td class="money">$<?= number_format((float) ($beneficios['tarifa_noche'] ?? 0), 2) ?></td>
                                 <td class="money">$<?= number_format((float) ($beneficios['tarifa_total_hospedaje'] ?? 0), 2) ?></td>
                             </tr>
                         </tbody>
                     </table>
-
                     <?php if (!empty($beneficios['observaciones_hospedaje'])): ?>
                         <div class="obs-text">
                             <strong>Observaciones:</strong> <?= nl2br(esc((string) $beneficios['observaciones_hospedaje'])) ?>
                         </div>
                     <?php endif; ?>
                 <?php else: ?>
-                    <div style="color:#94a3b8; font-size:11px; text-align:center; padding:20px 0; border:1px dashed #cbd5e1; border-radius:4px;">
+                    <div style="color:#94a3b8; font-size:10px; text-align:center; padding:15px 0; border:1px dashed #cbd5e1; border-radius:4px;">
                         Sin beneficio de hospedaje asignado
                     </div>
                 <?php endif; ?>
             </div>
-
             <div class="column">
                 <?php if ($tieneAlimentos): ?>
                     <div class="section-title">Detalle de alimentos</div>
-                    <table>
+                    <table class="compact detalle-table">
                         <tr>
                             <td class="label-small" style="width:30%;">Concepto</td>
                             <td colspan="3">Consumo de alimentos autorizado durante la vigencia del QR.</td>
@@ -234,18 +189,17 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                             <td class="label-small">Tarifa diaria</td>
                             <td class="money" style="width:25%;">$<?= number_format((float) ($tarifaResumen['monto_diario'] ?? 0), 2) ?></td>
                             <td class="label-small" style="width:20%;">Días autorizados</td>
-                            <td style="width:25%;"><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
+                            <td style="width:25%; text-align:center;"><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
                         </tr>
                         <tr>
                             <td class="label-small">Total autorizado</td>
-                            <td colspan="3" class="money" style="font-weight:bold; font-size:12px; color:#0f172a;">
+                            <td colspan="3" class="money" style="font-weight:bold; font-size:11px; color:#0f172a;">
                                 $<?= number_format((float) ($tarifaResumen['tarifa_total'] ?? 0), 2) ?>
                             </td>
                         </tr>
                     </table>
-
-                    <div class="section-title" style="font-size:11px; margin-top:8px;">Importe autorizado - Alimentos</div>
-                    <table>
+                    <div class="section-title" style="font-size:10px; margin-top:5px;">Importe autorizado - Alimentos</div>
+                    <table class="compact detalle-table">
                         <thead>
                             <tr>
                                 <th>Concepto</th>
@@ -258,48 +212,45 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                             <tr>
                                 <td>Orden de alimentos FIC</td>
                                 <td class="money">$<?= number_format((float) ($tarifaResumen['monto_diario'] ?? 0), 2) ?></td>
-                                <td><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
+                                <td style="text-align:center;"><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
                                 <td class="money">$<?= number_format((float) ($tarifaResumen['tarifa_total'] ?? 0), 2) ?></td>
                             </tr>
                         </tbody>
                     </table>
                 <?php else: ?>
-                    <div style="color:#94a3b8; font-size:11px; text-align:center; padding:20px 0; border:1px dashed #cbd5e1; border-radius:4px;">
+                    <div style="color:#94a3b8; font-size:10px; text-align:center; padding:15px 0; border:1px dashed #cbd5e1; border-radius:4px;">
                         Sin beneficio de alimentos asignado
                     </div>
                 <?php endif; ?>
             </div>
         </div>
-
         <div class="note">
             <?= nl2br(esc($leyendaDocumento)) ?>
         </div>
-
         <div class="access-block">
-            <div class="section-title" style="margin-top:0;">Acceso del usuario</div>
-            <table class="access-table">
+            <div class="section-title" style="margin-top:0; font-size:11px;">Acceso del usuario</div>
+            <table class="access-table compact">
                 <tr>
-                    <td class="label" style="width:16%;">NIP</td>
-                    <td class="nip-value" style="width:28%;"><?= esc($nipUsuario !== '' ? $nipUsuario : 'Sin NIP') ?></td>
-                    <td class="label" style="width:16%;">QR asignado</td>
-                    <td class="qr-image-cell">
+                    <td class="label" style="width:16%; font-size:12px; padding:8px 10px;">NIP</td>
+                    <td class="nip-value" style="width:28%; font-size:20px; padding:8px 10px;"><?= esc($nipUsuario !== '' ? $nipUsuario : 'Sin NIP') ?></td>
+                    <td class="label" style="width:16%; font-size:12px; padding:8px 10px;">QR asignado</td>
+                    <td class="qr-image-cell" style="padding:8px 10px;">
                         <?php if ($qrUsuarioUrl !== ''): ?>
                             <img class="qr-image" src="<?= esc($qrUsuarioUrl) ?>" alt="QR del usuario">
                         <?php else: ?>
-                            <div style="font-size:10px; color:#64748b;">Sin imagen QR</div>
+                            <div style="font-size:9px; color:#64748b;">Sin imagen QR</div>
                         <?php endif; ?>
                         <div class="qr-caption"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></div>
                     </td>
                 </tr>
             </table>
         </div>
-
         <div class="signature-space"></div>
-
         <div class="signature">
             <?php if ($firmaUsuarioUrl !== ''): ?>
                 <img src="<?= esc($firmaUsuarioUrl) ?>" alt="Firma del usuario">
             <?php endif; ?>
+            <div class="signature-name" style="border-bottom: 2px solid #64748b; width: 60%; margin: 0 auto; padding-bottom: 5px;"></div>
             <div class="signature-line"><?= esc($textoFirma) ?></div>
         </div>
     </section>

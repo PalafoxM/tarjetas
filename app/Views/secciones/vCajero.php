@@ -54,9 +54,9 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                 <i class="mdi mdi-download me-1"></i> Descargar orden del d&iacute;a
             </button>
             <?php if (!$cajeroSoloConsulta): ?>
-            <button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
+            <!--<button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
                 <i class="mdi mdi-account-plus me-1"></i> Nuevo cajero
-            </button>
+            </button>-->
             <?php endif; ?>
         </div>
     </div>
@@ -491,38 +491,36 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         const idUsuario = Number(row.id_usuario || 0);
         const puedeGestionarQr = !!cajeroPuedeGestionarQr;
         const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
-        if (!puedeGestionarQr || !expedienteCompleto) {
-            return `
-                <div class="cajero-actions">
-                    <button class="btn btn-primary" type="button" title="Ver orden" onclick="st.agregar.verPdf(${idUsuario})">
-                        <i class="mdi mdi-file-pdf-box"></i>
-                    </button>
-                </div>`;
-        }
         const qrActivo = Number(row.activo_qr || row.qr_activo || 0) === 1;
-        const expedienteCompleto = cajeros.tieneExpedienteCompleto(row);
         const botonActivarQr = !expedienteCompleto
-            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede activar sin documentos cargados" disabled>Activar QR</button>`
+            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede validar QR sin documentos cargados" disabled><i class="mdi mdi-check-circle-outline"></i></button>`
             : qrActivo
-                ? `<button class="btn btn-success" type="button" title="QR activo" disabled><i class="mdi mdi-qrcode-check"></i> Activar QR</button>`
-                : `<button class="btn btn-outline-success" type="button" title="Activar QR" onclick="cajeros.activarQr(${idUsuario})"><i class="mdi mdi-qrcode-check"></i> Activar QR</button>`;
-        const botonRechazarQr = !expedienteCompleto
-            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede rechazar sin documentos cargados" disabled><i class="mdi mdi-qrcode-remove"></i> Rechazar QR</button>`
+                ? `<button class="btn btn-success" type="button" title="QR validado" disabled><i class="mdi mdi-check-circle-outline"></i></button>`
+                : `<button class="btn btn-outline-success" type="button" title="Validar QR" onclick="cajeros.activarQr(${idUsuario})"><i class="mdi mdi-check-circle-outline"></i></button>`;
+        let botonRechazarQr = !expedienteCompleto
+            ? `<button class="btn btn-outline-secondary" type="button" title="No se puede declinar QR sin documentos cargados" disabled><i class="mdi mdi-close-circle-outline"></i></button>`
             : `<button class="btn btn-outline-danger" type="button" title="Rechazar activación QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})"><i class="mdi mdi-qrcode-remove"></i> Rechazar QR</button>`;
+        if (expedienteCompleto) {
+            botonRechazarQr = `<button class="btn btn-outline-danger" type="button" title="Declinar QR" onclick="cajeros.rechazarActivacionQr(${idUsuario})"><i class="mdi mdi-close-circle-outline"></i></button>`;
+        }
+
         let botones = `
             <div class="cajero-actions">
               
                 <button class="btn btn-primary" type="button" title="Orden de Hospedaje y Alimentos" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
-                <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
-                    <i class="mdi mdi-file-upload-outline"></i>
-                </button>
-                ${botonActivarQr}
-                ${botonRechazarQr}`;
+                ${puedeGestionarQr ? botonActivarQr : ''}
+                ${puedeGestionarQr ? botonRechazarQr : ''}`;
 
         if (!cajeroSoloConsulta) {
             botones += `
+                <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
+                    <i class="mdi mdi-file-upload-outline"></i>
+                </button>
+                <button class="btn btn-outline-warning" type="button" title="Editar" onclick="cajeros.editar(${idUsuario})">
+                    <i class="mdi mdi-account-edit"></i>
+                </button>
                 <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${idUsuario})">
                     <i class="mdi mdi-account-remove"></i>
                 </button>`;
@@ -533,20 +531,9 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
     tieneExpedienteCompleto(row) {
         row = row || {};
-        const pdfIneYFirma = String(row.ine_firma_cajero || '').trim() !== '';
-        const ineCompleta = String(row.ine_frontal || '').trim() !== ''
-            && String(row.ine_trasera || '').trim() !== ''
-            && String(row.firma || '').trim() !== '';
-
-<<<<<<< HEAD
-        const pdfIneYFirma = String(row.ine_firma_cajero || '').trim() !== '';
-        const ineCompleta = String(row.ine_frontal || '').trim() !== ''
-            && String(row.ine_trasera || '').trim() !== ''
-            && String(row.firma || '').trim() !== '';
-
-=======
->>>>>>> 61d5701d7c766ae0f3880ea2347f134e1f9935fe
-        return pdfIneYFirma || ineCompleta;
+        return ['ine_firma_cajero', 'ine_frontal', 'ine_trasera', 'firma'].some((field) => {
+            return String(row[field] || '').trim() !== '';
+        });
     },
 
     seleccionarFirmaCajero(idUsuario) {
@@ -742,17 +729,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     },
 
     editar(idUsuario) {
-        $.post(base_url + 'index.php/Usuario/getUsuario', { id_usuario: idUsuario }, (data) => {
-            $('#id_usuario').val(data.id_usuario);
-            $('#nombre').val(data.nombre);
-            $('#primer_apellido').val(data.primer_apellido);
-            $('#segundo_apellido').val(data.segundo_apellido);
-            $('#correo').val(data.correo);
-            $('#usuario').val(data.usuario);
-            $('#contrasenia').val('').prop('required', false);
-            $('#cajeroModalTitle').text('Editar cajero');
-            if (this.modal) this.modal.show();
-        }, 'json').fail(() => Swal.fire('Error', 'No fue posible obtener el cajero.', 'error'));
+        if (!idUsuario) return;
+        window.location.href = base_url + 'index.php/Inicio/AltaUsuario/' + encodeURIComponent(idUsuario);
     },
 
     verPdf(idUsuario) {

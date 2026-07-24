@@ -305,6 +305,23 @@ window.cajeros = {
         proveedores: []
     },
 
+    extraerMensajeRespuesta: function (source, fallback) {
+        if (saeg && saeg.principal && typeof saeg.principal.extraerMensajeRespuesta === 'function') {
+            return saeg.principal.extraerMensajeRespuesta(source, fallback);
+        }
+
+        var data = source || {};
+        if (source && source.responseJSON) {
+            data = source.responseJSON;
+        }
+
+        return String(
+            (data && (data.respuesta || data.message || data.error || data.mensaje))
+            || fallback
+            || 'No fue posible completar la operacion.'
+        ).trim();
+    },
+
     establecerRegistrosBaseDiaLlegada: function (rows) {
         this.rowsBaseDiaLlegada = Array.isArray(rows) ? rows.slice() : [];
     },
@@ -2653,6 +2670,9 @@ window.cajeros = {
     },
 
     guardar: function () {
+        if (this.isAltaPage && !this.isProviderMode) {
+            return this.guardarAltaUsuario();
+        }
         var boton = $('#guardarCajero');
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');

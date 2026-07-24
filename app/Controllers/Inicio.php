@@ -12,8 +12,8 @@ use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
 use stdClass;
 use CodeIgniter\API\ResponseTrait;
-require_once FCPATH . '/mpdf/autoload.php';
-require_once FCPATH . 'spout/src/Spout/Autoloader/autoload.php';
+require_once ROOTPATH . 'mpdf/autoload.php';
+require_once ROOTPATH . 'spout/src/Spout/Autoloader/autoload.php';
 class Inicio extends BaseController {
 
     use ResponseTrait;
@@ -86,111 +86,132 @@ class Inicio extends BaseController {
                       
     }
 
-    public function index()
-    {        
+   public function index()
+    {
         $session = \Config\Services::session();
-        $Mglobal = new Mglobal; 
+        $Mglobal = new Mglobal;
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
-        $data        = array();
-        $data['scripts'] = array('principal','inicio');
+
+        $data = array();
+        $data['scripts'] = array('principal', 'inicio');
         $data['edita'] = 0;
         $data['nombre_completo'] = $session->get('nombre_completo');
         $data['contextoUsuario'] = $contextoUsuario;
+
         $vista = null;
-        $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-        $usuarioBase = $Mglobal->getTabla(['tabla' => "usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
+        $idEstablecimientoFiltro = (int) ($session->get('id_establecimiento') ?? 0);
+
+        $datos = $Mglobal->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ]);
+        $usuarioBase = $Mglobal->getTabla([
+            'tabla' => 'usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ]);
         $usuarioBaseRow = !empty($usuarioBase->data) ? (array) $usuarioBase->data[0] : [];
+
         $data['datosUsuario'] = !empty($datos->data)
             ? (object) array_merge((array) $datos->data[0], $usuarioBaseRow)
             : (!empty($usuarioBaseRow) ? (object) $usuarioBaseRow : null);
         $data['allUser'] = [];
-        if (($contextoUsuario['active_group'] ?? '') === 'fic' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-            return $this->renderPerfilFicHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-        } elseif (($contextoUsuario['active_group'] ?? '') === 'secul' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-            return $this->renderPerfilSeculHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-        } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-            return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-        } elseif (($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true)) {
-            return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-        } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
-      
 
-            //$data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
-           // var_dump( $data);
-            $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
-            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-              //  die('ok');
-            if(!empty($datosProveedor->data)){
-                $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
-                $tabla = ["tabla" => "establecimiento", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
-                $proveedor = $Mglobal->getTabla($tabla);
-                $proveedorEstablecimientos = $this->resolveProviderEstablishments(\Config\Database::connect(), $proveedor->data[0] ?? (object) []);
-                $rfc = $Mglobal->getTabla(['tabla' => "proveedor", "where" =>['visible' =>1, "no_proveedor" =>$proveedor->data[0]->no_proveedor]]);
-              
-                $data['rfc'] = (!empty($rfc->data) && isset($rfc->data))?$rfc->data[0]->rfc:'Sin RFC';
-                $noEstablecimientos = ["tabla" => "usuario_establecimiento", "where" => ['visible' => 1, "id_usuario" =>$session->get('id_usuario')]];
-                $e = $Mglobal->getTabla($noEstablecimientos);
-                $data['establecimiento'] = (!empty($e->data) && isset($e->data))?count($e->data):'0';
-                $data['proveedorEstablecimientos'] = array_values(array_map(static function ($item) {
-                    return is_object($item) ? get_object_vars($item) : (array) $item;
-                }, $proveedorEstablecimientos));
-                $pagos = $Mglobal->getTabla(['tabla' =>"solicitud_pago", "where" =>['visible' =>1, "id_establecimiento" =>$idEstablecimiento]]);
-                if(!empty($pagos->data) && isset($pagos->data)){
-                    $data['total'] = 0;
-                    $data['aprobados'] = [];
-                    $data['pendiente'] = [];
-                    $data['rechazado'] = [];
+        $perfilId = (int) $session->get('id_perfil');
+        $data['ocultarMisEstablecimientos'] = ($perfilId != 2);
 
-                    
-                    foreach($pagos->data as $a){
-                        switch($a->estatus){
-                            case 'autorizado':
-                                $data['aprobados'][] = $a->estatus;
-                                 $data['total'] += $a->monto_solicitado; //11.00
+        $tablaProveedor = [
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ];
+        $datosProveedor = $Mglobal->getTabla($tablaProveedor);
 
-                                break;
-                            case 'pendiente':
-                                $data['pendiente'][] = $a->estatus;
-                                break;
-                            case 'rechazado':
-                                $data['rechazado'][] = $a->estatus;
-                                break;
-                        }
+        if ((!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) && !empty($datosProveedor->data)) {
+            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+            $tabla = [
+                'tabla' => 'establecimiento',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ];
+            $proveedor = $Mglobal->getTabla($tabla);
+            $proveedorEstablecimientos = $this->resolveProviderEstablishments(
+                \Config\Database::connect(),
+                $proveedor->data[0] ?? (object) []
+            );
+            $rfc = $Mglobal->getTabla([
+                'tabla' => 'proveedor',
+                'where' => ['visible' => 1, 'no_proveedor' => $proveedor->data[0]->no_proveedor]
+            ]);
 
+            $data['rfc'] = (!empty($rfc->data) && isset($rfc->data)) ? $rfc->data[0]->rfc : 'Sin RFC';
+            $noEstablecimientos = [
+                'tabla' => 'usuario_establecimiento',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ];
+            $e = $Mglobal->getTabla($noEstablecimientos);
+            $data['establecimiento'] = (!empty($e->data) && isset($e->data)) ? count($e->data) : '0';
+            $data['proveedorEstablecimientos'] = array_values(array_map(static function ($item) {
+                return is_object($item) ? get_object_vars($item) : (array) $item;
+            }, $proveedorEstablecimientos));
+
+            $pagos = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ]);
+
+            if (!empty($pagos->data) && isset($pagos->data)) {
+                $data['total'] = 0;
+                $data['aprobados'] = [];
+                $data['pendiente'] = [];
+                $data['rechazado'] = [];
+
+                foreach ($pagos->data as $a) {
+                    switch ($a->estatus) {
+                        case 'autorizado':
+                            $data['aprobados'][] = $a->estatus;
+                            $data['total'] += $a->monto_solicitado;
+                            break;
+                        case 'pendiente':
+                            $data['pendiente'][] = $a->estatus;
+                            break;
+                        case 'rechazado':
+                            $data['rechazado'][] = $a->estatus;
+                            break;
                     }
-
                 }
-
-                  
-                $pagos = $Mglobal->getTabla(["tabla" =>"pagos", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
-            //    die( var_dump( $pagos  ) );
-                $solicitudPago = $Mglobal->getTabla(["tabla" =>"solicitud_pago", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
-                if(!empty($pagos->data) && isset($pagos->data)){
-                     $data['proveedorPagos'] = $pagos->data;
-                }
-                if(!empty($solicitudPago->data) && isset($solicitudPago->data)){
-                     $data['solicitudPago'] = $solicitudPago->data;
-                }
-
-                //die( var_dump($data['proveedorPagos']) );
-                $data['datosProveedor'] = $proveedor->data[0];
-
             }
-             
-            if(!empty($datosProveedor->data[0]->id_tipo_proveedor) && $datosProveedor->data[0]->id_tipo_proveedor == 1){
-               $vista = 'secciones/vProveedor';
-            }else{
-               $vista = 'secciones/vHospedaje';
+
+            $pagos = $Mglobal->getTabla([
+                'tabla' => 'pagos',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ]);
+            $solicitudPago = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ]);
+
+            if (!empty($pagos->data) && isset($pagos->data)) {
+                $data['proveedorPagos'] = $pagos->data;
             }
-       // die( var_dump( $data['datosProveedor'] ) );
-          
-            
-            
-           // die('ok');
+            if (!empty($solicitudPago->data) && isset($solicitudPago->data)) {
+                $data['solicitudPago'] = $solicitudPago->data;
+            }
+
+            $data['datosProveedor'] = $proveedor->data[0];
+
+            if (!empty($datosProveedor->data[0]->id_tipo_proveedor) && $datosProveedor->data[0]->id_tipo_proveedor == 1) {
+                $vista = 'secciones/vProveedor';
+            } else {
+                $vista = 'secciones/vHospedaje';
+            }
         } elseif ($contextoUsuario['is_client_like']) {
-            $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
-            $solicitud_pago = $Mglobal->getTabla(['tabla' => 'solicitud_pago', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
+            $clientes = $Mglobal->getTabla([
+                'tabla' => 'vw_usuario',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
+            $solicitud_pago = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
 
             if (!empty($clientes->data)) {
                 $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
@@ -200,38 +221,127 @@ class Inicio extends BaseController {
             if (!empty($solicitud_pago->data)) {
                 $data['saldo'] = $solicitud_pago->data[0] ?? 0;
             }
-         //die( var_dump($data['datosCliente']));
             $vista = 'secciones/vCliente';
         }
+
+        if ($contextoUsuario['is_cajero_flow']) {
+            $data['cajeroPuedeRechazarQr'] = true;
+            $data['cajeroPuedeActivarQr'] = true;
+            $data['cajeroPuedeGestionarQr'] = true;
+            $data['cajeroSoloConsulta'] = false;
+            $vista = 'secciones/vCajero';
+        }
+
+        if ($contextoUsuario['is_recepcion_flow']) {
+            if ($session->id_usuario == 1) {
+                $clientes = $Mglobal->getTabla([
+                    'tabla' => 'vw_usuario',
+                    'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+                ])->data;
+            } else {
+                $tablaProveedor = [
+                    'tabla' => 'vw_usuario',
+                    'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+                ];
+                $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+                $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+            }
+            $vista = 'secciones/vHospedaje';
+        }
+
+        $esRecepcionReal = $contextoUsuario['is_recepcion_flow'] ?? false;
+        $esRecepcionSimulada = ($session->get('perfil_recepcion_override') == 7);
+
+        if ($esRecepcionReal || $esRecepcionSimulada) {
+            $idEstablecimiento = (int) $session->get('id_establecimiento');
+
+            if ($idEstablecimiento > 0) {
+                $vista = 'secciones/vHospedaje';
+
+                if ($esRecepcionSimulada) {
+                    $data['esProveedorComoRecepcion'] = true;
+                    $data['idEstablecimientoActual'] = $idEstablecimiento;
+                    $data['perfilActual'] = 7;
+
+                    $establecimientoData = $Mglobal->getTabla([
+                        'tabla' => 'establecimiento',
+                        'where' => ['id_establecimiento' => $idEstablecimiento, 'visible' => 1]
+                    ]);
+
+                    if (!empty($establecimientoData->data)) {
+                        $data['datosEstablecimiento'] = $establecimientoData->data[0];
+                        $data['nombreEstablecimiento'] = $establecimientoData->data[0]->dsc_establecimiento ?? 'Hotel';
+                    }
+                }
+
+                $data['hospedajeEstablecimientoId'] = $idEstablecimiento;
+            }
+        }
+
+        if (($contextoUsuario['active_group'] ?? '') === 'fic' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilFicHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'secul' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilSeculHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true)) {
+            return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
+            if (!$esRecepcionSimulada) {
+                $data = array_merge($data, $this->buildProviderDashboardData(
+                    (int) $session->get('id_usuario'),
+                    $idEstablecimientoFiltro
+                ));
+                $data['contextoUsuario'] = $contextoUsuario;
+
+                if ($perfilId == 5 && $idEstablecimientoFiltro > 0) {
+                    $data['proveedorEstablecimientos'] = array_values(array_filter(
+                        $data['proveedorEstablecimientos'] ?? [],
+                        function ($item) use ($idEstablecimientoFiltro) {
+                            return (int) ($item->id_establecimiento ?? 0) === $idEstablecimientoFiltro;
+                        }
+                    ));
+                }
+
+                $tipoProveedor = (int) ($data['proveedorPerfil']['id_tipo_proveedor'] ?? $session->get('id_tipo_proveedor') ?? 0);
+                $vista = ($tipoProveedor == 2) ? 'secciones/vHospedaje' : 'secciones/vProveedor';
+            }
+        } elseif ($contextoUsuario['is_client_like']) {
+            $clientes = $Mglobal->getTabla([
+                'tabla' => 'vw_usuario',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
+            $solicitud_pago = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
+
+            if (!empty($clientes->data)) {
+                $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
+            } elseif (!empty($usuarioBaseRow)) {
+                $data['datosCliente'] = (object) $usuarioBaseRow;
+            }
+            if (!empty($solicitud_pago->data)) {
+                $data['saldo'] = $solicitud_pago->data[0] ?? 0;
+            }
+            $vista = 'secciones/vCliente';
+        }
+
         if ($contextoUsuario['is_cajero_flow']) {
             $vista = 'secciones/vCajero';
         }
-        if ($contextoUsuario['is_recepcion_flow']) {
-           if($session->id_usuario == 1){
-            $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]])->data;
-            
-           }else{
-             $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
-            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
-           /*  $tabla = ["tabla" => "vw_usuario", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
-            $cliente = $Mglobal->getTabla($tabla);
-            $data['usuarioHotel'] = (!empty($cliente->data) && isset($cliente->data))?$cliente->data:[]; */
-           // var_dump($cliente);
-            //die(  );
-            
-           }
 
-           // die('ok');
+        if ($contextoUsuario['is_recepcion_flow']) {
             $vista = 'secciones/vHospedaje';
         }
+
         if ($vista === null) {
             $vista = 'secciones/vInicio';
         }
-        $data['scripts'] = array('principal','agregar');
+
+        $data['scripts'] = array('principal', 'agregar');
         $data['contentView'] = $vista;
         $this->_renderView($data);
-        
     }
     public function Claves()
     {
@@ -613,34 +723,61 @@ class Inicio extends BaseController {
     }
 
     public function ProveedorEstablecimiento($idEstablecimiento = null)
-    {
-        $session = \Config\Services::session();
-        $resolver = new UsuarioPerfilResolver();
-        $contextoUsuario = $resolver->resolve($session->get());
+{
+    $session = \Config\Services::session();
+    $resolver = new UsuarioPerfilResolver();
+    $contextoUsuario = $resolver->resolve($session->get());
 
-        if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
-            return redirect()->to(base_url('index.php/Inicio'));
-        }
-
-        $idUsuario = (int) $session->get('id_usuario');
-        $idEstablecimiento = (int) $idEstablecimiento;
-        if ($idUsuario <= 0 || $idEstablecimiento <= 0) {
-            return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
-        }
-
-        $dashboard = $this->buildProviderDashboardData($idUsuario);
-        $data = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
-        if (empty($data['proveedorEstablecimientos'])) {
-            return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
-        }
-
-        $data['scripts'] = ['principal', 'agregar'];
-        $data['contextoUsuario'] = $contextoUsuario;
-        $data['idEstablecimientoActual'] = $idEstablecimiento;
-        $data['contentView'] = 'secciones/vProveedor';
-        $this->_renderView($data);
+    if (empty($contextoUsuario['is_provider_flow']) && empty($session->get('id_proveedor'))) {
+        return redirect()->to(base_url('index.php/Inicio'));
     }
 
+    $idUsuario = (int) $session->get('id_usuario');
+    $idEstablecimiento = (int) $idEstablecimiento;
+    if ($idUsuario <= 0 || $idEstablecimiento <= 0) {
+        return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
+    }
+
+    $dashboard = $this->buildProviderDashboardData($idUsuario);
+    $data = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
+    if (empty($data['proveedorEstablecimientos'])) {
+        return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
+    }
+
+    // ============================================================
+    // VERIFICAR SI EL ESTABLECIMIENTO ES UN HOTEL (id_tipo = 2)
+    // SI ES HOTEL, REDIRIGIR A LA VISTA DE RECEPCIÓN (PERFIL 7)
+    // ============================================================
+    $establecimiento = $data['proveedorEstablecimientos'][0] ?? null;
+    $idTipo = 0;
+    $nombreEstablecimiento = '';
+    
+    if ($establecimiento) {
+        $establecimientoArray = is_object($establecimiento) ? get_object_vars($establecimiento) : $establecimiento;
+        $idTipo = (int) ($establecimientoArray['id_tipo'] ?? 0);
+        $nombreEstablecimiento = (string) ($establecimientoArray['dsc_establecimiento'] ?? 'Hotel');
+    }
+    
+    // Si es hotel (id_tipo = 2), mostrar vista de recepción (perfil 7)
+    if ($idTipo === 2) {
+        // Guardar el establecimiento en sesión para la vista de recepción
+        $session->set('id_establecimiento', $idEstablecimiento);
+        $session->set('establecimiento_actual', $nombreEstablecimiento);
+        // Forzar perfil de recepción para esta vista
+        $session->set('perfil_recepcion_override', 7);
+        
+        // Redirigir a Hospedaje (vHospedaje)
+        return redirect()->to(base_url('index.php/Inicio/Hospedaje'));
+    }
+    // ============================================================
+
+    $data['scripts'] = ['principal', 'agregar'];
+    $data['contextoUsuario'] = $contextoUsuario;
+    $data['idEstablecimientoActual'] = $idEstablecimiento;
+    $data['esVistaEstablecimientoEspecifico'] = true;
+    $data['contentView'] = 'secciones/vProveedor';
+    $this->_renderView($data);
+}
     public function pdfProveedorEncabezadoFactura($idEstablecimiento = null)
     {
         return $this->renderProveedorFormatoPdf('encabezado_factura', (int) $idEstablecimiento);
@@ -1792,19 +1929,39 @@ class Inicio extends BaseController {
         return is_array($row) ? $row : [];
     }
 
-    public function Hospedaje()
-    {
-        $tiUsuario = $this->resolveSecturiDashboardUsuario();
-
-        if (empty($tiUsuario)) {
-            return redirect()->to(base_url('index.php/Inicio'));
+   public function Hospedaje()
+{
+    $session = \Config\Services::session();
+    $resolver = new UsuarioPerfilResolver();
+    $contextoUsuario = $resolver->resolve($session->get());
+   
+    $perfilRecepcionOverride = (int) $session->get('perfil_recepcion_override');
+    $idEstablecimiento = (int) $session->get('id_establecimiento');
+    $esProveedorComoRecepcion = ($perfilRecepcionOverride === 7);
+  
+    $data = [];
+    $data['scripts'] = ['principal', 'agregar'];
+    $data['esProveedorComoRecepcion'] = $esProveedorComoRecepcion;
+    $data['idEstablecimientoActual'] = $idEstablecimiento;
+    $data['perfilActual'] = $esProveedorComoRecepcion ? 7 : 0;
+    
+    if ($esProveedorComoRecepcion && $idEstablecimiento > 0) {
+        $Mglobal = new Mglobal();
+        $establecimientoData = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => ['id_establecimiento' => $idEstablecimiento, 'visible' => 1]
+        ]);
+        
+        if (!empty($establecimientoData->data)) {
+            $data['nombreEstablecimiento'] = $establecimientoData->data[0]->dsc_establecimiento ?? 'Hotel';
+            $data['rfc'] = $establecimientoData->data[0]->rfc ?? 'Sin RFC';
+            $data['no_proveedor'] = $establecimientoData->data[0]->no_proveedor ?? '';
         }
-
-        $data = [];
-        $data['scripts'] = ['principal', 'agregar'];
-        $data['contentView'] = 'secciones/vHospedaje';
-        $this->_renderView($data);
     }
+    
+    $data['contentView'] = 'secciones/vHospedaje';
+    $this->_renderView($data);
+}
 
     public function Cajero()
     {
@@ -1812,6 +1969,7 @@ class Inicio extends BaseController {
         $usuarioCapazQr = $this->resolveUsuarioCapazQr();
         $tiUsuario = $this->resolveTiMasterUsuario();
         $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
+        $cajeroUsuario = $this->resolveSecturiCajeroUsuario();
 
         if (empty($usuarioDashboard) && empty($usuarioCapazQr)) {
             return redirect()->to(base_url('index.php/Inicio'));
@@ -1820,8 +1978,8 @@ class Inicio extends BaseController {
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['cajeroAccesoTiInicio'] = true;
-        $data['cajeroPuedeRechazarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
-        $data['cajeroPuedeActivarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
+        $data['cajeroPuedeRechazarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr) || !empty($cajeroUsuario);
+        $data['cajeroPuedeActivarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr) || !empty($cajeroUsuario);
         $data['cajeroPuedeGestionarQr'] = !empty($data['cajeroPuedeRechazarQr']) || !empty($data['cajeroPuedeActivarQr']);
         $data['cajeroSoloConsulta'] = empty($data['cajeroPuedeGestionarQr']);
         $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
@@ -1904,6 +2062,44 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function ReportesInstitucionales()
+    {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contentView'] = 'secciones/vReportesInstitucionales';
+        $data['reportesInstitucionalesTabs'] = [
+            [
+                'key' => 'fic',
+                'label' => 'FIC',
+                'title' => 'Festival Internacional Cervantino',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios FIC.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'),
+                'profile_url' => base_url('index.php/Inicio/PerfilFic'),
+            ],
+            [
+                'key' => 'ug',
+                'label' => 'UG',
+                'title' => 'Universidad de Guanajuato',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios UG.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'),
+                'profile_url' => base_url('index.php/Inicio/PerfilUg'),
+            ],
+            [
+                'key' => 'secul',
+                'label' => 'SECUL',
+                'title' => 'Secretaria de Cultura',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
+                'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
+            ],
+        ];
+
+        $this->_renderView($data);
+    }
     public function getFacturasFic()
     {
         if (empty($this->resolveSecturiDashboardUsuario())) {
@@ -2095,9 +2291,12 @@ class Inicio extends BaseController {
         $idSolicitudEdicion = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         $esRevisionAdministrativa = $idSolicitudEdicion > 0
             && strtolower(trim((string) ($this->request->getGet('origen') ?? ''))) === 'revision';
-        $backUrl = $grupo === 'fic'
-            ? base_url('index.php/Inicio/PerfilFic')
-            : base_url('index.php/Inicio/' . ucfirst($grupo));
+        $profileBackUrls = [
+            'fic' => base_url('index.php/Inicio/PerfilFic'),
+            'ug' => base_url('index.php/Inicio/PerfilUg'),
+            'secul' => base_url('index.php/Inicio/PerfilSecul'),
+        ];
+        $backUrl = $profileBackUrls[$grupo] ?? base_url('index.php/Inicio');
         if ($esRevisionAdministrativa && (string) ($contextoUsuario['active_group'] ?? '') === 'secturi') {
             $backUrl = base_url('index.php/Inicio/SolicitudesUsuarioFic');
         }
@@ -3766,150 +3965,248 @@ class Inicio extends BaseController {
             ],
         ];
     }
-    private function buildProviderDashboardData(int $idUsuario): array
-    {
-        $db = \Config\Database::connect();
+    private function buildProviderDashboardData(int $idUsuario, int $idEstablecimientoFiltro = 0): array
+{
+    $db = \Config\Database::connect();
 
-        $usuario = $db->table('usuario u')
-            ->select('
-                u.id_usuario,
-                u.id_proveedor,
-                u.id_tipo_proveedor,
-                u.usuario,
-                u.nombre,
-                u.primer_apellido,
-                u.segundo_apellido,
-                u.correo,
-                u.qr,
-                u.nip,
-                u.visible,
-                p.no_proveedor,
-                p.razon_social,
-                p.rfc,
-                p.fic
-            ')
-            ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'left')
-            ->where('u.id_usuario', $idUsuario)
-            ->where('u.visible', 1)
-            ->where('p.visible', 1)
-            ->get()
-            ->getRowArray();
+    $usuario = $db->table('usuario u')
+        ->select('
+            u.id_usuario,
+            u.id_proveedor,
+            u.id_tipo_proveedor,
+            u.usuario,
+            u.nombre,
+            u.primer_apellido,
+            u.segundo_apellido,
+            u.correo,
+            u.qr,
+            u.nip,
+            u.visible,
+            p.no_proveedor,
+            p.razon_social,
+            p.rfc,
+            p.fic
+        ')
+        ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'left')
+        ->where('u.id_usuario', $idUsuario)
+        ->where('u.visible', 1)
+        ->where('p.visible', 1)
+        ->get()
+        ->getRowArray();
 
-        if (empty($usuario)) {
-            return [
-                'proveedorPerfil' => [],
-                'proveedorEstablecimientos' => [],
-                'proveedorPagos' => [],
-                'ventasCorteContexto' => [
-                    'monto_total' => 0,
-                    'monto_pendiente' => 0,
-                    'total_registros' => 0,
-                    'fecha_corte_desde' => '',
-                    'fecha_corte_hasta' => '',
-                    'estado_corte' => 'Sin movimientos',
-                ],
-            ];
-        }
-
-        $proveedor = (object) $usuario;
-        $establecimientos = $this->resolveProviderEstablishments($db, $proveedor);
-        $establecimientoIds = array_values(array_filter(array_map(static function ($row) {
-            return (int) ($row->id_establecimiento ?? 0);
-        }, $establecimientos)));
-
-        $pagosRows = [];
-        if (!empty($establecimientoIds)) {
-            $builder = $db->table('solicitud_pago sp')
-                ->select('
-                    sp.id_solicitud_pago,
-                    sp.folio_solicitud,
-                    sp.id_usuario,
-                    sp.id_establecimiento,
-                    u.id_partida AS id_partida_usuario,
-                    cp.partida AS partida_usuario,
-                    sp.monto_solicitado,
-                    sp.estatus,
-                    sp.fecha_respuesta,
-                    sp.fec_reg,
-                    sp.observaciones,
-                    e.dsc_establecimiento,
-                    cte.dsc_tipo
-                ')
-                ->join('usuario u', 'u.id_usuario = sp.id_usuario', 'left')
-                ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
-                ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
-                ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
-                ->where('sp.visible', 1)
-                ->groupStart()
-                    ->where('sp.id_usuario', $idUsuario)
-                    ->orWhereIn('sp.id_establecimiento', $establecimientoIds)
-                ->groupEnd()
-                ->orderBy('sp.fec_reg', 'DESC')
-                ->limit(25);
-
-            $pagosRows = $builder->get()->getResultArray();
-        }
-
-        foreach ($pagosRows as &$row) {
-            $montoSolicitado = (float) ($row['monto_solicitado'] ?? 0);
-            $observaciones = json_decode((string) ($row['observaciones'] ?? ''), true);
-            $montoConsumo = $montoSolicitado;
-            $propina = 0.0;
-
-            if (is_array($observaciones)) {
-                $montoJson = $observaciones['monto'] ?? null;
-                $propinaJson = $observaciones['propina'] ?? null;
-
-                if (is_numeric($montoJson)) {
-                    $montoConsumo = (float) $montoJson;
-                }
-                if (is_numeric($propinaJson)) {
-                    $propina = (float) $propinaJson;
-                }
-            }
-
-            $row['monto_consumo'] = $montoConsumo;
-            $row['propina'] = $propina;
-            $row['monto_total'] = $montoConsumo + $propina;
-        }
-        unset($row);
-
-        $montoTotal = 0.0;
-        $montoPendiente = 0.0;
-        $fechas = [];
-        foreach ($pagosRows as $row) {
-            $monto = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
-            $montoTotal += $monto;
-            $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
-            if ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
-                $montoPendiente += $monto;
-            }
-            foreach (['fec_reg', 'fecha_respuesta'] as $campoFecha) {
-                $valorFecha = trim((string) ($row[$campoFecha] ?? ''));
-                if ($valorFecha !== '') {
-                    $fechas[] = $valorFecha;
-                }
-            }
-        }
-
-        sort($fechas);
-        $fechaDesde = $fechas[0] ?? '';
-        $fechaHasta = !empty($fechas) ? end($fechas) : '';
-
+    if (empty($usuario)) {
         return [
-            'proveedorPerfil' => $usuario,
-            'proveedorEstablecimientos' => $establecimientos,
-            'proveedorPagos' => $pagosRows,
+            'proveedorPerfil' => [],
+            'proveedorEstablecimientos' => [],
+            'proveedorPagos' => [],
             'ventasCorteContexto' => [
-                'monto_total' => $montoTotal,
-                'monto_pendiente' => $montoPendiente,
-                'total_registros' => count($pagosRows),
-                'fecha_corte_desde' => $fechaDesde,
-                'fecha_corte_hasta' => $fechaHasta,
-                'estado_corte' => !empty($pagosRows) ? 'Con movimientos' : 'Sin movimientos',
+                'monto_total' => 0,
+                'monto_pendiente' => 0,
+                'total_registros' => 0,
+                'fecha_corte_desde' => '',
+                'fecha_corte_hasta' => '',
+                'estado_corte' => 'Sin movimientos',
             ],
         ];
     }
+
+    $proveedor = (object) $usuario;
+    $establecimientos = $this->resolveProviderEstablishments($db, $proveedor);
+    
+    if ($idEstablecimientoFiltro > 0) {
+        $establecimientos = array_values(array_filter($establecimientos, function($item) use ($idEstablecimientoFiltro) {
+           
+            return (int) ($item->id_establecimiento ?? 0) === $idEstablecimientoFiltro;
+        }));
+    }
+    
+    
+    $establecimientoIds = array_values(array_filter(array_map(static function ($row) {
+        return (int) ($row->id_establecimiento ?? 0);
+    }, $establecimientos)));
+
+    $pagosRows = [];
+    if (!empty($establecimientoIds)) {
+        $builder = $db->table('solicitud_pago sp')
+            ->select('
+                sp.id_solicitud_pago,
+                sp.folio_solicitud,
+                sp.id_usuario,
+                sp.id_establecimiento,
+                u.id_partida AS id_partida_usuario,
+                cp.partida AS partida_usuario,
+                sp.monto_solicitado,
+                sp.estatus,
+                sp.fecha_respuesta,
+                sp.fec_reg,
+                sp.observaciones,
+                e.dsc_establecimiento,
+                cte.dsc_tipo
+            ')
+            ->join('usuario u', 'u.id_usuario = sp.id_usuario', 'left')
+            ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
+            ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->where('sp.visible', 1)
+            ->groupStart()
+                ->where('sp.id_usuario', $idUsuario)
+                ->orWhereIn('sp.id_establecimiento', $establecimientoIds)
+            ->groupEnd()
+            ->orderBy('sp.fec_reg', 'DESC')
+            ->limit(25);
+
+        $pagosRows = $builder->get()->getResultArray();
+    }
+
+    foreach ($pagosRows as &$row) {
+        $montoSolicitado = (float) ($row['monto_solicitado'] ?? 0);
+        $observaciones = json_decode((string) ($row['observaciones'] ?? ''), true);
+        $montoConsumo = $montoSolicitado;
+        $propina = 0.0;
+
+        if (is_array($observaciones)) {
+            $montoJson = $observaciones['monto'] ?? null;
+            $propinaJson = $observaciones['propina'] ?? null;
+
+            if (is_numeric($montoJson)) {
+                $montoConsumo = (float) $montoJson;
+            }
+            if (is_numeric($propinaJson)) {
+                $propina = (float) $propinaJson;
+            }
+        }
+
+        $row['monto_consumo'] = $montoConsumo;
+        $row['propina'] = $propina;
+        $row['monto_total'] = $montoConsumo + $propina;
+    }
+    unset($row);
+
+    $montoTotal = 0.0;
+    $montoPendiente = 0.0;
+    $fechas = [];
+    foreach ($pagosRows as $row) {
+        $monto = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
+        $montoTotal += $monto;
+        $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
+        if ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
+            $montoPendiente += $monto;
+        }
+        foreach (['fec_reg', 'fecha_respuesta'] as $campoFecha) {
+            $valorFecha = trim((string) ($row[$campoFecha] ?? ''));
+            if ($valorFecha !== '') {
+                $fechas[] = $valorFecha;
+            }
+        }
+    }
+
+    sort($fechas);
+    $fechaDesde = $fechas[0] ?? '';
+    $fechaHasta = !empty($fechas) ? end($fechas) : '';
+
+    return [
+        'proveedorPerfil' => $usuario,
+        'proveedorEstablecimientos' => $establecimientos,
+        'proveedorPagos' => $pagosRows,
+        'ventasCorteContexto' => [
+            'monto_total' => $montoTotal,
+            'monto_pendiente' => $montoPendiente,
+            'total_registros' => count($pagosRows),
+            'fecha_corte_desde' => $fechaDesde,
+            'fecha_corte_hasta' => $fechaHasta,
+            'estado_corte' => !empty($pagosRows) ? 'Con movimientos' : 'Sin movimientos',
+        ],
+    ];
+}
+
+
+public function getPagosPorEstablecimiento()
+{
+    $session = \Config\Services::session();
+    $perfilId = (int) $session->get('id_perfil');
+    
+  
+    if ($perfilId != 5) {
+        return $this->response->setStatusCode(403)->setJSON([
+            'error' => true,
+            'message' => 'No tienes permisos para ver estos datos.'
+        ]);
+    }
+
+    $idEstablecimiento = (int) $session->get('id_establecimiento');
+    if ($idEstablecimiento <= 0) {
+        return $this->response->setStatusCode(404)->setJSON([
+            'error' => true,
+            'message' => 'No tienes un establecimiento asignado.'
+        ]);
+    }
+    
+    $db = \Config\Database::connect();
+ 
+    $pagos = $db->table('pagos p')
+        ->select('p.*, e.dsc_establecimiento')
+        ->join('establecimiento e', 'e.id_establecimiento = p.id_establecimiento', 'left')
+        ->where('p.visible', 1)
+        ->where('p.id_establecimiento', $idEstablecimiento)
+        ->orderBy('p.fec_reg', 'DESC')
+        ->get()
+        ->getResultArray();
+    
+
+    $solicitudes = $db->table('solicitud_pago sp')
+        ->select('sp.*, e.dsc_establecimiento')
+        ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
+        ->where('sp.visible', 1)
+        ->where('sp.id_establecimiento', $idEstablecimiento)
+        ->orderBy('sp.fec_reg', 'DESC')
+        ->get()
+        ->getResultArray();
+   
+    $totalAprobado = 0;
+    $totalPendiente = 0;
+    $totalRechazado = 0;
+    
+    foreach ($solicitudes as $solicitud) {
+        $monto = (float) ($solicitud['monto_solicitado'] ?? 0);
+        switch ($solicitud['estatus'] ?? '') {
+            case 'autorizado':
+                $totalAprobado += $monto;
+                break;
+            case 'pendiente':
+                $totalPendiente += $monto;
+                break;
+            case 'rechazado':
+                $totalRechazado += $monto;
+                break;
+        }
+    }
+    
+   
+    $establecimiento = $db->table('establecimiento')
+        ->select('dsc_establecimiento')
+        ->where('id_establecimiento', $idEstablecimiento)
+        ->where('visible', 1)
+        ->get()
+        ->getRowArray();
+    
+    return $this->response->setJSON([
+        'success' => true,
+        'data' => [
+            'establecimiento' => $establecimiento['dsc_establecimiento'] ?? 'Sin nombre',
+            'id_establecimiento' => $idEstablecimiento,
+            'pagos' => $pagos,
+            'solicitudes' => $solicitudes,
+            'resumen' => [
+                'total_aprobado' => $totalAprobado,
+                'total_pendiente' => $totalPendiente,
+                'total_rechazado' => $totalRechazado,
+                'total_general' => $totalAprobado + $totalPendiente + $totalRechazado,
+                'conteo_pagos' => count($pagos),
+                'conteo_solicitudes' => count($solicitudes)
+            ]
+        ]
+    ]);
+}
 
     private function filterProviderDashboardByEstablecimiento(array $dashboard, int $idEstablecimiento): array
     {
@@ -6654,7 +6951,7 @@ class Inicio extends BaseController {
 
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($usuario);
-        if (($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 4) {
+        if (!empty($contextoUsuario['is_cajero_flow'])) {
             return $usuario;
         }
 
@@ -7124,10 +7421,24 @@ class Inicio extends BaseController {
             return redirect()->to(base_url('index.php/Inicio/EstablecimientosFic'));
         }
 
+        $idUsuarioEditar = (int) ($idUsuario ?? 0);
+        $institutionalAltaGroups = ['fic', 'ug', 'secul'];
+        $activeGroup = strtolower((string) ($contextoUsuario['active_group'] ?? ''));
+        if (!$modoAltaProveedor && $idUsuarioEditar <= 0 && in_array($activeGroup, $institutionalAltaGroups, true)) {
+            if ((int) ($contextoUsuario['group_role'] ?? 0) === 1) {
+                return redirect()->to(base_url('index.php/Inicio/SolicitudAlta/' . $activeGroup));
+            }
+
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        if (!$modoAltaProveedor && $idUsuarioEditar <= 0 && empty($contextoUsuario['is_ti_master'])) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['contextoUsuario'] = $contextoUsuario;
-        $data['idUsuarioEditar'] = (int) ($idUsuario ?? 0);
+        $data['idUsuarioEditar'] = $idUsuarioEditar;
         $data['modoAltaProveedor'] = $modoAltaProveedor;
         $data['regresarUrl'] = $modoAltaProveedor
             ? base_url('index.php/Inicio/EstablecimientosFic')
@@ -8080,4 +8391,3 @@ class Inicio extends BaseController {
     }
 
 }
-

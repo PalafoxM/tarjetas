@@ -7,8 +7,8 @@ use App\Models\Mglobal;
 
 use stdClass;
 use CodeIgniter\API\ResponseTrait;
-require_once FCPATH . '/mpdf/autoload.php';
-require_once FCPATH . 'spout/src/Spout/Autoloader/autoload.php';
+require_once ROOTPATH . 'mpdf/autoload.php';
+require_once ROOTPATH . 'spout/src/Spout/Autoloader/autoload.php';
 
 use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
