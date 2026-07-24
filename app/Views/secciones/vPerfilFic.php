@@ -144,7 +144,7 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
                         <th data-field="fec_vigencia_desde" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia desde</th>
                         <th data-field="fec_vigencia_hasta" data-formatter="saeg.principal.fecha" data-sortable="true">Vigencia hasta</th>
                         <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo disponible</th>
-                        <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoDepositoProgramado" data-align="center">Estado del programa</th>
+                        <th data-field="id_usuario" data-formatter="cajeros.ordenHospedajeAlimentos" data-align="center">Orden de hospedaje o alimentos</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center" data-width="88" data-width-unit="px">Acciones</th>
                     </tr>
                 </thead>
