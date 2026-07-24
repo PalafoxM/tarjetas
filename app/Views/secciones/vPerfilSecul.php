@@ -94,7 +94,7 @@ $solicitudEstablecimientoId = (int) ($seculSolicitudEstablecimientoId ?? 0);
                         <th data-field="monto_deposito" data-formatter="cajeros.moneda" data-align="center">Monto</th>
                         <th data-field="monto_deposito_reservado" data-formatter="cajeros.moneda" data-align="center">Saldo reservado</th>
                         <th data-field="monto_deposito_operativo" data-formatter="cajeros.moneda" data-align="center">Saldo operativo</th>
-                        <th data-field="deposito_programado_estatus" data-formatter="cajeros.estadoDepositoProgramado" data-align="center">Estado del programa</th>
+                        <th data-field="id_usuario" data-formatter="cajeros.ordenHospedajeAlimentos" data-align="center">Orden de hospedaje o alimentos</th>
                         <th data-field="acciones" data-formatter="cajeros.acciones" data-align="center" data-width="88" data-width-unit="px">Acciones</th>
                     </tr>
                 </thead>
