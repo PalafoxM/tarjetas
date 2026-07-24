@@ -87,105 +87,131 @@ class Inicio extends BaseController {
     }
 
    public function index()
-{        
-    $session = \Config\Services::session();
-    $Mglobal = new Mglobal; 
-    $resolver = new UsuarioPerfilResolver();
-    $contextoUsuario = $resolver->resolve($session->get());
-    $data = array();
-    $data['scripts'] = array('principal','inicio');
-    $data['edita'] = 0;
-    $data['nombre_completo'] = $session->get('nombre_completo');
-    $data['contextoUsuario'] = $contextoUsuario;
-    $vista = null;
-    $datos = $Mglobal->getTabla(['tabla' => "vw_usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-    $usuarioBase = $Mglobal->getTabla(['tabla' => "usuario", "where"=> ['visible' => 1, "id_usuario" => $session->get('id_usuario')]]);
-    $usuarioBaseRow = !empty($usuarioBase->data) ? (array) $usuarioBase->data[0] : [];
-    $data['datosUsuario'] = !empty($datos->data)
-        ? (object) array_merge((array) $datos->data[0], $usuarioBaseRow)
-        : (!empty($usuarioBaseRow) ? (object) $usuarioBaseRow : null);
-    $data['allUser'] = [];
-  
-    $perfilId = (int) $session->get('id_perfil');
-    $data['ocultarMisEstablecimientos'] = ($perfilId != 2);
-   
-    
+    {
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal;
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
 
-            //$data = array_merge($data, $this->buildProviderDashboardData((int) $session->get('id_usuario')));
-           // var_dump( $data);
-            $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
-            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-              //  die('ok');
-            if(!empty($datosProveedor->data)){
-                $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
-                $tabla = ["tabla" => "establecimiento", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
-                $proveedor = $Mglobal->getTabla($tabla);
-                $proveedorEstablecimientos = $this->resolveProviderEstablishments(\Config\Database::connect(), $proveedor->data[0] ?? (object) []);
-                $rfc = $Mglobal->getTabla(['tabla' => "proveedor", "where" =>['visible' =>1, "no_proveedor" =>$proveedor->data[0]->no_proveedor]]);
-              
-                $data['rfc'] = (!empty($rfc->data) && isset($rfc->data))?$rfc->data[0]->rfc:'Sin RFC';
-                $noEstablecimientos = ["tabla" => "usuario_establecimiento", "where" => ['visible' => 1, "id_usuario" =>$session->get('id_usuario')]];
-                $e = $Mglobal->getTabla($noEstablecimientos);
-                $data['establecimiento'] = (!empty($e->data) && isset($e->data))?count($e->data):'0';
-                $data['proveedorEstablecimientos'] = array_values(array_map(static function ($item) {
-                    return is_object($item) ? get_object_vars($item) : (array) $item;
-                }, $proveedorEstablecimientos));
-                $pagos = $Mglobal->getTabla(['tabla' =>"solicitud_pago", "where" =>['visible' =>1, "id_establecimiento" =>$idEstablecimiento]]);
-                if(!empty($pagos->data) && isset($pagos->data)){
-                    $data['total'] = 0;
-                    $data['aprobados'] = [];
-                    $data['pendiente'] = [];
-                    $data['rechazado'] = [];
+        $data = array();
+        $data['scripts'] = array('principal', 'inicio');
+        $data['edita'] = 0;
+        $data['nombre_completo'] = $session->get('nombre_completo');
+        $data['contextoUsuario'] = $contextoUsuario;
 
-                    
-                    foreach($pagos->data as $a){
-                        switch($a->estatus){
-                            case 'autorizado':
-                                $data['aprobados'][] = $a->estatus;
-                                 $data['total'] += $a->monto_solicitado; //11.00
+        $vista = null;
+        $idEstablecimientoFiltro = (int) ($session->get('id_establecimiento') ?? 0);
 
-                                break;
-                            case 'pendiente':
-                                $data['pendiente'][] = $a->estatus;
-                                break;
-                            case 'rechazado':
-                                $data['rechazado'][] = $a->estatus;
-                                break;
-                        }
+        $datos = $Mglobal->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ]);
+        $usuarioBase = $Mglobal->getTabla([
+            'tabla' => 'usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ]);
+        $usuarioBaseRow = !empty($usuarioBase->data) ? (array) $usuarioBase->data[0] : [];
 
+        $data['datosUsuario'] = !empty($datos->data)
+            ? (object) array_merge((array) $datos->data[0], $usuarioBaseRow)
+            : (!empty($usuarioBaseRow) ? (object) $usuarioBaseRow : null);
+        $data['allUser'] = [];
+
+        $perfilId = (int) $session->get('id_perfil');
+        $data['ocultarMisEstablecimientos'] = ($perfilId != 2);
+
+        $tablaProveedor = [
+            'tabla' => 'vw_usuario',
+            'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+        ];
+        $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+
+        if ((!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) && !empty($datosProveedor->data)) {
+            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+            $tabla = [
+                'tabla' => 'establecimiento',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ];
+            $proveedor = $Mglobal->getTabla($tabla);
+            $proveedorEstablecimientos = $this->resolveProviderEstablishments(
+                \Config\Database::connect(),
+                $proveedor->data[0] ?? (object) []
+            );
+            $rfc = $Mglobal->getTabla([
+                'tabla' => 'proveedor',
+                'where' => ['visible' => 1, 'no_proveedor' => $proveedor->data[0]->no_proveedor]
+            ]);
+
+            $data['rfc'] = (!empty($rfc->data) && isset($rfc->data)) ? $rfc->data[0]->rfc : 'Sin RFC';
+            $noEstablecimientos = [
+                'tabla' => 'usuario_establecimiento',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ];
+            $e = $Mglobal->getTabla($noEstablecimientos);
+            $data['establecimiento'] = (!empty($e->data) && isset($e->data)) ? count($e->data) : '0';
+            $data['proveedorEstablecimientos'] = array_values(array_map(static function ($item) {
+                return is_object($item) ? get_object_vars($item) : (array) $item;
+            }, $proveedorEstablecimientos));
+
+            $pagos = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ]);
+
+            if (!empty($pagos->data) && isset($pagos->data)) {
+                $data['total'] = 0;
+                $data['aprobados'] = [];
+                $data['pendiente'] = [];
+                $data['rechazado'] = [];
+
+                foreach ($pagos->data as $a) {
+                    switch ($a->estatus) {
+                        case 'autorizado':
+                            $data['aprobados'][] = $a->estatus;
+                            $data['total'] += $a->monto_solicitado;
+                            break;
+                        case 'pendiente':
+                            $data['pendiente'][] = $a->estatus;
+                            break;
+                        case 'rechazado':
+                            $data['rechazado'][] = $a->estatus;
+                            break;
                     }
-
                 }
-
-                  
-                $pagos = $Mglobal->getTabla(["tabla" =>"pagos", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
-            //    die( var_dump( $pagos  ) );
-                $solicitudPago = $Mglobal->getTabla(["tabla" =>"solicitud_pago", "where" => ['visible' => 1, "id_establecimiento" => $idEstablecimiento]]);
-                if(!empty($pagos->data) && isset($pagos->data)){
-                     $data['proveedorPagos'] = $pagos->data;
-                }
-                if(!empty($solicitudPago->data) && isset($solicitudPago->data)){
-                     $data['solicitudPago'] = $solicitudPago->data;
-                }
-
-                //die( var_dump($data['proveedorPagos']) );
-                $data['datosProveedor'] = $proveedor->data[0];
-
             }
-             
-            if(!empty($datosProveedor->data[0]->id_tipo_proveedor) && $datosProveedor->data[0]->id_tipo_proveedor == 1){
-               $vista = 'secciones/vProveedor';
-            }else{
-               $vista = 'secciones/vHospedaje';
+
+            $pagos = $Mglobal->getTabla([
+                'tabla' => 'pagos',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ]);
+            $solicitudPago = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento]
+            ]);
+
+            if (!empty($pagos->data) && isset($pagos->data)) {
+                $data['proveedorPagos'] = $pagos->data;
             }
-       // die( var_dump( $data['datosProveedor'] ) );
-          
-            
-            
-           // die('ok');
+            if (!empty($solicitudPago->data) && isset($solicitudPago->data)) {
+                $data['solicitudPago'] = $solicitudPago->data;
+            }
+
+            $data['datosProveedor'] = $proveedor->data[0];
+
+            if (!empty($datosProveedor->data[0]->id_tipo_proveedor) && $datosProveedor->data[0]->id_tipo_proveedor == 1) {
+                $vista = 'secciones/vProveedor';
+            } else {
+                $vista = 'secciones/vHospedaje';
+            }
         } elseif ($contextoUsuario['is_client_like']) {
-            $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
-            $solicitud_pago = $Mglobal->getTabla(['tabla' => 'solicitud_pago', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
+            $clientes = $Mglobal->getTabla([
+                'tabla' => 'vw_usuario',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
+            $solicitud_pago = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
 
             if (!empty($clientes->data)) {
                 $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
@@ -195,9 +221,9 @@ class Inicio extends BaseController {
             if (!empty($solicitud_pago->data)) {
                 $data['saldo'] = $solicitud_pago->data[0] ?? 0;
             }
-         //die( var_dump($data['datosCliente']));
             $vista = 'secciones/vCliente';
         }
+
         if ($contextoUsuario['is_cajero_flow']) {
             $data['cajeroPuedeRechazarQr'] = true;
             $data['cajeroPuedeActivarQr'] = true;
@@ -205,142 +231,118 @@ class Inicio extends BaseController {
             $data['cajeroSoloConsulta'] = false;
             $vista = 'secciones/vCajero';
         }
-        if ($contextoUsuario['is_recepcion_flow']) {
-           if($session->id_usuario == 1){
-            $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]])->data;
-            
-           }else{
-             $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
-            $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-            $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
-           /*  $tabla = ["tabla" => "vw_usuario", "where" => ['visible' => 1, 'id_establecimiento' => $idEstablecimiento ]];
-            $cliente = $Mglobal->getTabla($tabla);
-            $data['usuarioHotel'] = (!empty($cliente->data) && isset($cliente->data))?$cliente->data:[]; */
-           // var_dump($cliente);
-            //die(  );
-            
-           }
 
-           // die('ok');
+        if ($contextoUsuario['is_recepcion_flow']) {
+            if ($session->id_usuario == 1) {
+                $clientes = $Mglobal->getTabla([
+                    'tabla' => 'vw_usuario',
+                    'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+                ])->data;
+            } else {
+                $tablaProveedor = [
+                    'tabla' => 'vw_usuario',
+                    'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+                ];
+                $datosProveedor = $Mglobal->getTabla($tablaProveedor);
+                $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
+            }
             $vista = 'secciones/vHospedaje';
         }
+
+        $esRecepcionReal = $contextoUsuario['is_recepcion_flow'] ?? false;
+        $esRecepcionSimulada = ($session->get('perfil_recepcion_override') == 7);
+
+        if ($esRecepcionReal || $esRecepcionSimulada) {
+            $idEstablecimiento = (int) $session->get('id_establecimiento');
+
+            if ($idEstablecimiento > 0) {
+                $vista = 'secciones/vHospedaje';
+
+                if ($esRecepcionSimulada) {
+                    $data['esProveedorComoRecepcion'] = true;
+                    $data['idEstablecimientoActual'] = $idEstablecimiento;
+                    $data['perfilActual'] = 7;
+
+                    $establecimientoData = $Mglobal->getTabla([
+                        'tabla' => 'establecimiento',
+                        'where' => ['id_establecimiento' => $idEstablecimiento, 'visible' => 1]
+                    ]);
+
+                    if (!empty($establecimientoData->data)) {
+                        $data['datosEstablecimiento'] = $establecimientoData->data[0];
+                        $data['nombreEstablecimiento'] = $establecimientoData->data[0]->dsc_establecimiento ?? 'Hotel';
+                    }
+                }
+
+                $data['hospedajeEstablecimientoId'] = $idEstablecimiento;
+            }
+        }
+
+        if (($contextoUsuario['active_group'] ?? '') === 'fic' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilFicHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'secul' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilSeculHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
+            return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true)) {
+            return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
+        } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
+            if (!$esRecepcionSimulada) {
+                $data = array_merge($data, $this->buildProviderDashboardData(
+                    (int) $session->get('id_usuario'),
+                    $idEstablecimientoFiltro
+                ));
+                $data['contextoUsuario'] = $contextoUsuario;
+
+                if ($perfilId == 5 && $idEstablecimientoFiltro > 0) {
+                    $data['proveedorEstablecimientos'] = array_values(array_filter(
+                        $data['proveedorEstablecimientos'] ?? [],
+                        function ($item) use ($idEstablecimientoFiltro) {
+                            return (int) ($item->id_establecimiento ?? 0) === $idEstablecimientoFiltro;
+                        }
+                    ));
+                }
+
+                $tipoProveedor = (int) ($data['proveedorPerfil']['id_tipo_proveedor'] ?? $session->get('id_tipo_proveedor') ?? 0);
+                $vista = ($tipoProveedor == 2) ? 'secciones/vHospedaje' : 'secciones/vProveedor';
+            }
+        } elseif ($contextoUsuario['is_client_like']) {
+            $clientes = $Mglobal->getTabla([
+                'tabla' => 'vw_usuario',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
+            $solicitud_pago = $Mglobal->getTabla([
+                'tabla' => 'solicitud_pago',
+                'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
+            ]);
+
+            if (!empty($clientes->data)) {
+                $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
+            } elseif (!empty($usuarioBaseRow)) {
+                $data['datosCliente'] = (object) $usuarioBaseRow;
+            }
+            if (!empty($solicitud_pago->data)) {
+                $data['saldo'] = $solicitud_pago->data[0] ?? 0;
+            }
+            $vista = 'secciones/vCliente';
+        }
+
+        if ($contextoUsuario['is_cajero_flow']) {
+            $vista = 'secciones/vCajero';
+        }
+
+        if ($contextoUsuario['is_recepcion_flow']) {
+            $vista = 'secciones/vHospedaje';
+        }
+
         if ($vista === null) {
             $vista = 'secciones/vInicio';
         }
-        $data['scripts'] = array('principal','agregar');
+
+        $data['scripts'] = array('principal', 'agregar');
         $data['contentView'] = $vista;
         $this->_renderView($data);
-        
-        if (!empty($usuarioData->data) && isset($usuarioData->data[0])) {
-            $idEstablecimientoFiltro = (int) ($usuarioData->data[0]->id_establecimiento ?? 0);
-            $nombreEstablecimiento = $usuarioData->data[0]->dsc_establecimiento ?? '';
-            $session->set('id_establecimiento', $idEstablecimientoFiltro);
-            $data['nombreEstablecimiento'] = $nombreEstablecimiento;
-            $data['hospedajeEstablecimientoId'] = $idEstablecimientoFiltro;
-        }
     }
-   
-    $esRecepcionReal = $contextoUsuario['is_recepcion_flow'] ?? false;
-    $esRecepcionSimulada = ($session->get('perfil_recepcion_override') == 7);
-    
-    if ($esRecepcionReal || $esRecepcionSimulada) {
-       
-        $idEstablecimiento = (int) $session->get('id_establecimiento');
-        
-        if ($idEstablecimiento > 0) {
-            $vista = 'secciones/vHospedaje';
-            
-            
-            if ($esRecepcionSimulada) {
-                $data['esProveedorComoRecepcion'] = true;
-                $data['idEstablecimientoActual'] = $idEstablecimiento;
-                $data['perfilActual'] = 7;
-                
-                
-                $establecimientoData = $Mglobal->getTabla([
-                    'tabla' => 'establecimiento',
-                    'where' => ['id_establecimiento' => $idEstablecimiento, 'visible' => 1]
-                ]);
-                
-                if (!empty($establecimientoData->data)) {
-                    $data['datosEstablecimiento'] = $establecimientoData->data[0];
-                    $data['nombreEstablecimiento'] = $establecimientoData->data[0]->dsc_establecimiento ?? 'Hotel';
-                }
-            }
-            
-            $data['hospedajeEstablecimientoId'] = $idEstablecimiento;
-        }
-    }
-    if (($contextoUsuario['active_group'] ?? '') === 'fic' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-        return $this->renderPerfilFicHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-    } elseif (($contextoUsuario['active_group'] ?? '') === 'secul' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-        return $this->renderPerfilSeculHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-    } elseif (($contextoUsuario['active_group'] ?? '') === 'ug' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2, 4], true)) {
-        return $this->renderPerfilUgHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-    } elseif (($contextoUsuario['active_group'] ?? '') === 'secturi' && in_array((int) ($contextoUsuario['group_role'] ?? 0), [1, 2], true)) {
-        return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
-    } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
-      
-        if (!$esRecepcionSimulada) {
-            $data = array_merge($data, $this->buildProviderDashboardData(
-                (int) $session->get('id_usuario'),
-                $idEstablecimientoFiltro
-            ));
-            $data['contextoUsuario'] = $contextoUsuario;
-
-            if ($perfilId == 5 && $idEstablecimientoFiltro > 0) {
-                $data['proveedorEstablecimientos'] = array_values(array_filter(
-                    $data['proveedorEstablecimientos'] ?? [],
-                    function($item) use ($idEstablecimientoFiltro) {
-                        return (int) ($item->id_establecimiento ?? 0) === $idEstablecimientoFiltro;
-                    }
-                ));
-            }
-
-            $tipoProveedor = (int) ($data['proveedorPerfil']['id_tipo_proveedor'] ?? $session->get('id_tipo_proveedor') ?? 0);
-            
-            if($tipoProveedor == 2){
-                $vista = 'secciones/vHospedaje';
-            }else{
-                $vista = 'secciones/vProveedor';
-            }
-        }
-    } elseif ($contextoUsuario['is_client_like']) {
-        $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
-        $solicitud_pago = $Mglobal->getTabla(['tabla' => 'solicitud_pago', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]]);
-
-        if (!empty($clientes->data)) {
-            $data['datosCliente'] = (object) array_merge((array) $clientes->data[0], $usuarioBaseRow);
-        } elseif (!empty($usuarioBaseRow)) {
-            $data['datosCliente'] = (object) $usuarioBaseRow;
-        }
-        if (!empty($solicitud_pago->data)) {
-            $data['saldo'] = $solicitud_pago->data[0] ?? 0;
-        }
-        $vista = 'secciones/vCliente';
-    }
-    if ($contextoUsuario['is_cajero_flow']) {
-        $vista = 'secciones/vCajero';
-    }
-    if ($contextoUsuario['is_recepcion_flow']) {
-       if($session->id_usuario == 1){
-        $clientes = $Mglobal->getTabla(['tabla' => 'vw_usuario', 'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]])->data;
-        
-       }else{
-         $tablaProveedor = [ "tabla" => 'vw_usuario', "where" => ['visible' => 1, 'id_usuario' =>$session->get('id_usuario')]];
-        $datosProveedor = $Mglobal->getTabla($tablaProveedor);
-        $idEstablecimiento = $datosProveedor->data[0]->id_establecimiento;
-       }
-        $vista = 'secciones/vHospedaje';
-    }
-    if ($vista === null) {
-        $vista = 'secciones/vInicio';
-    }
-    $data['scripts'] = array('principal','agregar');
-    $data['contentView'] = $vista;
-    $this->_renderView($data);
-    
-}
     public function Claves()
     {
         $session = \Config\Services::session();
@@ -8389,4 +8391,3 @@ public function getPagosPorEstablecimiento()
     }
 
 }
-
