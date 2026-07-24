@@ -1603,36 +1603,36 @@ class Usuario extends BaseController
         ]);
     }
 
-    public function generarPdfOrden($id_usuario)
-    {
-        $response = $this->globals->getTabla([
-            'tabla' => 'vw_usuario',
-            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
-        ]);
+ public function generarPdfOrden($id_usuario)
+{
+    $response = $this->globals->getTabla([
+        'tabla' => 'vw_usuario',
+        'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
+    ]);
 
-        if ($response->error || empty($response->data)) {
-            return $this->failNotFound('Cajero no encontrado');
-        }
-
-        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
-        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
-        $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
-
-        $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
-        $mpdf = new \Mpdf\Mpdf([
-            'format' => 'Letter',
-            'margin_top' => 18,
-            'margin_bottom' => 18,
-            'margin_left' => 16,
-            'margin_right' => 16,
-            'default_font' => 'dejavusans',
-            'tempDir' => $this->getMpdfOrdenesTempDir(),
-        ]);
-        $mpdf->SetTitle('Orden FIC');
-        $mpdf->WriteHTML($html);
-        $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
-        exit;
+    if ($response->error || empty($response->data)) {
+        return $this->failNotFound('Cajero no encontrado');
     }
+
+    $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
+    $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
+    $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
+
+    $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
+    $mpdf = new \Mpdf\Mpdf([
+        'format' => 'Letter',
+        'margin_top' => 10,
+        'margin_bottom' => 15,
+        'margin_left' => 12,
+        'margin_right' => 12,
+        'default_font' => 'dejavusans',
+        'tempDir' => $this->getMpdfOrdenesTempDir(),
+    ]);
+    $mpdf->SetTitle('Orden FIC');
+    $mpdf->WriteHTML($html);
+    $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
+    exit;
+}
 
     public function generarPdfHospedaje($id_usuario)
     {

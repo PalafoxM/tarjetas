@@ -18,6 +18,12 @@ if ($idEstablecimientoActual > 0) {
     $reporteVentasUrl .= '?id_establecimiento=' . $idEstablecimientoActual . '&download=1';
 }
 
+$perfilId = (int) $session->get('id_perfil');
+$esVistaEstablecimientoEspecifico = (bool) ($esVistaEstablecimientoEspecifico ?? false);
+
+$ocultarMisEstablecimientos = ($perfilId != 2) || $esVistaEstablecimientoEspecifico;
+
+
 $pagosTotales = count($proveedorPagos);
 $pagosPendientes = 0;
 $pagosAprobados = 0;
@@ -412,6 +418,13 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
 
 <div class="container-fluid provider-page" id="proveedorPage" data-provider-mode="1" data-establecimientos-url="<?= esc(base_url('index.php/Inicio/getEstablecimientosProveedor'), 'attr') ?>" data-solicitud-url="<?= esc(base_url('index.php/Inicio/guardarSolicitudUsuarioProveedor'), 'attr') ?>" data-pago-sin-qr-url="<?= esc(base_url('index.php/Inicio/guardarPagoSinQrProveedor'), 'attr') ?>">
     <div class="provider-shell">
+        <?php if (!empty($esVistaEstablecimientoEspecifico)): ?>
+            <div class="mb-3">
+             <a href="<?= base_url('index.php/Inicio') ?>" class="btn btn-outline-secondary">
+             <i class="mdi mdi-arrow-left me-1"></i> Atrás
+             </a>
+            </div>
+        <?php endif; ?>
         <section class="provider-hero">
             <div>
                 <div class="provider-eyebrow">
@@ -478,6 +491,8 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
             </div>
         </section>
 
+    
+        <?php if (!$ocultarMisEstablecimientos): ?>
         <section class="provider-section">
             <div class="card provider-card">
                 <div class="provider-section-header">
@@ -527,62 +542,8 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 </div>
             </div>
         </section>
-
-<!-- 
-        <section class="provider-section">
-            <div class="card provider-card">
-                <div class="provider-section-header">
-                    <div>
-                        <span class="provider-summary-pill"><i class="mdi mdi-cash-register"></i> Operación diaria</span>
-                        <h5 class="provider-section-title mt-2">Pagos recibidos</h5>
-                        <p class="provider-section-copy">Consulta el monto, propina y total capturado por pago.</p>
-                    </div>
-                </div>
-                <div class="card-body provider-table-wrap">
-                    <?php if (!empty($proveedorPagos)): ?>
-                        <table
-                            id="tabla-pagos-proveedor"
-                            class="table table-dark table-hover align-middle provider-table mb-0"
-                            data-toggle="table"
-                            data-search="true"
-                            data-pagination="true"
-                            data-page-size="10"
-                            data-page-list="[10, 25, 50, 100, All]"
-                            data-locale="es-MX"
-                            data-pagination-pre-text="Anterior"
-                            data-pagination-next-text="Siguiente"
-                            data-search-align="left">
-                            <thead>
-                                <tr>
-                                    <th data-sortable="true">Pago</th>
-                                    <th data-sortable="true">Monto</th>
-                                    <th data-sortable="true">Propina</th>
-                                    <th data-sortable="true">Total</th>
-                                    <th data-sortable="true">Fecha</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($proveedorPagos as $pago): ?>
-                                    <?php $fechaPago = !empty($pago['fec_reg']) ? date('d/m/Y H:i:s', strtotime((string) $pago['fec_reg'])) : 'Sin fecha'; ?>
-                                    <tr>
-                                        <td>
-                                            <div class="fw-semibold">#<?= esc((string) ($pago['id_pago'] ?? '')) ?></div>
-                                            <div class="text-muted small">Registro de pago</div>
-                                        </td>
-                                        <td><?= $formatMoney($pago['monto'] ?? 0) ?></td>
-                                        <td><?= $formatMoney($pago['propina'] ?? 0) ?></td>
-                                        <td class="fw-semibold"><?= $formatMoney($pago['total'] ?? 0) ?></td>
-                                        <td><?= esc($fechaPago) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php else: ?>
-                        <div class="provider-history-empty">No hay pagos registrados para este proveedor.</div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </section> -->
+        <?php endif; ?>
+    
 
         <section class="provider-section">
             <div class="card provider-card">
