@@ -54,9 +54,9 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                 <i class="mdi mdi-download me-1"></i> Descargar orden del d&iacute;a
             </button>
             <?php if (!$cajeroSoloConsulta): ?>
-            <button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
+            <!--<button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
                 <i class="mdi mdi-account-plus me-1"></i> Nuevo cajero
-            </button>
+            </button>-->
             <?php endif; ?>
         </div>
     </div>

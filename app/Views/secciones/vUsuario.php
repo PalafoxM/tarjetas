@@ -2,6 +2,11 @@
 $session = \Config\Services::session();
 $contextoUsuario = $contextoUsuario ?? [];
 $catalogRoleOptions = $catalogRoleOptions ?? [];
+$activeGroupCatalogo = strtolower((string) ($contextoUsuario['active_group'] ?? ''));
+$institutionalGroupsCatalogo = ['fic', 'ug', 'secul'];
+$puedeSolicitarFolioInstitucional = in_array($activeGroupCatalogo, $institutionalGroupsCatalogo, true) && (int) ($contextoUsuario['group_role'] ?? 0) === 1;
+$puedeAltaDirectaUsuario = !empty($contextoUsuario['is_ti_master']) && !in_array($activeGroupCatalogo, $institutionalGroupsCatalogo, true);
+$solicitudFolioCatalogoUrl = $puedeSolicitarFolioInstitucional ? base_url('index.php/Inicio/SolicitudAlta/' . $activeGroupCatalogo) : '';
 ?>
 <style>
     .crud-ui-upper {
@@ -84,9 +89,13 @@ $catalogRoleOptions = $catalogRoleOptions ?? [];
             <h3 class="mb-1 text-white">Catalogo de usuarios</h3>
             <p class="text-muted mb-0">Consulta y administra usuarios por grupo, respetando la visibilidad y el alcance del perfil autenticado.</p>
         </div>
-        <?php if (!empty($contextoUsuario['can_edit_user_catalog'])): ?>
+        <?php if (!empty($contextoUsuario['can_edit_user_catalog']) && $puedeAltaDirectaUsuario): ?>
         <a href="<?= base_url('index.php/Inicio/AltaUsuario') ?>" class="btn btn-primary" id="nuevoCajero">
             <i class="mdi mdi-account-plus me-1"></i> Nuevo usuario
+        </a>
+        <?php elseif ($puedeSolicitarFolioInstitucional): ?>
+        <a href="<?= esc($solicitudFolioCatalogoUrl, 'attr') ?>" class="btn btn-primary" id="solicitudFolioUsuario">
+            <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud folio
         </a>
         <?php endif; ?>
     </div>

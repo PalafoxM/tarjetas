@@ -10,12 +10,12 @@ use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelMedium;
 use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
-require_once FCPATH . 'app/Libraries/PHPMailer/Exception.php';
-require_once FCPATH . 'app/Libraries/PHPMailer/PHPMailer.php';
-require_once FCPATH . 'app/Libraries/PHPMailer/SMTP.php';
-require_once FCPATH . '/mpdf/autoload.php';
-require_once FCPATH . 'spout/src/Spout/Autoloader/autoload.php';
-require_once FCPATH . "qr_code/autoload.php";
+require_once APPPATH . 'Libraries/PHPMailer/Exception.php';
+require_once APPPATH . 'Libraries/PHPMailer/PHPMailer.php';
+require_once APPPATH . 'Libraries/PHPMailer/SMTP.php';
+require_once ROOTPATH . 'mpdf/autoload.php';
+require_once ROOTPATH . 'spout/src/Spout/Autoloader/autoload.php';
+require_once ROOTPATH . 'qr_code/autoload.php';
 
 class Usuario extends BaseController
 {
@@ -772,7 +772,18 @@ class Usuario extends BaseController
             ]);
         }
 
-        return $this->saveAltaUsuarioPayload($this->request->getPost(), $actorContext, (int) ($session->get('id_usuario') ?? 0), $scriptName);
+        $postData = $this->request->getPost();
+        $idUsuario = (int) ($postData['id_usuario'] ?? 0);
+        $institutionalDirectCreateGroups = ['fic', 'ug', 'secul'];
+        $activeGroup = strtolower((string) ($actorContext['active_group'] ?? ''));
+        if ($idUsuario <= 0 && in_array($activeGroup, $institutionalDirectCreateGroups, true)) {
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'Los perfiles institucionales deben solicitar nuevos folios desde Solicitud folio.',
+            ]);
+        }
+
+        return $this->saveAltaUsuarioPayload($postData, $actorContext, (int) ($session->get('id_usuario') ?? 0), $scriptName);
     }
 
     private function normalizeHospedajePlanJson($value): ?string
@@ -1566,7 +1577,7 @@ class Usuario extends BaseController
         if (!$actorContext['can_access_user_catalog']) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
-                'respuesta' => 'No tienes permisos para consultar catálogos.',
+                'respuesta' => 'No tienes permisos para consultar catalogos.',
             ]);
         }
 
@@ -2004,6 +2015,25 @@ class Usuario extends BaseController
 
     private function getBaseUserRow(int $idUsuario): ?array
     {
+        if ($idUsuario <= 0) {
+            return null;
+        }
+
+        try {
+            $row = \Config\Database::connect()
+                ->table('usuario')
+                ->where('visible', 1)
+                ->where('id_usuario', $idUsuario)
+                ->get()
+                ->getRowArray();
+
+            if (!empty($row)) {
+                return $row;
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Usuario.getBaseUserRow.local: ' . $e->getMessage());
+        }
+
         $response = $this->globals->getTabla([
             'tabla' => 'usuario',
             'where' => ['visible' => 1, 'id_usuario' => $idUsuario],

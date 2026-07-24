@@ -7,7 +7,7 @@ use App\Models\Mglobal;
 
 use stdClass;
 use CodeIgniter\API\ResponseTrait;
-require_once FCPATH . '/mpdf/autoload.php';
+require_once ROOTPATH . 'mpdf/autoload.php';
 class Opciones extends BaseController {
 
     use ResponseTrait;

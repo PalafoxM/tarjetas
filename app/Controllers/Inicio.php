@@ -12,8 +12,8 @@ use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
 use stdClass;
 use CodeIgniter\API\ResponseTrait;
-require_once FCPATH . '/mpdf/autoload.php';
-require_once FCPATH . 'spout/src/Spout/Autoloader/autoload.php';
+require_once ROOTPATH . 'mpdf/autoload.php';
+require_once ROOTPATH . 'spout/src/Spout/Autoloader/autoload.php';
 class Inicio extends BaseController {
 
     use ResponseTrait;
@@ -1909,6 +1909,44 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function ReportesInstitucionales()
+    {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['contentView'] = 'secciones/vReportesInstitucionales';
+        $data['reportesInstitucionalesTabs'] = [
+            [
+                'key' => 'fic',
+                'label' => 'FIC',
+                'title' => 'Festival Internacional Cervantino',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios FIC.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'),
+                'profile_url' => base_url('index.php/Inicio/PerfilFic'),
+            ],
+            [
+                'key' => 'ug',
+                'label' => 'UG',
+                'title' => 'Universidad de Guanajuato',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios UG.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'),
+                'profile_url' => base_url('index.php/Inicio/PerfilUg'),
+            ],
+            [
+                'key' => 'secul',
+                'label' => 'SECUL',
+                'title' => 'Secretaria de Cultura',
+                'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
+                'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
+                'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
+            ],
+        ];
+
+        $this->_renderView($data);
+    }
     public function getFacturasFic()
     {
         if (empty($this->resolveSecturiDashboardUsuario())) {
@@ -2100,9 +2138,12 @@ class Inicio extends BaseController {
         $idSolicitudEdicion = (int) ($this->request->getGet('id_solicitud_usuario') ?? 0);
         $esRevisionAdministrativa = $idSolicitudEdicion > 0
             && strtolower(trim((string) ($this->request->getGet('origen') ?? ''))) === 'revision';
-        $backUrl = $grupo === 'fic'
-            ? base_url('index.php/Inicio/PerfilFic')
-            : base_url('index.php/Inicio/' . ucfirst($grupo));
+        $profileBackUrls = [
+            'fic' => base_url('index.php/Inicio/PerfilFic'),
+            'ug' => base_url('index.php/Inicio/PerfilUg'),
+            'secul' => base_url('index.php/Inicio/PerfilSecul'),
+        ];
+        $backUrl = $profileBackUrls[$grupo] ?? base_url('index.php/Inicio');
         if ($esRevisionAdministrativa && (string) ($contextoUsuario['active_group'] ?? '') === 'secturi') {
             $backUrl = base_url('index.php/Inicio/SolicitudesUsuarioFic');
         }
@@ -7129,10 +7170,24 @@ class Inicio extends BaseController {
             return redirect()->to(base_url('index.php/Inicio/EstablecimientosFic'));
         }
 
+        $idUsuarioEditar = (int) ($idUsuario ?? 0);
+        $institutionalAltaGroups = ['fic', 'ug', 'secul'];
+        $activeGroup = strtolower((string) ($contextoUsuario['active_group'] ?? ''));
+        if (!$modoAltaProveedor && $idUsuarioEditar <= 0 && in_array($activeGroup, $institutionalAltaGroups, true)) {
+            if ((int) ($contextoUsuario['group_role'] ?? 0) === 1) {
+                return redirect()->to(base_url('index.php/Inicio/SolicitudAlta/' . $activeGroup));
+            }
+
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        if (!$modoAltaProveedor && $idUsuarioEditar <= 0 && empty($contextoUsuario['is_ti_master'])) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['contextoUsuario'] = $contextoUsuario;
-        $data['idUsuarioEditar'] = (int) ($idUsuario ?? 0);
+        $data['idUsuarioEditar'] = $idUsuarioEditar;
         $data['modoAltaProveedor'] = $modoAltaProveedor;
         $data['regresarUrl'] = $modoAltaProveedor
             ? base_url('index.php/Inicio/EstablecimientosFic')

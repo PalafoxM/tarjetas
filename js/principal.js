@@ -2645,6 +2645,9 @@ window.cajeros = {
     },
 
     guardar: function () {
+        if (this.isAltaPage && !this.isProviderMode) {
+            return this.guardarAltaUsuario();
+        }
         var boton = $('#guardarCajero');
         var textoOriginal = boton.html();
         var partida = String($('#id_partida').val() || $('#id_partida_ui').val() || '');
