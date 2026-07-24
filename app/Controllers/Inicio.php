@@ -204,6 +204,10 @@ class Inicio extends BaseController {
             $vista = 'secciones/vCliente';
         }
         if ($contextoUsuario['is_cajero_flow']) {
+            $data['cajeroPuedeRechazarQr'] = true;
+            $data['cajeroPuedeActivarQr'] = true;
+            $data['cajeroPuedeGestionarQr'] = true;
+            $data['cajeroSoloConsulta'] = false;
             $vista = 'secciones/vCajero';
         }
         if ($contextoUsuario['is_recepcion_flow']) {
@@ -1812,6 +1816,7 @@ class Inicio extends BaseController {
         $usuarioCapazQr = $this->resolveUsuarioCapazQr();
         $tiUsuario = $this->resolveTiMasterUsuario();
         $secturiAdminUsuario = $this->resolveSecturiAdminUsuario();
+        $cajeroUsuario = $this->resolveSecturiCajeroUsuario();
 
         if (empty($usuarioDashboard) && empty($usuarioCapazQr)) {
             return redirect()->to(base_url('index.php/Inicio'));
@@ -1820,8 +1825,8 @@ class Inicio extends BaseController {
         $data = [];
         $data['scripts'] = ['principal', 'agregar'];
         $data['cajeroAccesoTiInicio'] = true;
-        $data['cajeroPuedeRechazarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
-        $data['cajeroPuedeActivarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr);
+        $data['cajeroPuedeRechazarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr) || !empty($cajeroUsuario);
+        $data['cajeroPuedeActivarQr'] = !empty($tiUsuario) || !empty($secturiAdminUsuario) || !empty($usuarioCapazQr) || !empty($cajeroUsuario);
         $data['cajeroPuedeGestionarQr'] = !empty($data['cajeroPuedeRechazarQr']) || !empty($data['cajeroPuedeActivarQr']);
         $data['cajeroSoloConsulta'] = empty($data['cajeroPuedeGestionarQr']);
         $data['cajeroRegresarUrl'] = base_url('index.php/Inicio');
@@ -6654,7 +6659,7 @@ class Inicio extends BaseController {
 
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($usuario);
-        if (($contextoUsuario['active_group'] ?? '') === 'secturi' && (int) ($contextoUsuario['group_role'] ?? 0) === 4) {
+        if (!empty($contextoUsuario['is_cajero_flow'])) {
             return $usuario;
         }
 
