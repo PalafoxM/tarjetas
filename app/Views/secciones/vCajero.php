@@ -140,7 +140,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                             <input class="form-control" name="usuario" id="usuario" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="contrasenia">Contraseí±a</label>
+                            <label class="form-label" for="contrasenia">Contraseña</label>
                             <input type="password" class="form-control" name="contrasenia" id="contrasenia">
                             <small class="text-muted">En edición, dí©jala vací­a para conservar la actual.</small>
                         </div>
@@ -178,7 +178,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                 </div>
             </div>
             <div class="modal-footer border-secondary">
-                <a href="#" id="cajeroDocumentosOpen" class="btn btn-outline-info disabled" target="_blank" rel="noopener">Abrir en nueva pestaí±a</a>
+                <a href="#" id="cajeroDocumentosOpen" class="btn btn-outline-info disabled" target="_blank" rel="noopener">Abrir en nueva pestaña</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -452,7 +452,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         } else if (ext === 'pdf') {
             preview = '<iframe src="' + safeUrl + '" title="' + safeLabel + '"></iframe>';
         } else {
-            preview = '<div class="alert alert-info m-3">No hay vista previa para este tipo de archivo. Usa el botón para abrirlo en una nueva pestaí±a.</div>';
+            preview = '<div class="alert alert-info m-3">No hay vista previa para este tipo de archivo. Usa el botón para abrirlo en una nueva pestaña.</div>';
         }
 
         $('#cajeroDocumentosPreview').attr('class', previewClass).html(preview);
