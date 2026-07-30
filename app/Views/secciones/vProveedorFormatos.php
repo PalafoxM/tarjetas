@@ -200,6 +200,24 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         border: 1px dashed rgba(148, 163, 184, .2);
     }
 
+    .provider-formats-empty.is-success {
+        color: #bbf7d0;
+        background: rgba(22, 101, 52, .2);
+        border-color: rgba(74, 222, 128, .35);
+    }
+
+    .provider-formats-empty.is-warning {
+        color: #fde68a;
+        background: rgba(146, 64, 14, .18);
+        border-color: rgba(251, 191, 36, .35);
+    }
+
+    .provider-formats-empty.is-info {
+        color: #bfdbfe;
+        background: rgba(30, 64, 175, .18);
+        border-color: rgba(96, 165, 250, .35);
+    }
+
     .provider-formats-summary {
         display: grid;
         gap: .8rem;
@@ -349,7 +367,9 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                     <i class="mdi mdi-send-check-outline me-1"></i> Enviar factura
                                                 </button>
                                             </div>
-                                            <div class="provider-formats-empty mt-3">
+                                            <div
+                                                class="provider-formats-empty mt-3 js-provider-document-status"
+                                                data-id-establecimiento="<?= esc($idEst, 'attr') ?>">
                                                 Selecciona el XML y el PDF de la factura para habilitar el envio.
                                             </div>
                                         </div>
@@ -368,6 +388,9 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
 
 <script>
 (function () {
+    var realtime = window.ficRealtime || null;
+    var estadoDocumentalUrl = '<?= esc(base_url('index.php/Inicio/getEstadoDocumentalEstablecimiento'), 'js') ?>';
+
     function getFacturaInputs(idEstablecimiento) {
         return {
             xml: document.getElementById('encabezado_factura_xml_' + idEstablecimiento),
@@ -380,6 +403,30 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         return {
             input: document.getElementById('reporte_proveedor_pdf_' + idEstablecimiento)
         };
+    }
+
+    function emitRealtimeEvent(name, detail) {
+        if (realtime && typeof realtime.emit === 'function') {
+            realtime.emit(name, detail || {});
+            return;
+        }
+
+        document.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+    }
+
+    function getStatusBox(idEstablecimiento) {
+        return document.querySelector('.js-provider-document-status[data-id-establecimiento="' + idEstablecimiento + '"]');
+    }
+
+    function setStatusMessage(idEstablecimiento, message, tone) {
+        var box = getStatusBox(idEstablecimiento);
+        if (!box) return;
+
+        box.classList.remove('is-success', 'is-warning', 'is-info');
+        if (tone) {
+            box.classList.add('is-' + tone);
+        }
+        box.textContent = message;
     }
 
     function fileMatches(file, extension, mimeTypes) {
@@ -398,6 +445,79 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         var validXml = fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']);
         var validPdf = fileMatches(pdfFile, '.pdf', ['application/pdf']);
         controls.button.disabled = !(validXml && validPdf);
+    }
+
+    function aplicarEstadoDocumental(idEstablecimiento, data, fallbackMessage) {
+        var documentos = data && data.documentos ? data.documentos : {};
+        var pdfDisponible = !!(documentos.pdf && documentos.pdf.disponible);
+        var xmlDisponible = !!(documentos.xml && documentos.xml.disponible);
+        var reporteDisponible = !!(documentos.reporte && documentos.reporte.disponible);
+        var formatos = documentos.formatos || {};
+        var formatosDisponibles = Object.keys(formatos).some(function (key) {
+            return !!(formatos[key] && formatos[key].disponible);
+        });
+
+        if (pdfDisponible && xmlDisponible && formatosDisponibles) {
+            setStatusMessage(
+                idEstablecimiento,
+                'Factura recibida: XML y PDF disponibles. Los formatos administrativos ya pueden consultarse.',
+                'success'
+            );
+            return;
+        }
+
+        if (pdfDisponible || xmlDisponible) {
+            setStatusMessage(
+                idEstablecimiento,
+                'Documentacion parcial recibida. Falta completar XML y PDF para habilitar los formatos administrativos.',
+                'warning'
+            );
+            return;
+        }
+
+        if (reporteDisponible) {
+            setStatusMessage(
+                idEstablecimiento,
+                'Reporte disponible para revision. Selecciona XML y PDF para habilitar el envio de factura.',
+                'info'
+            );
+            return;
+        }
+
+        setStatusMessage(
+            idEstablecimiento,
+            fallbackMessage || 'Selecciona el XML y el PDF de la factura para habilitar el envio.',
+            fallbackMessage ? 'info' : ''
+        );
+    }
+
+    function consultarEstadoDocumental(idEstablecimiento, extraDetail, fallbackMessage) {
+        var requestOptions = {
+            url: estadoDocumentalUrl,
+            method: 'GET',
+            dataType: 'json',
+            data: { id_establecimiento: idEstablecimiento },
+            showError: false
+        };
+        var request = realtime && typeof realtime.request === 'function'
+            ? realtime.request(requestOptions)
+            : $.ajax(requestOptions);
+
+        return request.done(function (response) {
+            if (!response || response.ok === false || !response.data) {
+                aplicarEstadoDocumental(idEstablecimiento, null, fallbackMessage);
+                return;
+            }
+
+            aplicarEstadoDocumental(idEstablecimiento, response.data, fallbackMessage);
+            emitRealtimeEvent('fic:estado-documental-actualizado', {
+                id_establecimiento: idEstablecimiento,
+                estado: response.data,
+                origen: extraDetail || null
+            });
+        }).fail(function () {
+            aplicarEstadoDocumental(idEstablecimiento, null, fallbackMessage);
+        });
     }
 
     function subirReporteProveedor(idEstablecimiento) {
@@ -437,6 +557,16 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
             }
 
             if (controls.input) controls.input.value = '';
+            setStatusMessage(idEstablecimiento, 'Reporte subido. Actualizando estado documental...', 'info');
+            emitRealtimeEvent('fic:reporte-subido', {
+                id_establecimiento: idEstablecimiento,
+                response: response
+            });
+            consultarEstadoDocumental(
+                idEstablecimiento,
+                { tipo: 'reporte', response: response },
+                response.respuesta || 'Reporte subido correctamente.'
+            );
             Swal.fire('Correcto', response.respuesta || 'Reporte subido correctamente.', 'success');
         }).fail(function (request) {
             var response = request.responseJSON || {};
@@ -501,6 +631,16 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                 if (controls.xml) controls.xml.value = '';
                 if (controls.pdf) controls.pdf.value = '';
                 updateEnviarFactura(idEstablecimiento);
+                setStatusMessage(idEstablecimiento, 'Factura enviada. Actualizando documentos disponibles...', 'info');
+                emitRealtimeEvent('fic:factura-subida', {
+                    id_establecimiento: idEstablecimiento,
+                    response: response
+                });
+                consultarEstadoDocumental(
+                    idEstablecimiento,
+                    { tipo: 'factura', response: response },
+                    response.respuesta || 'Factura enviada correctamente.'
+                );
                 Swal.fire('Correcto', response.respuesta || 'Factura enviada correctamente.', 'success');
             }).fail(function (request) {
                 var response = request.responseJSON || {};

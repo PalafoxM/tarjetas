@@ -2165,6 +2165,67 @@ class Inicio extends BaseController {
         ]);
     }
 
+    public function getEstadoDocumentalEstablecimiento()
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $esSecturi = !empty($this->resolveSecturiDashboardUsuario());
+        $puedeConsultarGlobal = $esSecturi
+            || !empty($contextoUsuario['can_access_secturi_dashboard'])
+            || !empty($contextoUsuario['is_ti_master'])
+            || (!empty($contextoUsuario['can_access_user_catalog']) && empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']));
+        $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+
+        if (
+            !$puedeConsultarGlobal
+            && empty($contextoUsuario['is_provider_flow'])
+            && empty($contextoUsuario['is_recepcion_flow'])
+            && empty($session->get('id_proveedor'))
+            && (int) ($session->get('id_establecimiento') ?? 0) <= 0
+        ) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar documentos de establecimientos.',
+            ]);
+        }
+
+        $allowedIds = $puedeConsultarGlobal
+            ? []
+            : $this->resolveEstadoDocumentalAllowedEstablecimientoIds($contextoUsuario);
+
+        if (!$puedeConsultarGlobal && empty($allowedIds)) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'ok' => false,
+                'message' => 'No fue posible resolver establecimientos permitidos para la sesion.',
+            ]);
+        }
+
+        $rows = array_values(array_filter($this->buildPagosFicEstablecimientosData(), function (array $row) use ($idEstablecimiento, $allowedIds, $puedeConsultarGlobal): bool {
+            $rowId = (int) ($row['id_establecimiento'] ?? 0);
+            if ($idEstablecimiento > 0 && $rowId !== $idEstablecimiento) {
+                return false;
+            }
+
+            return $puedeConsultarGlobal || in_array($rowId, $allowedIds, true);
+        }));
+
+        if ($idEstablecimiento > 0 && empty($rows)) {
+            return $this->response->setStatusCode(404)->setJSON([
+                'ok' => false,
+                'message' => 'No se encontro informacion documental para el establecimiento solicitado.',
+            ]);
+        }
+
+        $data = array_map([$this, 'mapEstadoDocumentalEstablecimiento'], $rows);
+
+        return $this->response->setJSON([
+            'ok' => true,
+            'total' => count($data),
+            'data' => $idEstablecimiento > 0 ? ($data[0] ?? null) : $data,
+        ]);
+    }
+
     public function verFacturaProveedorArchivo()
     {
         if (empty($this->resolveSecturiDashboardUsuario())) {
@@ -4499,6 +4560,105 @@ public function getPagosPorEstablecimiento()
                 'visible' => (int) ($row['visible'] ?? 0),
             ];
         }, $rows);
+    }
+
+    private function resolveEstadoDocumentalAllowedEstablecimientoIds(array $contextoUsuario): array
+    {
+        $session = \Config\Services::session();
+        $ids = [];
+        $idSesion = (int) ($session->get('id_establecimiento') ?? 0);
+        if ($idSesion > 0) {
+            $ids[] = $idSesion;
+        }
+
+        $dashboard = $this->buildProviderDashboardData((int) ($session->get('id_usuario') ?? 0));
+        foreach (is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [] as $item) {
+            $row = is_object($item) ? get_object_vars($item) : (array) $item;
+            $id = (int) ($row['id_establecimiento'] ?? 0);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        if (!empty($contextoUsuario['is_recepcion_flow'])) {
+            foreach ($this->resolveSessionEstablecimientos() as $row) {
+                $id = (int) ($row['id_establecimiento'] ?? 0);
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+
+    private function mapEstadoDocumentalEstablecimiento(array $row): array
+    {
+        $idEstablecimiento = (int) ($row['id_establecimiento'] ?? 0);
+        $facturaId = (int) ($row['factura_id'] ?? 0);
+        $idTipo = (int) ($row['id_tipo'] ?? 0);
+        $tipoDetectado = strtolower(trim((string) ($row['dsc_tipo'] ?? '')));
+        $esHospedaje = $idTipo === 2 || ($tipoDetectado !== '' && (str_contains($tipoDetectado, 'hotel') || str_contains($tipoDetectado, 'recep')));
+        $tipoReporte = $esHospedaje ? 'hospedaje' : 'ventas';
+        $tieneXml = !empty($row['tiene_xml']);
+        $tienePdf = !empty($row['tiene_pdf']);
+        $puedeVerFormatos = $facturaId > 0 && $tieneXml;
+        $reporteUrl = trim((string) ($row['reporte_url'] ?? ''));
+        $xmlUrl = trim((string) ($row['xml_url'] ?? ''));
+        $pdfUrl = trim((string) ($row['pdf_url'] ?? ''));
+
+        $formatos = [
+            'encabezado_factura' => [
+                'disponible' => $puedeVerFormatos,
+                'label' => 'Encabezado factura',
+                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/pdfProveedorEncabezadoFactura/' . $idEstablecimiento) : '',
+            ],
+            'formato_pt' => [
+                'disponible' => $puedeVerFormatos,
+                'label' => 'Formato PT',
+                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/pdfPagoTerceros?id_factura=' . $facturaId) : '',
+            ],
+            'liberacion_pago' => [
+                'disponible' => $puedeVerFormatos,
+                'label' => 'Liberacion pago',
+                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/pdfLiberacionPago?id_factura=' . $facturaId) : '',
+            ],
+            'liberacion_pago_proveedor' => [
+                'disponible' => $puedeVerFormatos,
+                'label' => 'Liberacion pago proveedor',
+                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/pdfProveedorLiberacionPago/' . $idEstablecimiento) : '',
+            ],
+        ];
+
+        return [
+            'id_establecimiento' => $idEstablecimiento,
+            'establecimiento' => (string) ($row['establecimiento'] ?? 'Sin establecimiento'),
+            'no_proveedor' => (string) ($row['no_proveedor'] ?? ''),
+            'id_tipo' => $idTipo,
+            'tipo_establecimiento' => $tipoDetectado,
+            'es_hospedaje' => $esHospedaje,
+            'factura_id' => $facturaId,
+            'documentos' => [
+                'reporte' => [
+                    'disponible' => $reporteUrl !== '',
+                    'label' => $tipoReporte === 'hospedaje' ? 'Visualizar reporte de hospedaje' : 'Visualizar reporte de ventas',
+                    'tipo' => $tipoReporte,
+                    'fuente' => 'sistema',
+                    'url' => $reporteUrl,
+                ],
+                'pdf' => [
+                    'disponible' => $facturaId > 0 && $tienePdf && $pdfUrl !== '',
+                    'label' => 'Visualizar PDF',
+                    'url' => $pdfUrl,
+                ],
+                'xml' => [
+                    'disponible' => $facturaId > 0 && $tieneXml && $xmlUrl !== '',
+                    'label' => 'Visualizar XML',
+                    'url' => $xmlUrl,
+                ],
+                'formatos' => $formatos,
+            ],
+        ];
     }
 
     public function EstablecimientosFic()

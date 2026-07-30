@@ -173,6 +173,19 @@ $formatDate = static function (?string $value): string {
         border: 1px dashed rgba(96, 165, 250, .45);
         color: #cbd5e1;
     }
+
+    .pagos-fic-actions-slot.is-updated {
+        animation: pagosFicDocumentosPulse 1.2s ease;
+    }
+
+    @keyframes pagosFicDocumentosPulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(96, 165, 250, .42);
+        }
+        100% {
+            box-shadow: 0 0 0 12px rgba(96, 165, 250, 0);
+        }
+    }
 </style>
 
 <div class="container-fluid pagos-fic-page">
@@ -281,11 +294,13 @@ $formatDate = static function (?string $value): string {
                                 $liberacionUrl = $puedeVerFormatos ? base_url('index.php/Inicio/pdfLiberacionPago?id_factura=' . $facturaId) : '';
                                 $liberacionProveedorUrl = $puedeVerFormatos ? base_url('index.php/Inicio/pdfProveedorLiberacionPago/' . (int) $establecimiento['id_establecimiento']) : '';
                                 ?>
-                                <tr>
+                                <tr data-id-establecimiento="<?= esc((string) ($establecimiento['id_establecimiento'] ?? ''), 'attr') ?>">
                                     <td class="fw-semibold"><?= esc((string) ($establecimiento['establecimiento'] ?? 'Sin establecimiento')) ?></td>
                                     <td><?= esc((string) ($establecimiento['no_proveedor'] ?? '')) ?></td>
                                     <td>
-                                        <div class="pagos-fic-actions-slot">
+                                        <div
+                                            class="pagos-fic-actions-slot"
+                                            data-fic-document-actions="<?= esc((string) ($establecimiento['id_establecimiento'] ?? ''), 'attr') ?>">
                                             <?php if ($reporteUrl !== ''): ?>
                                                 <a class="btn btn-sm btn-outline-info pagos-fic-action-btn" target="_blank" rel="noopener" href="<?= esc($reporteUrl, 'attr') ?>">
                                                     <i class="mdi mdi-file-chart-outline me-1"></i> Visualizar reporte
@@ -412,3 +427,9 @@ $formatDate = static function (?string $value): string {
         </div>-->
     </div>
 </div>
+
+<script>
+window.ficPagosDocumentosConfig = window.ficPagosDocumentosConfig || {};
+window.ficPagosDocumentosConfig.estadoDocumentalUrl = '<?= esc(base_url('index.php/Inicio/getEstadoDocumentalEstablecimiento'), 'js') ?>';
+</script>
+<script src="<?= esc(base_url('js/pagos_fic_documentos.js') . '?filever=' . time(), 'attr') ?>"></script>
