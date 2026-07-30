@@ -7,7 +7,8 @@ var solicitudesUsuarioOperativo = (function () {
         approveUrl: '',
         rejectUrl: '',
         canManage: true,
-        currentSolicitud: null
+        currentSolicitud: null,
+        realtimeBound: false
     };
 
     function esc(value) {
@@ -198,6 +199,26 @@ var solicitudesUsuarioOperativo = (function () {
         });
     }
 
+    function emitRealtime(name, detail) {
+        if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+            window.ficRealtime.emit(name, detail || {});
+        }
+    }
+
+    function bindRealtimeEvents() {
+        if (state.realtimeBound || !window.ficRealtime || typeof window.ficRealtime.on !== 'function') {
+            return;
+        }
+
+        state.realtimeBound = true;
+        window.ficRealtime.on('fic:solicitud-operativa-creada', function () {
+            refrescarTabla();
+        });
+        window.ficRealtime.on('fic:solicitud-operativa-actualizada', function () {
+            refrescarTabla();
+        });
+    }
+
     return {
         iniciar: function () {
             var root = $('#solicitudesUsuarioOperativoRoot');
@@ -212,6 +233,7 @@ var solicitudesUsuarioOperativo = (function () {
 
             this.inicializarTabla();
             this.bindEvents();
+            bindRealtimeEvents();
         },
 
         bindEvents: function () {
@@ -471,6 +493,10 @@ var solicitudesUsuarioOperativo = (function () {
 
                 $('#modalRevisionSolicitudUsuarioOperativo').modal('hide');
                 Swal.fire('Correcto', response.message || 'Solicitud aprobada correctamente.', 'success');
+                emitRealtime('fic:solicitud-operativa-actualizada', {
+                    id_solicitud_usuario: idSolicitud,
+                    accion: 'aprobar'
+                });
                 refrescarTabla();
             }).fail(function (jqXHR) {
                 Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la solicitud.'), 'error');
@@ -508,6 +534,10 @@ var solicitudesUsuarioOperativo = (function () {
 
                 $('#modalRechazoSolicitudUsuarioOperativo').modal('hide');
                 Swal.fire('Correcto', response.message || 'Solicitud rechazada correctamente.', 'success');
+                emitRealtime('fic:solicitud-operativa-actualizada', {
+                    id_solicitud_usuario: idSolicitud,
+                    accion: 'rechazar'
+                });
                 refrescarTabla();
             }).fail(function (jqXHR) {
                 Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible rechazar la solicitud.'), 'error');

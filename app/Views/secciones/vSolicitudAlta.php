@@ -196,6 +196,7 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
 
     const saveUrl = String(page.dataset.saveUrl || '').trim();
     const backUrl = String(page.dataset.backUrl || '').trim();
+    const grupoSolicitud = String(page.dataset.grupo || '').trim().toLowerCase();
     let isSubmitting = false;
 
     const getValue = (name) => {
@@ -214,6 +215,18 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
                     window.location.href = backUrl;
                 }
             });
+    };
+
+    const emitSolicitudFolio = (response) => {
+        if (!window.ficRealtime || typeof window.ficRealtime.emit !== 'function') {
+            return;
+        }
+
+        window.ficRealtime.emit('fic:solicitud-folio-creada', {
+            grupo: grupoSolicitud || 'fic',
+            id_solicitud_usuario: response && response.data && response.data.id_solicitud_usuario ? response.data.id_solicitud_usuario : null,
+            accion: 'crear'
+        });
     };
 
     const validarFechas = () => {
@@ -273,6 +286,7 @@ $catalogosUrl = (string) ($solicitudAlta['catalogos_url'] ?? base_url('index.php
                 return;
             }
 
+            emitSolicitudFolio(response);
             showSuccess(response.message || 'Solicitud enviada correctamente.');
         }).fail(function (request) {
             const response = request && request.responseJSON ? request.responseJSON : {};

@@ -735,6 +735,9 @@ $inferHabitacionCapacidad = static function ($item) {
 
     const saveUrl = String(page.dataset.saveUrl || '').trim();
     const listUrl = String(page.dataset.listUrl || '').trim();
+    const solicitudFolioMode = String(page.dataset.solicitudFolioMode || '0') === '1';
+    const solicitudGrupo = String(page.dataset.solicitudGrupo || '').trim().toLowerCase();
+    const solicitudId = Number(page.dataset.solicitudId || 0);
     let isSubmitting = false;
 
     const getValue = (name) => {
@@ -791,6 +794,18 @@ $inferHabitacionCapacidad = static function ($item) {
                     window.location.href = listUrl;
                 }
             });
+    };
+
+    const emitSolicitudFolio = (response) => {
+        if (!solicitudFolioMode || !window.ficRealtime || typeof window.ficRealtime.emit !== 'function') {
+            return;
+        }
+
+        window.ficRealtime.emit(solicitudId > 0 ? 'fic:solicitud-folio-actualizada' : 'fic:solicitud-folio-creada', {
+            grupo: solicitudGrupo || getValue('grupo_usuario') || 'fic',
+            id_solicitud_usuario: solicitudId || (response && response.data && response.data.id_solicitud_usuario ? response.data.id_solicitud_usuario : null),
+            accion: solicitudId > 0 ? 'editar' : 'crear'
+        });
     };
 
     const validarFechas = () => {
@@ -850,6 +865,7 @@ $inferHabitacionCapacidad = static function ($item) {
                 return;
             }
 
+            emitSolicitudFolio(response);
             showSuccess(response.respuesta || response.message || 'Usuario guardado correctamente.');
         }).fail(function (request) {
             showError(getErrorMessage(request));

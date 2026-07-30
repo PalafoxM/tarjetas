@@ -381,6 +381,13 @@ var solicitudesUsuarioFic = (function () {
                             setAlert((response && response.message) ? response.message : 'No fue posible guardar la solicitud.', 'danger');
                             return;
                         }
+                        if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+                            window.ficRealtime.emit('fic:solicitud-folio-creada', {
+                                grupo: 'fic',
+                                id_solicitud_usuario: response.data && response.data.id_solicitud_usuario ? response.data.id_solicitud_usuario : null,
+                                accion: 'crear'
+                            });
+                        }
                         Swal.fire('Listo', response.message || 'Solicitud enviada.', 'success');
                         closeModal();
                         refrescarTabla();

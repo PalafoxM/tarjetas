@@ -21,7 +21,8 @@
         partidaOptions: [],
         folioRejectUrl: '',
         previewModal: null,
-        previewModalEl: null
+        previewModalEl: null,
+        realtimeBound: false
     };
 
     function esc(value) {
@@ -180,6 +181,32 @@
         $table.bootstrapTable('refresh', {
             pageNumber: 1,
             silent: false
+        });
+    }
+
+    function emitRealtime(name, detail) {
+        if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+            window.ficRealtime.emit(name, detail || {});
+        }
+    }
+
+    function bindRealtimeEvents() {
+        if (state.realtimeBound || !window.ficRealtime || typeof window.ficRealtime.on !== 'function') {
+            return;
+        }
+
+        state.realtimeBound = true;
+        window.ficRealtime.on('fic:usuario-documentos-subidos', function () {
+            refreshTable(state.qrTable);
+        });
+        window.ficRealtime.on('fic:usuario-qr-actualizado', function () {
+            refreshTable(state.qrTable);
+        });
+        window.ficRealtime.on('fic:solicitud-folio-actualizada', function () {
+            refreshTable(state.folioTable);
+        });
+        window.ficRealtime.on('fic:solicitud-folio-creada', function () {
+            refreshTable(state.folioTable);
         });
     }
 
@@ -506,6 +533,10 @@
                             }
 
                             Swal.fire('Listo', response.message || 'Solicitud actualizada.', 'success');
+                            emitRealtime('fic:solicitud-folio-actualizada', {
+                                id_solicitud_usuario: idSolicitud,
+                                accion: 'editar'
+                            });
                             refreshTable(state.folioTable);
                         }).fail(function (jqXHR) {
                             Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible actualizar la solicitud.'), 'error');
@@ -547,6 +578,10 @@
                             }
 
                             Swal.fire('Listo', response.message || 'Edición aprobada.', 'success');
+                            emitRealtime('fic:solicitud-folio-actualizada', {
+                                id_solicitud_usuario: idSolicitud,
+                                accion: 'aprobar_edicion'
+                            });
                             refreshTable(state.folioTable);
                         }).fail(function (jqXHR) {
                             Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la edición.'), 'error');
@@ -595,6 +630,10 @@
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud aprobada.', 'success');
+                        emitRealtime('fic:solicitud-folio-actualizada', {
+                            id_solicitud_usuario: idSolicitud,
+                            accion: 'aprobar'
+                        });
                         refreshTable(state.folioTable);
                     }).fail(function (jqXHR) {
                         Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible aprobar la solicitud.'), 'error');
@@ -635,6 +674,10 @@
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud rechazada.', 'success');
+                        emitRealtime('fic:solicitud-folio-actualizada', {
+                            id_solicitud_usuario: idSolicitud,
+                            accion: 'rechazar'
+                        });
                         refreshTable(state.folioTable);
                     }).fail(function (jqXHR) {
                         Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible rechazar la solicitud.'), 'error');
@@ -667,6 +710,10 @@
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud cancelada.', 'success');
+                        emitRealtime('fic:solicitud-folio-actualizada', {
+                            id_solicitud_usuario: idSolicitud,
+                            accion: 'cancelar'
+                        });
                         refreshTable(state.folioTable);
                     }).fail(function (jqXHR) {
                         Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible cancelar la solicitud.'), 'error');
@@ -708,6 +755,11 @@
                         }
 
                         Swal.fire('Listo', response.message || 'QR activado correctamente.', 'success');
+                        emitRealtime('fic:usuario-qr-actualizado', {
+                            id_usuario: idUsuario,
+                            activo_qr: 1,
+                            accion: 'activar'
+                        });
                         refreshTable(state.qrTable);
                     }).fail(function (jqXHR) {
                         Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible activar el QR.'), 'error');
@@ -740,6 +792,11 @@
                         }
 
                         Swal.fire('Listo', response.message || 'Solicitud rechazada.', 'success');
+                        emitRealtime('fic:usuario-qr-actualizado', {
+                            id_usuario: idUsuario,
+                            activo_qr: 0,
+                            accion: 'rechazar'
+                        });
                         refreshTable(state.qrTable);
                     }).fail(function (jqXHR) {
                         Swal.fire('Error', extraerMensajeRespuesta(jqXHR, 'No fue posible rechazar la solicitud.'), 'error');
@@ -780,6 +837,7 @@
             initQrTable();
             initFolioTable();
             bindEvents();
+            bindRealtimeEvents();
         }
     };
 })();

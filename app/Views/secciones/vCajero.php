@@ -627,6 +627,13 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 [response.campo || 'ine_firma_cajero']: response.ruta || '',
                 expediente_completo: true
             });
+            if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+                window.ficRealtime.emit('fic:usuario-documentos-subidos', {
+                    id_usuario: idUsuario,
+                    campo: response.campo || 'ine_firma_cajero',
+                    ruta: response.ruta || ''
+                });
+            }
             Swal.fire('Correcto', response.respuesta || 'Archivo guardado correctamente.', 'success');
         }).fail((request) => {
             const response = request.responseJSON || {};
@@ -670,6 +677,13 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                     activo_qr: 1,
                     qr_activo: 1
                 });
+                if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+                    window.ficRealtime.emit('fic:usuario-qr-actualizado', {
+                        id_usuario: idUsuario,
+                        activo_qr: 1,
+                        accion: 'activar'
+                    });
+                }
             }).fail((request) => {
                 const response = request.responseJSON || {};
                 Swal.fire('Error', response.message || 'No fue posible activar el QR.', 'error');
@@ -712,6 +726,13 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                     firma: '',
                     expediente_completo: false
                 });
+                if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+                    window.ficRealtime.emit('fic:usuario-qr-actualizado', {
+                        id_usuario: idUsuario,
+                        activo_qr: 0,
+                        accion: 'rechazar'
+                    });
+                }
             }).fail((request) => {
                 const response = request.responseJSON || {};
                 Swal.fire('Error', response.message || 'No fue posible rechazar la activación del QR.', 'error');

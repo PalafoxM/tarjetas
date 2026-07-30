@@ -822,6 +822,12 @@ window.cajeros = {
                 return;
             }
 
+            if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+                window.ficRealtime.emit('fic:solicitud-operativa-creada', {
+                    id_solicitud_usuario: response.data && response.data.id_solicitud_usuario ? response.data.id_solicitud_usuario : null,
+                    accion: 'crear'
+                });
+            }
             Swal.fire('Correcto', response.message || 'Solicitud enviada correctamente.', 'success').then(function () {
                 $('#modalSolicitudPersonal').modal('hide');
                 cajeros.limpiarSolicitudProveedor();
@@ -918,6 +924,12 @@ window.cajeros = {
                 return;
             }
 
+            if (window.ficRealtime && typeof window.ficRealtime.emit === 'function') {
+                window.ficRealtime.emit('fic:solicitud-operativa-creada', {
+                    id_solicitud_usuario: response.data && response.data.id_solicitud_usuario ? response.data.id_solicitud_usuario : null,
+                    accion: 'crear'
+                });
+            }
             Swal.fire('Correcto', response.message || 'Solicitud enviada correctamente.', 'success').then(function () {
                 $('#modalSolicitudPersonal').modal('hide');
                 cajeros.limpiarSolicitudProveedor();
