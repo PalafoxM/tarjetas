@@ -302,6 +302,101 @@
         };
     }
 
+    function hasOpenModal() {
+        return !!document.querySelector('.modal.show');
+    }
+
+    function createWatcher(options) {
+        var config = $.extend({
+            key: '',
+            url: 'index.php/Inicio/getCambiosRealtime',
+            scopes: [],
+            interval: 30000,
+            pauseWhenHidden: true,
+            pauseWhenModalOpen: true,
+            minInterval: 20000
+        }, options || {});
+        var scopes = Array.isArray(config.scopes) ? config.scopes : String(config.scopes || '').split(',');
+        scopes = scopes.map(function (scope) {
+            return String(scope || '').trim();
+        }).filter(Boolean);
+
+        var key = String(config.key || scopes.join('|') || 'default');
+        var interval = Math.max(Number(config.interval || 30000), Number(config.minInterval || 20000));
+        app._watchers = app._watchers || {};
+
+        if (app._watchers[key] && typeof app._watchers[key].stop === 'function') {
+            app._watchers[key].stop();
+        }
+
+        var stopped = false;
+        var inFlight = false;
+        var timer = null;
+        var versions = {};
+
+        function schedule(delay) {
+            if (stopped) return;
+            window.clearTimeout(timer);
+            timer = window.setTimeout(tick, Math.max(Number(delay || interval), 1000));
+        }
+
+        function shouldPause() {
+            if (config.pauseWhenHidden && document.hidden) return true;
+            if (config.pauseWhenModalOpen && hasOpenModal()) return true;
+            return false;
+        }
+
+        function tick() {
+            if (stopped) return;
+
+            if (shouldPause() || inFlight) {
+                schedule(interval);
+                return;
+            }
+
+            inFlight = true;
+            request({
+                url: config.url,
+                method: 'GET',
+                dataType: 'json',
+                showError: false,
+                data: {
+                    scopes: scopes.join(','),
+                    versions: JSON.stringify(versions)
+                }
+            }).done(function (response) {
+                if (!response || response.ok === false) return;
+
+                versions = $.extend({}, versions, response.versions || {});
+                if (response.has_changes && Array.isArray(response.events)) {
+                    response.events.forEach(function (event) {
+                        if (event && event.name) {
+                            emit(event.name, event.detail || {});
+                        }
+                    });
+                }
+            }).always(function () {
+                inFlight = false;
+                schedule(interval);
+            });
+        }
+
+        var watcher = {
+            stop: function () {
+                stopped = true;
+                window.clearTimeout(timer);
+            },
+            start: function () {
+                stopped = false;
+                schedule(500);
+            }
+        };
+
+        app._watchers[key] = watcher;
+        watcher.start();
+        return watcher;
+    }
+
     app.baseUrl = getBaseUrl;
     app.csrf = resolveCsrf;
     app.appendCsrf = appendCsrf;
@@ -313,6 +408,7 @@
     app.extractMessage = extractMessage;
     app.emit = emit;
     app.on = on;
+    app.watch = createWatcher;
 
     window.ficRealtime = app;
 })(window, document, window.jQuery);
