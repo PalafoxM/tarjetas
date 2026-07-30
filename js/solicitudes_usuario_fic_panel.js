@@ -196,9 +196,6 @@
         }
 
         state.realtimeBound = true;
-        window.ficRealtime.on('fic:cajero-usuarios-actualizados', function () {
-            refreshTable(state.qrTable);
-        });
         window.ficRealtime.on('fic:usuario-documentos-subidos', function () {
             refreshTable(state.qrTable);
         });

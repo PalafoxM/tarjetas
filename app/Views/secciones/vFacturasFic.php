@@ -431,12 +431,5 @@ $formatDate = static function (?string $value): string {
 <script>
 window.ficPagosDocumentosConfig = window.ficPagosDocumentosConfig || {};
 window.ficPagosDocumentosConfig.estadoDocumentalUrl = '<?= esc(base_url('index.php/Inicio/getEstadoDocumentalEstablecimiento'), 'js') ?>';
-if (window.ficRealtime && typeof window.ficRealtime.watch === 'function') {
-    window.ficRealtime.watch({
-        key: 'facturas-documental',
-        scopes: ['documental'],
-        interval: 45000
-    });
-}
 </script>
 <script src="<?= esc(base_url('js/pagos_fic_documentos.js') . '?filever=' . time(), 'attr') ?>"></script>

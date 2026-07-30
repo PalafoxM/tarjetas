@@ -186,11 +186,6 @@
             return;
         }
 
-        if (!idEstablecimiento && detail.scope === 'documental') {
-            requestEstadosIniciales();
-            return;
-        }
-
         requestEstadoDocumental(idEstablecimiento);
     }
 

@@ -37,7 +37,6 @@ $routes->get('Inicio/ReportesInstitucionales', 'Inicio::ReportesInstitucionales'
 $routes->get('Inicio/exportarReporteInstitucionalSaldosPdf/(:segment)', 'Inicio::exportarReporteInstitucionalSaldosPdf/$1');
 $routes->get('Inicio/getFacturasFic', 'Inicio::getFacturasFic');
 $routes->get('Inicio/getEstadoDocumentalEstablecimiento', 'Inicio::getEstadoDocumentalEstablecimiento');
-$routes->get('Inicio/getCambiosRealtime', 'Inicio::getCambiosRealtime');
 $routes->get('Inicio/verFacturaProveedorArchivo', 'Inicio::verFacturaProveedorArchivo');
 $routes->get('Inicio/pdfPagoTerceros', 'Inicio::pdfPagoTerceros');
 $routes->get('Inicio/pdfLiberacionPago', 'Inicio::pdfLiberacionPago');

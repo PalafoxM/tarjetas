@@ -593,18 +593,3 @@ $solicitudesPartidaOptionsJson = json_encode($solicitudesPartidaOptions, JSON_HE
         </div>
     </div>
 </div>
-
-
-<script>
-(function () {
-    if (!window.ficRealtime || typeof window.ficRealtime.watch !== 'function') {
-        return;
-    }
-
-    window.ficRealtime.watch({
-        key: 'solicitudes-institucionales',
-        scopes: ['cajero', 'solicitudes_folio', 'solicitudes_operativo'],
-        interval: 30000
-    });
-})();
-</script>

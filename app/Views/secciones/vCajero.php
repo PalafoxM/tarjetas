@@ -802,20 +802,12 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
 $(function () {
     cajeros.iniciar();
-    if (window.ficRealtime && typeof window.ficRealtime.watch === 'function') {
-        window.ficRealtime.on('fic:cajero-usuarios-actualizados', function () {
-            $('#cajerosTable').bootstrapTable('refresh', { silent: true });
-        });
+    if (window.ficRealtime && typeof window.ficRealtime.on === 'function') {
         window.ficRealtime.on('fic:usuario-documentos-subidos', function () {
             $('#cajerosTable').bootstrapTable('refresh', { silent: true });
         });
         window.ficRealtime.on('fic:usuario-qr-actualizado', function () {
             $('#cajerosTable').bootstrapTable('refresh', { silent: true });
-        });
-        window.ficRealtime.watch({
-            key: 'cajero-usuarios',
-            scopes: ['cajero'],
-            interval: 30000
         });
     }
 });
