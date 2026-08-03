@@ -1603,36 +1603,36 @@ class Usuario extends BaseController
         ]);
     }
 
- public function generarPdfOrden($id_usuario)
-{
-    $response = $this->globals->getTabla([
-        'tabla' => 'vw_usuario',
-        'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
-    ]);
+    public function generarPdfOrden($id_usuario)
+    {
+        $response = $this->globals->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
+        ]);
 
-    if ($response->error || empty($response->data)) {
-        return $this->failNotFound('Cajero no encontrado');
+        if ($response->error || empty($response->data)) {
+            return $this->failNotFound('Cajero no encontrado');
+        }
+
+        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
+        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
+        $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
+
+        $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'Letter',
+            'margin_top' => 10,
+            'margin_bottom' => 15,
+            'margin_left' => 12,
+            'margin_right' => 12,
+            'default_font' => 'dejavusans',
+            'tempDir' => $this->getMpdfOrdenesTempDir(),
+        ]);
+        $mpdf->SetTitle('Orden FIC');
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
+        exit;
     }
-
-    $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
-    $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
-    $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
-
-    $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
-    $mpdf = new \Mpdf\Mpdf([
-        'format' => 'Letter',
-        'margin_top' => 10,
-        'margin_bottom' => 15,
-        'margin_left' => 12,
-        'margin_right' => 12,
-        'default_font' => 'dejavusans',
-        'tempDir' => $this->getMpdfOrdenesTempDir(),
-    ]);
-    $mpdf->SetTitle('Orden FIC');
-    $mpdf->WriteHTML($html);
-    $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
-    exit;
-}
 
     public function generarPdfHospedaje($id_usuario)
     {
@@ -4083,5 +4083,84 @@ class Usuario extends BaseController
     {
         $value = trim((string) $value);
         return $value === '' ? null : $value;
+    }
+
+    public function buscarUsuariosAvanzado()
+    {
+        $actorContext = $this->getActorContext();
+        if (empty($actorContext['can_access_user_catalog'])) {
+            return $this->response->setStatusCode(403)->setJSON([
+                "error" => true,
+                "respuesta" => "No tienes permisos para buscar usuarios.",
+                "data" => []
+            ]);
+        }
+        
+        $termino = $this->request->getGet('termino');
+        $termino = trim((string) $termino);
+        
+        if ($termino === '') {
+            return $this->getUsuarios();
+        }
+        
+        if (strlen($termino) < 2) {
+            return $this->response->setJSON([]);
+        }
+        
+        $db = \Config\Database::connect();
+        $builder = $db->table('usuario u');
+        
+        $builder->select('u.*, cp.dsc_perfil');
+        $builder->join('cat_perfil cp', 'cp.id_perfil = u.id_perfil', 'left');
+        $builder->where('u.visible', 1);
+        
+        $builder->groupStart();
+        $builder->like('LOWER(u.usuario)', strtolower($termino));
+        $builder->orLike('LOWER(u.nombre)', strtolower($termino));
+        $builder->orLike('LOWER(u.primer_apellido)', strtolower($termino));
+        $builder->orLike('LOWER(u.segundo_apellido)', strtolower($termino));
+        $builder->orLike('LOWER(CONCAT(u.nombre, " ", u.primer_apellido, " ", COALESCE(u.segundo_apellido, "")))', strtolower($termino));
+        $builder->orLike('u.folio', $termino);
+        $builder->orLike('u.folio_grupo', $termino);
+        $builder->orLike('u.sub_folio', $termino);
+        $builder->groupEnd();
+        
+        $builder->orderBy('u.id_usuario', 'DESC');
+        
+        $query = $builder->get();
+        $rows = $query->getResultArray();
+        
+        $resultados = [];
+        foreach ($rows as $row) {
+            $row['nombre_completo'] = trim(implode(' ', array_filter([
+                $row['nombre'] ?? '',
+                $row['primer_apellido'] ?? '',
+                $row['segundo_apellido'] ?? ''
+            ])));
+            
+            $row['expediente_completo'] = trim((string) ($row['qr'] ?? '')) !== ''
+                || trim((string) ($row['ine_firma_cajero'] ?? '')) !== ''
+                || trim((string) ($row['ine_frontal'] ?? '')) !== ''
+                || trim((string) ($row['ine_trasera'] ?? '')) !== ''
+                || trim((string) ($row['firma'] ?? '')) !== '';
+            
+            if ($this->resolver->canViewRow($actorContext, $row)) {
+                $decoratedRow = $this->resolver->decorateRow($row, $actorContext);
+                if (trim((string) ($decoratedRow['dsc_perfil'] ?? '')) === '') {
+                    $decoratedRow['dsc_perfil'] = trim(implode(' - ', array_filter([
+                        (string) ($decoratedRow['grupo_visible'] ?? ''),
+                        (string) ($decoratedRow['rol_visible'] ?? '')
+                    ])));
+                }
+                $resultados[] = $decoratedRow;
+            }
+        }
+        
+        $diaLlegada = $this->normalizeExportDate((string) ($this->request->getGet('dia_llegada') ?? ''));
+        if ($diaLlegada !== '') {
+            $resultados = $this->filterRowsByDiaLlegada($resultados, $diaLlegada);
+        }
+        
+        return $this->response->setJSON($resultados);
     }
 }
