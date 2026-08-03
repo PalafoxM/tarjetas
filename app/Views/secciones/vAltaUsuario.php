@@ -388,7 +388,13 @@ $inferHabitacionCapacidad = static function ($item) {
 
                     <div class="col-md-3">
                         <label class="form-label" for="pax_ui">Pax</label>
-                        <input type="number" class="form-control" name="pax" id="pax_ui" placeholder="pax" min="1" value="1">
+                        <select class="form-control" name="pax" id="pax_ui">
+                            <?php for ($i = 1; $i <= 999; $i++): ?>
+                                <option value="<?= $i ?>" <?= ($i == 1) ? 'selected' : '' ?>>
+                                    <?= $i ?>
+                                </option>
+                            <?php endfor; ?>
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="anf_gto_ui">Anfitri&oacute;n Guanajuato</label>
@@ -581,8 +587,22 @@ $inferHabitacionCapacidad = static function ($item) {
             </div>
             <div class="card-body pt-0">
                 <div class="row g-3">
-                    <div class="col-12">
+                    <!-- <div class="col-12">
                         <div class="card border-secondary-subtle shadow-sm mt-2">
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                    <div>
+                                        <h5 class="mb-1 text-white">Pax adicionales</h5>
+                                        <p class="text-muted mb-0">Cuando el numero de pax sea mayor a 1, aqui se agregan las cuentas individuales.</p>
+                                    </div>
+                                    <span class="badge bg-primary-subtle text-primary-emphasis" id="paxResumenBadge">1 pax</span>
+                                </div>
+                                <div class="row g-3" id="paxPersonasExtras"></div>
+                            </div>
+                        </div>
+                    </div> -->
+                   <div class="col-12">
+                        <div class="card border-secondary-subtle shadow-sm mt-2 card-pax-adicionales">
                             <div class="card-body">
                                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                                     <div>
@@ -875,5 +895,199 @@ $inferHabitacionCapacidad = static function ($item) {
             boton.innerHTML = textoOriginal;
         });
     });
+
+    
+})();
+
+(function() {
+    const page = document.getElementById('altaUsuarioPage');
+    if (!page) return;
+
+    const paxSelect = document.getElementById('pax_ui');
+    const nombreInput = document.getElementById('nombre');
+    const primerApellidoInput = document.getElementById('primer_apellido');
+    const segundoApellidoInput = document.getElementById('segundo_apellido');
+    const usuarioInput = document.getElementById('usuario');
+    const contraseniaInput = document.getElementById('contrasenia');
+    const correoInput = document.getElementById('correo');
+    const paxContainer = document.getElementById('paxPersonasExtras');
+    const paxCardContainer = document.querySelector('.pax-card-container'); // Contenedor de la tarjeta visual
+
+    if (!paxSelect || !nombreInput || !primerApellidoInput || !usuarioInput) {
+        console.warn('Autofill pax: elementos requeridos no encontrados');
+        return;
+    }
+
+    let paxTimeout = null;
+
+    function getTitularData() {
+        return {
+            nombre: String(nombreInput.value || '').trim(),
+            primer_apellido: String(primerApellidoInput.value || '').trim(),
+            segundo_apellido: String(segundoApellidoInput.value || '').trim(),
+            usuario: String(usuarioInput.value || '').trim(),
+            contrasenia: String(contraseniaInput.value || '').trim(),
+            correo: String(correoInput.value || '').trim()
+        };
+    }
+
+    function generarDatosPax(index, titular) {
+        const baseUsuario = titular.usuario || 'usuario';
+        const baseContrasenia = titular.contrasenia || 'password';
+        const baseCorreo = titular.correo || 'usuario@dominio.com';
+        const sufijo = index;
+
+        return {
+            nombre: titular.nombre,
+            primer_apellido: titular.primer_apellido,
+            segundo_apellido: titular.segundo_apellido || '',
+            usuario: baseUsuario + sufijo,
+            contrasenia: baseContrasenia + sufijo,
+            correo: baseCorreo.replace(/@/, sufijo + '@')
+        };
+    }
+
+    function actualizarBadgePax(total) {
+        const badge = document.getElementById('paxResumenBadge');
+        if (badge) {
+            badge.textContent = total + ' pax';
+        }
+    }
+
+   
+    function renderizarPaxVisual(totalPax, titular) {
+        if (!paxContainer) return;
+
+        
+        paxContainer.innerHTML = '';
+
+        if (totalPax <= 1) {
+            
+            const card = document.querySelector('.card-pax-adicionales');
+            if (card) card.style.display = 'none';
+            actualizarBadgePax(1);
+            return;
+        }
+
+  
+        const card = document.querySelector('.card-pax-adicionales');
+        if (card) card.style.display = 'block';
+
+        const template = document.getElementById('paxPersonaTemplate');
+        if (!template) {
+            console.warn('Autofill pax: template no encontrado');
+            return;
+        }
+
+   
+        for (let i = 2; i <= totalPax; i++) {
+            let html = template.innerHTML;
+            html = html.replace(/__INDEX__/g, i);
+            html = html.replace(/__DISPLAY__/g, i);
+
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            const cardElement = wrapper.firstElementChild;
+            if (cardElement) {
+                paxContainer.appendChild(cardElement);
+            }
+        }
+
+        actualizarBadgePax(totalPax);
+    }
+
+   
+    function renderizarPaxOcultos(totalPax, titular) {
+        if (!paxContainer) return;
+
+       
+        paxContainer.innerHTML = '';
+
+       
+        const card = document.querySelector('.card-pax-adicionales');
+        if (card) card.style.display = 'none';
+
+        if (totalPax <= 5) {
+           
+            renderizarPaxVisual(totalPax, titular);
+            return;
+        }
+
+        for (let i = 2; i <= totalPax; i++) {
+            const datos = generarDatosPax(i, titular);
+
+       
+            const hiddenGroup = document.createElement('div');
+            hiddenGroup.style.display = 'none';
+
+            const campos = [
+                { name: `usuarios[${i}][nombre]`, value: datos.nombre },
+                { name: `usuarios[${i}][primer_apellido]`, value: datos.primer_apellido },
+                { name: `usuarios[${i}][segundo_apellido]`, value: datos.segundo_apellido },
+                { name: `usuarios[${i}][usuario]`, value: datos.usuario },
+                { name: `usuarios[${i}][contrasenia]`, value: datos.contrasenia },
+                { name: `usuarios[${i}][correo]`, value: datos.correo }
+            ];
+
+            campos.forEach(campo => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = campo.name;
+                input.value = campo.value;
+                hiddenGroup.appendChild(input);
+            });
+
+            paxContainer.appendChild(hiddenGroup);
+        }
+
+        actualizarBadgePax(totalPax);
+    }
+
+    function handlePaxChange() {
+        const totalPax = parseInt(paxSelect.value, 10) || 0;
+        if (totalPax < 1) {
+            paxSelect.value = 1;
+            renderizarPaxVisual(1, getTitularData());
+            return;
+        }
+
+        const titular = getTitularData();
+        
+       
+        if (totalPax <= 5) {
+            renderizarPaxVisual(totalPax, titular);
+        } else {
+            renderizarPaxOcultos(totalPax, titular);
+        }
+    }
+
+  
+    paxSelect.addEventListener('change', handlePaxChange);
+    paxSelect.addEventListener('input', function() {
+        clearTimeout(paxTimeout);
+        paxTimeout = setTimeout(handlePaxChange, 300);
+    });
+
+    const titularFields = [nombreInput, primerApellidoInput, segundoApellidoInput, usuarioInput, contraseniaInput, correoInput];
+    titularFields.forEach(field => {
+        if (field) {
+            field.addEventListener('change', handlePaxChange);
+            field.addEventListener('blur', handlePaxChange);
+        }
+    });
+
+    function initAutofill() {
+        const totalPax = parseInt(paxSelect.value, 10) || 1;
+        setTimeout(handlePaxChange, 500);
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        initAutofill();
+    } else {
+        document.addEventListener('DOMContentLoaded', initAutofill);
+    }
+
+    window.autofillPaxAdicionales = handlePaxChange;
+
 })();
 </script>

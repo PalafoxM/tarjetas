@@ -762,12 +762,12 @@ class Usuario extends BaseController
 
         return $this->respond($response);
     }
+    
     public function saveUsuario()
     {
         $this->saveUserScript = 'Usuario.saveUsuario';
         return $this->saveCajero();
     }
-
 
     public function saveAltaUsuario()
     {
@@ -832,7 +832,6 @@ class Usuario extends BaseController
 
         return 0;
     }
-
     public function saveAltaUsuarioPayload(array $data, array $actorContext, int $idSesionUsuario, string $scriptName = 'Usuario.saveAltaUsuario')
     {
         $db = \Config\Database::connect();
@@ -904,7 +903,7 @@ class Usuario extends BaseController
                 $subFoliosComparar[] = trim($subFolioBase !== '' ? $subFolioBase . '-' . $sequence : (string) $sequence);
             }
         } elseif ($subFolioBase !== '') {
-                $subFoliosComparar[] = $subFolioBase;
+            $subFoliosComparar[] = $subFolioBase;
         }
         $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
         $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
@@ -912,12 +911,31 @@ class Usuario extends BaseController
             $tieneAlimentos = false;
             $tieneHospedaje = false;
         }
-        $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? ''));
-        $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? ''));
-        $vigenciaDesdeHosp = trim((string) ($data['fec_vigencia_desde_hos'] ?? ''));
-        $vigenciaHastaHosp = trim((string) ($data['fec_vigencia_hasta_hos'] ?? ''));
-        $vigenciaReservaDesde = $vigenciaDesde !== '' ? $vigenciaDesde : $vigenciaDesdeHosp;
-        $vigenciaReservaHasta = $vigenciaHasta !== '' ? $vigenciaHasta : $vigenciaHastaHosp;
+        
+        
+        $fechaBase = date('Y-m-d');
+        
+        if ($tieneAlimentos) {
+            $vigenciaDesde = $fechaBase . ' 08:00:00';
+            $vigenciaHasta = $fechaBase . ' 14:00:00';
+        } else {
+            $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? ''));
+            $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? ''));
+        }
+        
+    
+        if ($tieneHospedaje) {
+            
+            $vigenciaDesdeHosp = $fechaBase . ' 15:00:00';
+            
+            $fechaCheckOut = date('Y-m-d', strtotime('+1 day'));
+            $vigenciaHastaHosp = $fechaCheckOut . ' 12:00:00';
+        } else {
+            $vigenciaDesdeHosp = trim((string) ($data['fec_vigencia_desde_hos'] ?? ''));
+            $vigenciaHastaHosp = trim((string) ($data['fec_vigencia_hasta_hos'] ?? ''));
+        }
+      
+
         $montoDiarioAlimentos = round((float) ($data['monto_deposito'] ?? 0), 2);
         if ($montoDiarioAlimentos <= 0) {
             $montoDiarioAlimentos = $this->resolveNivelClienteMontoDeposito((int) ($data['id_nivel_cliente'] ?? 0));
@@ -1016,17 +1034,18 @@ class Usuario extends BaseController
             $folioGrupo = $folio;
         }
 
-        if ($tieneAlimentos && ($vigenciaDesde === '' || $vigenciaHasta === '' || $diasAlimentos <= 0)) {
+        
+        if ($tieneAlimentos && ($vigenciaDesde === '' || $vigenciaHasta === '')) {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'Debes capturar la vigencia de alimentos completa.',
+                'respuesta' => 'Debes capturar la vigencia de alimentos completa (de 8:00 AM a 1:00 PM).',
             ]);
         }
 
         if ($tieneHospedaje && ($vigenciaDesdeHosp === '' || $vigenciaHastaHosp === '' || $tarifaNoche <= 0 || $noches <= 0)) {
             return $this->respond([
                 'error' => true,
-                'respuesta' => 'Debes capturar la vigencia y tarifa de hospedaje completas.',
+                'respuesta' => 'Debes capturar la vigencia y tarifa de hospedaje completas (check-in 2:00 PM, check-out 12:00 PM).',
             ]);
         }
 
@@ -1116,14 +1135,14 @@ class Usuario extends BaseController
                 'tiene_hospedaje' => $tieneHospedaje ? 1 : 0,
                 'id_establecimiento_hotel' => $this->nullableInt($data['id_establecimiento_hotel'] ?? null),
                 'id_tipo_habitacion' => $this->nullableInt($data['id_tipo_habitacion'] ?? null),
-                'fecha_check_in' => $this->nullableString($data['fecha_check_in'] ?? null),
-                'fecha_check_out' => $this->nullableString($data['fecha_check_out'] ?? null),
+                'fecha_check_in' => $tieneHospedaje ? $vigenciaDesdeHosp : $this->nullableString($data['fecha_check_in'] ?? null),
+                'fecha_check_out' => $tieneHospedaje ? $vigenciaHastaHosp : $this->nullableString($data['fecha_check_out'] ?? null),
                 'hospedaje_plan_json' => $hospedajePlanJson,
                 'hospedaje_sobrerreserva' => $hospedajeSobrerreserva,
-                'fec_vigencia_desde' => $vigenciaDesde !== '' ? $vigenciaDesde : null,
-                'fec_vigencia_hasta' => $vigenciaHasta !== '' ? $vigenciaHasta : null,
-                'fec_vigencia_desde_hos' => $vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null,
-                'fec_vigencia_hasta_hos' => $vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null,
+                'fec_vigencia_desde' => $tieneAlimentos ? $vigenciaDesde : ($vigenciaDesde !== '' ? $vigenciaDesde : null),
+                'fec_vigencia_hasta' => $tieneAlimentos ? $vigenciaHasta : ($vigenciaHasta !== '' ? $vigenciaHasta : null),
+                'fec_vigencia_desde_hos' => $tieneHospedaje ? $vigenciaDesdeHosp : ($vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null),
+                'fec_vigencia_hasta_hos' => $tieneHospedaje ? $vigenciaHastaHosp : ($vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null),
                 'noche' => $noches > 0 ? $noches : null,
                 'tarifa_noche' => $tarifaNoche > 0 ? $tarifaNoche : null,
                 'tarifa_total' => $montoTotalPax,
@@ -1323,12 +1342,12 @@ class Usuario extends BaseController
                     'folio_grupo' => $folioGrupo,
                     'sub_folio' => $subFolio !== '' ? $subFolio : null,
                     'ruta_foto_relativa' => null,
-                    'fecha_check_in' => null,
-                    'fecha_check_out' => null,
-                    'fec_vigencia_desde' => $vigenciaReservaDesde !== '' ? $vigenciaReservaDesde : null,
-                    'fec_vigencia_hasta' => $vigenciaReservaHasta !== '' ? $vigenciaReservaHasta : null,
-                    'fec_vigencia_desde_hos' => $vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null,
-                    'fec_vigencia_hasta_hos' => $vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null,
+                    'fecha_check_in' => $tieneHospedaje ? $vigenciaDesdeHosp : null,
+                    'fecha_check_out' => $tieneHospedaje ? $vigenciaHastaHosp : null,
+                    'fec_vigencia_desde' => $tieneAlimentos ? $vigenciaDesde : ($vigenciaDesde !== '' ? $vigenciaDesde : null),
+                    'fec_vigencia_hasta' => $tieneAlimentos ? $vigenciaHasta : ($vigenciaHasta !== '' ? $vigenciaHasta : null),
+                    'fec_vigencia_desde_hos' => $tieneHospedaje ? $vigenciaDesdeHosp : ($vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null),
+                    'fec_vigencia_hasta_hos' => $tieneHospedaje ? $vigenciaHastaHosp : ($vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null),
                     'noche' => $noches > 0 ? $noches : null,
                     'tarifa_noche' => $tarifaNoche > 0 ? $tarifaNoche : null,
                     'tarifa_total' => $montoTotalPax,
@@ -1415,6 +1434,7 @@ class Usuario extends BaseController
             ]);
         }
     }
+
     public function deleteUsuario()
     {
         $session = \Config\Services::session();
@@ -1473,7 +1493,6 @@ class Usuario extends BaseController
     {
         $session = \Config\Services::session();
         $actorContext = $this->getActorContext();
-     
 
         $idUsuario = (int) $this->request->getPost('id_usuario');
         if ($idUsuario <= 0) {
@@ -1490,8 +1509,6 @@ class Usuario extends BaseController
                 'respuesta' => 'El usuario no existe o ya no esta disponible.',
             ]);
         }
-
-    
 
         $campoDocumento = 'ine_firma_cajero';
         $objectPrefix = 'ACTIVACIONESFIC/CAJERO';
@@ -1613,36 +1630,36 @@ class Usuario extends BaseController
         ]);
     }
 
- public function generarPdfOrden($id_usuario)
-{
-    $response = $this->globals->getTabla([
-        'tabla' => 'vw_usuario',
-        'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
-    ]);
+    public function generarPdfOrden($id_usuario)
+    {
+        $response = $this->globals->getTabla([
+            'tabla' => 'vw_usuario',
+            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
+        ]);
 
-    if ($response->error || empty($response->data)) {
-        return $this->failNotFound('Cajero no encontrado');
+        if ($response->error || empty($response->data)) {
+            return $this->failNotFound('Cajero no encontrado');
+        }
+
+        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
+        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
+        $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
+
+        $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
+        $mpdf = new \Mpdf\Mpdf([
+            'format' => 'Letter',
+            'margin_top' => 10,
+            'margin_bottom' => 15,
+            'margin_left' => 12,
+            'margin_right' => 12,
+            'default_font' => 'dejavusans',
+            'tempDir' => $this->getMpdfOrdenesTempDir(),
+        ]);
+        $mpdf->SetTitle('Orden FIC');
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
+        exit;
     }
-
-    $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
-    $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
-    $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
-
-    $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
-    $mpdf = new \Mpdf\Mpdf([
-        'format' => 'Letter',
-        'margin_top' => 10,
-        'margin_bottom' => 15,
-        'margin_left' => 12,
-        'margin_right' => 12,
-        'default_font' => 'dejavusans',
-        'tempDir' => $this->getMpdfOrdenesTempDir(),
-    ]);
-    $mpdf->SetTitle('Orden FIC');
-    $mpdf->WriteHTML($html);
-    $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
-    exit;
-}
 
     public function generarPdfHospedaje($id_usuario)
     {
@@ -3312,7 +3329,6 @@ class Usuario extends BaseController
             return in_array((int) ($perfil['id_perfil'] ?? 0), [4, 8, 9, 10], true);
         }));
 
-        // Cajero SECTURI debe poder ver todo el catálogo visible, incluidos subperfiles.
         if (!empty($actorContext['is_secturi_cajero'])) {
             return $perfiles;
         }
@@ -3481,6 +3497,30 @@ class Usuario extends BaseController
             ]);
         }
 
+        
+        $tieneAlimentos = (int) ($usuarioActual['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = (int) ($usuarioActual['tiene_hospedaje'] ?? 0) === 1;
+        $fechaBase = date('Y-m-d');
+        
+       
+        if ($tieneAlimentos) {
+            $vigenciaDesde = $fechaBase . ' 08:00:00';
+            $vigenciaHasta = $fechaBase . ' 23:59:00';
+        } else {
+            $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? $usuarioActual['fec_vigencia_desde'] ?? ''));
+            $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? $usuarioActual['fec_vigencia_hasta'] ?? ''));
+        }
+        
+        if ($tieneHospedaje) {
+            $vigenciaDesdeHosp = $fechaBase . ' 15:00:00';
+            $fechaCheckOut = date('Y-m-d', strtotime('+1 day'));
+            $vigenciaHastaHosp = $fechaCheckOut . ' 12:00:00';
+        } else {
+            $vigenciaDesdeHosp = trim((string) ($data['fec_vigencia_desde_hos'] ?? $usuarioActual['fec_vigencia_desde_hos'] ?? ''));
+            $vigenciaHastaHosp = trim((string) ($data['fec_vigencia_hasta_hos'] ?? $usuarioActual['fec_vigencia_hasta_hos'] ?? ''));
+        }
+        
+
         $impact = $this->buildInstitutionalEditImpact($data, $usuarioActual);
         if (!empty($impact['error'])) {
             return $this->respond([
@@ -3536,10 +3576,13 @@ class Usuario extends BaseController
             'monto_deposito' => number_format((float) ($impact['monto_diario_alimentos'] ?? 0), 2, '.', ''),
             'monto_deposito_hotel' => number_format((float) ($impact['monto_hospedaje'] ?? 0), 2, '.', ''),
             'monto_deposito_reservado' => number_format($nextReserved, 2, '.', ''),
-            'fec_vigencia_desde' => $impact['fec_vigencia_desde'] ?: null,
-            'fec_vigencia_hasta' => $impact['fec_vigencia_hasta'] ?: null,
-            'fec_vigencia_desde_hos' => $impact['fec_vigencia_desde_hos'] ?: null,
-            'fec_vigencia_hasta_hos' => $impact['fec_vigencia_hasta_hos'] ?: null,
+            'fec_vigencia_desde' => $tieneAlimentos ? $vigenciaDesde : ($vigenciaDesde !== '' ? $vigenciaDesde : null),
+            'fec_vigencia_hasta' => $tieneAlimentos ? $vigenciaHasta : ($vigenciaHasta !== '' ? $vigenciaHasta : null),
+            'fec_vigencia_desde_hos' => $tieneHospedaje ? $vigenciaDesdeHosp : ($vigenciaDesdeHosp !== '' ? $vigenciaDesdeHosp : null),
+            'fec_vigencia_hasta_hos' => $tieneHospedaje ? $vigenciaHastaHosp : ($vigenciaHastaHosp !== '' ? $vigenciaHastaHosp : null),
+            'fecha_check_in' => $tieneHospedaje ? $vigenciaDesdeHosp : $this->nullableString($data['fecha_check_in'] ?? null),
+            'fecha_check_out' => $tieneHospedaje ? $vigenciaHastaHosp : $this->nullableString($data['fecha_check_out'] ?? null),
+
             'noche' => (int) ($impact['noches'] ?? 0) > 0 ? (int) $impact['noches'] : null,
             'tarifa_total' => number_format($nextReserved, 2, '.', ''),
             'fec_act' => $fechaAhora,
@@ -3772,8 +3815,6 @@ class Usuario extends BaseController
 
     private function buildInstitutionalAssignment(string $grupo, int $perfilGrupo): array
     {
-        // En esta base no se persisten columnas de perfil por grupo en usuario.
-        // Se conserva el hook para no romper el flujo, pero no añade columnas inexistentes.
         return [];
     }
 
@@ -4144,7 +4185,6 @@ class Usuario extends BaseController
         $maxIndex = strlen($alphabet) - 1;
 
         if ($length > 0 && $alphabet === '0123456789') {
-            // Evita que un token numérico arranque con cero.
             $token .= $alphabet[random_int(1, $maxIndex)];
             for ($i = 1; $i < $length; $i++) {
                 $token .= $alphabet[random_int(0, $maxIndex)];
