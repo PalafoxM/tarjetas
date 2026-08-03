@@ -200,13 +200,13 @@ class Usuario extends BaseController
                 'margin_bottom' => 8,
                 'tempDir' => $this->getMpdfOrdenesTempDir(),
             ]);
-            $mpdf->SetTitle('Ordenes del dia');
+            $mpdf->SetTitle('Órdenes del día');
             $mpdf->WriteHTML($this->buildCajerosOrdenDiaPdfHtml($rows, $diaLlegada, $catalogoGrupo));
             $mpdf->Output($filename, 'D');
             exit;
         } catch (\Throwable $e) {
             log_message('error', 'Usuario.exportarCajerosOrdenDiaPdf: ' . $e->getMessage());
-            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de ordenes del dia.');
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de órdenes del día.');
         }
 
         /*

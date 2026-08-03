@@ -1588,6 +1588,64 @@ class Inicio extends BaseController {
         exit;
     }
 
+    public function exportarReporteInstitucionalConsumosPdf(string $grupo = 'fic')
+    {
+        $grupo = strtolower(trim($grupo));
+        if (!in_array($grupo, ['fic', 'ug', 'secul'], true)) {
+            return $this->response->setStatusCode(404)->setBody('Reporte no valido.');
+        }
+
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        if (!$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este reporte.');
+        }
+
+        $payload = $this->buildReporteInstitucionalConsumosPayload($grupo, $contextoUsuario);
+        if (empty($payload['ok'])) {
+            return $this->response->setStatusCode(403)->setBody((string) ($payload['message'] ?? 'No fue posible generar el reporte.'));
+        }
+
+        $tempDir = WRITEPATH . 'mpdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0775, true);
+        }
+
+        $filename = 'reporte_consumos_institucional_' . $grupo . '_' . date('Ymd_His') . '.pdf';
+        $viewData = [
+            'titulo' => 'Reporte institucional de hospedaje y alimentos',
+            'grupo' => strtoupper($grupo),
+            'generado_en' => date('Y-m-d H:i:s'),
+            'hospedaje' => $payload['hospedaje'] ?? [],
+            'alimentos' => $payload['alimentos'] ?? [],
+            'resumen' => $payload['resumen'] ?? [],
+        ];
+
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter',
+                'orientation' => 'L',
+                'tempDir' => $tempDir,
+                'margin_left' => 8,
+                'margin_right' => 8,
+                'margin_top' => 10,
+                'margin_bottom' => 10,
+            ]);
+
+            $mpdf->SetTitle('Reporte institucional de consumos');
+            $mpdf->WriteHTML(view('pdfs/vPdfReporteInstitucionalConsumos', $viewData));
+            $salida = $this->request->getGet('download') ? 'D' : 'I';
+            $mpdf->Output($filename, $salida);
+        } catch (\Throwable $e) {
+            log_message('error', 'Error al generar PDF de reporte institucional de consumos: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de consumos solicitado.');
+        }
+
+        exit;
+    }
+
     private function getReporteInstitucionalGrupoConfig(string $grupo): array
     {
         $grupo = strtolower(trim($grupo));
@@ -1622,6 +1680,572 @@ class Inicio extends BaseController {
         $groupRole = (int) ($contextoUsuario['group_role'] ?? 0);
 
         return $activeGroup === $grupo && in_array($groupRole, [1, 2, 4], true);
+    }
+
+    private function buildReporteInstitucionalHospedajePayload(string $grupo, array $contextoUsuario): array
+    {
+        $grupo = strtolower(trim($grupo));
+        $config = $this->getReporteInstitucionalGrupoConfig($grupo);
+        if (empty($config) || !$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
+            return [
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar hospedaje institucional.',
+                'grupo' => $grupo,
+                'rows' => [],
+                'detalle' => [],
+                'resumen' => [],
+            ];
+        }
+
+        $db = \Config\Database::connect();
+        $rows = $db->table('usuario u')
+            ->select("
+                u.id_usuario,
+                u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
+                u.folio,
+                u.folio_grupo,
+                u.sub_folio,
+                u.pax,
+                u.pax_total,
+                u.hospedaje_plan_json,
+                u.hospedaje_total_pax,
+                u.id_establecimiento_hotel,
+                u.id_tipo_habitacion,
+                u.fecha_check_in,
+                u.fecha_check_out,
+                u.fec_vigencia_desde_hos,
+                u.fec_vigencia_hasta_hos,
+                u.noche,
+                u.tarifa_noche,
+                u.tarifa_total,
+                e.dsc_establecimiento AS hotel_nombre,
+                COALESCE(th.dsc_tipo_habitacion, u.id_tipo_habitacion) AS tipo_habitacion
+            ", false)
+            ->join('establecimiento e', 'e.id_establecimiento = u.id_establecimiento_hotel', 'left')
+            ->join('cat_tipo_habitacion th', 'th.id_tipo_habitacion = u.id_tipo_habitacion', 'left')
+            ->where('u.visible', 1)
+            ->where('u.tiene_hospedaje', 1)
+            ->where('u.' . $config['field'] . ' >', 0)
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->orderBy('th.dsc_tipo_habitacion', 'ASC')
+            ->orderBy('u.folio', 'ASC')
+            ->orderBy('u.sub_folio', 'ASC')
+            ->orderBy('u.id_usuario', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return $this->mapReporteInstitucionalHospedajeRows($grupo, $rows);
+    }
+
+    private function buildReporteInstitucionalConsumosPayload(string $grupo, array $contextoUsuario): array
+    {
+        $hospedaje = $this->buildReporteInstitucionalHospedajePayload($grupo, $contextoUsuario);
+        $alimentos = $this->buildReporteInstitucionalAlimentosPayload($grupo, $contextoUsuario);
+
+        return [
+            'ok' => !empty($hospedaje['ok']) && !empty($alimentos['ok']),
+            'grupo' => strtolower(trim($grupo)),
+            'hospedaje' => $hospedaje,
+            'alimentos' => $alimentos,
+            'resumen' => [
+                'total_hospedaje' => (float) ($hospedaje['resumen']['total_hospedaje'] ?? 0),
+                'total_hospedaje_reservado' => (float) ($hospedaje['resumen']['total_hospedaje_reservado'] ?? $hospedaje['resumen']['total_hospedaje'] ?? 0),
+                'total_hospedaje_consumido' => (float) ($hospedaje['resumen']['total_hospedaje_consumido'] ?? 0),
+                'total_alimentos' => (float) ($alimentos['resumen']['total_alimentos'] ?? 0),
+                'total_alimentos_consumido' => (float) ($alimentos['resumen']['total_alimentos_consumido'] ?? $alimentos['resumen']['total_alimentos'] ?? 0),
+                'total_reservado' => round((float) ($hospedaje['resumen']['total_hospedaje_reservado'] ?? $hospedaje['resumen']['total_hospedaje'] ?? 0), 2),
+                'total_consumido' => round((float) ($hospedaje['resumen']['total_hospedaje_consumido'] ?? 0) + (float) ($alimentos['resumen']['total_alimentos_consumido'] ?? $alimentos['resumen']['total_alimentos'] ?? 0), 2),
+                'total_general' => round((float) ($hospedaje['resumen']['total_hospedaje_reservado'] ?? $hospedaje['resumen']['total_hospedaje'] ?? 0) + (float) ($alimentos['resumen']['total_alimentos_consumido'] ?? $alimentos['resumen']['total_alimentos'] ?? 0), 2),
+            ],
+        ];
+    }
+
+    private function buildReporteInstitucionalAlimentosPayload(string $grupo, array $contextoUsuario): array
+    {
+        $grupo = strtolower(trim($grupo));
+        $config = $this->getReporteInstitucionalGrupoConfig($grupo);
+        if (empty($config) || !$this->canExportReporteInstitucional($grupo, $contextoUsuario)) {
+            return [
+                'ok' => false,
+                'message' => 'No tienes permisos para consultar alimentos institucionales.',
+                'grupo' => $grupo,
+                'rows' => [],
+                'detalle' => [],
+                'resumen' => [],
+            ];
+        }
+
+        $db = \Config\Database::connect();
+        $rows = $db->table('solicitud_pago sp')
+            ->select("
+                sp.id_solicitud_pago,
+                sp.folio_solicitud,
+                sp.id_usuario,
+                sp.id_establecimiento,
+                sp.monto_solicitado,
+                sp.estatus,
+                sp.fecha_respuesta,
+                sp.fec_reg,
+                sp.observaciones,
+                u.usuario,
+                u.nombre,
+                u.primer_apellido,
+                u.segundo_apellido,
+                u.folio,
+                u.folio_grupo,
+                u.sub_folio,
+                u.tiene_alimentos,
+                e.dsc_establecimiento AS restaurante_nombre,
+                e.id_tipo AS id_tipo_establecimiento,
+                cte.dsc_tipo AS tipo_establecimiento
+            ", false)
+            ->join('usuario u', 'u.id_usuario = sp.id_usuario', 'inner')
+            ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->where('sp.visible', 1)
+            ->where('u.visible', 1)
+            ->where('u.tiene_alimentos', 1)
+            ->where('u.' . $config['field'] . ' >', 0)
+            ->groupStart()
+                ->where('e.id_tipo !=', 2)
+                ->orWhere('e.id_tipo IS NULL', null, false)
+            ->groupEnd()
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->orderBy('sp.fec_reg', 'ASC')
+            ->orderBy('sp.id_solicitud_pago', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return $this->mapReporteInstitucionalAlimentosRows($grupo, $rows);
+    }
+
+    private function mapReporteInstitucionalHospedajeRows(string $grupo, array $rows): array
+    {
+        $detalle = [];
+        $agregados = [];
+        $totalHabitaciones = 0;
+        $totalHabitacionesUtilizadas = 0;
+        $totalPax = 0;
+        $totalPaxUtilizado = 0;
+        $totalNochesReservadas = 0;
+        $totalNochesConsumidas = 0;
+        $totalHospedaje = 0.0;
+        $totalHospedajeConsumido = 0.0;
+        $hoteles = [];
+
+        foreach ($rows as $row) {
+            foreach ($this->expandReporteInstitucionalHospedajeRow((array) $row) as $item) {
+                $detalle[] = $item;
+                $hotelId = (int) ($item['id_establecimiento_hotel'] ?? 0);
+                $hotelNombre = (string) ($item['hotel_nombre'] ?? 'Hotel sin definir');
+                $tipoId = (int) ($item['id_tipo_habitacion'] ?? 0);
+                $tipoHabitacion = (string) ($item['tipo_habitacion'] ?? 'Sin definir');
+                $tarifaNoche = round((float) ($item['tarifa_noche'] ?? 0), 2);
+                $key = implode('|', [$hotelId, strtolower($hotelNombre), $tipoId, strtolower($tipoHabitacion), number_format($tarifaNoche, 2, '.', '')]);
+
+                if (!isset($agregados[$key])) {
+                    $agregados[$key] = [
+                        'id_establecimiento_hotel' => $hotelId,
+                        'hotel_nombre' => $hotelNombre,
+                        'id_tipo_habitacion' => $tipoId,
+                        'tipo_habitacion' => $tipoHabitacion,
+                        'tarifa_noche' => $tarifaNoche,
+                        'habitaciones' => 0,
+                        'habitaciones_reservadas' => 0,
+                        'habitaciones_utilizadas' => 0,
+                        'pax_asignado' => 0,
+                        'pax_reservado' => 0,
+                        'pax_utilizado' => 0,
+                        'noches' => 0,
+                        'noches_reservadas' => 0,
+                        'noches_consumidas' => 0,
+                        'monto_total' => 0.0,
+                        'monto_reservado' => 0.0,
+                        'monto_consumido' => 0.0,
+                    ];
+                }
+
+                $habitaciones = max(1, (int) ($item['habitaciones_reservadas'] ?? $item['habitaciones'] ?? 1));
+                $habitacionesUtilizadas = max(0, (int) ($item['habitaciones_utilizadas'] ?? 0));
+                $pax = max(0, (int) ($item['pax_reservado'] ?? $item['pax_asignado'] ?? 0));
+                $paxUtilizado = max(0, (int) ($item['pax_utilizado'] ?? 0));
+                $noches = max(0, (int) ($item['noches_reservadas'] ?? $item['noches'] ?? 0));
+                $nochesConsumidas = max(0, (int) ($item['noches_consumidas'] ?? 0));
+                $monto = round((float) ($item['monto_reservado'] ?? $item['monto_total'] ?? 0), 2);
+                $montoConsumido = round((float) ($item['monto_consumido'] ?? 0), 2);
+
+                $agregados[$key]['habitaciones'] += $habitaciones;
+                $agregados[$key]['habitaciones_reservadas'] += $habitaciones;
+                $agregados[$key]['habitaciones_utilizadas'] += $habitacionesUtilizadas;
+                $agregados[$key]['pax_asignado'] += $pax;
+                $agregados[$key]['pax_reservado'] += $pax;
+                $agregados[$key]['pax_utilizado'] += $paxUtilizado;
+                $agregados[$key]['noches'] += $noches;
+                $agregados[$key]['noches_reservadas'] += $noches;
+                $agregados[$key]['noches_consumidas'] += $nochesConsumidas;
+                $agregados[$key]['monto_total'] = round((float) $agregados[$key]['monto_total'] + $monto, 2);
+                $agregados[$key]['monto_reservado'] = round((float) $agregados[$key]['monto_reservado'] + $monto, 2);
+                $agregados[$key]['monto_consumido'] = round((float) $agregados[$key]['monto_consumido'] + $montoConsumido, 2);
+
+                $totalHabitaciones += $habitaciones;
+                $totalHabitacionesUtilizadas += $habitacionesUtilizadas;
+                $totalPax += $pax;
+                $totalPaxUtilizado += $paxUtilizado;
+                $totalNochesReservadas += $noches;
+                $totalNochesConsumidas += $nochesConsumidas;
+                $totalHospedaje = round($totalHospedaje + $monto, 2);
+                $totalHospedajeConsumido = round($totalHospedajeConsumido + $montoConsumido, 2);
+                if ($hotelId > 0 || $hotelNombre !== '') {
+                    $hoteles[$hotelId . '|' . strtolower($hotelNombre)] = true;
+                }
+            }
+        }
+
+        return [
+            'ok' => true,
+            'grupo' => $grupo,
+            'rows' => array_values($agregados),
+            'detalle' => $detalle,
+            'resumen' => [
+                'total_hoteles' => count($hoteles),
+                'total_habitaciones' => $totalHabitaciones,
+                'total_habitaciones_reservadas' => $totalHabitaciones,
+                'total_habitaciones_utilizadas' => $totalHabitacionesUtilizadas,
+                'total_pax' => $totalPax,
+                'total_pax_reservado' => $totalPax,
+                'total_pax_utilizado' => $totalPaxUtilizado,
+                'total_noches_reservadas' => $totalNochesReservadas,
+                'total_noches_consumidas' => $totalNochesConsumidas,
+                'total_hospedaje' => $totalHospedaje,
+                'total_hospedaje_reservado' => $totalHospedaje,
+                'total_hospedaje_consumido' => $totalHospedajeConsumido,
+            ],
+        ];
+    }
+
+    private function expandReporteInstitucionalHospedajeRow(array $row): array
+    {
+        $hotelId = (int) ($row['id_establecimiento_hotel'] ?? 0);
+        $hotelNombre = trim((string) ($row['hotel_nombre'] ?? '')) ?: 'Hotel sin definir';
+        $noches = $this->calculateReporteInstitucionalHospedajeNoches($row);
+        $fallbackTarifa = round((float) ($row['tarifa_noche'] ?? 0), 2);
+        $fallbackTipoId = (int) ($row['id_tipo_habitacion'] ?? 0);
+        $fallbackTipo = trim((string) ($row['tipo_habitacion'] ?? '')) ?: 'Sin definir';
+        $plan = $this->decodeReporteInstitucionalHospedajePlan($row['hospedaje_plan_json'] ?? null);
+        $items = [];
+
+        if (!empty($plan)) {
+            $planCount = max(1, count($plan));
+            foreach ($plan as $habitacion) {
+                $tipoId = (int) ($habitacion['id_tipo_habitacion'] ?? $fallbackTipoId);
+                $tipoHabitacion = trim((string) ($habitacion['tipo_habitacion'] ?? '')) ?: $fallbackTipo;
+                $pax = max(0, (int) ($habitacion['pax'] ?? 0));
+                $tarifa = round((float) ($habitacion['tarifa_noche'] ?? 0), 2);
+                if ($tarifa <= 0) {
+                    $tarifa = $fallbackTarifa;
+                }
+
+                $montoOverride = null;
+                if ($tarifa <= 0 && (float) ($row['tarifa_total'] ?? 0) > 0) {
+                    $montoOverride = round((float) ($row['tarifa_total'] ?? 0) / $planCount, 2);
+                }
+
+                $items[] = $this->makeReporteInstitucionalHospedajeItem($row, $hotelId, $hotelNombre, $tipoId, $tipoHabitacion, $pax, $tarifa, $noches, 1, $montoOverride);
+            }
+        }
+
+        if (empty($items)) {
+            $pax = (int) ($row['hospedaje_total_pax'] ?? 0);
+            if ($pax <= 0) {
+                $pax = (int) ($row['pax_total'] ?? $row['pax'] ?? 0);
+            }
+            if ($pax <= 0) {
+                $pax = 1;
+            }
+
+            $items[] = $this->makeReporteInstitucionalHospedajeItem($row, $hotelId, $hotelNombre, $fallbackTipoId, $fallbackTipo, $pax, $fallbackTarifa, $noches, 1);
+        }
+
+        return $items;
+    }
+
+    private function makeReporteInstitucionalHospedajeItem(array $row, int $hotelId, string $hotelNombre, int $tipoId, string $tipoHabitacion, int $pax, float $tarifaNoche, int $noches, int $habitaciones, ?float $montoOverride = null): array
+    {
+        $habitaciones = max(1, $habitaciones);
+        $nochesReservadas = max(0, $noches);
+        $nochesConsumidas = $this->calculateReporteInstitucionalHospedajeNochesConsumidas($row, $nochesReservadas);
+        $estadoHospedaje = $this->resolveReporteInstitucionalHospedajeEstado($row);
+
+        $montoReservado = $montoOverride !== null
+            ? round($montoOverride, 2)
+            : ($tarifaNoche > 0 && $nochesReservadas > 0
+            ? round($tarifaNoche * $nochesReservadas * $habitaciones, 2)
+            : round((float) ($row['tarifa_total'] ?? 0), 2));
+        $montoConsumido = 0.0;
+        if ($nochesConsumidas > 0) {
+            if ($tarifaNoche > 0) {
+                $montoConsumido = round($tarifaNoche * $nochesConsumidas * $habitaciones, 2);
+            } elseif ($montoReservado > 0 && $nochesReservadas > 0) {
+                $montoConsumido = round($montoReservado * ($nochesConsumidas / $nochesReservadas), 2);
+            }
+        }
+        $paxAsignado = max(0, $pax);
+
+        return [
+            'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+            'folio' => (string) ($row['folio_grupo'] ?? $row['folio'] ?? ''),
+            'sub_folio' => (string) ($row['sub_folio'] ?? ''),
+            'id_establecimiento_hotel' => $hotelId,
+            'hotel_nombre' => $hotelNombre,
+            'id_tipo_habitacion' => $tipoId,
+            'tipo_habitacion' => $tipoHabitacion,
+            'estado_hospedaje' => $estadoHospedaje,
+            'habitaciones' => $habitaciones,
+            'habitaciones_reservadas' => $habitaciones,
+            'habitaciones_utilizadas' => $nochesConsumidas > 0 ? $habitaciones : 0,
+            'pax_asignado' => $paxAsignado,
+            'pax_reservado' => $paxAsignado,
+            'pax_utilizado' => $nochesConsumidas > 0 ? $paxAsignado : 0,
+            'noches' => $nochesReservadas,
+            'noches_reservadas' => $nochesReservadas,
+            'noches_consumidas' => $nochesConsumidas,
+            'tarifa_noche' => round($tarifaNoche, 2),
+            'monto_total' => $montoReservado,
+            'monto_reservado' => $montoReservado,
+            'monto_consumido' => $montoConsumido,
+        ];
+    }
+
+    private function decodeReporteInstitucionalHospedajePlan($value): array
+    {
+        $raw = trim((string) ($value ?? ''));
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $habitaciones = $decoded['habitaciones'] ?? $decoded;
+        return is_array($habitaciones) ? array_values(array_filter($habitaciones, 'is_array')) : [];
+    }
+
+    private function calculateReporteInstitucionalHospedajeNoches(array $row): int
+    {
+        $noches = (int) ($row['noche'] ?? 0);
+        if ($noches > 0) {
+            return $noches;
+        }
+
+        $inicio = trim((string) ($row['fec_vigencia_desde_hos'] ?? $row['fecha_check_in'] ?? ''));
+        $fin = trim((string) ($row['fec_vigencia_hasta_hos'] ?? $row['fecha_check_out'] ?? ''));
+        if ($inicio === '' || $fin === '') {
+            return 0;
+        }
+
+        try {
+            $start = new \DateTimeImmutable(substr($inicio, 0, 10));
+            $end = new \DateTimeImmutable(substr($fin, 0, 10));
+            return max(0, (int) $start->diff($end)->days);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function calculateReporteInstitucionalHospedajeNochesConsumidas(array $row, int $nochesReservadas): int
+    {
+        $checkIn = trim((string) ($row['fecha_check_in'] ?? ''));
+        if ($checkIn === '') {
+            return 0;
+        }
+
+        $checkOut = trim((string) ($row['fecha_check_out'] ?? ''));
+        try {
+            $start = new \DateTimeImmutable(substr($checkIn, 0, 10));
+            $end = $checkOut !== ''
+                ? new \DateTimeImmutable(substr($checkOut, 0, 10))
+                : new \DateTimeImmutable(date('Y-m-d'));
+            if ($start > $end) {
+                return 0;
+            }
+
+            $consumidas = max(1, (int) $start->diff($end)->days);
+            if ($nochesReservadas > 0) {
+                $consumidas = min($consumidas, $nochesReservadas);
+            }
+
+            return $consumidas;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function resolveReporteInstitucionalHospedajeEstado(array $row): string
+    {
+        if (trim((string) ($row['fecha_check_out'] ?? '')) !== '') {
+            return 'check_out';
+        }
+
+        if (trim((string) ($row['fecha_check_in'] ?? '')) !== '') {
+            return 'check_in';
+        }
+
+        return 'reservado';
+    }
+
+    private function mapReporteInstitucionalAlimentosRows(string $grupo, array $rows): array
+    {
+        $detalle = [];
+        $agregados = [];
+        $totalAlimentos = 0.0;
+        $restaurantes = [];
+        $usuarios = [];
+
+        foreach ($rows as $row) {
+            if (!$this->isReporteInstitucionalAlimentoConsumido((string) ($row['estatus'] ?? ''))) {
+                continue;
+            }
+
+            $item = $this->makeReporteInstitucionalAlimentosItem((array) $row);
+            $detalle[] = $item;
+
+            $idEstablecimiento = (int) ($item['id_establecimiento'] ?? 0);
+            $restaurante = (string) ($item['restaurante_nombre'] ?? 'Restaurante sin definir');
+            $key = $idEstablecimiento . '|' . strtolower($restaurante);
+
+            if (!isset($agregados[$key])) {
+                $agregados[$key] = [
+                    'id_establecimiento' => $idEstablecimiento,
+                    'restaurante_nombre' => $restaurante,
+                    'tipo_establecimiento' => (string) ($item['tipo_establecimiento'] ?? ''),
+                    'consumos' => 0,
+                    'usuarios' => 0,
+                    'monto_consumo' => 0.0,
+                    'propina' => 0.0,
+                    'total_alimentos' => 0.0,
+                    'monto_reservado' => 0.0,
+                    'monto_consumido' => 0.0,
+                    '_usuarios' => [],
+                ];
+            }
+
+            $idUsuario = (int) ($item['id_usuario'] ?? 0);
+            if ($idUsuario > 0) {
+                $agregados[$key]['_usuarios'][$idUsuario] = true;
+                $usuarios[$idUsuario] = true;
+            }
+
+            $montoConsumo = round((float) ($item['monto_consumo'] ?? 0), 2);
+            $propina = round((float) ($item['propina'] ?? 0), 2);
+            $total = round((float) ($item['monto_total'] ?? 0), 2);
+
+            $agregados[$key]['consumos']++;
+            $agregados[$key]['monto_consumo'] = round((float) $agregados[$key]['monto_consumo'] + $montoConsumo, 2);
+            $agregados[$key]['propina'] = round((float) $agregados[$key]['propina'] + $propina, 2);
+            $agregados[$key]['total_alimentos'] = round((float) $agregados[$key]['total_alimentos'] + $total, 2);
+            $agregados[$key]['monto_consumido'] = round((float) $agregados[$key]['monto_consumido'] + $total, 2);
+
+            $totalAlimentos = round($totalAlimentos + $total, 2);
+            if ($idEstablecimiento > 0 || $restaurante !== '') {
+                $restaurantes[$key] = true;
+            }
+        }
+
+        $rowsAgregados = [];
+        foreach ($agregados as $row) {
+            $row['usuarios'] = count($row['_usuarios'] ?? []);
+            unset($row['_usuarios']);
+            $rowsAgregados[] = $row;
+        }
+
+        return [
+            'ok' => true,
+            'grupo' => $grupo,
+            'rows' => $rowsAgregados,
+            'detalle' => $detalle,
+            'resumen' => [
+                'total_restaurantes' => count($restaurantes),
+                'total_usuarios' => count($usuarios),
+                'total_consumos' => count($detalle),
+                'total_alimentos' => $totalAlimentos,
+                'total_alimentos_reservado' => 0.0,
+                'total_alimentos_consumido' => $totalAlimentos,
+            ],
+        ];
+    }
+
+    private function makeReporteInstitucionalAlimentosItem(array $row): array
+    {
+        $montos = $this->resolveReporteInstitucionalAlimentosMontos($row);
+
+        return [
+            'id_solicitud_pago' => (int) ($row['id_solicitud_pago'] ?? 0),
+            'folio_solicitud' => (string) ($row['folio_solicitud'] ?? ''),
+            'id_usuario' => (int) ($row['id_usuario'] ?? 0),
+            'folio' => (string) ($row['folio_grupo'] ?? $row['folio'] ?? ''),
+            'sub_folio' => (string) ($row['sub_folio'] ?? ''),
+            'id_establecimiento' => (int) ($row['id_establecimiento'] ?? 0),
+            'restaurante_nombre' => trim((string) ($row['restaurante_nombre'] ?? '')) ?: 'Restaurante sin definir',
+            'tipo_establecimiento' => (string) ($row['tipo_establecimiento'] ?? ''),
+            'estatus' => (string) ($row['estatus'] ?? ''),
+            'fecha_consumo' => (string) ($row['fecha_respuesta'] ?? $row['fec_reg'] ?? ''),
+            'monto_consumo' => $montos['monto_consumo'],
+            'propina' => $montos['propina'],
+            'monto_total' => $montos['monto_total'],
+            'monto_reservado' => 0.0,
+            'monto_consumido' => $montos['monto_total'],
+        ];
+    }
+
+    private function resolveReporteInstitucionalAlimentosMontos(array $row): array
+    {
+        $montoSolicitado = round((float) ($row['monto_solicitado'] ?? 0), 2);
+        $montoConsumo = $montoSolicitado;
+        $propina = 0.0;
+
+        $observaciones = json_decode((string) ($row['observaciones'] ?? ''), true);
+        if (is_array($observaciones)) {
+            if (isset($observaciones['monto']) && is_numeric($observaciones['monto'])) {
+                $montoConsumo = round((float) $observaciones['monto'], 2);
+            }
+            if (isset($observaciones['propina']) && is_numeric($observaciones['propina'])) {
+                $propina = round((float) $observaciones['propina'], 2);
+            }
+            if (isset($observaciones['total']) && is_numeric($observaciones['total'])) {
+                $total = round((float) $observaciones['total'], 2);
+                return [
+                    'monto_consumo' => $montoConsumo,
+                    'propina' => $propina,
+                    'monto_total' => $total,
+                ];
+            }
+        }
+
+        return [
+            'monto_consumo' => $montoConsumo,
+            'propina' => $propina,
+            'monto_total' => round($montoConsumo + $propina, 2),
+        ];
+    }
+
+    private function isReporteInstitucionalAlimentoConsumido(string $estatus): bool
+    {
+        $estatus = strtolower(trim($estatus));
+        return in_array($estatus, [
+            'autorizado',
+            'autorizada',
+            'aprobado',
+            'aprobada',
+            'pagado',
+            'pagada',
+            'finalizado',
+            'finalizada',
+        ], true);
     }
 
     private function buildReporteVentasProveedorPdfHtmlHomologado(array $rows, string $periodoLabel, array $layout = []): string
@@ -2078,6 +2702,7 @@ class Inicio extends BaseController {
                 'title' => 'Festival Internacional Cervantino',
                 'description' => 'Reporte de saldos y consulta de movimientos de usuarios FIC.',
                 'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'),
+                'consumos_url' => base_url('index.php/Inicio/exportarReporteInstitucionalConsumosPdf/fic'),
                 'profile_url' => base_url('index.php/Inicio/PerfilFic'),
             ],
             [
@@ -2086,6 +2711,7 @@ class Inicio extends BaseController {
                 'title' => 'Universidad de Guanajuato',
                 'description' => 'Reporte de saldos y consulta de movimientos de usuarios UG.',
                 'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'),
+                'consumos_url' => base_url('index.php/Inicio/exportarReporteInstitucionalConsumosPdf/ug'),
                 'profile_url' => base_url('index.php/Inicio/PerfilUg'),
             ],
             [
@@ -2094,6 +2720,7 @@ class Inicio extends BaseController {
                 'title' => 'Secretaria de Cultura',
                 'description' => 'Reporte de saldos y consulta de movimientos de usuarios SECUL.',
                 'download_url' => base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/secul'),
+                'consumos_url' => base_url('index.php/Inicio/exportarReporteInstitucionalConsumosPdf/secul'),
                 'profile_url' => base_url('index.php/Inicio/PerfilSecul'),
             ],
         ];

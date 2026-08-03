@@ -116,7 +116,8 @@
             var isDownloadLink = target.hasAttribute('download')
                 || target.getAttribute('data-no-loading') === '1'
                 || target.classList.contains('js-download-no-loader')
-                || href.indexOf('exportarReporteInstitucionalSaldosPdf') !== -1;
+                || href.indexOf('exportarReporteInstitucionalSaldosPdf') !== -1
+                || href.indexOf('exportarReporteInstitucionalConsumosPdf') !== -1;
 
             if (!isDownloadLink) {
                 return;

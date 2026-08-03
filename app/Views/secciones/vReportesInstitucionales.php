@@ -145,14 +145,18 @@ $activeKey = (string) ($tabs[0]['key'] ?? 'fic');
                                     <p><?= esc((string) ($tab['description'] ?? 'Consulta y descarga de reportes institucionales.')) ?></p>
 
                                     <ul class="reportes-action-list">
-                                        <li>El PDF incluye tarifa diaria, reservado por vigencia, saldo operativo y pendiente vencido.</li>
+                                        <li>El PDF de usuarios incluye tarifa diaria, reservado por vigencia, saldo operativo y pendiente vencido.</li>
+                                        <li>El PDF de consumos resume hospedaje por hotel/habitaciÃ³n y alimentos por restaurante.</li>
                                         <li>La consulta de movimientos abre el catálogo institucional correspondiente.</li>
                                         <li>No se muestra información de partida en el reporte.</li>
                                     </ul>
 
                                     <div class="reportes-actions">
                                         <a class="btn btn-primary js-download-no-loader" data-no-loading="1" href="<?= esc((string) ($tab['download_url'] ?? '#'), 'attr') ?>">
-                                            <i class="mdi mdi-file-pdf-box me-1"></i> Descargar PDF
+                                            <i class="mdi mdi-file-pdf-box me-1"></i> Reporte de usuarios
+                                        </a>
+                                        <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc((string) ($tab['consumos_url'] ?? '#'), 'attr') ?>">
+                                            <i class="mdi mdi-file-chart-outline me-1"></i> Reporte hospedaje y alimentos
                                         </a>
                                         <a class="btn btn-outline-light" href="<?= esc((string) ($tab['profile_url'] ?? '#'), 'attr') ?>">
                                             <i class="mdi mdi-table-search me-1"></i> Consultar movimientos

@@ -103,6 +103,9 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
                     <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'), 'attr') ?>">
                         <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de usuario
                     </a>
+                    <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalConsumosPdf/fic'), 'attr') ?>">
+                        <i class="mdi mdi-file-chart-outline me-1"></i> Reporte hospedaje y alimentos
+                    </a>
                     <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx" data-no-loading="1">
                         <i class="mdi mdi-file-pdf-box me-1"></i> Orden del día
                     </button>
