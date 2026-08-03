@@ -38,7 +38,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
      id="cajeroPage"
      data-solo-consulta="<?= $cajeroSoloConsulta ? '1' : '0' ?>"
      data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>"
-     data-export-xlsx-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaXlsx'), 'attr') ?>">
+     data-export-pdf-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaPdf'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h3 class="mb-1 text-white"><?= $cajeroSoloConsulta ? 'Consulta de usuarios y folios' : 'Administración de cajeros' ?></h3>
@@ -51,7 +51,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
             </a>
             <?php endif; ?>
             <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx">
-                <i class="mdi mdi-download me-1"></i> Descargar orden del d&iacute;a
+                <i class="mdi mdi-file-pdf-box me-1"></i> Descargar orden del día
             </button>
             <?php if (!$cajeroSoloConsulta): ?>
             <!--<button type="button" class="btn btn-primary" onclick="cajeros.nuevo()">
@@ -112,10 +112,10 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form id="cajeroForm">
-                <div class="modal-header">
+                <!--<div class="modal-header">
                     <h5 class="modal-title" id="cajeroModalTitle">Nuevo cajero</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
+                </div>-->
                 <div class="modal-body">
                     <input type="hidden" name="id_usuario" id="id_usuario">
                     <div class="row g-3">
@@ -142,7 +142,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
                         <div class="col-md-6">
                             <label class="form-label" for="contrasenia">Contraseña</label>
                             <input type="password" class="form-control" name="contrasenia" id="contrasenia">
-                            <small class="text-muted">En edición, dí©jala vací­a para conservar la actual.</small>
+                            <small class="text-muted">En edición, déjala vací­a para conservar la actual.</small>
                         </div>
                     </div>
                 </div>
@@ -241,7 +241,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
         $('#descargar_cajeros_xlsx').on('click', (event) => {
             event.preventDefault();
-            this.descargarXlsx();
+            this.descargarPdf();
         });
 
         if (window.bootstrap && bootstrap.Modal) {
@@ -279,9 +279,9 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
     },
 
-    descargarXlsx() {
+    descargarPdf() {
         const pagina = document.getElementById('cajeroPage');
-        const baseUrl = pagina ? String(pagina.dataset.exportXlsxUrl || '').trim() : '';
+        const baseUrl = pagina ? String(pagina.dataset.exportPdfUrl || pagina.dataset.exportXlsxUrl || '').trim() : '';
         if (!baseUrl) {
             Swal.fire('Atención', 'No fue posible resolver la ruta de descarga.', 'warning');
             return;
@@ -294,11 +294,6 @@ window.cajeros = Object.assign(window.cajeros || {}, {
         }
 
         const href = params.toString() ? baseUrl + '?' + params.toString() : baseUrl;
-        if (typeof this.descargarArchivoSinNavegar === 'function') {
-            this.descargarArchivoSinNavegar(href);
-            return;
-        }
-
         const previousFrame = document.getElementById('ficDownloadFrame');
         if (previousFrame && previousFrame.parentNode) {
             previousFrame.setAttribute('src', 'about:blank');

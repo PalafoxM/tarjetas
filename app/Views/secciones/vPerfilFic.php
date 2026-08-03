@@ -70,6 +70,8 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
 <div class="container-fluid py-4"
      id="usuariosPage"
      data-id-perfil="<?= esc($session->get('id_perfil'), 'attr') ?>"
+     data-catalogo-grupo="fic"
+     data-export-pdf-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaPdf'), 'attr') ?>"
      data-alta-url="<?= esc(base_url('index.php/Inicio/AltaUsuario'), 'attr') ?>"
      data-usuarios-url="<?= esc(base_url('index.php/Usuario/getVistaUsuarioFic'), 'attr') ?>"
      data-solicitudes-url="<?= esc($ficSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioFicPerfil'), 'attr') ?>"
@@ -99,8 +101,11 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/fic'), 'attr') ?>">
-                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de saldos
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de usuario
                     </a>
+                    <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx" data-no-loading="1">
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Orden del día
+                    </button>
                     <?php if ($mostrarEdicion): ?>
                         <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/fic'), 'attr') ?>">
                             <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
@@ -137,7 +142,7 @@ $ficSolicitudEstablecimientoId = (int) ($ficSolicitudEstablecimientoId ?? 0);
                         <th data-field="nombre_completo" data-sortable="true">Nombre</th>
                         <th data-field="grupo_visible" data-sortable="true">Grupo</th>
                         <th data-field="rol_visible" data-sortable="true">Rol visible</th>
-                        <th data-field="nip" data-align="center">NIP</th>
+                        <!--<th data-field="nip" data-align="center">NIP</th>-->
                         <th data-field="activo_qr" data-formatter="cajeros.qrActivo" data-align="center">QR activo</th>
                         <th data-field="tiene_hospedaje" data-formatter="cajeros.estadoBooleano" data-align="center">Hospedaje</th>
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estadoBooleano" data-align="center">Alimentos</th>

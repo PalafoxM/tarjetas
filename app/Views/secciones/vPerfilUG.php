@@ -23,6 +23,7 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
 <div class="container-fluid py-4"
      id="usuariosPage"
      data-catalogo-grupo="ug"
+     data-export-pdf-url="<?= esc(base_url('index.php/Usuario/exportarCajerosOrdenDiaPdf'), 'attr') ?>"
      data-solicitudes-url="<?= esc($ugSolicitudListadoUrl ?? base_url('index.php/Inicio/getSolicitudesUsuarioUGPerfil'), 'attr') ?>"
      data-solicitud-detail-url="<?= esc($ugSolicitudDetalleUrl ?? base_url('index.php/Inicio/getSolicitudUsuarioUGPerfil'), 'attr') ?>"
      data-solicitud-save-url="<?= esc($ugSolicitudGuardarUrl ?? base_url('index.php/Inicio/guardarSolicitudUsuarioUGPerfil'), 'attr') ?>"
@@ -49,8 +50,11 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-outline-info js-download-no-loader" data-no-loading="1" href="<?= esc(base_url('index.php/Inicio/exportarReporteInstitucionalSaldosPdf/ug'), 'attr') ?>">
-                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de saldos
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de usuarios
                     </a>
+                    <button type="button" class="btn btn-outline-info" id="descargar_cajeros_xlsx" data-no-loading="1">
+                        <i class="mdi mdi-file-pdf-box me-1"></i> descargar orden del día
+                    </button>
                     <?php if ($mostrarEdicion): ?>
                         <a class="btn btn-primary" href="<?= esc(base_url('index.php/Inicio/SolicitudAlta/ug'), 'attr') ?>">
                             <i class="mdi mdi-file-document-plus-outline me-1"></i> Solicitud de folio
@@ -85,7 +89,7 @@ $solicitudEstablecimientoId = (int) ($ugSolicitudEstablecimientoId ?? 0);
                         <th data-field="nombre_completo" data-sortable="true">Nombre</th>
                         <th data-field="grupo_visible" data-sortable="true">Grupo</th>
                         <th data-field="rol_visible" data-sortable="true">Rol visible</th>
-                        <th data-field="nip" data-align="center">NIP</th>
+                        <!--<th data-field="nip" data-align="center">NIP</th>-->
                         <th data-field="activo_qr" data-formatter="cajeros.qrActivo" data-align="center">QR activo</th>
                         <th data-field="tiene_hospedaje" data-formatter="cajeros.estadoBooleano" data-align="center">Hospedaje</th>
                         <th data-field="tiene_alimentos" data-formatter="cajeros.estadoBooleano" data-align="center">Alimentos</th>

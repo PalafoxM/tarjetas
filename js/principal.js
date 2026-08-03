@@ -521,21 +521,65 @@ window.cajeros = {
         this.inicializarFiltroDiaLlegada();
         $('#descargar_cajeros_xlsx').off('click.exportarOrdenDia').on('click.exportarOrdenDia', function (event) {
             event.preventDefault();
-            cajeros.descargarOrdenDiaXlsx();
+            cajeros.descargarOrdenDiaPdf();
         });
 
     },
 
     descargarOrdenDiaXlsx: function () {
+        return this.descargarOrdenDiaPdf();
+    },
+
+    descargarOrdenDiaPdf: function () {
         var pagina = document.getElementById('cajeroPage') || document.getElementById('usuariosPage');
-        var baseUrl = pagina ? String(pagina.dataset.exportXlsxUrl || '').trim() : '';
+        var baseUrl = pagina ? String(pagina.dataset.exportPdfUrl || pagina.dataset.exportXlsxUrl || '').trim() : '';
+        var grupo = pagina ? String(pagina.dataset.catalogoGrupo || '').trim().toLowerCase() : '';
         var dia = saeg.principal.normalizarFechaISO($('#filtro_dia_llegada').val());
 
         if (!baseUrl || !dia) {
+            if (!dia && window.Swal) {
+                Swal.fire('Atencion', 'Selecciona un dia de llegada para generar la orden del dia.', 'warning');
+            }
             return;
         }
 
-        this.descargarArchivoSinNavegar(baseUrl + '?dia_llegada=' + encodeURIComponent(dia));
+        var params = new URLSearchParams();
+        params.set('dia_llegada', dia);
+        if (grupo) {
+            params.set('grupo', grupo);
+        }
+
+        this.descargarArchivoPorNavegacion(baseUrl + '?' + params.toString());
+    },
+
+    descargarArchivoPorNavegacion: function (url) {
+        url = String(url || '').trim();
+        if (!url) {
+            return;
+        }
+
+        if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+            window.FicLoading.hide();
+        }
+
+        var previousFrame = document.getElementById('ficDownloadFrame');
+        if (previousFrame && previousFrame.parentNode) {
+            previousFrame.setAttribute('src', 'about:blank');
+            previousFrame.parentNode.removeChild(previousFrame);
+        }
+
+        var iframe = document.createElement('iframe');
+        iframe.id = 'ficDownloadFrame';
+        iframe.style.display = 'none';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.src = url;
+        document.body.appendChild(iframe);
+
+        window.setTimeout(function () {
+            if (window.FicLoading && typeof window.FicLoading.hide === 'function') {
+                window.FicLoading.hide();
+            }
+        }, 1000);
     },
 
     descargarArchivoSinNavegar: function (url) {
