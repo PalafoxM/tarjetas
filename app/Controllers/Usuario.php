@@ -161,6 +161,11 @@ class Usuario extends BaseController
 
     public function exportarCajerosOrdenDiaXlsx()
     {
+        return $this->exportarCajerosOrdenDiaPdf();
+    }
+
+    public function exportarCajerosOrdenDiaPdf()
+    {
         $actorContext = $this->getActorContext();
         if (empty($actorContext['can_access_user_catalog'])) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar usuarios.');
@@ -170,7 +175,12 @@ class Usuario extends BaseController
             session_write_close();
         }
 
-        $catalog = $this->buildCatalogRows($actorContext);
+        $catalogoGrupo = strtolower(trim((string) ($this->request->getGet('grupo') ?? '')));
+        if (!in_array($catalogoGrupo, ['fic', 'ug', 'secul'], true)) {
+            $catalogoGrupo = '';
+        }
+
+        $catalog = $this->buildCatalogRows($actorContext, $catalogoGrupo !== '' ? $catalogoGrupo : null);
         if (!empty($catalog['error'])) {
             return $this->response->setStatusCode(502)->setBody((string) ($catalog['respuesta'] ?? 'No fue posible consultar usuarios.'));
         }
@@ -178,34 +188,33 @@ class Usuario extends BaseController
         $diaLlegada = $this->normalizeExportDate((string) ($this->request->getGet('dia_llegada') ?? ''));
         $rows = $this->filterRowsByDiaLlegada((array) ($catalog['data'] ?? []), $diaLlegada);
 
-        $filename = 'cajeros_' . ($diaLlegada !== '' ? $diaLlegada : 'todos') . '.xlsx';
-        $writer = WriterEntityFactory::createXLSXWriter();
-        $writer->openToBrowser($filename);
+        $filename = 'ordenes_del_dia_' . ($catalogoGrupo !== '' ? $catalogoGrupo . '_' : '') . ($diaLlegada !== '' ? $diaLlegada : 'todos') . '.pdf';
 
-        $writer->addRow(WriterEntityFactory::createRowFromArray([
-            'ID',
-            'Usuario',
-            'Nombre completo',
-            'Folio',
-            'Vigencia desde',
-            'Vigencia hasta',
-            'Perfil',
-            'Hospedaje',
-            'Alimentos',
-            'Saldo reservado',
-            'Saldo operativo',
-            'Documentos',
-        ]));
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'mode' => 'utf-8',
+                'format' => 'Letter-L',
+                'margin_left' => 8,
+                'margin_right' => 8,
+                'margin_top' => 8,
+                'margin_bottom' => 8,
+                'tempDir' => $this->getMpdfOrdenesTempDir(),
+            ]);
+            $mpdf->SetTitle('Ordenes del dia');
+            $mpdf->WriteHTML($this->buildCajerosOrdenDiaPdfHtml($rows, $diaLlegada, $catalogoGrupo));
+            $mpdf->Output($filename, 'D');
+            exit;
+        } catch (\Throwable $e) {
+            log_message('error', 'Usuario.exportarCajerosOrdenDiaPdf: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF de ordenes del dia.');
+        }
 
+        /*
         foreach ($rows as $row) {
             $writer->addRow(WriterEntityFactory::createRowFromArray([
                 (int) ($row['id_usuario'] ?? 0),
                 (string) ($row['usuario'] ?? ''),
                 (string) ($row['nombre_completo'] ?? ''),
-                (string) ($row['folio'] ?? ''),
-                (string) ($row['fec_vigencia_desde'] ?? ''),
-                (string) ($row['fec_vigencia_hasta'] ?? ''),
-                (string) ($row['dsc_perfil'] ?? ''),
                 ((int) ($row['tiene_hospedaje'] ?? 0) === 1) ? 'Sí' : 'No',
                 ((int) ($row['tiene_alimentos'] ?? 0) === 1) ? 'Sí' : 'No',
                 number_format((float) ($row['monto_deposito_reservado'] ?? 0), 2, '.', ''),
@@ -216,6 +225,7 @@ class Usuario extends BaseController
 
         $writer->close();
         exit;
+        */
     }
 
     public function verDocumentoUsuario()
@@ -1894,6 +1904,104 @@ class Usuario extends BaseController
         }
 
         return $count > 0 ? (string) $count : 'Sin documentos';
+    }
+
+    private function buildCajerosOrdenDiaPdfHtml(array $rows, string $diaLlegada, string $catalogoGrupo = ''): string
+    {
+        $h = static fn($value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+        $money = static fn($value): string => '$' . number_format((float) ($value ?? 0), 2);
+        $yesNo = static fn($value): string => (int) ($value ?? 0) === 1 ? 'Si' : 'No';
+        $grupoLabel = $catalogoGrupo !== '' ? strtoupper($catalogoGrupo) : 'General';
+        $periodo = $diaLlegada !== '' ? $this->formatOrdenDiaDateLabel($diaLlegada) : 'Todos los dias';
+        $totalReservado = 0.0;
+        $totalOperativo = 0.0;
+
+        foreach ($rows as $row) {
+            $totalReservado += (float) ($row['monto_deposito_reservado'] ?? 0);
+            $totalOperativo += (float) ($row['monto_deposito_operativo'] ?? 0);
+        }
+
+        $html = '<!doctype html><html><head><meta charset="utf-8"><style>
+            body{font-family:dejavusans,sans-serif;color:#0f172a;font-size:8.5px}
+            .header{border-bottom:2px solid #1d4ed8;padding-bottom:6px;margin-bottom:8px}
+            .title{font-size:16px;font-weight:bold;text-transform:uppercase}
+            .subtitle{font-size:9px;color:#475569;margin-top:2px}
+            .summary{width:100%;border-collapse:collapse;margin:8px 0}
+            .summary td{border:1px solid #cbd5e1;padding:5px 7px}
+            .summary .label{background:#e2e8f0;font-weight:bold}
+            table.data{width:100%;border-collapse:collapse}
+            table.data th{background:#1e293b;color:#fff;border:1px solid #334155;padding:5px 4px;text-align:left;font-size:7.5px}
+            table.data td{border:1px solid #cbd5e1;padding:4px 4px;vertical-align:top}
+            table.data tr:nth-child(even) td{background:#f8fafc}
+            .money{text-align:right;white-space:nowrap}
+            .center{text-align:center}
+            .empty{border:1px solid #cbd5e1;padding:18px;text-align:center;color:#64748b;margin-top:8px}
+            .footer{margin-top:8px;color:#64748b;font-size:7px;text-align:right}
+        </style></head><body>';
+
+        $html .= '<div class="header">';
+        $html .= '<div class="title">Ordenes del dia</div>';
+        $html .= '<div class="subtitle">Festival Internacional Cervantino / Consulta de usuarios y folios</div>';
+        $html .= '</div>';
+
+        $html .= '<table class="summary"><tr>';
+        $html .= '<td class="label">Grupo</td><td>' . $h($grupoLabel) . '</td>';
+        $html .= '<td class="label">Periodo</td><td>' . $h($periodo) . '</td>';
+        $html .= '<td class="label">Registros</td><td class="center">' . count($rows) . '</td>';
+        $html .= '</tr><tr>';
+        $html .= '<td class="label">Saldo reservado</td><td class="money">' . $money($totalReservado) . '</td>';
+        $html .= '<td class="label">Saldo operativo</td><td class="money">' . $money($totalOperativo) . '</td>';
+        $html .= '<td class="label">Emitido</td><td>' . $h(date('d/m/Y H:i')) . '</td>';
+        $html .= '</tr></table>';
+
+        if (empty($rows)) {
+            $html .= '<div class="empty">Sin ordenes para el filtro seleccionado.</div>';
+            return $html . '</body></html>';
+        }
+
+        $html .= '<table class="data"><thead><tr>';
+        foreach (['ID', 'Usuario', 'Nombre completo', 'Folio', 'Subfolio', 'Vigencia desde', 'Vigencia hasta', 'Perfil', 'Hospedaje', 'Alimentos', 'Saldo reservado', 'Saldo operativo', 'Documentos'] as $header) {
+            $html .= '<th>' . $h($header) . '</th>';
+        }
+        $html .= '</tr></thead><tbody>';
+
+        foreach ($rows as $row) {
+            $html .= '<tr>';
+            $html .= '<td class="center">' . (int) ($row['id_usuario'] ?? 0) . '</td>';
+            $html .= '<td>' . $h($row['usuario'] ?? '') . '</td>';
+            $html .= '<td>' . $h($row['nombre_completo'] ?? '') . '</td>';
+            $html .= '<td>' . $h($row['folio'] ?? '') . '</td>';
+            $html .= '<td>' . $h($row['sub_folio'] ?? '') . '</td>';
+            $html .= '<td>' . $h($this->formatOrdenDiaDateLabel((string) ($row['fec_vigencia_desde'] ?? ''))) . '</td>';
+            $html .= '<td>' . $h($this->formatOrdenDiaDateLabel((string) ($row['fec_vigencia_hasta'] ?? ''))) . '</td>';
+            $html .= '<td>' . $h($row['dsc_perfil'] ?? ($row['rol_visible'] ?? '')) . '</td>';
+            $html .= '<td class="center">' . $h($yesNo($row['tiene_hospedaje'] ?? 0)) . '</td>';
+            $html .= '<td class="center">' . $h($yesNo($row['tiene_alimentos'] ?? 0)) . '</td>';
+            $html .= '<td class="money">' . $money($row['monto_deposito_reservado'] ?? 0) . '</td>';
+            $html .= '<td class="money">' . $money($row['monto_deposito_operativo'] ?? 0) . '</td>';
+            $html .= '<td>' . $h($this->summarizeDocumentosExport((array) $row)) . '</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table>';
+        $html .= '<div class="footer">Documento generado automaticamente por el sistema CAyH.</div>';
+        $html .= '</body></html>';
+
+        return $html;
+    }
+
+    private function formatOrdenDiaDateLabel(string $value): string
+    {
+        $date = $this->normalizeExportDate($value);
+        if ($date === '') {
+            return '';
+        }
+
+        try {
+            return (new \DateTimeImmutable($date))->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return $date;
+        }
     }
 
     private function resolveSessionEstablecimiento(int $idEstablecimiento, ?array $contextoUsuario = null): array

@@ -86,6 +86,7 @@ $routes->post('Inicio/rechazarSolicitudUsuarioOperativo', 'Inicio::rechazarSolic
 $routes->post('Inicio/activarQrDepositosProgramados', 'Inicio::activarQrDepositosProgramados');
 $routes->get('Usuario/exportarCajerosXlsx', 'Usuario::exportarCajerosXlsx');
 $routes->get('Usuario/exportarCajerosOrdenDiaXlsx', 'Usuario::exportarCajerosOrdenDiaXlsx');
+$routes->get('Usuario/exportarCajerosOrdenDiaPdf', 'Usuario::exportarCajerosOrdenDiaPdf');
 $routes->post('Usuario/subirIneFirmaCajero', 'Usuario::subirIneFirmaCajero');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
