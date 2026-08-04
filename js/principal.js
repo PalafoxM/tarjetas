@@ -1794,69 +1794,400 @@ window.cajeros = {
         $('#cajeroPageTitle').text('Editar usuario institucional');
     },
 
-    resolverPartidaAutomatica: function () {
-        if ($('#tiene_hospedaje').val() === '1') {
-            return '2';
-        }
 
-        if ($('#tiene_alimentos').val() === '1') {
-            return '3';
-        }
+resolverPartidaAutomatica: function () {
+    var tieneAlimentos = $('#tiene_alimentos').val() === '1';
+    var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+    var grupo = this.obtenerGrupoInstitucional();
+    var esFicOrUg = (grupo === 'fic' || grupo === 'ug');
+ 
+    if (!tieneAlimentos && !tieneHospedaje) {
+        return String($('#id_partida').val() || '0');
+    }
 
-        return String($('#id_partida').val() || '3');
-    },
-
-    sincronizarPartidaUI: function () {
-        var esAutomatica = this.esPartidaAutomaticaFicUg();
-        var esTi = this.esPerfilTi();
-        var hidden = $('#id_partida');
-        var select = $('#id_partida_ui');
-        var wrapper = $('#partidaManualWrapper');
-        var valor = String(hidden.val() || select.val() || '');
-
-        if (this.isSolicitudFolioMode || this.esEdicionInstitucionalAdmin()) {
-            hidden.val('');
-            if (select.length) {
-                select.val('').prop('disabled', true).trigger('change.select2');
-            }
-            wrapper.addClass('d-none');
-            $('#id_partida_alimentos_ui, #id_partida_hospedaje_ui').val('');
+    if (tieneHospedaje) {
+        return '2'; 
+    }
+   
+    if (tieneAlimentos) {
+        if (esFicOrUg) {
+            return '3'; 
+        } else {
+           
             return '';
         }
+    }
+    
+    
+    return String($('#id_partida').val() || '0');
+},
 
-        if (esTi) {
-            hidden.val('');
-            if (select.length) {
-                select.val('').prop('disabled', true).trigger('change.select2');
-            }
-            wrapper.addClass('d-none');
-            return;
+sincronizarPartidaUI: function () {
+    var esAutomatica = this.esPartidaAutomaticaFicUg();
+    var esTi = this.esPerfilTi();
+    var hidden = $('#id_partida');
+    var select = $('#id_partida_ui');
+    var wrapper = $('#partidaManualWrapper');
+    var grupo = this.obtenerGrupoInstitucional();
+    
+    
+    var tieneAlimentos = $('#tiene_alimentos').val() === '1';
+    var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+    var esFicOrUg = (grupo === 'fic' || grupo === 'ug');
+    
+   
+    if (this.isSolicitudFolioMode || this.esEdicionInstitucionalAdmin()) {
+        hidden.val('');
+        if (select.length) {
+            select.val('').prop('disabled', true).trigger('change.select2');
         }
+        wrapper.addClass('d-none');
+        $('#id_partida_alimentos_ui, #id_partida_hospedaje_ui').val('');
+        return '';
+    }
 
-        if (esAutomatica) {
-            valor = this.resolverPartidaAutomatica();
-            hidden.val(valor);
-            if (select.length) {
-                select.val(valor).prop('disabled', true).trigger('change.select2');
+    
+    if (esTi) {
+        hidden.val('');
+        if (select.length) {
+            select.val('').prop('disabled', true).trigger('change.select2');
+        }
+        wrapper.addClass('d-none');
+        $('#id_partida_alimentos_ui, #id_partida_hospedaje_ui').val('');
+        return;
+    }
+
+    var partidaAlimentos = '';
+    var partidaHospedaje = '';
+    var valorPrincipal = '';
+    var mostrarManual = false;
+    
+   
+    if (tieneHospedaje) {
+        partidaHospedaje = '2'; 
+        valorPrincipal = '2'; 
+    }
+    
+   
+    if (tieneAlimentos) {
+        if (esFicOrUg) {
+            
+            partidaAlimentos = '3';
+           
+            if (!tieneHospedaje) {
+                valorPrincipal = '3';
             }
-            wrapper.addClass('d-none');
         } else {
-            if (select.length) {
-                select.prop('disabled', false);
-                wrapper.removeClass('d-none');
-                if (valor !== '') {
-                    select.val(valor).trigger('change.select2');
+           
+            mostrarManual = true;
+            
+            var valorManual = String(select.val() || hidden.val() || '');
+            if (valorManual !== '') {
+                partidaAlimentos = valorManual;
+                if (!tieneHospedaje) {
+                    valorPrincipal = valorManual;
                 }
-                valor = String(select.val() || hidden.val() || '');
             }
-            hidden.val(valor);
         }
+    }
+    
+  
+    var labelAlimentos = partidaAlimentos ? this.obtenerLabelPartida(partidaAlimentos) : '';
+    var labelHospedaje = partidaHospedaje ? this.obtenerLabelPartida(partidaHospedaje) : '';
+    
+    
+    $('#id_partida_alimentos_ui').val(labelAlimentos);
+    $('#id_partida_hospedaje_ui').val(labelHospedaje);
+    
+    
+    if (mostrarManual && tieneAlimentos && !tieneHospedaje) {
+        
+        select.prop('disabled', false);
+        wrapper.removeClass('d-none');
+        if (valorPrincipal !== '') {
+            select.val(valorPrincipal).trigger('change.select2');
+        }
+    } else if (mostrarManual && tieneAlimentos && tieneHospedaje) {
+        
+        select.prop('disabled', false);
+        wrapper.removeClass('d-none');
+        
+        if (partidaAlimentos !== '') {
+            select.val(partidaAlimentos).trigger('change.select2');
+        }
+    } else {
 
-        var partidaLabel = this.obtenerLabelPartida(valor);
-        $('#id_partida_alimentos_ui').val(partidaLabel);
-        $('#id_partida_hospedaje_ui').val(partidaLabel);
-        return valor;
-    },
+        select.prop('disabled', true);
+        wrapper.addClass('d-none');
+    }
+    
+    if (tieneAlimentos && tieneHospedaje && esFicOrUg) {
+        select.val('2').trigger('change.select2');
+    }
+    
+    hidden.val(valorPrincipal);
+    
+    
+    this.actualizarResumenAltaUsuario();
+    
+    return hidden.val();
+},
+
+actualizarFlujoBeneficios: function () {
+    var esProveedor = this.esProveedorLike();
+    var esTi = this.esPerfilTi();
+    var tieneAlimentos = !esProveedor && $('#tiene_alimentos').val() === '1';
+    var tieneHospedaje = !esProveedor && $('#tiene_hospedaje').val() === '1';
+    var grupo = this.obtenerGrupoInstitucional();
+    var esFicOrUg = (grupo === 'fic' || grupo === 'ug');
+
+    if (esTi) {
+        tieneAlimentos = false;
+        tieneHospedaje = false;
+        $('#tiene_alimentos, #tiene_hospedaje').val('0');
+        $('#id_partida, #id_partida_ui, #id_establecimiento').val('');
+    }
+
+    $('.alimentos-field').toggle(tieneAlimentos);
+    $('.hospedaje-field').toggle(tieneHospedaje);
+    $('#partidaHospedajeWrapper').toggle(tieneHospedaje);
+    $('#hospedajePlanWrapper').toggle(tieneHospedaje);
+
+    
+    var mostrarPartidaManual = tieneAlimentos && !esFicOrUg && !esProveedor && !esTi;
+    $('#partidaManualWrapper').toggle(mostrarPartidaManual);
+    
+    if (!mostrarPartidaManual) {
+        $('#partidaManualWrapper').addClass('d-none');
+    } else {
+        $('#partidaManualWrapper').removeClass('d-none');
+    }
+
+    if (!tieneHospedaje) {
+        $('#id_establecimiento_hotel, #id_tipo_habitacion, #fec_vigencia_desde_hos, #fec_vigencia_hasta_hos, #tarifa_noche, #tarifa_total, #noche').val('');
+        $('#hospedaje_plan_json').val('');
+        $('#hospedaje_sobrerreserva').val('0');
+        $('#hospedaje_sobrerreserva_ui').prop('checked', false);
+        $('#hospedajePlanContainer').empty();
+        $('#hospedajePlanHabitaciones, #hospedajePlanPaxAsignados, #hospedajePlanCapacidadTotal, #hospedajePlanEstado').val('');
+    }
+    if (!tieneAlimentos) {
+        $('#fec_vigencia_desde, #fec_vigencia_hasta').val('');
+        $('#id_nivel_cliente').val('').trigger('change.select2');
+        $('#monto_deposito').val('');
+        $('#monto_total_alimentos_ui').val('');
+    }
+
+    if (esProveedor) {
+        $('#tiene_alimentos, #tiene_hospedaje').val('0');
+    }
+
+   
+    this.sincronizarPartidaUI();
+    this.actualizarCalculoHospedaje();
+    this.actualizarCalculoAlimentos();
+    this.asegurarHospedajePlanInicial();
+    this.sincronizarHospedajePlan();
+    if (this.isAltaPage) {
+        this.actualizarResumenAltaUsuario();
+    }
+    this.aplicarModoSolicitudFolioUI();
+},
+
+obtenerLabelPartida: function (idPartida) {
+    var partida = this.buscarPorId(this.catalogos.partidas, 'id_partida', idPartida);
+    if (!partida) return '';
+    
+    var codigo = partida.partida || '';
+    var descripcion = partida.des_partida || '';
+    
+    
+    switch (String(idPartida)) {
+        case '1':
+            codigo = '2210';
+            descripcion = 'Alimentos';
+            break;
+        case '2':
+            codigo = '3390A';
+            descripcion = 'Hospedaje';
+            break;
+        case '3':
+            codigo = '3390B';
+            descripcion = 'Alimentos';
+            break;
+        default:
+            codigo = partida.partida || '';
+            descripcion = partida.des_partida || '';
+    }
+    
+    return codigo + (descripcion ? ' - ' + descripcion : '');
+},
+
+  
+
+sincronizarPartidaUI: function () {
+    var esAutomatica = this.esPartidaAutomaticaFicUg();
+    var esTi = this.esPerfilTi();
+    var hidden = $('#id_partida');
+    var select = $('#id_partida_ui');
+    var wrapper = $('#partidaManualWrapper');
+    var grupo = this.obtenerGrupoInstitucional();
+    
+
+    var tieneAlimentos = $('#tiene_alimentos').val() === '1';
+    var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+    var esFicOrUg = (grupo === 'fic' || grupo === 'ug');
+    
+    
+    if (this.isSolicitudFolioMode || this.esEdicionInstitucionalAdmin()) {
+        hidden.val('');
+        if (select.length) {
+            select.val('').prop('disabled', true).trigger('change.select2');
+        }
+        wrapper.addClass('d-none');
+        $('#id_partida_alimentos_ui, #id_partida_hospedaje_ui').val('');
+        return '';
+    }
+
+   
+    if (esTi) {
+        hidden.val('');
+        if (select.length) {
+            select.val('').prop('disabled', true).trigger('change.select2');
+        }
+        wrapper.addClass('d-none');
+        $('#id_partida_alimentos_ui, #id_partida_hospedaje_ui').val('');
+        return '';
+    }
+
+   
+    var partidaHospedaje = '2';
+    var labelHospedaje = this.obtenerLabelPartida('2');
+    
+
+    var partidaAlimentos = '';
+    var labelAlimentos = '';
+    var mostrarManual = false;
+    var valorSeleccionadoManual = '';
+    
+    if (tieneAlimentos) {
+        if (esFicOrUg) {
+       
+            partidaAlimentos = '3';
+            labelAlimentos = this.obtenerLabelPartida('3');
+            mostrarManual = false;
+        } else {
+           
+            mostrarManual = true;
+            
+            valorSeleccionadoManual = String(select.val() || '');
+            if (valorSeleccionadoManual !== '' && valorSeleccionadoManual !== '0') {
+                partidaAlimentos = valorSeleccionadoManual;
+                labelAlimentos = this.obtenerLabelPartida(valorSeleccionadoManual);
+            } else {
+                
+                partidaAlimentos = '';
+                labelAlimentos = '';
+            }
+        }
+    }
+    
+    
+    $('#id_partida_hospedaje_ui').val(labelHospedaje); 
+    $('#id_partida_alimentos_ui').val(labelAlimentos); 
+    
+    
+    if (mostrarManual && tieneAlimentos) {
+        
+        select.prop('disabled', false);
+        wrapper.removeClass('d-none');
+       
+        if (valorSeleccionadoManual !== '' && valorSeleccionadoManual !== '0') {
+            select.val(valorSeleccionadoManual).trigger('change.select2');
+        } else {
+            select.val('').trigger('change.select2');
+        }
+    } else {
+        
+        select.prop('disabled', true);
+        wrapper.addClass('d-none');
+    }
+    
+    var valorPrincipal = '';
+    
+    
+    if (tieneHospedaje) {
+        valorPrincipal = '2'; 
+    } else if (tieneAlimentos && partidaAlimentos !== '') {
+        valorPrincipal = partidaAlimentos;
+    } else {
+        valorPrincipal = '';
+    }
+    
+    hidden.val(valorPrincipal);
+    if (select.length && !mostrarManual) {
+       
+        select.val(valorPrincipal).trigger('change.select2');
+    }
+    
+    this.actualizarResumenAltaUsuario();
+    
+    return hidden.val();
+},
+
+
+onPartidaChange: function () {
+    var valorSeleccionado = String($('#id_partida_ui').val() || '');
+    var tieneAlimentos = $('#tiene_alimentos').val() === '1';
+    var grupo = this.obtenerGrupoInstitucional();
+    var esFicOrUg = (grupo === 'fic' || grupo === 'ug');
+    
+    
+    if (!esFicOrUg && tieneAlimentos) {
+       
+        var labelAlimentos = valorSeleccionado ? this.obtenerLabelPartida(valorSeleccionado) : '';
+        $('#id_partida_alimentos_ui').val(labelAlimentos);
+        
+        var tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+        if (!tieneHospedaje && valorSeleccionado !== '') {
+            $('#id_partida').val(valorSeleccionado);
+        }
+        
+        this.actualizarResumenAltaUsuario();
+    } else {
+      
+        this.sincronizarPartidaUI();
+    }
+},
+
+obtenerLabelPartida: function (idPartida) {
+    var partida = this.buscarPorId(this.catalogos.partidas, 'id_partida', idPartida);
+    if (!partida) return '';
+    
+    var codigo = partida.partida || '';
+    var descripcion = partida.des_partida || '';
+    
+   
+    switch (String(idPartida)) {
+        case '1':
+            codigo = '2210';
+            descripcion = 'Alimentos';
+            break;
+        case '2':
+            codigo = '3390A';
+            descripcion = 'Hospedaje';
+            break;
+        case '3':
+            codigo = '3390B';
+            descripcion = 'Alimentos';
+            break;
+        default:
+            codigo = partida.partida || '';
+            descripcion = partida.des_partida || '';
+    }
+    
+    return codigo + (descripcion ? ' - ' + descripcion : '');
+},
 
     onPartidaChange: function () {
         $('#id_partida').val(String($('#id_partida_ui').val() || ''));
