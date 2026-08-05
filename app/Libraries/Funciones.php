@@ -11,7 +11,7 @@ class Funciones {
     public function __construct()
     {
         $this->globals = new Globals();
-        $this->secretKey = 'ORnsLEykJAMTEvacurICINGeRvelINclOg'; 
+        $this->secretKey = env('TOKEN_API');; 
     }
 
     function encode($data) {
