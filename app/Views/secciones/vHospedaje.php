@@ -40,6 +40,7 @@ $reporteHospedajeEstablecimientoId = (int) ($hospedajeEstablecimientoId ?? $sess
 
     <div class="card">
         <div class="card-body">
+            <?= view('components/busqueda_avanzada') ?>
             <table id="hospedajeTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"
@@ -447,7 +448,185 @@ confirmarCheckOut: function (idUsuario, nombreCompleto) {
 },
 };
 
+(function() {
+    'use strict';
+    
+    var BusquedaAvanzadaOriginal = window.BusquedaAvanzada;
+    
+    window.BusquedaAvanzadaHospedaje = {
+        datosOriginales: [],
+        busquedaActiva: false,
+        timeoutId: null,
+        terminoActual: '',
+        tabla: null,
+        currentXhr: null,
+        
+        init: function() {
+            this.tabla = $('#hospedajeTable');
+            
+            var $inputBusqueda = $('#busqueda_avanzada_input');
+            var $clearBtn = $('#busqueda_clear_btn');
+            
+            if (!$inputBusqueda.length) return;
+            
+            function toggleClearButton() {
+                var hasText = $inputBusqueda.val().trim().length > 0;
+                $clearBtn.toggleClass('visible', hasText);
+                $inputBusqueda.toggleClass('has-clear-btn', hasText);
+            }
+            
+            $inputBusqueda.off('input.hospedaje').on('input.hospedaje', function() {
+                var texto = $(this).val();
+                toggleClearButton();
+                clearTimeout(window.BusquedaAvanzadaHospedaje.timeoutId);
+                
+                if (texto.trim().length === 0) {
+                    if (window.BusquedaAvanzadaHospedaje.currentXhr) {
+                        window.BusquedaAvanzadaHospedaje.currentXhr.abort();
+                        window.BusquedaAvanzadaHospedaje.currentXhr = null;
+                    }
+                    window.BusquedaAvanzadaHospedaje.restaurarTablaOriginal();
+                    return;
+                }
+                
+                if (texto.trim().length < 2) return;
+                
+                window.BusquedaAvanzadaHospedaje.timeoutId = setTimeout(function() {
+                    window.BusquedaAvanzadaHospedaje.realizarBusqueda(texto);
+                }, 300);
+            });
+            
+            $clearBtn.off('click.hospedaje').on('click.hospedaje', function() {
+                $inputBusqueda.val('');
+                toggleClearButton();
+                clearTimeout(window.BusquedaAvanzadaHospedaje.timeoutId);
+                if (window.BusquedaAvanzadaHospedaje.currentXhr) {
+                    window.BusquedaAvanzadaHospedaje.currentXhr.abort();
+                    window.BusquedaAvanzadaHospedaje.currentXhr = null;
+                }
+                window.BusquedaAvanzadaHospedaje.restaurarTablaOriginal();
+                $inputBusqueda.focus();
+            });
+            
+            $('[data-bs-toggle="collapse"][data-bs-target="#busquedaAvanzadaCollapse"]').off('click.hospedaje').on('click.hospedaje', function() {
+                setTimeout(function() {
+                    $inputBusqueda.focus();
+                    toggleClearButton();
+                }, 400);
+            });
+            
+            $('#busquedaAvanzadaCollapse').off('hidden.bs.collapse.hospedaje').on('hidden.bs.collapse.hospedaje', function() {
+                window.BusquedaAvanzadaHospedaje.limpiarBusqueda();
+                $clearBtn.removeClass('visible');
+                $inputBusqueda.removeClass('has-clear-btn');
+            });
+            
+            toggleClearButton();
+        },
+        
+        realizarBusqueda: function(termino) {
+            var table = this.tabla || $('#hospedajeTable');
+            var texto = termino.trim();
+            
+            if (this.currentXhr) {
+                this.currentXhr.abort();
+                this.currentXhr = null;
+            }
+
+            if (!texto) {
+                this.restaurarTablaOriginal();
+                return;
+            }
+            
+            if (texto.length < 2) return;
+            
+            this.busquedaActiva = true;
+            this.terminoActual = texto;
+            
+            if (!this.datosOriginales || this.datosOriginales.length === 0) {
+                var currentData = table.bootstrapTable('getData');
+                if (currentData && currentData.length) {
+                    this.datosOriginales = currentData.slice();
+                }
+            }
+            
+            this.currentXhr = $.ajax({
+                url: base_url + 'index.php/Inicio/ObtenerHospedaje',
+                type: 'GET',
+                dataType: 'json',
+                timeout: 10000,
+                global: false,
+                success: function(response) {
+                    var rows = [];
+                    if (Array.isArray(response)) rows = response;
+                    else if (response && Array.isArray(response.data)) rows = response.data;
+                    
+                    if (rows.length > 0) {
+                        var terminoLower = texto.toLowerCase();
+                        rows = rows.filter(function(row) {
+                            var nombreCompleto = (row.nombre_completo || row.nombre || '').toLowerCase();
+                            var usuario = (row.usuario || '').toLowerCase();
+                            var folio = (row.folio || row.folio_grupo || '').toLowerCase();
+                            var idUsuario = String(row.id_usuario || '');
+                            
+                            return nombreCompleto.indexOf(terminoLower) !== -1 ||
+                                   usuario.indexOf(terminoLower) !== -1 ||
+                                   folio.indexOf(terminoLower) !== -1 ||
+                                   idUsuario.indexOf(terminoLower) !== -1;
+                        });
+                    }
+                    
+                    table.bootstrapTable('load', rows);
+                },
+                error: function(xhr, status, error) {
+                    if (status !== 'abort') {
+                        console.error('Error en búsqueda de hospedaje:', status, error);
+                        window.BusquedaAvanzadaHospedaje.restaurarTablaOriginal();
+                    }
+                }
+            });
+        },
+        
+        restaurarTablaOriginal: function() {
+            var table = this.tabla || $('#hospedajeTable');
+            
+            this.busquedaActiva = false;
+            this.terminoActual = '';
+            
+            if (this.datosOriginales && Array.isArray(this.datosOriginales) && this.datosOriginales.length > 0) {
+                table.bootstrapTable('load', this.datosOriginales);
+            } else {
+                table.bootstrapTable('refresh', { silent: true });
+            }
+        },
+        
+        limpiarBusqueda: function() {
+            if (this.currentXhr) {
+                this.currentXhr.abort();
+                this.currentXhr = null;
+            }
+
+            $('#busqueda_avanzada_input').val('').removeClass('has-clear-btn');
+            $('#busqueda_clear_btn').removeClass('visible');
+            
+            if (this.timeoutId) {
+                clearTimeout(this.timeoutId);
+                this.timeoutId = null;
+            }
+            
+            this.busquedaActiva = false;
+            this.terminoActual = '';
+            
+            this.restaurarTablaOriginal();
+        }
+    };
+})();
+
 $(function () {
+    if (window.BusquedaAvanzadaHospedaje && typeof window.BusquedaAvanzadaHospedaje.init === 'function') {
+        window.BusquedaAvanzadaHospedaje.init();
+    }
+
     establecimientos.iniciar();
 });
 </script>

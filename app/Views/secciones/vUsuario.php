@@ -127,6 +127,7 @@ $solicitudFolioCatalogoUrl = $puedeSolicitarFolioInstitucional ? base_url('index
                     <div class="text-muted small" id="filtro_dia_llegada_estado">Mostrando todos los folios por día de llegada.</div>
                 </div>
             </div>
+            <?= view('components/busqueda_avanzada') ?>
             <table id="cajerosTable"
                    class="table table-dark table-hover align-middle"
                    data-search="true"

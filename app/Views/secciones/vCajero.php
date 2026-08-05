@@ -187,193 +187,6 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
 </div>
 
 <script>
-(function() {
-    'use strict';
-    
-    let busquedaActiva = false;
-    let terminoActual = '';
-    let timeoutId = null;
-    let tabla = null;
-    
-    const inputBusqueda = document.getElementById('busqueda_avanzada_input');
-    const btnCerrar = document.getElementById('btn_cerrar_busqueda_avanzada');
-    const collapseElement = document.getElementById('busquedaAvanzadaCollapse');
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        tabla = $('#cajerosTable');
-        
-        if (!tabla.length) {
-            console.error('Tabla no encontrada');
-            return;
-        }
-        
-        configurarEventos();
-    });
-    
-    function configurarEventos() {
-        inputBusqueda.addEventListener('input', function() {
-            const termino = this.value.trim();
-            
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-                timeoutId = null;
-            }
-            
-            if (termino.length > 0) {
-                btnCerrar.style.display = 'block';
-            } else {
-                btnCerrar.style.display = 'none';
-            }
-            
-            if (termino.length === 0) {
-                restaurarTablaOriginal();
-                return;
-            }
-            
-            if (termino.length < 2) {
-                return;
-            }
-            
-            timeoutId = setTimeout(function() {
-                realizarBusqueda(termino);
-            }, 300);
-        });
-        
-        btnCerrar.addEventListener('click', function() {
-            limpiarBusqueda();
-        });
-        
-        if (collapseElement) {
-            collapseElement.addEventListener('hidden.bs.collapse', function() {
-                limpiarBusqueda();
-            });
-        }
-        
-        document.querySelector('[data-bs-target="#busquedaAvanzadaCollapse"]')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            const bsCollapse = bootstrap.Collapse.getInstance(collapseElement);
-            if (bsCollapse) {
-                bsCollapse.toggle();
-            } else {
-                new bootstrap.Collapse(collapseElement, {
-                    toggle: true
-                });
-            }
-        });
-    }
-    
-    function realizarBusqueda(termino) {
-        if (!termino || termino.length < 2) {
-            return;
-        }
-        
-        terminoActual = termino;
-        busquedaActiva = true;
-        
-        tabla.bootstrapTable('showLoading');
-        
-        const url = base_url + 'index.php/Usuario/buscarUsuariosAvanzado';
-        
-        $.ajax({
-            url: url,
-            type: 'GET',
-            dataType: 'json',
-            data: { termino: termino },
-            timeout: 10000,
-            success: function(response) {
-                tabla.bootstrapTable('hideLoading');
-                
-                let rows = [];
-                if (Array.isArray(response)) {
-                    rows = response;
-                } else if (response && Array.isArray(response.data)) {
-                    rows = response.data;
-                } else if (response && Array.isArray(response.rows)) {
-                    rows = response.rows;
-                } else {
-                    console.error('Formato de respuesta inválido:', response);
-                    mostrarMensaje('Error', 'Formato de respuesta inválido', 'error');
-                    return;
-                }
-                
-                tabla.bootstrapTable('load', rows);
-                
-                if (rows.length === 0) {
-                    mostrarMensaje('Sin resultados', 'No se encontraron usuarios con el criterio: "' + termino + '"', 'info');
-                }
-            },
-            error: function(xhr, status, error) {
-                tabla.bootstrapTable('hideLoading');
-                
-                console.error('Error en búsqueda avanzada:', status, error);
-                console.error('Respuesta:', xhr.responseText);
-                
-                restaurarTablaOriginal();
-                mostrarMensaje('Error', 'No fue posible realizar la búsqueda: ' + (error || 'Error desconocido'), 'error');
-            }
-        });
-    }
-    
-    function restaurarTablaOriginal() {
-        busquedaActiva = false;
-        terminoActual = '';
-        
-        if (tabla && tabla.length) {
-            try {
-                tabla.bootstrapTable('refresh', { silent: true });
-            } catch(e) {
-                console.warn('Error al refrescar tabla:', e);
-            }
-        }
-    }
-    
-    function limpiarBusqueda() {
-        if (inputBusqueda) {
-            inputBusqueda.value = '';
-        }
-        
-        if (btnCerrar) {
-            btnCerrar.style.display = 'none';
-        }
-        
-        if (timeoutId) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-        }
-        
-        restaurarTablaOriginal();
-        
-        if (collapseElement && collapseElement.classList.contains('show')) {
-            const bsCollapse = bootstrap.Collapse.getInstance(collapseElement);
-            if (bsCollapse) {
-                bsCollapse.hide();
-            }
-        }
-    }
-    
-    function mostrarMensaje(titulo, mensaje, tipo) {
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: titulo,
-                text: mensaje,
-                icon: tipo || 'info',
-                confirmButtonText: 'Aceptar'
-            });
-        } else {
-            alert(titulo + ': ' + mensaje);
-        }
-    }
-    
-    window.BusquedaAvanzada = {
-        init: function() {
-        },
-        realizarBusqueda: realizarBusqueda,
-        limpiarBusqueda: limpiarBusqueda
-    };
-})();
-</script>
-
-<script>
 const cajeroSoloConsulta = <?= json_encode($cajeroSoloConsulta) ?>;
 const cajeroPuedeGestionarQr = <?= json_encode($cajeroPuedeGestionarQr ?? false) ?>;
 const cajeroPuedeActivarQr = <?= json_encode($cajeroPuedeActivarQr ?? false) ?>;
@@ -412,6 +225,10 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                     return [];
                 }
 
+                if (window.BusquedaAvanzada && !window.BusquedaAvanzada.busquedaActiva) {
+                    window.BusquedaAvanzada.datosOriginales = JSON.parse(JSON.stringify(rows));
+                }
+
                 this.establecerRegistrosBaseDiaLlegada(rows);
                 this.actualizarEstadoFiltroDiaLlegada();
                 return this.aplicarFiltroDiaLlegada(rows);
@@ -446,55 +263,6 @@ window.cajeros = Object.assign(window.cajeros || {}, {
             const field = String($(event.currentTarget).data('field') || '');
             this.abrirDocumento(field);
         });
-    },
-
-    busquedaAvanzada: {
-        timeoutId: null,
-        
-        realizarBusqueda(termino) {
-            const table = $('#cajerosTable');
-            const texto = termino.trim();
-            
-            if (!texto) {
-                table.bootstrapTable('refresh', { silent: true });
-                $('#btn_cerrar_busqueda_avanzada').hide();
-                return;
-            }
-            
-            $('#btn_cerrar_busqueda_avanzada').show();
-            
-            $.ajax({
-                url: base_url + 'index.php/Usuario/buscarUsuariosAvanzado',
-                type: 'GET',
-                dataType: 'json',
-                data: { termino: texto },
-                success: function(response) {
-                    let rows = [];
-                    if (Array.isArray(response)) {
-                        rows = response;
-                    } else if (response && Array.isArray(response.data)) {
-                        rows = response.data;
-                    } else if (response && Array.isArray(response.rows)) {
-                        rows = response.rows;
-                    } else {
-                        console.error('Formato de respuesta inválido');
-                        return;
-                    }
-                    
-                    table.bootstrapTable('load', rows);
-                },
-                error: function(xhr) {
-                    console.error('Error en búsqueda avanzada:', xhr.responseText);
-                }
-            });
-        },
-        
-        limpiarBusqueda() {
-            $('#busqueda_avanzada_input').val('');
-            $('#btn_cerrar_busqueda_avanzada').hide();
-            $('#cajerosTable').bootstrapTable('refresh', { silent: true });
-            $('#busquedaAvanzadaCollapse').collapse('hide');
-        }
     },
 
     escapeHtml(value) {
@@ -1034,23 +802,6 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
 $(function () {
     cajeros.iniciar();
-    
-    $('#busqueda_avanzada_input').on('input', function() {
-        const self = $(this);
-        clearTimeout(window.cajeros.busquedaAvanzada.timeoutId);
-        
-        window.cajeros.busquedaAvanzada.timeoutId = setTimeout(function() {
-            window.cajeros.busquedaAvanzada.realizarBusqueda(self.val());
-        }, 300);
-    });
-    
-    $('#btn_cerrar_busqueda_avanzada').on('click', function() {
-        window.cajeros.busquedaAvanzada.limpiarBusqueda();
-    });
-    
-    $('#busquedaAvanzadaCollapse').on('hidden.bs.collapse', function() {
-        window.cajeros.busquedaAvanzada.limpiarBusqueda();
-    });
     
     if (window.ficRealtime && typeof window.ficRealtime.on === 'function') {
         window.ficRealtime.on('fic:usuario-documentos-subidos', function () {
