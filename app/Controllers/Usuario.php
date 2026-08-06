@@ -841,16 +841,19 @@ class Usuario extends BaseController
 
         if ($planJson !== null && $planJson !== '') {
             $decoded = json_decode($planJson, true);
-            $habitaciones = is_array($decoded) && isset($decoded['habitaciones']) && is_array($decoded['habitaciones'])
-                ? $decoded['habitaciones']
-                : [];
+            $habitaciones = [];
+            if (is_array($decoded) && isset($decoded['habitaciones']) && is_array($decoded['habitaciones'])) {
+                $habitaciones = $decoded['habitaciones'];
+            } elseif (is_array($decoded) && array_is_list($decoded)) {
+                $habitaciones = $decoded;
+            }
 
             foreach ($habitaciones as $index => $habitacion) {
                 if (!is_array($habitacion)) {
                     continue;
                 }
 
-                $totalTarifaNoche += round((float) ($habitacion['tarifa_noche'] ?? 0), 2);
+                $totalTarifaNoche += round($this->parseDecimalValue($habitacion['tarifa_noche'] ?? 0), 2);
 
                 if ($index === 0) {
                     $idHotel = $this->nullableInt($habitacion['id_establecimiento_hotel'] ?? null);
@@ -994,17 +997,34 @@ class Usuario extends BaseController
         $tarifaNoche = 0.00;
         $noches = 0;
         $montoTotalHospedajePax = 0.00;
+        $hospedajePlanJsonPreliminar = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? ($data['hospedaje_plan'] ?? null));
+        $totalesHospedajePlan = [
+            'tarifa_noche' => $tarifaNoche,
+            'tarifa_total' => $tarifaNoche * $noches,
+            'id_establecimiento_hotel' => null,
+            'id_tipo_habitacion' => null,
+        ];
 
         if ($tieneHospedaje) {
-            $tarifaNoche = round((float) ($data['tarifa_noche'] ?? 0), 2);
+            $tarifaNoche = round($this->parseDecimalValue($data['tarifa_noche'] ?? 0), 2);
             $noches = max(0, (int) ($data['noche'] ?? 0));
             
             if ($noches <= 0 && $vigenciaDesdeHosp !== null && $vigenciaHastaHosp !== null) {
                 $noches = max(0, $this->calculateDateSpanDays($vigenciaDesdeHosp, $vigenciaHastaHosp) - 1);
             }
             
-            if ($tarifaNoche <= 0 && (float) ($data['monto_deposito_hotel'] ?? 0) > 0) {
-                $tarifaNoche = round((float) ($data['monto_deposito_hotel'] ?? 0), 2);
+            $montoDepositoHotelFallback = $this->parseDecimalValue($data['monto_deposito_hotel'] ?? 0);
+            if ($tarifaNoche <= 0 && $montoDepositoHotelFallback > 0) {
+                $tarifaNoche = round($montoDepositoHotelFallback, 2);
+            }
+
+            $totalesHospedajePlan = $this->calcularTotalesHospedajeDesdePlan($hospedajePlanJsonPreliminar, $tarifaNoche, $noches);
+            $tarifaNoche = $totalesHospedajePlan['tarifa_noche'];
+            if ($totalesHospedajePlan['id_establecimiento_hotel'] !== null) {
+                $data['id_establecimiento_hotel'] = $totalesHospedajePlan['id_establecimiento_hotel'];
+            }
+            if ($totalesHospedajePlan['id_tipo_habitacion'] !== null) {
+                $data['id_tipo_habitacion'] = $totalesHospedajePlan['id_tipo_habitacion'];
             }
             
             if ($noches <= 0 || $tarifaNoche <= 0) {
@@ -1014,7 +1034,7 @@ class Usuario extends BaseController
                 ]);
             }
             
-            $montoTotalHospedajePax = round($tarifaNoche * $noches, 2);
+            $montoTotalHospedajePax = round((float) ($totalesHospedajePlan['tarifa_total'] ?? ($tarifaNoche * $noches)), 2);
         }
 
         $montoTotalPax = round($montoTotalAlimentosPax + $montoTotalHospedajePax, 2);
@@ -1048,19 +1068,6 @@ class Usuario extends BaseController
             ? $folio
             : preg_replace('/\D+/', '', (string) ($data['folio_grupo'] ?? $folio));
         $paxTotal = (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1);
-
-        $hospedajePlanJsonPreliminar = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? null);
-        $totalesHospedajePlan = $tieneHospedaje
-            ? $this->calcularTotalesHospedajeDesdePlan($hospedajePlanJsonPreliminar, $tarifaNoche, $noches)
-            : ['tarifa_noche' => $tarifaNoche, 'tarifa_total' => $tarifaNoche * $noches, 'id_establecimiento_hotel' => null, 'id_tipo_habitacion' => null];
-
-        $tarifaNoche = $totalesHospedajePlan['tarifa_noche'];
-        if ($totalesHospedajePlan['id_establecimiento_hotel'] !== null) {
-            $data['id_establecimiento_hotel'] = $totalesHospedajePlan['id_establecimiento_hotel'];
-        }
-        if ($totalesHospedajePlan['id_tipo_habitacion'] !== null) {
-            $data['id_tipo_habitacion'] = $totalesHospedajePlan['id_tipo_habitacion'];
-        }
 
         $personas = [];
         $personas[] = [
@@ -1181,7 +1188,7 @@ class Usuario extends BaseController
 
         
         $montoTotalGrupo = round($montoTotalPax * $paxTotal, 2);
-        $hospedajePlanJson = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? null);
+        $hospedajePlanJson = $hospedajePlanJsonPreliminar;
         $hospedajeSobrerreserva = $this->normalizeHospedajeSobrerreserva($data['hospedaje_sobrerreserva'] ?? null, $hospedajePlanJson);
 
     
@@ -2383,13 +2390,50 @@ class Usuario extends BaseController
     private function firstPositiveFloat(array $data, array $keys): float
     {
         foreach ($keys as $key) {
-            $value = (float) ($data[$key] ?? 0);
+            $value = $this->parseDecimalValue($data[$key] ?? 0);
             if ($value > 0) {
                 return $value;
             }
         }
 
         return 0.0;
+    }
+
+    private function parseDecimalValue($value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        $normalized = trim((string) $value);
+        if ($normalized === '') {
+            return 0.0;
+        }
+
+        $normalized = preg_replace('/[^\d,.\-]/', '', $normalized) ?? '';
+        if ($normalized === '' || $normalized === '-' || $normalized === '.' || $normalized === ',') {
+            return 0.0;
+        }
+
+        $hasComma = strpos($normalized, ',') !== false;
+        $hasDot = strpos($normalized, '.') !== false;
+
+        if ($hasComma && $hasDot) {
+            $normalized = str_replace(',', '', $normalized);
+        } elseif ($hasComma) {
+            $commaCount = substr_count($normalized, ',');
+            if ($commaCount === 1 && preg_match('/,\d{1,2}$/', $normalized)) {
+                $normalized = str_replace(',', '.', $normalized);
+            } else {
+                $normalized = str_replace(',', '', $normalized);
+            }
+        }
+
+        return is_numeric($normalized) ? (float) $normalized : 0.0;
     }
 
     private function firstNonEmptyFromSources(array $sources, array $keys): string
@@ -4340,7 +4384,10 @@ class Usuario extends BaseController
             return null;
         }
 
-        return is_numeric($value) ? (float) $value : null;
+        $parsed = $this->parseDecimalValue($value);
+        return $parsed > 0 || trim((string) $value) === '0' || trim((string) $value) === '0.00'
+            ? $parsed
+            : null;
     }
 
     private function nullableBoolInt($value): ?int

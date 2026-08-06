@@ -917,6 +917,12 @@ $inferHabitacionCapacidad = static function ($item) {
     form.addEventListener('submit', function (event) {
         event.preventDefault();
 
+        if (window.cajeros && typeof window.cajeros.guardarAltaUsuario === 'function') {
+            event.stopImmediatePropagation();
+            window.cajeros.guardarAltaUsuario();
+            return;
+        }
+
         if (isSubmitting) {
             return;
         }

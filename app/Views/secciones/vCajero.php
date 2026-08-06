@@ -506,15 +506,12 @@ window.cajeros = Object.assign(window.cajeros || {}, {
 
         let botones = `
             <div class="cajero-actions">
-              
-                <button class="btn btn-primary" type="button" title="Orden de Hospedaje y Alimentos" onclick="st.agregar.verPdf(${idUsuario})">
+                <button class="btn btn-warning" type="button" title="Editar" onclick="cajeros.editar(${idUsuario})">
+                    <i class="mdi mdi-account-edit"></i>
+                </button>
+                <button class="btn btn-primary" type="button" title="Orden" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
-                ${puedeGestionarQr ? botonActivarQr : ''}
-                ${puedeGestionarQr ? botonRechazarQr : ''}`;
-
-        if (!cajeroSoloConsulta) {
-            botones += `
                 <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
@@ -755,7 +752,7 @@ window.cajeros = Object.assign(window.cajeros || {}, {
     },
 
     verPdf(idUsuario) {
-        window.open(base_url + 'index.php/Usuario/generarPdfHospedaje/' + idUsuario, '_blank');
+        window.open(base_url + 'index.php/Usuario/generarPdfOrden/' + idUsuario, '_blank');
     },
 
     guardar() {

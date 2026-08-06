@@ -2547,6 +2547,9 @@ obtenerLabelPartida: function (idPartida) {
         $tarifa.val(tarifa > 0 ? this.moneda(tarifa) : '');
         
         var noches = parseInt($('#noche').val() || '0', 10);
+        if (noches <= 0) {
+            noches = this.calcularDiasVigencia($('#fec_vigencia_desde_hos').val(), $('#fec_vigencia_hasta_hos').val(), false);
+        }
         var tarifaTotal = tarifa * noches;
         $tarifaTotal.val(tarifaTotal > 0 ? this.moneda(tarifaTotal) : '');
         
@@ -2624,6 +2627,9 @@ obtenerLabelPartida: function (idPartida) {
 
         var self = this;
         var noches = parseInt($('#noche').val() || '0', 10);
+        if (noches <= 0) {
+            noches = this.calcularDiasVigencia($('#fec_vigencia_desde_hos').val(), $('#fec_vigencia_hasta_hos').val(), false);
+        }
         var usaSobrerreservaVisible = $('#hospedaje_sobrerreserva_ui').is(':checked');
         $('#hospedajePlanContainer').toggle(usaSobrerreservaVisible);
 
@@ -2643,6 +2649,9 @@ obtenerLabelPartida: function (idPartida) {
             totalCapacidad += Number(rows[i].capacidad || 0);
             totalTarifaNoche += Number(rows[i].tarifa_noche || 0);
             if (Number(rows[i].id_tipo_habitacion || 0) <= 0) {
+                planValido = false;
+            }
+            if (Number(rows[i].id_establecimiento_hotel || 0) <= 0 || Number(rows[i].tarifa_noche || 0) <= 0) {
                 planValido = false;
             }
             if (!usaSobrerreserva && Number(rows[i].pax || 0) > Number(rows[i].capacidad || 0)) {
