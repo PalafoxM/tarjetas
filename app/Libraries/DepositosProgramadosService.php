@@ -29,10 +29,29 @@ class DepositosProgramadosService
         $response->error = true;
         $response->respuesta = 'Error | No fue posible guardar el usuario';
 
-        $vigenciaInicio = $this->resolveUserDate($dataInsert, ['fec_vigencia_desde', 'fecha_check_in']);
-        $vigenciaFin = $this->resolveUserDate($dataInsert, ['fec_vigencia_hasta', 'fecha_check_out']);
+        $tieneAlimentos = (int) ($dataInsert['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = (int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1;
+
+    
+        $vigenciaInicio = null;
+        $vigenciaFin = null;
+
+        if ($tieneAlimentos) {
+        
+            $vigenciaInicio = $this->resolveUserDate($dataInsert, ['fec_vigencia_desde']);
+            $vigenciaFin = $this->resolveUserDate($dataInsert, ['fec_vigencia_hasta']);
+        } elseif ($tieneHospedaje) {
+           
+            $vigenciaInicio = $this->resolveUserDate($dataInsert, ['fec_vigencia_desde_hos', 'fecha_check_in']);
+            $vigenciaFin = $this->resolveUserDate($dataInsert, ['fec_vigencia_hasta_hos', 'fecha_check_out']);
+        } else {
+           
+            $response->respuesta = 'Error | El usuario debe tener al menos un beneficio (alimentos o hospedaje).';
+            return $response;
+        }
+
         if ($vigenciaInicio === null || $vigenciaFin === null) {
-            $response->respuesta = 'Error | Debes capturar vigencia inicial y final.';
+            $response->respuesta = 'Error | Debes capturar vigencia inicial y final ' . ($tieneAlimentos ? 'de alimentos' : 'de hospedaje') . '.';
             return $response;
         }
         if ($vigenciaFin < $vigenciaInicio) {
@@ -40,10 +59,11 @@ class DepositosProgramadosService
             return $response;
         }
 
-        $days = $this->countInclusiveDays($vigenciaInicio, $vigenciaFin);
+        
+        $days = $tieneAlimentos ? $this->countInclusiveDays($vigenciaInicio, $vigenciaFin) : 0;
         $dailyAmount = $this->resolveDailyAmount($dataInsert);
-        $foodReserve = (int) ($dataInsert['tiene_alimentos'] ?? 0) === 1 ? round($dailyAmount * $days, 2) : 0.00;
-        $hotelAmount = (int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1 ? $this->resolveHospedajeAmount($dataInsert) : 0.00;
+        $foodReserve = $tieneAlimentos ? round($dailyAmount * $days, 2) : 0.00;
+        $hotelAmount = $tieneHospedaje ? $this->resolveHospedajeAmount($dataInsert) : 0.00;
         $totalReserve = round($foodReserve + $hotelAmount, 2);
         $allocations = $this->buildPartidaDepositAllocations($dataInsert, $foodReserve, $hotelAmount);
         if (!empty($allocations['error'])) {
