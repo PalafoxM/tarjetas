@@ -832,6 +832,45 @@ class Usuario extends BaseController
 
         return 0;
     }
+
+    private function calcularTotalesHospedajeDesdePlan(?string $planJson, float $tarifaNocheLegacy, int $nochesLegacy): array
+    {
+        $totalTarifaNoche = 0.0;
+        $idHotel = null;
+        $idTipoHabitacion = null;
+
+        if ($planJson !== null && $planJson !== '') {
+            $decoded = json_decode($planJson, true);
+            $habitaciones = is_array($decoded) && isset($decoded['habitaciones']) && is_array($decoded['habitaciones'])
+                ? $decoded['habitaciones']
+                : [];
+
+            foreach ($habitaciones as $index => $habitacion) {
+                if (!is_array($habitacion)) {
+                    continue;
+                }
+
+                $totalTarifaNoche += round((float) ($habitacion['tarifa_noche'] ?? 0), 2);
+
+                if ($index === 0) {
+                    $idHotel = $this->nullableInt($habitacion['id_establecimiento_hotel'] ?? null);
+                    $idTipoHabitacion = $this->nullableInt($habitacion['id_tipo_habitacion'] ?? null);
+                }
+            }
+        }
+
+        if ($totalTarifaNoche <= 0) {
+            $totalTarifaNoche = $tarifaNocheLegacy;
+        }
+
+        return [
+            'tarifa_noche' => round($totalTarifaNoche, 2),
+            'tarifa_total' => round($totalTarifaNoche * max(0, $nochesLegacy), 2),
+            'id_establecimiento_hotel' => $idHotel,
+            'id_tipo_habitacion' => $idTipoHabitacion,
+        ];
+    }
+
     public function saveAltaUsuarioPayload(array $data, array $actorContext, int $idSesionUsuario, string $scriptName = 'Usuario.saveAltaUsuario')
     {
         $db = \Config\Database::connect();
@@ -960,6 +999,19 @@ class Usuario extends BaseController
         }
         if ($tarifaNoche <= 0 && (float) ($data['monto_deposito_hotel'] ?? 0) > 0) {
             $tarifaNoche = round((float) ($data['monto_deposito_hotel'] ?? 0), 2);
+        }
+
+        $hospedajePlanJsonPreliminar = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? null);
+        $totalesHospedajePlan = $tieneHospedaje
+            ? $this->calcularTotalesHospedajeDesdePlan($hospedajePlanJsonPreliminar, $tarifaNoche, $noches)
+            : ['tarifa_noche' => $tarifaNoche, 'tarifa_total' => $tarifaNoche * $noches, 'id_establecimiento_hotel' => null, 'id_tipo_habitacion' => null];
+
+        $tarifaNoche = $totalesHospedajePlan['tarifa_noche'];
+        if ($totalesHospedajePlan['id_establecimiento_hotel'] !== null) {
+            $data['id_establecimiento_hotel'] = $totalesHospedajePlan['id_establecimiento_hotel'];
+        }
+        if ($totalesHospedajePlan['id_tipo_habitacion'] !== null) {
+            $data['id_tipo_habitacion'] = $totalesHospedajePlan['id_tipo_habitacion'];
         }
 
         $personas = [];

@@ -87,6 +87,10 @@ $inferHabitacionCapacidad = static function ($item) {
     .select2-container {
         width: 100% !important;
     }
+
+    .select2-container--disabled .select2-selection {
+        background-color: #404954 !important;
+    }
 </style>
 
 <?php if ($modoAltaProveedor): ?>
@@ -486,6 +490,7 @@ $inferHabitacionCapacidad = static function ($item) {
                         <label class="form-label" for="id_partida_alimentos_ui">Partida alimentos</label>
                         <input type="text" class="form-control" id="id_partida_alimentos_ui" readonly>
                     </div>
+
                     <div class="col-md-3">
                         <label class="form-label" for="tiene_hospedaje">Tiene hospedaje</label>
                         <select class="form-control" name="tiene_hospedaje" id="tiene_hospedaje">
@@ -494,24 +499,7 @@ $inferHabitacionCapacidad = static function ($item) {
                             <option value="0">No</option>
                         </select>
                     </div>
-                    <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="id_establecimiento_hotel">Hotel</label>
-                        <select class="form-control js-select2-catalog" name="id_establecimiento_hotel" id="id_establecimiento_hotel" data-placeholder="Buscar hotel">
-                            <option value="">Seleccione</option>
-                            <?php foreach ($hotelOptions as $hotel): ?>
-                            <option value="<?= esc($hotel->id_establecimiento, 'attr') ?>"><?= esc($hotel->dsc_establecimiento, 'html') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="id_tipo_habitacion">Tipo habitación</label>
-                        <select class="form-control js-select2-catalog" name="id_tipo_habitacion" id="id_tipo_habitacion" data-placeholder="Buscar tipo de habitacion">
-                            <option value="">Seleccione</option>
-                            <?php foreach ($catTipoHabitacion as $tipo): ?>
-                            <option value="<?= esc($tipo->id_tipo_habitacion, 'attr') ?>" data-tarifa="<?= esc($extractCatalogAmount($tipo), 'attr') ?>"><?= esc($tipo->dsc_tipo_habitacion, 'html') ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+
                     <div class="col-md-3 hospedaje-field">
                         <label class="form-label" for="fec_vigencia_desde_hos">Vigencia hospedaje desde</label>
                         <input type="date" class="form-control" name="fec_vigencia_desde_hos" id="fec_vigencia_desde_hos">
@@ -521,40 +509,44 @@ $inferHabitacionCapacidad = static function ($item) {
                         <input type="date" class="form-control" name="fec_vigencia_hasta_hos" id="fec_vigencia_hasta_hos">
                     </div>
                     <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="tarifa_noche">Tarifa diaria de hospedaje</label>
-                        <input type="number" step="0.01" class="form-control" name="tarifa_noche" id="tarifa_noche">
-                    </div>
-                    <div class="col-md-3 hospedaje-field">
                         <label class="form-label" for="noche">Noches</label>
-                        <input type="number" class="form-control" name="noche" id="noche">
-                    </div>
-                    <div class="col-md-3 hospedaje-field">
-                        <label class="form-label" for="tarifa_total">Tarifa total</label>
-                        <input type="number" step="0.01" class="form-control" name="tarifa_total" id="tarifa_total">
+                        <input type="number" class="form-control" name="noche" id="noche" readonly>
                     </div>
                     <div class="col-md-3 hospedaje-field solicitud-partida-visual" id="partidaHospedajeWrapper">
                         <label class="form-label" for="id_partida_hospedaje_ui">Partida hospedaje</label>
                         <input type="text" class="form-control" id="id_partida_hospedaje_ui" readonly>
                     </div>
-                    <input type="hidden" name="hospedaje_plan_json" id="hospedaje_plan_json" value="">
-                    <input type="hidden" name="hospedaje_sobrerreserva" id="hospedaje_sobrerreserva" value="0">
 
-                    <div class="col-12 hospedaje-field hospedaje-plan-field" id="hospedajePlanWrapper">
+                    <div class="col-12 hospedaje-field" id="hospedajeConfiguracionHoteles">
+                        <div class="card border-secondary-subtle shadow-sm mb-3">
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                    <div>
+                                        <h5 class="mb-1 text-white">Configuraci&oacute;n de hoteles</h5>
+                                        <p class="text-muted mb-0">Agrega uno o m&aacute;s hoteles y define cu&aacute;ntas habitaciones de cada tipo necesitas. El plan de habitaciones se generar&aacute; autom&aacute;ticamente.</p>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-light btn-sm" id="agregarHotelHospedaje">
+                                        <i class="mdi mdi-plus me-1"></i>Agregar hotel
+                                    </button>
+                                </div>
+                                <div class="row g-3" id="hospedajeHotelesContainer"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 hospedaje-field" id="hospedajePlanWrapper">
                         <div class="card border-secondary-subtle shadow-sm">
                             <div class="card-body">
                                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
                                     <div>
                                         <h5 class="mb-1 text-white">Plan de habitaciones</h5>
-                                        <p class="text-muted mb-0">Selecciona manualmente las habitaciones. Cada fila representa una asignaci&oacute;n del folio.</p>
+                                        <p class="text-muted mb-0">El sistema genera autom&aacute;ticamente las filas seg&uacute;n la configuraci&oacute;n de hoteles arriba.</p>
                                     </div>
                                     <div class="d-flex flex-wrap align-items-center gap-2">
                                         <div class="form-check form-switch mb-0">
                                             <input class="form-check-input" type="checkbox" role="switch" id="hospedaje_sobrerreserva_ui">
                                             <label class="form-check-label" for="hospedaje_sobrerreserva_ui">Permitir sobre-reserva</label>
                                         </div>
-                                        <button type="button" class="btn btn-outline-light btn-sm" id="agregarHabitacionHospedaje">
-                                            <i class="mdi mdi-plus me-1"></i>Agregar habitación
-                                        </button>
                                         <button type="button" class="btn btn-outline-secondary btn-sm" id="limpiarPlanHospedaje">
                                             Limpiar plan
                                         </button>
@@ -579,10 +571,126 @@ $inferHabitacionCapacidad = static function ($item) {
                                     </div>
                                 </div>
                                 <div class="row g-3" id="hospedajePlanContainer"></div>
-                                <small class="text-muted d-block mt-3">Si una habitaci&oacute;n no alcanza para todos los pax, agrega otra fila o activa sobre-reserva.</small>
+                                <small class="text-muted d-block mt-3">Si una habitaci&oacute;n no alcanza para todos los pax, agrega otra fila en la configuraci&oacute;n de hoteles o activa sobre-reserva.</small>
                             </div>
                         </div>
                     </div>
+
+                    <template id="hospedajeHotelBlockTemplate">
+                        <div class="col-12 hospedaje-hotel-block" data-hotel-index="__HOTEL_INDEX__">
+                            <div class="card border-secondary-subtle bg-body-tertiary">
+                                <div class="card-body">
+                                    <div class="row g-3 align-items-end mb-2">
+                                        <div class="col-md-8">
+                                            <label class="form-label">Hotel</label>
+                                            <select class="form-control js-select2-catalog hospedaje-hotel-field" data-role="hotel">
+                                                <option value="">Seleccione</option>
+                                                <?php foreach ($hotelOptions as $hotel): ?>
+                                                <option value="<?= esc($hotel->id_establecimiento, 'attr') ?>"><?= esc($hotel->dsc_establecimiento, 'html') ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4 d-grid">
+                                            <button type="button" class="btn btn-outline-danger btn-sm hospedaje-hotel-remove">
+                                                <i class="mdi mdi-delete me-1"></i>Quitar hotel
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                        <label class="crud-ui-grid-label mb-0">Tipos de habitaci&oacute;n</label>
+                                        <button type="button" class="btn btn-outline-light btn-sm hospedaje-tipo-agregar">
+                                            <i class="mdi mdi-plus me-1"></i>Agregar tipo de habitaci&oacute;n
+                                        </button>
+                                    </div>
+                                    <div class="row g-2 hospedaje-tipos-container">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template id="hospedajeTipoHabitacionRowTemplate">
+                        <div class="col-12 hospedaje-tipo-row">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-7">
+                                    <label class="form-label">Tipo de habitaci&oacute;n</label>
+                                    <select class="form-control js-select2-catalog hospedaje-tipo-field" data-role="tipo_habitacion">
+                                        <option value="">Seleccione</option>
+                                        <?php foreach ($catTipoHabitacion as $tipo): ?>
+                                        <option
+                                            value="<?= esc($tipo->id_tipo_habitacion, 'attr') ?>"
+                                            data-tarifa="<?= esc($extractCatalogAmount($tipo), 'attr') ?>"
+                                            data-capacidad="<?= esc((string) $inferHabitacionCapacidad($tipo), 'attr') ?>">
+                                            <?= esc($tipo->dsc_tipo_habitacion, 'html') ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Cantidad</label>
+                                    <select class="form-control hospedaje-tipo-field" data-role="cantidad">
+                                        <?php for ($cantidad = 1; $cantidad <= 999; $cantidad++): ?>
+                                        <option value="<?= $cantidad ?>"><?= $cantidad ?></option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 d-grid">
+                                    <button type="button" class="btn btn-outline-danger btn-sm hospedaje-tipo-remove">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template id="hospedajePlanRowTemplate">
+                        <div class="col-12 hospedaje-plan-row">
+                            <div class="card border-secondary-subtle bg-body-tertiary">
+                                <div class="card-body">
+                                    <div class="row g-3 align-items-end">
+                                        <input type="hidden" class="hospedaje-plan-field" data-role="hotel" value="">
+                                        <div class="col-12">
+                                            <h6 class="mb-2 text-white hospedaje-plan-hotel-nombre" data-role="hotel_nombre_display">Hotel</h6>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Habitaci&oacute;n</label>
+                                            <select class="form-control js-select2-catalog hospedaje-plan-field" data-role="habitacion" disabled>
+                                                <option value="">Seleccione</option>
+                                                <?php foreach ($catTipoHabitacion as $tipo): ?>
+                                                <option
+                                                    value="<?= esc($tipo->id_tipo_habitacion, 'attr') ?>"
+                                                    data-tarifa="<?= esc($extractCatalogAmount($tipo), 'attr') ?>"
+                                                    data-capacidad="<?= esc((string) $inferHabitacionCapacidad($tipo), 'attr') ?>">
+                                                    <?= esc($tipo->dsc_tipo_habitacion, 'html') ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Capacidad</label>
+                                            <input type="text" class="form-control hospedaje-plan-field" data-role="capacidad" readonly>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Pax</label>
+                                            <select class="form-control hospedaje-plan-field" data-role="pax">
+                                                <?php for ($i = 1; $i <= 999; $i++): ?>
+                                                <option value="<?= $i ?>"><?= $i ?></option>
+                                                <?php endfor; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Tarifa noche</label>
+                                            <input type="text" class="form-control hospedaje-plan-field" data-role="tarifa" readonly>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Tarifa total</label>
+                                            <input type="text" class="form-control hospedaje-plan-field" data-role="tarifa_total" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
             <div class="card-body pt-0">
@@ -680,47 +788,6 @@ $inferHabitacionCapacidad = static function ($item) {
                                         <div class="col-md-4">
                                             <label class="form-label">Contraseña</label>
                                             <input type="password" class="form-control crud-ui-lower pax-person-field" name="usuarios[__INDEX__][contrasenia]" required>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                    <template id="hospedajePlanRowTemplate">
-                        <div class="col-12 hospedaje-plan-row">
-                            <div class="card border-secondary-subtle bg-body-tertiary">
-                                <div class="card-body">
-                                    <div class="row g-3 align-items-end">
-                                        <div class="col-md-5">
-                                            <label class="form-label">Habitaci&oacute;n</label>
-                                            <select class="form-control js-select2-catalog hospedaje-plan-field" data-role="habitacion">
-                                                <option value="">Seleccione</option>
-                                                <?php foreach ($catTipoHabitacion as $tipo): ?>
-                                                <option
-                                                    value="<?= esc($tipo->id_tipo_habitacion, 'attr') ?>"
-                                                    data-tarifa="<?= esc($extractCatalogAmount($tipo), 'attr') ?>"
-                                                    data-capacidad="<?= esc((string) $inferHabitacionCapacidad($tipo), 'attr') ?>">
-                                                    <?= esc($tipo->dsc_tipo_habitacion, 'html') ?>
-                                                </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <label class="form-label">Capacidad</label>
-                                            <input type="text" class="form-control hospedaje-plan-field" data-role="capacidad" readonly>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <label class="form-label">Pax</label>
-                                            <input type="number" min="1" class="form-control hospedaje-plan-field" data-role="pax">
-                                        </div>
-                                        <div class="col-md-2">
-                                            <label class="form-label">Tarifa</label>
-                                            <input type="text" class="form-control hospedaje-plan-field" data-role="tarifa" readonly>
-                                        </div>
-                                        <div class="col-md-1 d-grid">
-                                            <button type="button" class="btn btn-outline-danger hospedaje-plan-remove">
-                                                <i class="mdi mdi-delete"></i>
-                                            </button>
                                         </div>
                                     </div>
                                 </div>
