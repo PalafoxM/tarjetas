@@ -480,8 +480,19 @@ window.cajeros = {
             $('#agregarHabitacionHospedaje').on('click', this.agregarHospedajePlanRow.bind(this));
             $('#limpiarPlanHospedaje').on('click', this.limpiarHospedajePlan.bind(this));
             $('#hospedaje_sobrerreserva_ui').on('change', this.sincronizarHospedajePlan.bind(this));
+            $('#hospedajePlanContainer').on('change', '[data-role="pax"]', function () {
+                $(this).data('paxManual', true);
+            });
             $('#hospedajePlanContainer').on('input change', '.hospedaje-plan-field', this.sincronizarHospedajePlan.bind(this));
             $('#hospedajePlanContainer').on('click', '.hospedaje-plan-remove', this.eliminarHospedajePlanRow.bind(this));
+            $('#agregarHotelHospedaje').on('click', this.agregarHospedajeHotelBlock.bind(this));
+            $('#hospedajeHotelesContainer').on('click', '.hospedaje-hotel-remove', this.eliminarHospedajeHotelBlock.bind(this));
+            $('#hospedajeHotelesContainer').on('click', '.hospedaje-tipo-agregar', this.agregarHospedajeTipoHabitacionRow.bind(this));
+            $('#hospedajeHotelesContainer').on('click', '.hospedaje-tipo-remove', this.eliminarHospedajeTipoHabitacionRow.bind(this));
+            $('#hospedajeHotelesContainer').on('change', '.hospedaje-hotel-field, .hospedaje-tipo-field', this.regenerarHospedajePlanDesdeConfiguracion.bind(this));
+            $('#fec_vigencia_desde_hos, #fec_vigencia_hasta_hos').on('change', function() {
+                cajeros.actualizarCalculoHospedaje();
+            });
             $('#folioSugerenciasChips').on('click', '.js-aplicar-folio-sugerido', function () {
                 cajeros.aplicarFolioSugerido($(this).data('folio'), $(this).data('subfolio'));
             });
@@ -1218,12 +1229,21 @@ window.cajeros = {
                 select.select2('destroy');
             }
 
+            var estabaDisabled = select.prop('disabled');
+            if (estabaDisabled) {
+                select.prop('disabled', false);
+            }
+
             select.select2({
                 width: '100%',
                 dropdownParent: select.closest('.modal').length ? select.closest('.modal') : ($('#altaUsuarioPage').length ? $('#altaUsuarioPage') : $(document.body)),
                 placeholder: select.data('placeholder') || 'Seleccione',
                 allowClear: true
             });
+
+            if (estabaDisabled) {
+                select.prop('disabled', true);
+            }
         });
     },
 
@@ -2254,7 +2274,8 @@ obtenerLabelPartida: function (idPartida) {
         }
 
         var diff = Math.round((fin.getTime() - inicio.getTime()) / 86400000);
-        return inclusive ? diff + 1 : diff;
+        var resultado = inclusive ? diff + 1 : diff;
+        return resultado < 0 ? 0 : resultado;
     },
 
     actualizarCalculoAlimentos: function () {
@@ -2309,7 +2330,9 @@ obtenerLabelPartida: function (idPartida) {
         $('#tarifa_noche').val(tarifaNoche > 0 ? tarifaNoche.toFixed(2) : '').prop('readonly', false);
         $('#noche').val(noches > 0 ? noches : '');
         $('#tarifa_total').val(total > 0 ? total.toFixed(2) : '').prop('readonly', false);
+        
         if (this.isAltaPage) {
+            this.sincronizarHospedajePlan();
             this.actualizarResumenAltaUsuario();
         }
     },
@@ -2338,6 +2361,7 @@ obtenerLabelPartida: function (idPartida) {
             $('#hospedaje_plan_json').val('');
             $('#hospedaje_sobrerreserva').val('0');
             $('#hospedaje_sobrerreserva_ui').prop('checked', false);
+            $('#hospedajeHotelesContainer').empty();
             $('#hospedajePlanContainer').empty();
             $('#hospedajePlanHabitaciones, #hospedajePlanPaxAsignados, #hospedajePlanCapacidadTotal, #hospedajePlanEstado').val('');
         }
@@ -2384,10 +2408,7 @@ obtenerLabelPartida: function (idPartida) {
             ['cuádruple', 4],
             ['cuatriple', 4],
             ['quadruple', 4],
-            ['quintuple', 5],
-            ['quíntuple', 5],
-            ['sextuple', 6],
-            ['séxtuple', 6]
+            ['suite', 5]
         ];
 
         for (var i = 0; i < map.length; i += 1) {
@@ -2419,16 +2440,17 @@ obtenerLabelPartida: function (idPartida) {
         var $pax = $row.find('[data-role="pax"]');
 
         if (config.id_tipo_habitacion) {
-            $select.val(String(config.id_tipo_habitacion));
+            $select.find('option').prop('selected', false).removeAttr('selected');
+            $select.find('option[value="' + String(config.id_tipo_habitacion) + '"]')
+                .prop('selected', true)
+                .attr('selected', 'selected');
         }
 
-        if (config.pax) {
-            $pax.val(String(config.pax));
-        }
-
-        if (!$pax.val()) {
-            $pax.val(1);
-        }
+        var paxInicial = config.pax ? String(config.pax) : '1';
+        $pax.find('option').prop('selected', false).removeAttr('selected');
+        $pax.find('option[value="' + paxInicial + '"]')
+            .prop('selected', true)
+            .attr('selected', 'selected');
 
         return $('<div>').append($row).html();
     },
@@ -2437,18 +2459,7 @@ obtenerLabelPartida: function (idPartida) {
         if (!this.isAltaPage) {
             return;
         }
-
-        var container = $('#hospedajePlanContainer');
-        var rowIndex = container.find('.hospedaje-plan-row').length;
-        container.append(this.crearHospedajePlanRow({
-            index: rowIndex,
-            id_tipo_habitacion: (config && config.id_tipo_habitacion) || '',
-            pax: (config && config.pax) || (rowIndex === 0 ? Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1) : 1)
-        }));
-
-        this.actualizarFilaHospedajePlan(container.find('.hospedaje-plan-row').last());
-        this.reindexarHospedajePlanRows();
-        this.sincronizarHospedajePlan();
+        this.regenerarHospedajePlanDesdeConfiguracion();
     },
 
     eliminarHospedajePlanRow: function (e) {
@@ -2501,18 +2512,57 @@ obtenerLabelPartida: function (idPartida) {
         var $capacidad = $row.find('[data-role="capacidad"]');
         var $pax = $row.find('[data-role="pax"]');
         var $tarifa = $row.find('[data-role="tarifa"]');
+        var $tarifaTotal = $row.find('[data-role="tarifa_total"]');
+        var $hotelNombreDisplay = $row.find('[data-role="hotel_nombre_display"]');
         var option = $select.find('option:selected');
         var label = $.trim(option.text() || '');
-        var capacidad = Number(option.data('capacidad') || this.inferirCapacidadHospedaje(label) || 1);
-        var tarifa = Number(option.data('tarifa') || 0);
+        var capacidad = this.capacidadPorTipoHabitacion(label);
+        var idHotelFila = $row.find('[data-role="hotel"]').val() || '';
+        
+        var tarifa = this.resolverTarifaHotelTipo(idHotelFila, $select.val() || '', option.data('tarifa') || 0);
+
+        var hotelNombre = '';
+        if (idHotelFila) {
+            var $hotelSelectOrigen = $row.data('hotelSelectRef');
+            var hotelOption = ($hotelSelectOrigen && $hotelSelectOrigen.length)
+                ? $hotelSelectOrigen.find('option[value="' + idHotelFila + '"]').first()
+                : $('#hospedajeHotelesContainer .hospedaje-hotel-block').find('[data-role="hotel"] option[value="' + idHotelFila + '"]').first();
+            if (hotelOption.length) {
+                hotelNombre = hotelOption.text().trim();
+            }
+        }
+        if (hotelNombre) {
+            $hotelNombreDisplay.text(hotelNombre);
+        } else {
+            $hotelNombreDisplay.text('Hotel sin asignar');
+        }
+
+        if ($select.val()) {
+            $select.val(String($select.val())).trigger('change.select2');
+        }
 
         $capacidad.val(capacidad > 0 ? String(capacidad) : '');
         $tarifa.val(tarifa > 0 ? this.moneda(tarifa) : '');
-        $pax.attr('max', capacidad > 0 ? capacidad : '');
-
-        if (!$pax.val()) {
-            $pax.val(1);
+        
+        var noches = parseInt($('#noche').val() || '0', 10);
+        var tarifaTotal = tarifa * noches;
+        $tarifaTotal.val(tarifaTotal > 0 ? this.moneda(tarifaTotal) : '');
+        
+        var paxTocadoManualmente = $pax.data('paxManual') === true;
+        var currentPax = parseInt($pax.val() || '0', 10);
+        if (!paxTocadoManualmente) {
+            currentPax = capacidad > 0 ? capacidad : 1;
         }
+        if (currentPax < 1) {
+            currentPax = 1;
+        }
+
+        $pax.empty();
+        for (var i = 1; i <= 999; i++) {
+            var opt = new Option(String(i), String(i), false, currentPax === i);
+            $pax.append(opt);
+        }
+        $pax.val(String(currentPax));
     },
 
     asegurarHospedajePlanInicial: function () {
@@ -2524,15 +2574,9 @@ obtenerLabelPartida: function (idPartida) {
             return;
         }
 
-        var container = $('#hospedajePlanContainer');
-        if (container.find('.hospedaje-plan-row').length > 0) {
-            return;
+        if ($('#hospedajeHotelesContainer .hospedaje-hotel-block').length === 0) {
+            this.agregarHospedajeHotelBlock();
         }
-
-        this.agregarHospedajePlanRow({
-            id_tipo_habitacion: $('#id_tipo_habitacion').val() || '',
-            pax: Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1)
-        });
     },
 
     limpiarHospedajePlan: function () {
@@ -2540,8 +2584,13 @@ obtenerLabelPartida: function (idPartida) {
             return;
         }
 
+        $('#hospedajeHotelesContainer').empty();
         $('#hospedajePlanContainer').empty();
         this.sincronizarHospedajePlan();
+
+        if ($('#tiene_hospedaje').val() === '1') {
+            this.asegurarHospedajePlanInicial();
+        }
     },
 
     leerHospedajePlan: function () {
@@ -2550,19 +2599,19 @@ obtenerLabelPartida: function (idPartida) {
             var $row = $(this);
             var $select = $row.find('[data-role="habitacion"]');
             var $pax = $row.find('[data-role="pax"]');
+            var $hotel = $row.find('[data-role="hotel"]');
             var option = $select.find('option:selected');
             var label = $.trim(option.text() || '');
-            var capacidad = Number(option.data('capacidad') || 0);
-            if (capacidad <= 0) {
-                capacidad = cajeros.inferirCapacidadHospedaje(label);
-            }
+            var capacidad = cajeros.capacidadPorTipoHabitacion(label);
+            var idHotelFila = $hotel.length ? ($hotel.val() || '') : '';
 
             rows.push({
+                id_establecimiento_hotel: Number(idHotelFila || 0),
                 id_tipo_habitacion: Number($select.val() || 0),
                 tipo_habitacion: label,
                 capacidad: capacidad > 0 ? capacidad : 1,
                 pax: Math.max(1, parseInt($pax.val() || '1', 10) || 1),
-                tarifa_noche: Number(option.data('tarifa') || 0)
+                tarifa_noche: cajeros.resolverTarifaHotelTipo(idHotelFila, $select.val() || '', option.data('tarifa') || 0)
             });
         });
 
@@ -2575,6 +2624,8 @@ obtenerLabelPartida: function (idPartida) {
         }
 
         var self = this;
+        var noches = parseInt($('#noche').val() || '0', 10);
+        
         $('#hospedajePlanContainer .hospedaje-plan-row').each(function () {
             self.actualizarFilaHospedajePlan($(this));
         });
@@ -2582,18 +2633,26 @@ obtenerLabelPartida: function (idPartida) {
         var rows = this.leerHospedajePlan();
         var totalPax = 0;
         var totalCapacidad = 0;
+        var totalTarifaNoche = 0;
         var planValido = true;
         var usaSobrerreserva = $('#hospedaje_sobrerreserva_ui').is(':checked');
 
         for (var i = 0; i < rows.length; i += 1) {
             totalPax += Number(rows[i].pax || 0);
             totalCapacidad += Number(rows[i].capacidad || 0);
+            totalTarifaNoche += Number(rows[i].tarifa_noche || 0);
             if (Number(rows[i].id_tipo_habitacion || 0) <= 0) {
                 planValido = false;
             }
             if (!usaSobrerreserva && Number(rows[i].pax || 0) > Number(rows[i].capacidad || 0)) {
                 planValido = false;
             }
+        }
+
+        var tarifaTotalGeneral = totalTarifaNoche * noches;
+        var paxFormulario = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
+        if (rows.length > 0 && totalPax < paxFormulario) {
+            planValido = false;
         }
 
         $('#hospedaje_plan_json').val(rows.length > 0 ? JSON.stringify({
@@ -2606,7 +2665,19 @@ obtenerLabelPartida: function (idPartida) {
         $('#hospedajePlanCapacidadTotal').val(rows.length > 0 ? String(totalCapacidad) : '');
         $('#hospedajePlanEstado').val(rows.length === 0
             ? 'Sin plan'
-            : (planValido ? (usaSobrerreserva ? 'Sobrerreserva permitida' : 'OK') : 'Revisar asignaci\u00f3n'));
+            : (planValido ? (usaSobrerreserva ? 'Sobrerreserva permitida' : 'OK') : 'Revisar asignación'));
+
+        if (rows.length > 0) {
+            $('#id_establecimiento_hotel').val(String(rows[0].id_establecimiento_hotel || '')).trigger('change.select2');
+            $('#id_tipo_habitacion').val(String(rows[0].id_tipo_habitacion || '')).trigger('change.select2');
+            $('#tarifa_noche').val(totalTarifaNoche > 0 ? totalTarifaNoche.toFixed(2) : '');
+            $('#noche').val(noches > 0 ? noches : '');
+            $('#tarifa_total').val(tarifaTotalGeneral > 0 ? tarifaTotalGeneral.toFixed(2) : '');
+        }
+
+        if (this.isAltaPage) {
+            this.actualizarResumenAltaUsuario();
+        }
 
         return planValido;
     },
@@ -2629,9 +2700,10 @@ obtenerLabelPartida: function (idPartida) {
 
         var habitaciones = Array.isArray(plan && plan.habitaciones) ? plan.habitaciones : [];
         var sobrerreserva = !!(plan && plan.sobrerreserva);
-        var container = $('#hospedajePlanContainer');
+        var hotelLegacyFallback = $('#id_establecimiento_hotel').val() || '';
 
-        container.empty();
+        $('#hospedajeHotelesContainer').empty();
+        $('#hospedajePlanContainer').empty();
         $('#hospedaje_sobrerreserva_ui').prop('checked', sobrerreserva);
 
         if (habitaciones.length === 0) {
@@ -2640,14 +2712,218 @@ obtenerLabelPartida: function (idPartida) {
             return;
         }
 
+        var configuracionPorHotel = {};
+        var ordenHoteles = [];
+
         for (var i = 0; i < habitaciones.length; i += 1) {
-            this.agregarHospedajePlanRow({
-                id_tipo_habitacion: habitaciones[i].id_tipo_habitacion || '',
-                pax: habitaciones[i].pax || 1
-            });
+            var idHotelFila = String(habitaciones[i].id_establecimiento_hotel || hotelLegacyFallback || '');
+            var idTipoFila = String(habitaciones[i].id_tipo_habitacion || '');
+
+            if (!configuracionPorHotel[idHotelFila]) {
+                configuracionPorHotel[idHotelFila] = {};
+                ordenHoteles.push(idHotelFila);
+            }
+
+            configuracionPorHotel[idHotelFila][idTipoFila] = (configuracionPorHotel[idHotelFila][idTipoFila] || 0) + 1;
         }
 
+        var self = this;
+        ordenHoteles.forEach(function (idHotelFila) {
+            $('#hospedajeHotelesContainer').append(self.crearHospedajeHotelBlock({
+                id_establecimiento_hotel: idHotelFila
+            }));
+
+            var $hotelBlock = $('#hospedajeHotelesContainer .hospedaje-hotel-block').last();
+            $hotelBlock.find('[data-role="hotel"]').trigger('change.select2');
+
+            var tiposDeEsteHotel = configuracionPorHotel[idHotelFila];
+            Object.keys(tiposDeEsteHotel).forEach(function (idTipoFila) {
+                var container = $hotelBlock.find('.hospedaje-tipos-container');
+                container.append(self.crearHospedajeTipoHabitacionRow({
+                    id_tipo_habitacion: idTipoFila,
+                    cantidad: tiposDeEsteHotel[idTipoFila]
+                }));
+                container.find('.hospedaje-tipo-field[data-role="tipo_habitacion"]').last().trigger('change.select2');
+            });
+        });
+
+        this.regenerarHospedajePlanDesdeConfiguracion();
+    },
+
+    resolverTarifaHotelTipo: function (idEstablecimientoHotel, idTipoHabitacion, tarifaCatalogoFallback) {
+        var tarifaHotel = (this.catalogos.hotel_tarifas || [])
+            .filter(function (item) {
+                return String(item.id_establecimiento) === String(idEstablecimientoHotel)
+                    && String(item.id_tipo_habitacion) === String(idTipoHabitacion);
+            })
+            .sort(function (left, right) {
+                return Number(right.hotel_tarifa_id || 0) - Number(left.hotel_tarifa_id || 0);
+            })[0] || null;
+
+        return Number((tarifaHotel && tarifaHotel.tarifa_noche) || tarifaCatalogoFallback || 0);
+    },
+
+    crearHospedajeTipoHabitacionRow: function (config) {
+        config = config || {};
+        var templateHtml = $('#hospedajeTipoHabitacionRowTemplate').html() || '';
+        if (templateHtml === '') {
+            return '';
+        }
+
+        var $row = $(templateHtml);
+        var $select = $row.find('[data-role="tipo_habitacion"]');
+        var $cantidad = $row.find('[data-role="cantidad"]');
+
+        if (config.id_tipo_habitacion) {
+            $select.val(String(config.id_tipo_habitacion));
+        }
+
+        $cantidad.val(String(config.cantidad || 1));
+
+        return $('<div>').append($row).html();
+    },
+
+    agregarHospedajeTipoHabitacionRow: function (e) {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        var $hotelBlock = $(e.currentTarget).closest('.hospedaje-hotel-block');
+        var container = $hotelBlock.find('.hospedaje-tipos-container');
+        container.append(this.crearHospedajeTipoHabitacionRow({}));
+        container.find('.hospedaje-tipo-field').last().trigger('change.select2');
+        this.regenerarHospedajePlanDesdeConfiguracion();
+    },
+
+    eliminarHospedajeTipoHabitacionRow: function (e) {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        $(e.currentTarget).closest('.hospedaje-tipo-row').remove();
+        this.regenerarHospedajePlanDesdeConfiguracion();
+    },
+
+    crearHospedajeHotelBlock: function (config) {
+        config = config || {};
+        var templateHtml = $('#hospedajeHotelBlockTemplate').html() || '';
+        if (templateHtml === '') {
+            return '';
+        }
+
+        var index = $('#hospedajeHotelesContainer .hospedaje-hotel-block').length;
+        var html = templateHtml.replace(/__HOTEL_INDEX__/g, String(index));
+        var $block = $(html);
+
+        if (config.id_establecimiento_hotel) {
+            $block.find('[data-role="hotel"]').val(String(config.id_establecimiento_hotel));
+        }
+
+        return $('<div>').append($block).html();
+    },
+
+    agregarHospedajeHotelBlock: function () {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        var container = $('#hospedajeHotelesContainer');
+        container.append(this.crearHospedajeHotelBlock({}));
+        var $hotelBlockNuevo = container.find('.hospedaje-hotel-block').last();
+        $hotelBlockNuevo.find('.hospedaje-hotel-field[data-role="hotel"]').trigger('change.select2');
+
+        var tiposContainer = $hotelBlockNuevo.find('.hospedaje-tipos-container');
+        tiposContainer.append(this.crearHospedajeTipoHabitacionRow({}));
+        tiposContainer.find('.hospedaje-tipo-field[data-role="tipo_habitacion"]').last().trigger('change.select2');
+
+        this.inicializarSelect2();
+        this.regenerarHospedajePlanDesdeConfiguracion();
+    },
+
+    eliminarHospedajeHotelBlock: function (e) {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        $(e.currentTarget).closest('.hospedaje-hotel-block').remove();
+        this.regenerarHospedajePlanDesdeConfiguracion();
+    },
+
+    regenerarHospedajePlanDesdeConfiguracion: function () {
+        if (!this.isAltaPage) {
+            return;
+        }
+
+        var self = this;
+        var container = $('#hospedajePlanContainer');
+        container.empty();
+
+        var rowIndex = 0;
+        $('#hospedajeHotelesContainer .hospedaje-hotel-block').each(function () {
+            var $hotelBlock = $(this);
+            var $hotelSelect = $hotelBlock.find('[data-role="hotel"]');
+            var idHotel = $hotelSelect.val() || '';
+
+            $hotelBlock.find('.hospedaje-tipo-row').each(function () {
+                var $tipoRow = $(this);
+                var idTipo = $tipoRow.find('[data-role="tipo_habitacion"]').val() || '';
+                var cantidad = Math.max(1, parseInt($tipoRow.find('[data-role="cantidad"]').val() || '1', 10) || 1);
+
+                if (!idTipo) {
+                    return;
+                }
+
+                for (var unidad = 0; unidad < cantidad; unidad += 1) {
+                    container.append(self.crearHospedajePlanRow({
+                        index: rowIndex,
+                        id_tipo_habitacion: idTipo,
+                        pax: 1
+                    }));
+
+                    var $rowCreada = container.find('.hospedaje-plan-row').last();
+                    $rowCreada.find('[data-role="hotel"]').val(idHotel);
+                    $rowCreada.data('hotelSelectRef', $hotelSelect);
+                    self.actualizarFilaHospedajePlan($rowCreada);
+                    rowIndex += 1;
+                }
+            });
+        });
+
+        this.inicializarSelect2();
+        this.reindexarHospedajePlanRows();
         this.sincronizarHospedajePlan();
+    },
+
+    capacidadPorTipoHabitacion: function (label) {
+        label = String(label || '').trim().toLowerCase();
+        if (!label) {
+            return 1;
+        }
+
+        var mapaFijo = [
+            ['sencill', 1],
+            ['simple', 1],
+            ['doble', 2],
+            ['triple', 3],
+            ['cuadruple', 4],
+            ['cuádruple', 4],
+            ['cuatriple', 4],
+            ['quadruple', 4],
+            ['suite', 5]
+        ];
+
+        for (var i = 0; i < mapaFijo.length; i += 1) {
+            if (label.indexOf(mapaFijo[i][0]) !== -1) {
+                return mapaFijo[i][1];
+            }
+        }
+
+        var match = label.match(/\b([1-9])\b/);
+        if (match) {
+            return Math.max(1, Number(match[1] || 1));
+        }
+
+        return 1;
     },
 
 
@@ -2705,7 +2981,17 @@ obtenerLabelPartida: function (idPartida) {
 
         var paxTotal = Math.max(1, parseInt($('#pax_ui').val() || '1', 10) || 1);
         var alimentos = Number($('#monto_total_alimentos_ui').val() || 0);
-        var hospedaje = Number($('#tarifa_total').val() || 0);
+
+        var noches = parseInt($('#noche').val() || '0', 10);
+        var hospedajeTotal = 0;
+        if (Number($('#tiene_hospedaje').val() || 0) === 1) {
+            var rowsHospedaje = this.leerHospedajePlan();
+            for (var i = 0; i < rowsHospedaje.length; i += 1) {
+                hospedajeTotal += Number(rowsHospedaje[i].tarifa_noche || 0) * noches;
+            }
+        }
+        var hospedaje = hospedajeTotal > 0 ? (hospedajeTotal / paxTotal) : 0;
+
         var totalPax = 0;
 
         if (Number($('#tiene_alimentos').val() || 0) === 1 && Number($('#tiene_hospedaje').val() || 0) === 1) {
@@ -3123,4 +3409,3 @@ obtenerLabelPartida: function (idPartida) {
 $(function () {
     cajeros.iniciar();
 });
-
