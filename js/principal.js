@@ -1218,12 +1218,14 @@ window.cajeros = {
         $('#subf_ui').val(String(subfolio || '').replace(/[^\p{L}\s]/gu, '').toUpperCase());
     },
 
-    inicializarSelect2: function () {
+    inicializarSelect2: function ($scope) {
         if (typeof $.fn.select2 !== 'function') {
             return;
         }
 
-        $('.js-select2-catalog').each(function () {
+        var $targets = ($scope && $scope.length) ? $scope : $('.js-select2-catalog');
+
+        $targets.each(function () {
             var select = $(this);
             if (select.hasClass('select2-hidden-accessible')) {
                 select.select2('destroy');
@@ -2557,11 +2559,6 @@ obtenerLabelPartida: function (idPartida) {
             currentPax = 1;
         }
 
-        $pax.empty();
-        for (var i = 1; i <= 999; i++) {
-            var opt = new Option(String(i), String(i), false, currentPax === i);
-            $pax.append(opt);
-        }
         $pax.val(String(currentPax));
     },
 
@@ -2586,6 +2583,8 @@ obtenerLabelPartida: function (idPartida) {
 
         $('#hospedajeHotelesContainer').empty();
         $('#hospedajePlanContainer').empty();
+        $('#hospedaje_sobrerreserva_ui').prop('checked', false);
+        $('#hospedaje_sobrerreserva').val('0');
         this.sincronizarHospedajePlan();
 
         if ($('#tiene_hospedaje').val() === '1') {
@@ -2625,7 +2624,9 @@ obtenerLabelPartida: function (idPartida) {
 
         var self = this;
         var noches = parseInt($('#noche').val() || '0', 10);
-        
+        var usaSobrerreservaVisible = $('#hospedaje_sobrerreserva_ui').is(':checked');
+        $('#hospedajePlanContainer').toggle(usaSobrerreservaVisible);
+
         $('#hospedajePlanContainer .hospedaje-plan-row').each(function () {
             self.actualizarFilaHospedajePlan($(this));
         });
@@ -2836,7 +2837,7 @@ obtenerLabelPartida: function (idPartida) {
         tiposContainer.append(this.crearHospedajeTipoHabitacionRow({}));
         tiposContainer.find('.hospedaje-tipo-field[data-role="tipo_habitacion"]').last().trigger('change.select2');
 
-        this.inicializarSelect2();
+        this.inicializarSelect2($hotelBlockNuevo.find('.js-select2-catalog'));
         this.regenerarHospedajePlanDesdeConfiguracion();
     },
 
@@ -2889,7 +2890,7 @@ obtenerLabelPartida: function (idPartida) {
             });
         });
 
-        this.inicializarSelect2();
+        this.inicializarSelect2(container.find('.js-select2-catalog'));
         this.reindexarHospedajePlanRows();
         this.sincronizarHospedajePlan();
     },
