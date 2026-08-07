@@ -471,17 +471,28 @@ $inferHabitacionCapacidad = static function ($item) {
                         <input type="number" step="0.01" class="form-control" id="monto_total_alimentos_ui" readonly>
                     </div>
                     <input type="hidden" name="id_partida" id="id_partida">
+                    <input type="hidden" name="id_partida_alimentos" id="id_partida_alimentos">
                     <div class="col-md-3 solicitud-partida-visual" id="partidaManualWrapper">
-                        <label class="form-label" for="id_partida_ui">Partida</label>
-                        <select class="form-control js-select2-catalog" id="id_partida_ui" data-placeholder="Buscar partida">
+                        <label class="form-label" for="id_partida_ui">Partida <?= (int)($usuario['tiene_hospedaje'] ?? 0) === 1 ? 'hospedaje' : 'alimentos' ?></label>
+                        <select class="form-control js-select2-catalog" name="id_partida" id="id_partida_ui" data-placeholder="Buscar partida">
                             <option value="">Seleccione</option>
                             <?php foreach ($partidaOptions as $partida): ?>
                                 <?php
+                                    $idPartida = (int) ($partida->id_partida ?? 0);
                                     $partidaCodigo = trim((string) ($partida->partida ?? ''));
                                     $partidaDescripcion = trim((string) ($partida->des_partida ?? ''));
                                     $partidaLabel = trim($partidaCodigo . ($partidaDescripcion !== '' ? ' - ' . $partidaDescripcion : ''));
+                                    
+                                    if ((int)($usuario['tiene_hospedaje'] ?? 0) === 1 && $idPartida !== 2) {
+                                        continue;
+                                    }
+
+                                    $esFicOUg = in_array((int)($usuario['id_perfil_catalogo'] ?? 0), [9, 10]) || in_array((string)($usuario['grupo_usuario'] ?? ''), ['fic', 'ug']);
+                                    if ((int)($usuario['tiene_alimentos'] ?? 0) === 1 && (int)($usuario['tiene_hospedaje'] ?? 0) === 0 && $esFicOUg && $idPartida !== 3) {
+                                        continue;
+                                    }
                                 ?>
-                                <option value="<?= esc((string) ($partida->id_partida ?? ''), 'attr') ?>"><?= esc($partidaLabel, 'html') ?></option>
+                                <option value="<?= esc((string) $idPartida, 'attr') ?>"><?= esc($partidaLabel, 'html') ?></option>
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted">FIC y UG se asignan autom&aacute;ticamente a 3390A o 3390B seg&uacute;n el beneficio.</small>
@@ -489,6 +500,7 @@ $inferHabitacionCapacidad = static function ($item) {
                     <div class="col-md-3 alimentos-field solicitud-partida-visual" id="partidaAlimentosWrapper">
                         <label class="form-label" for="id_partida_alimentos_ui">Partida alimentos</label>
                         <input type="text" class="form-control" id="id_partida_alimentos_ui" readonly>
+                        <small class="text-muted">Partida asignada automáticamente para alimentos</small>
                     </div>
 
                     <div class="col-md-3">
@@ -514,8 +526,10 @@ $inferHabitacionCapacidad = static function ($item) {
                     </div>
                     <div class="col-md-3 hospedaje-field solicitud-partida-visual" id="partidaHospedajeWrapper">
                         <label class="form-label" for="id_partida_hospedaje_ui">Partida hospedaje</label>
-                        <input type="text" class="form-control" id="id_partida_hospedaje_ui" readonly>
+                        <input type="text" class="form-control" id="id_partida_hospedaje_ui" readonly value="2">
+                        <small class="text-muted">Partida fija para hospedaje</small>
                     </div>
+
 
                     <div class="col-12 hospedaje-field" id="hospedajeConfiguracionHoteles">
                         <div class="card border-secondary-subtle shadow-sm mb-3">
@@ -1162,5 +1176,127 @@ $inferHabitacionCapacidad = static function ($item) {
 
     window.autofillPaxAdicionales = handlePaxChange;
 
+})();
+</script>
+<script>
+    (function() {
+        
+        function actualizarPartidas() {
+        const tieneAlimentos = $('#tiene_alimentos').val() === '1';
+        const tieneHospedaje = $('#tiene_hospedaje').val() === '1';
+        const grupoUsuario = $('#grupo_usuario').val();
+        const idPerfilCatalogo = parseInt($('#id_perfil_catalogo').val() || 0);
+        const esFicOUg = [9, 10].includes(idPerfilCatalogo) || ['fic', 'ug'].includes(grupoUsuario);
+
+        function obtenerTextoPartida(id) {
+            const select = document.getElementById('id_partida_ui');
+            if (!select) return 'ID: ' + id;
+            
+            for (let option of select.options) {
+                if (option.value == id) {
+                    return option.text;
+                }
+            }
+            return 'ID: ' + id;
+        }
+
+        if (tieneAlimentos) {
+            let idPartida = null;
+            
+            if (esFicOUg) {
+                
+                idPartida = 3;
+                const texto = obtenerTextoPartida(idPartida);
+                $('#id_partida_alimentos_ui').val(texto); 
+                $('#id_partida_alimentos').val(idPartida);
+                $('#partidaAlimentosWrapper').show();
+            } else {
+                idPartida = parseInt($('#id_partida_ui').val() || 0);
+                if (idPartida > 0) {
+                    const texto = obtenerTextoPartida(idPartida);
+                    $('#id_partida_alimentos_ui').val(texto);
+                    $('#id_partida_alimentos').val(idPartida);
+                } else {
+                    $('#id_partida_alimentos_ui').val('');
+                    $('#id_partida_alimentos').val('');
+                }
+                $('#partidaAlimentosWrapper').show();
+                $('#partidaAlimentosWrapper small').text('Usa la partida seleccionada manualmente');
+            }
+        } else {
+            $('#id_partida_alimentos_ui').val('');
+            $('#id_partida_alimentos').val('');
+            $('#partidaAlimentosWrapper').hide();
+        }
+
+        if (tieneHospedaje) {
+            const texto = obtenerTextoPartida(2);
+            $('#id_partida_ui').val('2').prop('disabled', true);
+            $('#id_partida').val('2');
+            $('#partidaManualWrapper').show();
+            $('#partidaHospedajeWrapper').show();
+            
+            $('#partidaHospedajeWrapper input').val(texto); 
+            $('#partidaManualWrapper small').text('Partida fija para hospedaje');
+            $('#id_partida_ui').prop('disabled', true);
+            
+        } else if (tieneAlimentos && esFicOUg) {
+           
+            const texto = obtenerTextoPartida(3);
+            $('#id_partida_ui').val('3').prop('disabled', true);
+            $('#id_partida').val('3');
+            $('#partidaManualWrapper').show();
+            $('#partidaHospedajeWrapper').hide();
+
+            const select = document.getElementById('id_partida_ui');
+            if (select) {
+                for (let option of select.options) {
+                    if (option.value == 3) {
+                        select.selectedIndex = option.index;
+                        break;
+                    }
+                }
+            }
+            
+        } else if (tieneAlimentos) {
+  
+            const idPartida = parseInt($('#id_partida_ui').val() || 0);
+            if (idPartida > 0) {
+                const texto = obtenerTextoPartida(idPartida);
+                $('#id_partida_ui').val(idPartida).prop('disabled', false);
+                $('#id_partida').val(idPartida);
+            }
+            $('#partidaManualWrapper').show();
+            $('#partidaHospedajeWrapper').hide();
+            $('#partidaManualWrapper small').text('Selecciona la partida presupuestal');
+            $('#id_partida_ui').prop('disabled', false);
+            
+        } else {
+          
+            $('#id_partida_ui').prop('disabled', false);
+            $('#partidaManualWrapper').show();
+            $('#partidaHospedajeWrapper').hide();
+            $('#partidaManualWrapper small').text('Selecciona la partida presupuestal');
+        }
+    }
+    
+
+    $(document).ready(function() {
+     
+        setTimeout(actualizarPartidas, 300);
+        
+      
+        $('#tiene_hospedaje, #tiene_alimentos, #grupo_usuario, #id_perfil_catalogo, #id_partida_ui').on('change', function() {
+            setTimeout(actualizarPartidas, 100);
+        });
+     
+        $('#pax_ui').on('change', function() {
+            setTimeout(actualizarPartidas, 100);
+        });
+    });
+    
+   
+    window.actualizarPartidas = actualizarPartidas;
+    
 })();
 </script>
