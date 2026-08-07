@@ -997,6 +997,7 @@ class Usuario extends BaseController
         $tarifaNoche = 0.00;
         $noches = 0;
         $montoTotalHospedajePax = 0.00;
+        $montoTotalHospedajeGrupo = 0.00;
         $hospedajePlanJsonPreliminar = $this->normalizeHospedajePlanJson($data['hospedaje_plan_json'] ?? ($data['hospedaje_plan'] ?? null));
         $totalesHospedajePlan = [
             'tarifa_noche' => $tarifaNoche,
@@ -1034,7 +1035,9 @@ class Usuario extends BaseController
                 ]);
             }
             
-            $montoTotalHospedajePax = round((float) ($totalesHospedajePlan['tarifa_total'] ?? ($tarifaNoche * $noches)), 2);
+            $montoTotalHospedajeGrupo = round((float) ($totalesHospedajePlan['tarifa_total'] ?? ($tarifaNoche * $noches)), 2);
+            $paxTotalHospedaje = max(1, (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1));
+            $montoTotalHospedajePax = round($montoTotalHospedajeGrupo / $paxTotalHospedaje, 2);
         }
 
         $montoTotalPax = round($montoTotalAlimentosPax + $montoTotalHospedajePax, 2);
@@ -1387,10 +1390,22 @@ class Usuario extends BaseController
         $idsCreados = [];
         $idUsuarioPadre = null;
 
+        $montosHospedajePorSecuencia = [];
+        if ($tieneHospedaje && $paxTotal > 0) {
+            $totalCentavos = (int) round($montoTotalHospedajeGrupo * 100);
+            $baseCentavos = intdiv($totalCentavos, $paxTotal);
+            $restoCentavos = $totalCentavos - ($baseCentavos * $paxTotal);
+            for ($sequence = 1; $sequence <= $paxTotal; $sequence++) {
+                $centavosSecuencia = $baseCentavos + ($sequence <= $restoCentavos ? 1 : 0);
+                $montosHospedajePorSecuencia[$sequence] = round($centavosSecuencia / 100, 2);
+            }
+        }
+
         $db->transBegin();
         try {
             foreach ($personas as $index => $persona) {
                 $sequence = $index + 1;
+                $montoHospedajeSecuencia = $montosHospedajePorSecuencia[$sequence] ?? $montoTotalHospedajePax;
                 $apiToken = $this->generateUniquePlainToken('api_token', 32, false);
                 $nip = $this->generateUniquePlainToken('nip', 4, true);
                 $subFolio = $subFolioBase;
@@ -1435,8 +1450,8 @@ class Usuario extends BaseController
                     'es_titular_folio' => $sequence === 1 ? 1 : 0,
                     'anf_gto' => trim((string) ($data['anf_gto'] ?? $data['anf_gto_ui'] ?? '')) ?: null,
                     'monto_deposito' => $montoDiarioAlimentos,
-                    'monto_deposito_hotel' => $montoTotalHospedajePax,
-                    'monto_deposito_reservado' => $montoTotalPax,
+                    'monto_deposito_hotel' => $montoHospedajeSecuencia,
+                    'monto_deposito_reservado' => round($montoTotalAlimentosPax + $montoHospedajeSecuencia, 2),
                     'monto_deposito_operativo' => 0.00,
                     'deposito_programado_estatus' => $montoTotalPax > 0 ? 'reservado' : 'sin_programa',
                     'qr' => null,
@@ -1453,7 +1468,7 @@ class Usuario extends BaseController
                     'fecha_check_out' => null,
                     'noche' => $noches > 0 ? $noches : null,
                     'tarifa_noche' => $tarifaNoche > 0 ? $tarifaNoche : null,
-                    'tarifa_total' => $montoTotalPax,
+                    'tarifa_total' => round($montoTotalAlimentosPax + $montoHospedajeSecuencia, 2),
                     'api_token' => $apiToken,
                     'api_token_expira' => null,
                     'fec_reg' => $fechaAhora,
@@ -1475,8 +1490,8 @@ class Usuario extends BaseController
 
                 $updateData = [
                     'monto_deposito' => number_format($montoDiarioAlimentos, 2, '.', ''),
-                    'monto_deposito_hotel' => number_format($montoTotalHospedajePax, 2, '.', ''),
-                    'monto_deposito_reservado' => number_format($montoTotalPax, 2, '.', ''),
+                    'monto_deposito_hotel' => number_format($montoHospedajeSecuencia, 2, '.', ''),
+                    'monto_deposito_reservado' => number_format($montoTotalAlimentosPax + $montoHospedajeSecuencia, 2, '.', ''),
                     'monto_deposito_operativo' => number_format(0, 2, '.', ''),
                     'deposito_programado_estatus' => $montoTotalPax > 0 ? 'reservado' : 'sin_programa',
                     'pax' => $paxTotal,
@@ -1485,7 +1500,7 @@ class Usuario extends BaseController
                     'folio_grupo' => $folioGrupo,
                     'sub_folio' => $subFolio !== '' ? $subFolio : null,
                     'tarifa_noche' => $tarifaNoche > 0 ? number_format($tarifaNoche, 2, '.', '') : null,
-                    'tarifa_total' => number_format($montoTotalPax, 2, '.', ''),
+                    'tarifa_total' => number_format($montoTotalAlimentosPax + $montoHospedajeSecuencia, 2, '.', ''),
                     'fec_act' => $fechaAhora,
                     'usu_act' => $idSesionUsuario,
                 ];
