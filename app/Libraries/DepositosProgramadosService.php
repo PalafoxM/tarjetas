@@ -32,20 +32,16 @@ class DepositosProgramadosService
         $tieneAlimentos = (int) ($dataInsert['tiene_alimentos'] ?? 0) === 1;
         $tieneHospedaje = (int) ($dataInsert['tiene_hospedaje'] ?? 0) === 1;
 
-    
         $vigenciaInicio = null;
         $vigenciaFin = null;
 
         if ($tieneAlimentos) {
-        
             $vigenciaInicio = $this->resolveUserDate($dataInsert, ['fec_vigencia_desde']);
             $vigenciaFin = $this->resolveUserDate($dataInsert, ['fec_vigencia_hasta']);
         } elseif ($tieneHospedaje) {
-           
             $vigenciaInicio = $this->resolveUserDate($dataInsert, ['fec_vigencia_desde_hos', 'fecha_check_in']);
             $vigenciaFin = $this->resolveUserDate($dataInsert, ['fec_vigencia_hasta_hos', 'fecha_check_out']);
         } else {
-           
             $response->respuesta = 'Error | El usuario debe tener al menos un beneficio (alimentos o hospedaje).';
             return $response;
         }
@@ -59,7 +55,6 @@ class DepositosProgramadosService
             return $response;
         }
 
-        
         $days = $tieneAlimentos ? $this->countInclusiveDays($vigenciaInicio, $vigenciaFin) : 0;
         $dailyAmount = $this->resolveDailyAmount($dataInsert);
         $foodReserve = $tieneAlimentos ? round($dailyAmount * $days, 2) : 0.00;
@@ -88,6 +83,12 @@ class DepositosProgramadosService
         $userRow['fec_act'] = $userRow['fec_act'] ?? $userRow['fec_reg'];
         $userRow['usu_reg'] = $actorUserId;
         $userRow['usu_act'] = $actorUserId;
+        
+       
+        if (!isset($userRow['id_partida_alimentos'])) {
+            $userRow['id_partida_alimentos'] = null;
+        }
+        
         $resolvedSequence = $this->resolveNextPaxSecuencia($userRow);
         $userRow['pax_secuencia'] = $resolvedSequence;
         $userRow['es_titular_folio'] = $resolvedSequence === 1 ? 1 : 0;
@@ -287,7 +288,7 @@ class DepositosProgramadosService
     {
         $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
         $users = $this->db->table('usuario')
-            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible')
+            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos')
             ->where('visible', 1)
             ->where('activo_qr', 1)
             ->groupStart()
@@ -382,8 +383,6 @@ class DepositosProgramadosService
             $totalApplied = $saldoPendienteLiberar;
         }
 
-        // El saldo reservado se conserva hasta que venza la vigencia;
-        // lo que crece es el saldo operativo disponible para consumo.
         $saldoNuevoAlimentos = round($foodAmount, 2);
         $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmount), 2);
         $saldoNuevoReservado = $saldoAnteriorReservado;
@@ -426,6 +425,7 @@ class DepositosProgramadosService
             return ['applied' => false, 'message' => $e->getMessage()];
         }
     }
+    
     private function markProgramError(int $idUsuario, string $tipoEvento, string $referenceDate, int $actorUserId, string $message): void
     {
         $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
@@ -437,6 +437,7 @@ class DepositosProgramadosService
                 'usu_act' => $actorUserId,
             ]);
     }
+    
     private function insertUser(array $data): int
     {
         $this->db->table('usuario')->insert($data);
@@ -559,10 +560,21 @@ class DepositosProgramadosService
         $context = $this->resolver->resolve($dataInsert);
 
         $allocations = [];
+   
         if ($foodReserve > 0 && (int) ($dataInsert['tiene_alimentos'] ?? 0) === 1) {
-            $foodPartida = $this->resolveFoodPartidaByContext($context);
+     
+            $foodPartida = $this->nullableInt($dataInsert['id_partida_alimentos'] ?? null);
+      
             if ($foodPartida === null) {
-                return ['error' => true, 'respuesta' => 'No hay partida de alimentos configurada para el grupo del usuario.'];
+                $foodPartida = $this->nullableInt($dataInsert['id_partida'] ?? null);
+            }
+ 
+            if ($foodPartida === null) {
+                $foodPartida = $this->resolveFoodPartidaByContext($context);
+            }
+            
+            if ($foodPartida === null) {
+                $foodPartida = 3;
             }
 
             $allocations[] = [
@@ -585,7 +597,6 @@ class DepositosProgramadosService
             'data' => $this->mergePartidaAllocations($allocations),
         ];
     }
-
     public function applyHospedajeCheckInConsumption(int $idUsuario, int $actorUserId = 0, ?string $referenceDate = null): object
     {
         $response = new stdClass();
@@ -649,7 +660,7 @@ class DepositosProgramadosService
     {
         $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
         $users = $this->db->table('usuario')
-            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible')
+            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos')
             ->where('visible', 1)
             ->where('activo_qr', 1)
             ->groupStart()
@@ -793,7 +804,6 @@ class DepositosProgramadosService
             return ['applied' => false, 'message' => 'Usuario invalido.'];
         }
 
-        // Separamos primero el hospedaje pendiente para no devolverlo por la partida de alimentos.
         $saldoComidaPendiente = $this->resolveFoodPendingBalance($user);
         if ($saldoComidaPendiente <= 0) {
             return ['applied' => false, 'message' => 'No hay saldo de alimentos pendiente por liberar.'];
@@ -801,10 +811,15 @@ class DepositosProgramadosService
 
         $saldoReservado = round((float) ($user['monto_deposito_reservado'] ?? 0), 2);
         $hotelRestante = round(max(0.00, (float) ($user['monto_deposito_hotel'] ?? 0)), 2);
-        $context = $this->resolver->resolve($user);
-        $idPartida = $this->resolveFoodPartidaByContext($context);
+        
+       
+        $idPartida = $this->nullableInt($user['id_partida_alimentos'] ?? null);
         if ($idPartida === null) {
-            return ['applied' => false, 'message' => 'No hay partida de alimentos configurada para el grupo del usuario.'];
+            $context = $this->resolver->resolve($user);
+            $idPartida = $this->resolveFoodPartidaByContext($context);
+        }
+        if ($idPartida === null) {
+            $idPartida = 3;
         }
 
         $this->db->transBegin();
@@ -1156,5 +1171,13 @@ class DepositosProgramadosService
     private function nextAttempt(int $idUsuarioDepositoProgramado): int
     {
         return 1;
+    }
+
+    private function nullableInt($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return (int) $value;
     }
 }

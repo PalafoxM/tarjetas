@@ -936,7 +936,7 @@ class Usuario extends BaseController
             }
             
             $vigenciaDesde = $fechaDesde . ' 08:00:00';
-            $vigenciaHasta = $fechaHasta . ' 11:12:00';
+            $vigenciaHasta = $fechaHasta . ' 23:59:00';
             $diasAlimentos = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
             
             if ($diasAlimentos <= 0) {
@@ -1219,6 +1219,7 @@ class Usuario extends BaseController
                 'id_establecimiento' => $idEstablecimientoAlta,
                 'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
                 'id_partida' => $partidaUsuario,
+                'id_partida_alimentos' => ($tieneAlimentos) ? ($data['id_partida_alimentos'] ?? 3) : null,
                 'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
                 'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
                 'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
@@ -1431,6 +1432,7 @@ class Usuario extends BaseController
                     'visible' => 1,
                     'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
                     'id_partida' => $partidaUsuario,
+                    'id_partida_alimentos' => ($tieneAlimentos) ? ($data['id_partida_alimentos'] ?? 3) : null,
                     'id_fic_perfil' => $this->nullableInt($assignment['id_fic_perfil'] ?? null),
                     'id_ug_perfil' => $this->nullableInt($assignment['id_ug_perfil'] ?? null),
                     'id_secul_perfil' => $this->nullableInt($assignment['id_secul_perfil'] ?? null),
@@ -3030,39 +3032,102 @@ class Usuario extends BaseController
     }
 
     private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int
-{
-    $idPartidaActual = $this->nullableInt($data['id_partida'] ?? null);
-    $idPartidaExistente = $this->nullableInt($existingRow['id_partida'] ?? null);
-    $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
-    $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
+    {
+        $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
+        $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
+        $idPerfilCatalogo = (int) ($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? 0);
 
     
-    if ($tieneHospedaje) {
-        return 2;  
-    }
+        if ($tieneAlimentos) {
+           
+            $esFicOUg = in_array($idPerfilCatalogo, [9, 10]) || in_array($grupoUsuario, ['fic', 'ug'], true);
+            
+            if ($esFicOUg) {
+               
+                $partidaAlimentos = 3;
+            } else {
+                
+                $partidaAlimentos = $this->nullableInt($data['id_partida_alimentos'] ?? null);
+                
+           
+                if ($partidaAlimentos === null || $partidaAlimentos <= 0) {
+                    $context = $this->resolver->resolve($data);
+                    $partidaAlimentos = $this->resolveFoodPartidaByContext($context);
+                }
 
+                if ($partidaAlimentos === null || $partidaAlimentos <= 0) {
+                    $partidaAlimentos = $this->nullableInt($data['id_partida'] ?? null);
+                }
 
-    if ($tieneAlimentos) {
-        return 3;  
-    }
+                if ($partidaAlimentos === null || $partidaAlimentos <= 0) {
+                    $partidaAlimentos = $this->nullableInt($existingRow['id_partida_alimentos'] ?? null);
+                }
+            }
 
-    
-    
-    if (in_array($grupoUsuario, ['fic', 'ug'], true)) {
-       
+            $data['id_partida_alimentos'] = $partidaAlimentos;
+        } else {
+            $data['id_partida_alimentos'] = null;
+        }
+
+        if ($tieneHospedaje) {
+            return 2;
+        }
+
+        if ($tieneAlimentos) {
+            return $data['id_partida_alimentos'] ?? 3;
+        }
+
+        if (in_array($grupoUsuario, ['fic', 'ug'], true) || in_array($idPerfilCatalogo, [9, 10])) {
+            return null;
+        }
+
+        $idPartidaActual = $this->nullableInt($data['id_partida'] ?? null);
+        $idPartidaExistente = $this->nullableInt($existingRow['id_partida'] ?? null);
+        
+        if ($idPartidaActual !== null && $idPartidaActual > 0) {
+            return $idPartidaActual;
+        }
+
+        if ($idPartidaExistente !== null && $idPartidaExistente > 0) {
+            return $idPartidaExistente;
+        }
+
         return null;
     }
 
-    if ($idPartidaActual !== null && $idPartidaActual > 0) {
-        return $idPartidaActual;
+ 
+
+    private function resolveFoodPartidaForUser(array $data, string $grupoUsuario): ?int
+    {
+        $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
+        if (!$tieneAlimentos) {
+            return null;
+        }
+
+        $idPerfilCatalogo = (int) ($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? 0);
+        $esFicOUg = in_array($idPerfilCatalogo, [9, 10]) || in_array($grupoUsuario, ['fic', 'ug'], true);
+
+        if (isset($data['id_partida_alimentos']) && $data['id_partida_alimentos'] > 0) {
+            return (int) $data['id_partida_alimentos'];
+        }
+
+        if ($esFicOUg) {
+            return 3;
+        }
+
+        if (isset($data['id_partida']) && $data['id_partida'] > 0) {
+            return (int) $data['id_partida'];
+        }
+
+        $context = $this->resolver->resolve($data);
+        $partidaContexto = $this->resolveFoodPartidaByContext($context);
+        if ($partidaContexto !== null && $partidaContexto > 0) {
+            return $partidaContexto;
+        }
+
+        return null; 
     }
 
-    if ($idPartidaExistente !== null && $idPartidaExistente > 0) {
-        return $idPartidaExistente;
-    }
-
-    return null;
-}
 
     private function resolveEstablecimientoAlta(array $data, string $grupoUsuario, ?int $selectedProfile, array $existingRow = []): ?int
     {
@@ -3683,7 +3748,7 @@ class Usuario extends BaseController
             }
             
             $vigenciaDesde = $fechaDesde . ' 08:00:00';
-            $vigenciaHasta = $fechaHasta . ' 11:12:00';
+            $vigenciaHasta = $fechaHasta . ' 23:59:00';
         } else {
             $vigenciaDesde = $fechaDesde !== '' ? $fechaDesde : null;
             $vigenciaHasta = $fechaHasta !== '' ? $fechaHasta : null;
