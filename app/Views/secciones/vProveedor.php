@@ -615,7 +615,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
 <div class="modal fade provider-modal" id="modalPagoSinQr" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content bg-dark text-white">
-            <form id="formPagoSinQr">
+            <form id="formPagoSinQr" method="post">
                 <div class="modal-header border-secondary">
                     <h5 class="modal-title">Pago sin QR</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -663,7 +663,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
 <div class="modal fade provider-modal" id="modalSolicitudPersonal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content bg-dark text-white">
-            <form id="formSolicitudProveedor">
+            <form id="formSolicitudProveedor" method="post">
                 <div class="modal-header border-secondary">
                     <h5 class="modal-title">Solicitud de personal</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>

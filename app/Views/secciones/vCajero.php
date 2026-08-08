@@ -112,7 +112,7 @@ $cajeroRegresarUrl = $cajeroRegresarUrl ?? base_url('index.php/Inicio');
 <div class="modal fade" id="cajeroModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="cajeroForm">
+            <form id="cajeroForm" method="post">
                 <!--<div class="modal-header">
                     <h5 class="modal-title" id="cajeroModalTitle">Nuevo cajero</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>

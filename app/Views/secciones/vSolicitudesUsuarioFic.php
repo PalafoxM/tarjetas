@@ -472,7 +472,7 @@ $solicitudesPartidaOptionsJson = json_encode($solicitudesPartidaOptions, JSON_HE
     <div class="modal fade solicitudes-modal" id="modalRevisionSolicitudUsuarioOperativo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <form id="formAprobarSolicitudUsuarioOperativo" autocomplete="off">
+            <form id="formAprobarSolicitudUsuarioOperativo" autocomplete="off" method="post">
                 <?= csrf_field() ?>
                 <div class="modal-header border-secondary">
                     <div>

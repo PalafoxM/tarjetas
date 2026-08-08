@@ -117,7 +117,7 @@ $inferHabitacionCapacidad = static function ($item) {
             </a>
         </div>
 
-        <form id="formAltaProveedorFic" autocomplete="off">
+        <form id="formAltaProveedorFic" autocomplete="off" method="post">
             <?= csrf_field() ?>
 
             <div class="card">
