@@ -539,7 +539,7 @@
         <li class="layer" data-depth="0.10"><div class="light orange d phase-3"></div></li>
         <li class="layer" data-depth="0.15">
             <ul class="rope depth-10">
-                <li><img src="<?= base_url() ?>parallax.js_files/rope.png" alt="Rope"></li>
+                <li><img src="<?= base_url() ?>images/rope.png" alt="Rope"></li>
                 <li class="hanger position-2">
                     <div class="board cloud-2 swing-1"></div>
                 </li>
@@ -554,7 +554,7 @@
         <li class="layer" data-depth="0.20"><h1 class="title"><em>EN UN LUGAR DE LA MANCHA</em></h1></li>
         <li class="layer" data-depth="0.30">
             <ul class="rope depth-30">
-                <li><img src="<?= base_url() ?>parallax.js_files/rope.png" alt="Rope"></li>
+                <li><img src="<?= base_url() ?>images/rope.png" alt="Rope"></li>
                 <li class="hanger position-1">
                     <div class="board cloud-1 swing-3"></div>
                 </li>

@@ -117,7 +117,7 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
     <link rel="shortcut icon" href="<?= base_url(); ?>assets/images/proyecto/favicon.png" type="image/x-icon">
 
     <link rel="stylesheet" type="text/css" href="<?= base_url('css/fic-common.css') ?>">
-    <link rel="stylesheet" type="text/css" href="<?= base_url('parallax.js_files/styles.css') ?>">
+    <link rel="stylesheet" type="text/css" href="<?= base_url('assets/parallax/styles.css') ?>">
     <link rel="stylesheet" type="text/css" href="<?= base_url('css/fic-login.css') ?>">
     <link rel="stylesheet" type="text/css" href="<?= base_url('assets/css/global-loading.css') ?>">
     
