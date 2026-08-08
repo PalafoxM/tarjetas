@@ -115,6 +115,7 @@ class UsuarioPerfilResolver
         $isGroupAdmin = $activeGroup !== null && $groupRole === 1;
         $isGroupCapturista = $activeGroup !== null && $groupRole === 2;
         $isSecturiCajero = $activeGroup === 'secturi' && $groupRole === 4;
+        $isLegacyCajero = $idPerfil === 6;
         $isSecturiAdminMaster = $activeGroup === 'secturi' && $groupRole === 1;
         $canAccessSecturiDashboard = $isSecturiAdminMaster || ($activeGroup === 'secturi' && $groupRole === 2);
 
@@ -129,16 +130,17 @@ class UsuarioPerfilResolver
             'group_role_label' => $roleLabel,
             'is_provider_flow' => $idProveedor > 0 || in_array($providerType, [1, 2], true) || $idPerfil === 2,
             'is_recepcion_flow' => $providerType === 3 || $idPerfil === 7,
-            'is_cajero_flow' => $idPerfil === 6 || $isSecturiCajero,
+            'is_cajero_flow' => $isLegacyCajero || $isSecturiCajero,
             'is_client_like' => $isClientLike,
             'is_group_admin' => $isGroupAdmin,
             'is_group_capturista' => $isGroupCapturista,
             'is_group_backoffice' => $isGroupAdmin || $isGroupCapturista,
             'is_secturi_cajero' => $isSecturiCajero,
+            'is_legacy_cajero' => $isLegacyCajero,
             'is_ti_master' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster,
             'can_access_secturi_dashboard' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $canAccessSecturiDashboard,
             'can_decide_institutional_folios' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $canAccessSecturiDashboard,
-            'can_access_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero,
+            'can_access_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin || $isGroupCapturista || $isSecturiCajero || $isLegacyCajero,
             'can_edit_user_catalog' => ($idPerfil === 1 && $providerType === 0 && $idProveedor === 0) || $isSecturiAdminMaster || $isGroupAdmin,
         ];
     }
@@ -168,7 +170,7 @@ class UsuarioPerfilResolver
             return false;
         }
 
-        if ($actorContext['is_secturi_cajero']) {
+        if (!empty($actorContext['is_secturi_cajero']) || !empty($actorContext['is_legacy_cajero'])) {
             return true;
         }
 
@@ -211,8 +213,8 @@ class UsuarioPerfilResolver
             return $options;
         }
 
-        // El cajero SECTURI puede consultar todos los subperfiles visibles.
-        if (!empty($actorContext['is_secturi_cajero'])) {
+        // El cajero puede consultar todos los subperfiles visibles.
+        if (!empty($actorContext['is_secturi_cajero']) || !empty($actorContext['is_legacy_cajero'])) {
             $options = [];
             foreach (self::GROUPS as $groupKey => $config) {
                 $options[$groupKey] = [

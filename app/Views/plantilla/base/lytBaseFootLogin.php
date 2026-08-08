@@ -1,6 +1,6 @@
 
-<script src="<?= base_url('parallax.js_files/libraries.min.js.descarga') ?>"></script>
-<script src="<?= base_url('parallax.js_files/jquery.parallax.js.descarga') ?>"></script>
+<script src="<?= base_url('assets/parallax/libraries.min.js') ?>"></script>
+<script src="<?= base_url('assets/parallax/jquery.parallax.js') ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function hideLoginLoading() {

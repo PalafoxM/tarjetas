@@ -512,6 +512,8 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-primary" type="button" title="Orden" onclick="st.agregar.verPdf(${idUsuario})">
                     <i class="mdi mdi-file-pdf-box"></i>
                 </button>
+                ${puedeGestionarQr ? botonActivarQr : ''}
+                ${puedeGestionarQr ? botonRechazarQr : ''}
                 <button class="btn btn-outline-info" type="button" title="Subir PDF INE y firma" onclick="cajeros.seleccionarFirmaCajero(${idUsuario})">
                     <i class="mdi mdi-file-upload-outline"></i>
                 </button>
@@ -521,7 +523,6 @@ window.cajeros = Object.assign(window.cajeros || {}, {
                 <button class="btn btn-danger" type="button" title="Eliminar" onclick="cajeros.eliminar(${idUsuario})">
                     <i class="mdi mdi-account-remove"></i>
                 </button>`;
-        }
 
         return botones + '</div>';
     },

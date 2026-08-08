@@ -879,7 +879,7 @@ footer .twitter-share-button {
   background-size: 128px 224px;
   height: 224px;
   width: 128px;
-  background-image: url(../images/molino2.png);
+  background-image: url(../../images/molino2.png);
   background-repeat: no-repeat;
   bottom: 64px;
   position: absolute;
@@ -905,11 +905,11 @@ footer .twitter-share-button {
 }
 
 .wave.plain {
-  background-image: url(../images/olas.png);
+  background-image: url(../../images/olas.png);
 }
 
 .wave.paint {
-  background-image: url(../images/wave-paint.png);
+  background-image: url(../../images/wave-paint.png);
 }
 
 .light {
@@ -924,11 +924,11 @@ footer .twitter-share-button {
 }
 
 .light.orange {
-  background-image: url(../images/light-orange.png);
+  background-image: url(../../images/light-orange.png);
 }
 
 .light.purple {
-  background-image: url(../images/light-purple.png);
+  background-image: url(../../images/light-purple.png);
 }
 
 .light.a {
@@ -1098,23 +1098,23 @@ footer .twitter-share-button {
 }
 
 .board.birds {
-  background-image: url(../images/lampara1.png);
+  background-image: url(../../images/lampara1.png);
 }
 
 .board.cloud-1 {
-  background-image: url(../images/lampara2.png);
+  background-image: url(../../images/lampara2.png);
 }
 
 .board.cloud-2 {
-  background-image: url(../images/lampara2.png);
+  background-image: url(../../images/lampara2.png);
 }
 
 .board.cloud-3 {
-  background-image: url(../images/lampara3.png);
+  background-image: url(../../images/lampara3.png);
 }
 
 .board.cloud-4 {
-  background-image: url(../images/lampara4.png);
+  background-image: url(../../images/lampara4.png);
 }
 
 .swing-1 {
