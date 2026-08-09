@@ -36,7 +36,7 @@
         <script type="text/javascript" src="<?php echo base_url();?>/assets/fileinput5/js/fileinput.js"></script>
         <script type="text/javascript" src="<?php echo base_url();?>/assets/fileinput5/js/locales/es.js"></script>
         <script type="text/javascript" src="<?php echo base_url();?>/assets/fileinput5/themes/fas/theme.js"></script>
-        <script type="text/javascript" src="<?php echo base_url();?>/assets/sweetAlert2/sweetalert2.all.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         
         <!--Bootstrap table-->
         <link href="<?php echo (base_url('/assets/bootstrap-table-master/dist_/bootstrap-table.min.css'));?>" rel="stylesheet">

@@ -11,7 +11,6 @@
   
     <link rel="shortcut icon" href="<?php echo base_url(); ?>assets/huella.png">
 
-    <link href="<?php echo base_url(); ?>plugins/sweet-alert2/sweetalert2.min.css" rel="stylesheet" type="text/css">
     <link href="<?php echo base_url(); ?>plugins/animate/animate.css" rel="stylesheet" type="text/css">
 
 
