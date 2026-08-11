@@ -275,12 +275,7 @@
             return;
         }
 
-        if (!window.base_url) {
-            renderNoData(mount, 'No fue posible resolver la ruta base de la libreria de graficas.');
-            return;
-        }
-
-        loadScript(window.base_url.replace(/\/$/, '') + '/plugins/apexcharts/apexcharts.min.js')
+        loadScript('https://cdn.jsdelivr.net/npm/apexcharts@6/dist/apexcharts.min.js')
             .then(mountChart)
             .catch(function () {
                 renderNoData(mount, 'No fue posible cargar ApexCharts.');
