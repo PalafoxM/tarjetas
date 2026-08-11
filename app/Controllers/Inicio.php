@@ -3083,210 +3083,99 @@ class Inicio extends BaseController {
         }
 
         $db = \Config\Database::connect();
-        $pares = $this->collectFolioInstitucionalPairs($db);
-        $ultimo = $this->resolveUltimoFolioInstitucional($pares);
-
-        if (empty($ultimo)) {
+        $idClave = (int) ($this->request->getGet('id_clave') ?? 0);
+        $idCat = $this->resolveIdCatInstitucional($grupo);
+        if ($idCat <= 0) {
             return $this->response->setJSON([
                 'ok' => true,
                 'data' => [
                     'sugerencias' => [],
-                    'mensaje' => 'Sin folio previo para sugerir.',
+                    'mensaje' => 'No se ha configurado el catalogo institucional para este grupo.',
                 ],
             ]);
         }
 
-        $sugerencias = $this->buildSugerenciasFolioInstitucional($ultimo, $pares);
+        if ($idClave <= 0) {
+            return $this->response->setJSON([
+                'ok' => true,
+                'data' => [
+                    'sugerencias' => [],
+                    'mensaje' => 'Selecciona una clave para consultar folio sugerido.',
+                ],
+            ]);
+        }
+
+        $folioClave = $this->resolveFolioClaveInstitucional($db, $idCat, $idClave);
+        if (empty($folioClave)) {
+            return $this->response->setJSON([
+                'ok' => true,
+                'data' => [
+                    'sugerencias' => [],
+                    'mensaje' => 'No se ha configurado el folio inicial para esta clave.',
+                ],
+            ]);
+        }
 
         return $this->response->setJSON([
             'ok' => true,
             'data' => [
-                'ultimo' => $ultimo,
-                'ultimo_label' => $ultimo['folio'] . $ultimo['sub_folio'],
-                'sugerencias' => $sugerencias,
-                'mensaje' => empty($sugerencias) ? 'Sin folio previo para sugerir.' : '',
+                'ultimo' => [
+                    'folio' => $folioClave['folio'],
+                    'sub_folio' => $folioClave['sub_folio'],
+                ],
+                'ultimo_label' => $folioClave['folio'] . $folioClave['sub_folio'],
+                'sugerencias' => [[
+                    'tipo' => 'clave',
+                    'label' => 'Folio sugerido: ' . $folioClave['folio'] . $folioClave['sub_folio'],
+                    'folio' => $folioClave['folio'],
+                    'sub_folio' => $folioClave['sub_folio'],
+                ]],
+                'mensaje' => '',
             ],
         ]);
     }
 
-    private function collectFolioInstitucionalPairs($db, int $excludeSolicitudId = 0): array
+    private function resolveIdCatInstitucional(string $grupo): int
     {
-        $pares = [];
-        $usuarioRows = $db->table('usuario')
+        $map = [
+            'fic' => 1,
+            'secul' => 2,
+            'ug' => 3,
+            'secturi' => 4,
+        ];
+
+        return (int) ($map[$grupo] ?? 0);
+    }
+
+    private function resolveFolioClaveInstitucional($db, int $idCat, int $idClave): array
+    {
+        if ($idCat <= 0 || $idClave <= 0) {
+            return [];
+        }
+
+        $row = $db->table('cat_claves')
             ->select('folio, sub_folio')
             ->where('visible', 1)
-            ->where('folio IS NOT NULL', null, false)
-            ->where('folio <>', '')
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $idClave)
             ->get()
-            ->getResultArray();
+            ->getRowArray();
 
-        foreach ($usuarioRows as $row) {
-            $this->appendFolioInstitucionalPair($pares, $row['folio'] ?? '', $row['sub_folio'] ?? '');
+        if (empty($row)) {
+            return [];
         }
 
-        $solicitudesBuilder = $db->table('solicitud_usuario')
-            ->select('comentario_ti')
-            ->where('visible', 1)
-            ->where('estatus', 'pendiente')
-            ->whereIn('tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi']);
-        if ($excludeSolicitudId > 0) {
-            $solicitudesBuilder->where('id_solicitud_usuario !=', $excludeSolicitudId);
-        }
-        $solicitudes = $solicitudesBuilder->get()
-            ->getResultArray();
-
-        foreach ($solicitudes as $solicitud) {
-            $payloadInfo = $this->decodeSolicitudFolioPayload((string) ($solicitud['comentario_ti'] ?? ''));
-            $payload = is_array($payloadInfo['payload'] ?? null) ? $payloadInfo['payload'] : [];
-            if (!empty($payload)) {
-                $payload = $this->synchronizeSolicitudFolioFields($payload);
-                $this->appendFolioInstitucionalPair(
-                    $pares,
-                    $payload['folio'] ?? $payload['folio_ui'] ?? $payload['folio_grupo'] ?? '',
-                    $payload['sub_folio'] ?? $payload['subf_ui'] ?? ''
-                );
-            }
-        }
-
-        return $pares;
-    }
-
-    private function appendFolioInstitucionalPair(array &$pares, $folio, $subFolio): void
-    {
-        $folio = preg_replace('/\D+/', '', (string) $folio);
-        $subFolio = strtoupper(trim((string) $subFolio));
+        $folio = preg_replace('/\D+/', '', (string) ($row['folio'] ?? ''));
+        $subFolio = strtoupper(trim((string) ($row['sub_folio'] ?? '')));
         $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
 
-        if ($folio === '') {
-            return;
-        }
-
-        $pares[] = [
-            'folio' => (int) $folio,
-            'sub_folio' => $subFolio !== '' ? substr($subFolio, 0, 1) : '',
-        ];
-    }
-
-    private function resolveUltimoFolioInstitucional(array $pares): array
-    {
-        $ultimo = [];
-        foreach ($pares as $par) {
-            $folio = (int) ($par['folio'] ?? 0);
-            if ($folio <= 0) {
-                continue;
-            }
-
-            $subFolio = strtoupper((string) ($par['sub_folio'] ?? ''));
-            $subOrden = preg_match('/^[A-Z]$/', $subFolio) ? (ord($subFolio) - ord('A') + 1) : 0;
-            $ultimoOrden = preg_match('/^[A-Z]$/', (string) ($ultimo['sub_folio'] ?? '')) ? (ord($ultimo['sub_folio']) - ord('A') + 1) : 0;
-
-            if (empty($ultimo) || $folio > (int) $ultimo['folio'] || ($folio === (int) $ultimo['folio'] && $subOrden > $ultimoOrden)) {
-                $ultimo = [
-                    'folio' => $folio,
-                    'sub_folio' => $subFolio,
-                ];
-            }
-        }
-
-        return $ultimo;
-    }
-
-    private function buildSugerenciasFolioInstitucional(array $ultimo, array $pares): array
-    {
-        $folio = (int) ($ultimo['folio'] ?? 0);
-        $subFolio = strtoupper((string) ($ultimo['sub_folio'] ?? ''));
-        $usados = [];
-        foreach ($pares as $par) {
-            $usados[(int) ($par['folio'] ?? 0) . '|' . strtoupper((string) ($par['sub_folio'] ?? ''))] = true;
-        }
-
-        $sugerencias = [];
-        if ($folio <= 0) {
-            return $sugerencias;
-        }
-
-        if (!preg_match('/^[A-Z]$/', $subFolio)) {
-            $continuarSub = 'A';
-        } elseif ($subFolio !== 'Z') {
-            $continuarSub = chr(ord($subFolio) + 1);
-        } else {
-            $continuarSub = '';
-        }
-
-        if ($continuarSub !== '') {
-            while ($continuarSub <= 'Z' && isset($usados[$folio . '|' . $continuarSub])) {
-                $continuarSub = chr(ord($continuarSub) + 1);
-            }
-
-            if ($continuarSub <= 'Z') {
-                $sugerencias[] = [
-                    'tipo' => 'continuar',
-                    'label' => 'Continuar folio: ' . $folio . $continuarSub,
-                    'folio' => (string) $folio,
-                    'sub_folio' => $continuarSub,
-                ];
-            }
-        }
-
-        $nuevoFolio = $folio + 1;
-        $intentos = 0;
-        while (isset($usados[$nuevoFolio . '|A']) && $intentos < 1000) {
-            $nuevoFolio++;
-            $intentos++;
-        }
-
-        $sugerencias[] = [
-            'tipo' => 'nuevo',
-            'label' => 'Nuevo folio: ' . $nuevoFolio . 'A',
-            'folio' => (string) $nuevoFolio,
-            'sub_folio' => 'A',
-        ];
-
-        return $sugerencias;
-    }
-
-    private function resolveSiguienteFolioInstitucionalDisponible(array $pares, int $folio, string $subFolio): array
-    {
-        $usados = [];
-        foreach ($pares as $par) {
-            $folioExistente = (int) ($par['folio'] ?? 0);
-            if ($folioExistente <= 0) {
-                continue;
-            }
-
-            $subExistente = strtoupper(trim((string) ($par['sub_folio'] ?? '')));
-            $subExistente = preg_replace('/[^A-Z]/', '', $subExistente);
-            $usados[$folioExistente . '|' . ($subExistente !== '' ? substr($subExistente, 0, 1) : '')] = true;
-        }
-
-        $folio = max(1, (int) $folio);
-        $subFolio = strtoupper(trim((string) $subFolio));
-        $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
-        $subFolio = $subFolio !== '' ? substr($subFolio, 0, 1) : 'A';
-
-        $intentos = 0;
-        while ($intentos < 1000) {
-            $clave = $folio . '|' . $subFolio;
-            if (!isset($usados[$clave])) {
-                return [
-                    'folio' => $folio,
-                    'sub_folio' => $subFolio,
-                ];
-            }
-
-            if ($subFolio !== 'Z') {
-                $subFolio = chr(ord($subFolio) + 1);
-            } else {
-                $folio++;
-                $subFolio = 'A';
-            }
-
-            $intentos++;
+        if ($folio === '' || $subFolio === '') {
+            return [];
         }
 
         return [
             'folio' => $folio,
-            'sub_folio' => $subFolio,
+            'sub_folio' => substr($subFolio, 0, 1),
         ];
     }
 
@@ -3445,12 +3334,12 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $builder = $db->table('solicitud_usuario su')
-            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil, CONCAT("SECTURI ", su.id_perfil_solicitado)) AS perfil_solicitado')
             ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
             ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
             ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
             ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', empty($tiUsuario) ? ['alta_usuario_fic'] : ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+            ->whereIn('su.tipo_solicitud', empty($tiUsuario) ? ['alta_usuario_fic'] : ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi']);
 
         if (empty($tiUsuario)) {
             $builder->where('su.usu_reg', $idSesionUsuario);
@@ -3570,15 +3459,15 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect(null, false);
         $builder = $db->table('solicitud_usuario su')
-            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, su.usu_reg, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, su.usu_reg, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil, CONCAT("SECTURI ", su.id_perfil_solicitado)) AS perfil_solicitado')
             ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
             ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
             ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
             ->where('su.id_solicitud_usuario', $idSolicitud)
             ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi']);
 
-        if ($grupo !== '' && in_array($grupo, ['fic', 'secul', 'ug'], true)) {
+        if ($grupo !== '' && in_array($grupo, ['fic', 'secul', 'ug', 'secturi'], true)) {
             $builder->where('su.tipo_solicitud', 'alta_usuario_' . $grupo);
         }
 
@@ -4038,6 +3927,20 @@ class Inicio extends BaseController {
         $folioGrupo = $folio;
         $subFolio = strtoupper(trim((string) ($post['sub_folio'] ?? $post['subf_ui'] ?? '')));
 
+        $idCatFolio = $this->resolveIdCatInstitucional($grupo);
+        $idClaveFolio = (int) ($post['id_clave'] ?? 0);
+        $folioClave = $this->resolveFolioClaveInstitucional($db, $idCatFolio, $idClaveFolio);
+        if (empty($folioClave)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'No se ha configurado el folio inicial para esta clave.',
+            ]);
+        }
+
+        $folio = (string) $folioClave['folio'];
+        $folioGrupo = $folio;
+        $subFolio = (string) $folioClave['sub_folio'];
+
         if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
@@ -4077,19 +3980,6 @@ class Inicio extends BaseController {
             }
         }
 
-        $paresInstitucionales = $this->collectFolioInstitucionalPairs($db, $idSolicitudEdicion);
-        $folioDisponible = $this->resolveSiguienteFolioInstitucionalDisponible(
-            $paresInstitucionales,
-            (int) $folioGrupo,
-            $subFolio !== '' ? $subFolio : 'A'
-        );
-
-        if ((int) $folioGrupo !== (int) ($folioDisponible['folio'] ?? 0) || $subFolio !== (string) ($folioDisponible['sub_folio'] ?? '')) {
-            $folioGrupo = (string) ($folioDisponible['folio'] ?? $folioGrupo);
-            $folio = $folioGrupo;
-            $subFolio = (string) ($folioDisponible['sub_folio'] ?? $subFolio);
-        }
-
         $solicitudUsuarioDuplicada = $db->table('solicitud_usuario')
             ->select('id_solicitud_usuario')
             ->where('visible', 1)
@@ -4109,52 +3999,6 @@ class Inicio extends BaseController {
                     'id_solicitud_usuario' => (int) ($solicitudUsuarioDuplicada['id_solicitud_usuario'] ?? 0),
                     'duplicada' => true,
                 ],
-            ]);
-        }
-
-        $intentosFolio = 0;
-        do {
-            $solicitudFolioDuplicada = $db->table('solicitud_usuario')
-                ->select('id_solicitud_usuario')
-                ->where('visible', 1)
-                ->where('estatus', 'pendiente')
-                ->where('tipo_solicitud', $tipoSolicitud)
-                ->where('id_solicitud_usuario !=', $idSolicitudEdicion);
-            if ($subFolio !== '') {
-                $solicitudFolioDuplicada
-                    ->where('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%')
-                    ->where('comentario_ti LIKE', '%"sub_folio":"' . $db->escapeLikeString($subFolio) . '"%');
-            } else {
-                $solicitudFolioDuplicada->where('comentario_ti LIKE', '%"folio_grupo":"' . $db->escapeLikeString($folioGrupo) . '"%');
-            }
-            $duplicada = $solicitudFolioDuplicada
-                ->limit(1)
-                ->get()
-                ->getRowArray();
-
-            if (empty($duplicada)) {
-                break;
-            }
-
-            $paresInstitucionales[] = [
-                'folio' => (int) $folioGrupo,
-                'sub_folio' => $subFolio,
-            ];
-            $folioDisponible = $this->resolveSiguienteFolioInstitucionalDisponible(
-                $paresInstitucionales,
-                (int) $folioGrupo,
-                $subFolio !== '' ? $subFolio : 'A'
-            );
-            $folioGrupo = (string) ($folioDisponible['folio'] ?? $folioGrupo);
-            $folio = $folioGrupo;
-            $subFolio = (string) ($folioDisponible['sub_folio'] ?? $subFolio);
-            $intentosFolio++;
-        } while ($intentosFolio < 1000);
-
-        if (!empty($duplicada)) {
-            return $this->response->setStatusCode(409)->setJSON([
-                'ok' => false,
-                'message' => 'No fue posible encontrar un folio disponible. Intenta nuevamente.',
             ]);
         }
 
@@ -4473,13 +4317,13 @@ class Inicio extends BaseController {
 
         $db = \Config\Database::connect();
         $row = $db->table('solicitud_usuario su')
-            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+            ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil, CONCAT("SECTURI ", su.id_perfil_solicitado)) AS perfil_solicitado')
             ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
             ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
             ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
             ->where('su.id_solicitud_usuario', $idSolicitud)
             ->where('su.visible', 1)
-            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug'])
+            ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi'])
             ->get()
             ->getRowArray();
 
@@ -8262,12 +8106,12 @@ public function getPagosPorEstablecimiento()
 
     $db = \Config\Database::connect();
     $builder = $db->table('solicitud_usuario su')
-        ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil) AS perfil_solicitado')
+        ->select('su.id_solicitud_usuario, su.tipo_solicitud, su.id_proveedor, su.id_establecimiento, su.id_perfil_solicitado, su.usuario, su.nombre, su.primer_apellido, su.segundo_apellido, su.correo, su.estatus, su.comentario_ti, su.fec_reg, su.visible, COALESCE(cf.dsc_perfil, cs.des_perfil, cu.dsc_perfil, CONCAT("SECTURI ", su.id_perfil_solicitado)) AS perfil_solicitado')
         ->join('cat_fic cf', 'cf.id_perfil_fic = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_fic"', 'left')
         ->join('cat_secul cs', 'cs.id_secul_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_secul"', 'left')
         ->join('cat_ug cu', 'cu.id_ug_perfil = su.id_perfil_solicitado AND su.tipo_solicitud = "alta_usuario_ug"', 'left')
         ->where('su.visible', 1)
-        ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug']);
+        ->whereIn('su.tipo_solicitud', ['alta_usuario_fic', 'alta_usuario_secul', 'alta_usuario_ug', 'alta_usuario_secturi']);
 
     $search = trim((string) ($this->request->getGet('search') ?? ''));
     if ($search !== '') {
@@ -8353,6 +8197,22 @@ public function getPagosPorEstablecimiento()
         }
         $grupoSolicitud = $this->resolveSolicitudFolioGrupo($solicitud, (string) ($payloadInfo['grupo'] ?? ''), $payload);
         $payload = $this->normalizeSolicitudFolioPayload($grupoSolicitud, $payload);
+        $idCatFolio = $this->resolveIdCatInstitucional($grupoSolicitud);
+        $idClaveFolio = (int) ($payload['id_clave'] ?? 0);
+        $folioClave = $this->resolveFolioClaveInstitucional($db, $idCatFolio, $idClaveFolio);
+        if (empty($folioClave)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'No se ha configurado el folio inicial para esta clave.',
+            ]);
+        }
+
+        $payload['folio'] = (string) $folioClave['folio'];
+        $payload['folio_ui'] = (string) $folioClave['folio'];
+        $payload['folio_grupo'] = (string) $folioClave['folio'];
+        $payload['sub_folio'] = (string) $folioClave['sub_folio'];
+        $payload['subf_ui'] = (string) $folioClave['sub_folio'];
+
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,

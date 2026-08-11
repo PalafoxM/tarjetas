@@ -1072,6 +1072,30 @@ class Usuario extends BaseController
             : preg_replace('/\D+/', '', (string) ($data['folio_grupo'] ?? $folio));
         $paxTotal = (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1);
 
+        if ($idUsuario <= 0 && in_array($grupoUsuario, ['fic', 'ug', 'secul', 'secturi'], true)) {
+            $idCatFolio = $this->resolveIdCatInstitucionalAlta($grupoUsuario);
+            $idClaveFolio = $this->nullableInt($data['id_clave'] ?? null);
+            $folioConfigurado = $this->resolveFolioClaveInstitucionalAlta($db, $idCatFolio, (int) ($idClaveFolio ?? 0));
+
+            if (empty($folioConfigurado)) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'No se ha configurado el folio inicial para esta clave.',
+                ]);
+            }
+
+            $subFolioNormalizado = strtoupper(trim((string) $subFolioBase));
+            $subFolioNormalizado = preg_replace('/[^A-Z]/', '', $subFolioNormalizado);
+            $subFolioNormalizado = $subFolioNormalizado !== '' ? substr($subFolioNormalizado, 0, 1) : '';
+
+            if ($folio !== (string) $folioConfigurado['folio'] || $subFolioNormalizado !== (string) $folioConfigurado['sub_folio']) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'El folio sugerido ya no esta disponible. Actualiza la sugerencia.',
+                ]);
+            }
+        }
+
         $personas = [];
         $personas[] = [
             'nombre' => trim((string) ($data['nombre'] ?? '')),
@@ -1530,6 +1554,20 @@ class Usuario extends BaseController
 
             if ($db->transStatus() === false) {
                 throw new \RuntimeException('Error de transaccion al guardar el grupo de usuarios.');
+            }
+
+            if (!empty($folioConfigurado ?? []) && isset($idCatFolio, $idClaveFolio)) {
+                $advanceResult = $this->advanceFolioClaveInstitucionalAlta(
+                    $db,
+                    (int) $idCatFolio,
+                    (int) ($idClaveFolio ?? 0),
+                    (string) $folioConfigurado['folio'],
+                    (string) $folioConfigurado['sub_folio']
+                );
+
+                if (!$advanceResult) {
+                    throw new \RuntimeException('El folio sugerido ya no esta disponible. Actualiza la sugerencia.');
+                }
             }
 
             $db->transCommit();
@@ -3029,6 +3067,109 @@ class Usuario extends BaseController
         }
 
         return $this->resolver->inferLegacyProfile($assignment, $existingRow);
+    }
+
+    private function resolveIdCatInstitucionalAlta(string $grupoUsuario): int
+    {
+        $map = [
+            'fic' => 1,
+            'secul' => 2,
+            'ug' => 3,
+            'secturi' => 4,
+        ];
+
+        return (int) ($map[$grupoUsuario] ?? 0);
+    }
+
+    private function resolveFolioClaveInstitucionalAlta($db, int $idCat, int $idClave): array
+    {
+        if ($idCat <= 0 || $idClave <= 0) {
+            return [];
+        }
+
+        $row = $db->table('cat_claves')
+            ->select('folio, sub_folio')
+            ->where('visible', 1)
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $idClave)
+            ->get()
+            ->getRowArray();
+
+        if (empty($row)) {
+            return [];
+        }
+
+        $folio = preg_replace('/\D+/', '', (string) ($row['folio'] ?? ''));
+        $subFolio = strtoupper(trim((string) ($row['sub_folio'] ?? '')));
+        $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
+
+        if ($folio === '' || $subFolio === '') {
+            return [];
+        }
+
+        return [
+            'folio' => $folio,
+            'sub_folio' => substr($subFolio, 0, 1),
+        ];
+    }
+
+    private function advanceFolioClaveInstitucionalAlta($db, int $idCat, int $idClave, string $folioActual, string $subFolioActual): bool
+    {
+        $folioActual = preg_replace('/\D+/', '', $folioActual);
+        $subFolioActual = strtoupper(trim($subFolioActual));
+        $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
+        $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
+
+        if ($idCat <= 0 || $idClave <= 0 || $folioActual === '' || $subFolioActual === '') {
+            return false;
+        }
+
+        $next = $this->buildNextFolioClaveInstitucionalAlta($folioActual, $subFolioActual);
+        if (empty($next)) {
+            return false;
+        }
+
+        $builder = $db->table('cat_claves');
+        $builder->where('visible', 1)
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $idClave)
+            ->where('folio', $folioActual)
+            ->where('sub_folio', $subFolioActual)
+            ->update([
+                'folio' => $next['folio'],
+                'sub_folio' => $next['sub_folio'],
+            ]);
+
+        return $db->affectedRows() === 1;
+    }
+
+    private function buildNextFolioClaveInstitucionalAlta(string $folioActual, string $subFolioActual): array
+    {
+        $folioActual = preg_replace('/\D+/', '', $folioActual);
+        $subFolioActual = strtoupper(trim($subFolioActual));
+        $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
+        $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
+
+        if ($folioActual === '' || !preg_match('/^[A-Z]$/', $subFolioActual)) {
+            return [];
+        }
+
+        if ($subFolioActual !== 'Z') {
+            return [
+                'folio' => $folioActual,
+                'sub_folio' => chr(ord($subFolioActual) + 1),
+            ];
+        }
+
+        $nextFolio = (string) ((int) $folioActual + 1);
+        if (strlen($folioActual) > 1) {
+            $nextFolio = str_pad($nextFolio, strlen($folioActual), '0', STR_PAD_LEFT);
+        }
+
+        return [
+            'folio' => $nextFolio,
+            'sub_folio' => 'A',
+        ];
     }
 
     private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int

@@ -1058,7 +1058,13 @@ window.cajeros = {
         estado.text('Consultando ultimo folio disponible...');
         chips.empty();
 
-        $.getJSON(this.folioSuggestionsUrl, { grupo: grupo })
+        var params = { grupo: grupo };
+        var idClave = String($('#id_clave').val() || $('#categoria_ui').val() || '').trim();
+        if (idClave !== '') {
+            params.id_clave = idClave;
+        }
+
+        $.getJSON(this.folioSuggestionsUrl, params)
             .done(function (response) {
                 var data = response && response.data ? response.data : {};
                 var sugerencias = Array.isArray(data.sugerencias) ? data.sugerencias : [];
@@ -1693,6 +1699,9 @@ window.cajeros = {
         var categoria = this.buscarPorId(this.catalogos.categorias, 'id_clave', $('#categoria_ui').val());
         $('#id_clave').val(categoria ? (categoria.id_clave || '') : '');
         $('#clave_ui').val(categoria ? (categoria.clave || '') : '');
+        if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled || this.esEdicionInstitucionalAdmin()) {
+            this.cargarSugerenciasFolioInstitucional();
+        }
     },
 
     onPerfilBaseChange: function (perfilVisibleSeleccionado) {
