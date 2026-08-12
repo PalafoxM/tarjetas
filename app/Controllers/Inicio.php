@@ -3116,20 +3116,18 @@ class Inicio extends BaseController {
             ]);
         }
 
+        $sugerencias = $this->buildFolioClaveSugerenciasInstitucional($folioClave);
+
         return $this->response->setJSON([
             'ok' => true,
             'data' => [
                 'ultimo' => [
                     'folio' => $folioClave['folio'],
                     'sub_folio' => $folioClave['sub_folio'],
+                    'id_clave' => $folioClave['id_clave'],
                 ],
                 'ultimo_label' => $folioClave['folio'] . $folioClave['sub_folio'],
-                'sugerencias' => [[
-                    'tipo' => 'clave',
-                    'label' => 'Folio sugerido: ' . $folioClave['folio'] . $folioClave['sub_folio'],
-                    'folio' => $folioClave['folio'],
-                    'sub_folio' => $folioClave['sub_folio'],
-                ]],
+                'sugerencias' => $sugerencias,
                 'mensaje' => '',
             ],
         ]);
@@ -3153,11 +3151,16 @@ class Inicio extends BaseController {
             return [];
         }
 
+        $idClaveCanonico = $this->resolveCanonicalIdClaveInstitucional($db, $idCat, $idClave);
+        if ($idClaveCanonico <= 0) {
+            return [];
+        }
+
         $row = $db->table('cat_claves')
-            ->select('folio, sub_folio')
+            ->select('id_clave, folio, sub_folio')
             ->where('visible', 1)
             ->where('id_cat', $idCat)
-            ->where('id_clave', $idClave)
+            ->where('id_clave', $idClaveCanonico)
             ->get()
             ->getRowArray();
 
@@ -3176,7 +3179,148 @@ class Inicio extends BaseController {
         return [
             'folio' => $folio,
             'sub_folio' => substr($subFolio, 0, 1),
+            'id_clave' => (int) ($row['id_clave'] ?? $idClaveCanonico),
         ];
+    }
+
+    private function resolveCanonicalIdClaveInstitucional($db, int $idCat, int $idClave): int
+    {
+        if ($idCat <= 0 || $idClave <= 0) {
+            return 0;
+        }
+
+        $row = $db->table('cat_claves')
+            ->select('id_clave, id_cat, dsc_clave, folio, visible')
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $idClave)
+            ->get()
+            ->getRowArray();
+
+        if (empty($row)) {
+            return 0;
+        }
+
+        if ((int) ($row['visible'] ?? 0) === 1) {
+            return (int) ($row['id_clave'] ?? 0);
+        }
+
+        $mappedIdClave = $this->resolveMappedHiddenIdClaveInstitucional($db, $idCat, $idClave);
+        if ($mappedIdClave > 0) {
+            return $mappedIdClave;
+        }
+
+        $rangeKey = $this->extractFolioRangeKey((string) ($row['dsc_clave'] ?? ''));
+        $folioKey = preg_replace('/\D+/', '', (string) ($row['folio'] ?? ''));
+        if ($rangeKey === '' && $folioKey === '') {
+            return 0;
+        }
+
+        $activeRows = $db->table('cat_claves')
+            ->select('id_clave, dsc_clave, folio')
+            ->where('id_cat', $idCat)
+            ->where('visible', 1)
+            ->orderBy('id_clave', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        foreach ($activeRows as $activeRow) {
+            $activeRangeKey = $this->extractFolioRangeKey((string) ($activeRow['dsc_clave'] ?? ''));
+            $activeFolioKey = preg_replace('/\D+/', '', (string) ($activeRow['folio'] ?? ''));
+            if ($rangeKey !== '' && $activeRangeKey === $rangeKey) {
+                return (int) ($activeRow['id_clave'] ?? 0);
+            }
+            if ($rangeKey === '' && $folioKey !== '' && $activeFolioKey === $folioKey) {
+                return (int) ($activeRow['id_clave'] ?? 0);
+            }
+        }
+
+        return 0;
+    }
+
+    private function resolveMappedHiddenIdClaveInstitucional($db, int $idCat, int $idClave): int
+    {
+        $maps = [
+            1 => [
+                3 => 2,
+                5 => 4,
+                7 => 6,
+                13 => 12,
+            ],
+        ];
+
+        $targetIdClave = (int) ($maps[$idCat][$idClave] ?? 0);
+        if ($targetIdClave <= 0) {
+            return 0;
+        }
+
+        $target = $db->table('cat_claves')
+            ->select('id_clave')
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $targetIdClave)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        return !empty($target) ? $targetIdClave : 0;
+    }
+
+    private function extractFolioRangeKey(string $text): string
+    {
+        if (preg_match('/(\d{1,4})\s*-\s*(\d{1,4})/', $text, $matches)) {
+            return ((int) $matches[1]) . '-' . ((int) $matches[2]);
+        }
+
+        if (preg_match('/\b(\d{1,4})\b/', $text, $matches)) {
+            return ((int) $matches[1]) . '-' . ((int) $matches[1]);
+        }
+
+        return '';
+    }
+
+    private function buildFolioClaveSugerenciasInstitucional(array $folioClave): array
+    {
+        $folio = preg_replace('/\D+/', '', (string) ($folioClave['folio'] ?? ''));
+        $subFolio = strtoupper(trim((string) ($folioClave['sub_folio'] ?? '')));
+        $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
+        $subFolio = $subFolio !== '' ? substr($subFolio, 0, 1) : '';
+
+        if ($folio === '' || $subFolio === '') {
+            return [];
+        }
+
+        $sugerencias = [[
+            'tipo' => $subFolio === 'A' ? 'iniciar_folio' : 'continuar_subfolio',
+            'label' => ($subFolio === 'A' ? 'Iniciar folio: ' : 'Continuar folio: ') . $folio . $subFolio,
+            'folio' => $folio,
+            'sub_folio' => $subFolio,
+        ]];
+
+        if ($subFolio !== 'A') {
+            $nuevoFolio = $this->incrementFolioInstitucional($folio);
+            $sugerencias[] = [
+                'tipo' => 'nuevo_folio',
+                'label' => 'Nuevo folio: ' . $nuevoFolio . 'A',
+                'folio' => $nuevoFolio,
+                'sub_folio' => 'A',
+            ];
+        }
+
+        return $sugerencias;
+    }
+
+    private function incrementFolioInstitucional(string $folio): string
+    {
+        $folio = preg_replace('/\D+/', '', $folio);
+        if ($folio === '') {
+            return '';
+        }
+
+        $nextFolio = (string) ((int) $folio + 1);
+        if (strlen($folio) > 1) {
+            $nextFolio = str_pad($nextFolio, strlen($folio), '0', STR_PAD_LEFT);
+        }
+
+        return $nextFolio;
     }
 
     public function getNotificacionesUsuario()
@@ -3940,6 +4084,7 @@ class Inicio extends BaseController {
         $folio = (string) $folioClave['folio'];
         $folioGrupo = $folio;
         $subFolio = (string) $folioClave['sub_folio'];
+        $idClaveFolio = (int) ($folioClave['id_clave'] ?? $idClaveFolio);
 
         if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
             return $this->response->setStatusCode(422)->setJSON([
@@ -4007,6 +4152,7 @@ class Inicio extends BaseController {
         $payload['id_perfil_catalogo'] = $idPerfilBase;
         $payload['id_perfil_solicitado'] = $idPerfilSolicitado;
         $payload['perfil_grupo'] = $idPerfilSolicitado;
+        $payload['id_clave'] = $idClaveFolio;
         $payload['id_solicitud_usuario'] = $idSolicitudEdicion > 0 ? $idSolicitudEdicion : '';
         $payload['folio'] = $folio !== '' ? $folio : $folioGrupo;
         $payload['folio_grupo'] = $folioGrupo;
@@ -8212,6 +8358,7 @@ public function getPagosPorEstablecimiento()
         $payload['folio_grupo'] = (string) $folioClave['folio'];
         $payload['sub_folio'] = (string) $folioClave['sub_folio'];
         $payload['subf_ui'] = (string) $folioClave['sub_folio'];
+        $payload['id_clave'] = (int) ($folioClave['id_clave'] ?? $idClaveFolio);
 
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {
             return $this->response->setStatusCode(422)->setJSON([

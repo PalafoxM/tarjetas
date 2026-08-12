@@ -1083,12 +1083,23 @@ class Usuario extends BaseController
                     'respuesta' => 'No se ha configurado el folio inicial para esta clave.',
                 ]);
             }
+            $idClaveFolio = (int) ($folioConfigurado['id_clave'] ?? $idClaveFolio);
+            $data['id_clave'] = $idClaveFolio;
 
             $subFolioNormalizado = strtoupper(trim((string) $subFolioBase));
             $subFolioNormalizado = preg_replace('/[^A-Z]/', '', $subFolioNormalizado);
             $subFolioNormalizado = $subFolioNormalizado !== '' ? substr($subFolioNormalizado, 0, 1) : '';
+            $folioSeleccionado = [
+                'folio' => $folio,
+                'sub_folio' => $subFolioNormalizado,
+            ];
+            $folioSeleccionValida = $this->resolveFolioClaveSeleccionAlta(
+                $folioConfigurado,
+                $folioSeleccionado,
+                (string) ($data['folio_sugerencia_tipo'] ?? '')
+            );
 
-            if ($folio !== (string) $folioConfigurado['folio'] || $subFolioNormalizado !== (string) $folioConfigurado['sub_folio']) {
+            if (empty($folioSeleccionValida)) {
                 return $this->respond([
                     'error' => true,
                     'respuesta' => 'El folio sugerido ya no esta disponible. Actualiza la sugerencia.',
@@ -1562,7 +1573,9 @@ class Usuario extends BaseController
                     (int) $idCatFolio,
                     (int) ($idClaveFolio ?? 0),
                     (string) $folioConfigurado['folio'],
-                    (string) $folioConfigurado['sub_folio']
+                    (string) $folioConfigurado['sub_folio'],
+                    (string) ($folioSeleccionValida['folio'] ?? $folioConfigurado['folio']),
+                    (string) ($folioSeleccionValida['sub_folio'] ?? $folioConfigurado['sub_folio'])
                 );
 
                 if (!$advanceResult) {
@@ -3087,11 +3100,16 @@ class Usuario extends BaseController
             return [];
         }
 
+        $idClaveCanonico = $this->resolveCanonicalIdClaveInstitucionalAlta($db, $idCat, $idClave);
+        if ($idClaveCanonico <= 0) {
+            return [];
+        }
+
         $row = $db->table('cat_claves')
-            ->select('folio, sub_folio')
+            ->select('id_clave, folio, sub_folio')
             ->where('visible', 1)
             ->where('id_cat', $idCat)
-            ->where('id_clave', $idClave)
+            ->where('id_clave', $idClaveCanonico)
             ->get()
             ->getRowArray();
 
@@ -3110,21 +3128,162 @@ class Usuario extends BaseController
         return [
             'folio' => $folio,
             'sub_folio' => substr($subFolio, 0, 1),
+            'id_clave' => (int) ($row['id_clave'] ?? $idClaveCanonico),
         ];
     }
 
-    private function advanceFolioClaveInstitucionalAlta($db, int $idCat, int $idClave, string $folioActual, string $subFolioActual): bool
+    private function resolveCanonicalIdClaveInstitucionalAlta($db, int $idCat, int $idClave): int
+    {
+        if ($idCat <= 0 || $idClave <= 0) {
+            return 0;
+        }
+
+        $row = $db->table('cat_claves')
+            ->select('id_clave, id_cat, dsc_clave, folio, visible')
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $idClave)
+            ->get()
+            ->getRowArray();
+
+        if (empty($row)) {
+            return 0;
+        }
+
+        if ((int) ($row['visible'] ?? 0) === 1) {
+            return (int) ($row['id_clave'] ?? 0);
+        }
+
+        $mappedIdClave = $this->resolveMappedHiddenIdClaveInstitucionalAlta($db, $idCat, $idClave);
+        if ($mappedIdClave > 0) {
+            return $mappedIdClave;
+        }
+
+        $rangeKey = $this->extractFolioRangeKeyAlta((string) ($row['dsc_clave'] ?? ''));
+        $folioKey = preg_replace('/\D+/', '', (string) ($row['folio'] ?? ''));
+        if ($rangeKey === '' && $folioKey === '') {
+            return 0;
+        }
+
+        $activeRows = $db->table('cat_claves')
+            ->select('id_clave, dsc_clave, folio')
+            ->where('id_cat', $idCat)
+            ->where('visible', 1)
+            ->orderBy('id_clave', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        foreach ($activeRows as $activeRow) {
+            $activeRangeKey = $this->extractFolioRangeKeyAlta((string) ($activeRow['dsc_clave'] ?? ''));
+            $activeFolioKey = preg_replace('/\D+/', '', (string) ($activeRow['folio'] ?? ''));
+            if ($rangeKey !== '' && $activeRangeKey === $rangeKey) {
+                return (int) ($activeRow['id_clave'] ?? 0);
+            }
+            if ($rangeKey === '' && $folioKey !== '' && $activeFolioKey === $folioKey) {
+                return (int) ($activeRow['id_clave'] ?? 0);
+            }
+        }
+
+        return 0;
+    }
+
+    private function resolveMappedHiddenIdClaveInstitucionalAlta($db, int $idCat, int $idClave): int
+    {
+        $maps = [
+            1 => [
+                3 => 2,
+                5 => 4,
+                7 => 6,
+                13 => 12,
+            ],
+        ];
+
+        $targetIdClave = (int) ($maps[$idCat][$idClave] ?? 0);
+        if ($targetIdClave <= 0) {
+            return 0;
+        }
+
+        $target = $db->table('cat_claves')
+            ->select('id_clave')
+            ->where('id_cat', $idCat)
+            ->where('id_clave', $targetIdClave)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        return !empty($target) ? $targetIdClave : 0;
+    }
+
+    private function extractFolioRangeKeyAlta(string $text): string
+    {
+        if (preg_match('/(\d{1,4})\s*-\s*(\d{1,4})/', $text, $matches)) {
+            return ((int) $matches[1]) . '-' . ((int) $matches[2]);
+        }
+
+        if (preg_match('/\b(\d{1,4})\b/', $text, $matches)) {
+            return ((int) $matches[1]) . '-' . ((int) $matches[1]);
+        }
+
+        return '';
+    }
+
+    private function resolveFolioClaveSeleccionAlta(array $folioConfigurado, array $folioSeleccionado, string $tipoSugerencia = ''): array
+    {
+        $folioActual = preg_replace('/\D+/', '', (string) ($folioConfigurado['folio'] ?? ''));
+        $subFolioActual = strtoupper(trim((string) ($folioConfigurado['sub_folio'] ?? '')));
+        $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
+        $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
+
+        $folioSeleccionadoValor = preg_replace('/\D+/', '', (string) ($folioSeleccionado['folio'] ?? ''));
+        $subFolioSeleccionado = strtoupper(trim((string) ($folioSeleccionado['sub_folio'] ?? '')));
+        $subFolioSeleccionado = preg_replace('/[^A-Z]/', '', $subFolioSeleccionado);
+        $subFolioSeleccionado = $subFolioSeleccionado !== '' ? substr($subFolioSeleccionado, 0, 1) : '';
+        $tipoSugerencia = strtolower(trim($tipoSugerencia));
+
+        if ($folioActual === '' || $subFolioActual === '' || $folioSeleccionadoValor === '' || $subFolioSeleccionado === '') {
+            return [];
+        }
+
+        if ($folioSeleccionadoValor === $folioActual && $subFolioSeleccionado === $subFolioActual) {
+            return [
+                'folio' => $folioSeleccionadoValor,
+                'sub_folio' => $subFolioSeleccionado,
+            ];
+        }
+
+        $nuevoFolio = $this->incrementFolioClaveInstitucionalAlta($folioActual);
+        if ($subFolioActual !== 'A' && $nuevoFolio !== '' && $folioSeleccionadoValor === $nuevoFolio && $subFolioSeleccionado === 'A') {
+            return [
+                'folio' => $folioSeleccionadoValor,
+                'sub_folio' => $subFolioSeleccionado,
+            ];
+        }
+
+        if ($tipoSugerencia === 'nuevo_folio' && $subFolioActual !== 'A' && $nuevoFolio !== '') {
+            return [
+                'folio' => $nuevoFolio,
+                'sub_folio' => 'A',
+            ];
+        }
+
+        return [];
+    }
+
+    private function advanceFolioClaveInstitucionalAlta($db, int $idCat, int $idClave, string $folioActual, string $subFolioActual, string $folioUsado, string $subFolioUsado): bool
     {
         $folioActual = preg_replace('/\D+/', '', $folioActual);
         $subFolioActual = strtoupper(trim($subFolioActual));
         $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
         $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
+        $folioUsado = preg_replace('/\D+/', '', $folioUsado);
+        $subFolioUsado = strtoupper(trim($subFolioUsado));
+        $subFolioUsado = preg_replace('/[^A-Z]/', '', $subFolioUsado);
+        $subFolioUsado = $subFolioUsado !== '' ? substr($subFolioUsado, 0, 1) : '';
 
-        if ($idCat <= 0 || $idClave <= 0 || $folioActual === '' || $subFolioActual === '') {
+        if ($idCat <= 0 || $idClave <= 0 || $folioActual === '' || $subFolioActual === '' || $folioUsado === '' || $subFolioUsado === '') {
             return false;
         }
 
-        $next = $this->buildNextFolioClaveInstitucionalAlta($folioActual, $subFolioActual);
+        $next = $this->buildNextFolioClaveInstitucionalAlta($folioUsado, $subFolioUsado);
         if (empty($next)) {
             return false;
         }
@@ -3161,15 +3320,27 @@ class Usuario extends BaseController
             ];
         }
 
-        $nextFolio = (string) ((int) $folioActual + 1);
-        if (strlen($folioActual) > 1) {
-            $nextFolio = str_pad($nextFolio, strlen($folioActual), '0', STR_PAD_LEFT);
-        }
+        $nextFolio = $this->incrementFolioClaveInstitucionalAlta($folioActual);
 
         return [
             'folio' => $nextFolio,
             'sub_folio' => 'A',
         ];
+    }
+
+    private function incrementFolioClaveInstitucionalAlta(string $folioActual): string
+    {
+        $folioActual = preg_replace('/\D+/', '', $folioActual);
+        if ($folioActual === '') {
+            return '';
+        }
+
+        $nextFolio = (string) ((int) $folioActual + 1);
+        if (strlen($folioActual) > 1) {
+            $nextFolio = str_pad($nextFolio, strlen($folioActual), '0', STR_PAD_LEFT);
+        }
+
+        return $nextFolio;
     }
 
     private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int

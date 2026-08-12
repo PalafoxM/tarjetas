@@ -377,6 +377,7 @@ $inferHabitacionCapacidad = static function ($item) {
                     <div class="col-md-3">
                         <label class="form-label" for="subf_ui">Subfolio</label>
                         <input type="text" class="form-control crud-ui-upper" name="sub_folio" id="subf_ui" placeholder="subf" inputmode="text" maxlength="20">
+                        <input type="hidden" name="folio_sugerencia_tipo" id="folio_sugerencia_tipo" value="">
                     </div>
                     <div class="col-12 d-none" id="folioSugerenciasWrapper">
                         <div class="alert alert-info solicitud-folio-suggestions mb-0">

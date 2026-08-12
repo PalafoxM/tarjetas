@@ -494,7 +494,7 @@ window.cajeros = {
                 cajeros.actualizarCalculoHospedaje();
             });
             $('#folioSugerenciasChips').on('click', '.js-aplicar-folio-sugerido', function () {
-                cajeros.aplicarFolioSugerido($(this).data('folio'), $(this).data('subfolio'));
+                cajeros.aplicarFolioSugerido($(this).data('folio'), $(this).data('subfolio'), $(this).data('tipo'));
             });
 
             $('#cajeroForm').off('submit.altaUsuario').on('submit.altaUsuario', function (event) {
@@ -1075,7 +1075,7 @@ window.cajeros = {
                     return;
                 }
 
-                estado.text(data.ultimo_label ? ('Ultimo folio detectado: ' + data.ultimo_label) : 'Selecciona una sugerencia o captura manualmente.');
+                estado.text(data.ultimo_label ? ('Siguiente disponible: ' + data.ultimo_label) : 'Selecciona una sugerencia o captura manualmente.');
                 sugerencias.forEach(function (item) {
                     var folio = String(item.folio || '');
                     var subfolio = String(item.sub_folio || '');
@@ -1085,6 +1085,7 @@ window.cajeros = {
                     button.attr('title', 'Llenar folio ' + folio + ' subfolio ' + subfolio);
                     button.data('folio', folio);
                     button.data('subfolio', subfolio);
+                    button.data('tipo', String(item.tipo || ''));
                     chips.append(button);
                 });
             })
@@ -1219,9 +1220,10 @@ window.cajeros = {
         this.actualizarResumenAltaUsuario();
     },
 
-    aplicarFolioSugerido: function (folio, subfolio) {
+    aplicarFolioSugerido: function (folio, subfolio, tipo) {
         $('#folio_ui').val(String(folio || '').replace(/\D+/g, ''));
         $('#subf_ui').val(String(subfolio || '').replace(/[^\p{L}\s]/gu, '').toUpperCase());
+        $('#folio_sugerencia_tipo').val(String(tipo || ''));
     },
 
     inicializarSelect2: function ($scope) {
@@ -1259,7 +1261,11 @@ window.cajeros = {
         $.getJSON(base_url + 'index.php/Usuario/getCatalogosCrud', function (response) {
             var data = response && response.data ? response.data : response;
             cajeros.catalogos = $.extend(true, {}, cajeros.catalogos, data || {});
-            cajeros.poblarSelect('#categoria_ui', cajeros.catalogos.categorias, 'id_clave', 'dsc_clave');
+            cajeros.poblarSelect('#categoria_ui', cajeros.catalogos.categorias, 'id_clave', 'dsc_clave', function (item) {
+                var clave = $.trim(String(item.clave || ''));
+                var descripcion = $.trim(String(item.dsc_clave || ''));
+                return clave !== '' && descripcion !== '' ? (clave + ' - ' + descripcion) : (descripcion || clave);
+            });
             cajeros.poblarSelect('#disciplina_ui', cajeros.catalogos.disciplinas, 'id_diciplina', 'des_diciplina', function (item) {
                 return $.trim(item.des_diciplina || '');
             });
