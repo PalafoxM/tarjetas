@@ -324,6 +324,12 @@ $inferHabitacionCapacidad = static function ($item) {
 
                 <div class="row g-3">
                     <div class="col-md-3">
+                        <label class="form-label" for="id_perfil_catalogo">Perfil</label>
+                        <select class="form-control js-select2-catalog" name="id_perfil_catalogo" id="id_perfil_catalogo" data-placeholder="Buscar perfil">
+                            <option value="">Seleccione</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label" for="categoria_ui">Categoria</label>
                         <select class="form-control js-select2-catalog" id="categoria_ui" data-placeholder="Buscar categoria">
                             <option value="">Seleccione</option>
@@ -351,12 +357,6 @@ $inferHabitacionCapacidad = static function ($item) {
                         <label class="form-label" for="id_clave">Clave</label>
                         <input type="hidden" name="id_clave" id="id_clave">
                         <input type="text" class="form-control crud-ui-lower" id="clave_ui" readonly>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="id_perfil_catalogo">Perfil</label>
-                        <select class="form-control js-select2-catalog" name="id_perfil_catalogo" id="id_perfil_catalogo" data-placeholder="Buscar perfil">
-                            <option value="">Seleccione</option>
-                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label" for="perfil_grupo">Perfil visible</label>
