@@ -146,7 +146,7 @@ $activeKey = (string) ($tabs[0]['key'] ?? 'fic');
 
                                     <ul class="reportes-action-list">
                                         <li>El PDF de usuarios incluye tarifa diaria, reservado por vigencia, saldo operativo y pendiente vencido.</li>
-                                        <li>El PDF de consumos resume hospedaje por hotel/habitaciÃ³n y alimentos por restaurante.</li>
+                                        <li>El PDF de consumos resume hospedaje por hotel/habitación y alimentos por restaurante.</li>
                                         <li>La consulta de movimientos abre el catálogo institucional correspondiente.</li>
                                         <li>No se muestra información de partida en el reporte.</li>
                                     </ul>

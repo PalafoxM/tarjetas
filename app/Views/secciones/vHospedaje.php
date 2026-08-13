@@ -272,27 +272,10 @@ window.establecimientos = {
         return '<span class="badge bg-secondary">' + (tipos[Number(value)] || 'N/A') + '</span>';
     },
 
-    fecha: function (value) {
-        if (!value) return '';
-
-        var texto = String(value);
-        var match = texto.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/i);
-
-        if (match) {
-            return match[3] + '/' + match[2] + '/' + match[1] + ' ' + match[4] + ':' + match[5] + ':' + match[6];
-        }
-
-        var fecha = new Date(value);
-        if (isNaN(fecha.getTime())) return texto;
-
-        var pad = function (numero) {
-            return String(numero).padStart(2, '0');
-        };
-
-        return pad(fecha.getDate()) + '/' + pad(fecha.getMonth() + 1) + '/' + fecha.getFullYear() +
-            ' ' + pad(fecha.getHours()) + ':' + pad(fecha.getMinutes()) + ':' + pad(fecha.getSeconds());
+   fecha: function (value) {
+        return value || '';
     },
-
+    
     moneda: function (value) {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value) || 0);
     },

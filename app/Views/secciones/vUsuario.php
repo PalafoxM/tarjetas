@@ -31,6 +31,11 @@ $solicitudFolioCatalogoUrl = $puedeSolicitarFolioInstitucional ? base_url('index
         width: 100% !important;
     }
 
+    .badge.bg-secondary {
+        background: #1e6f9f !important;
+        color: #ffffff !important;
+    }
+
     #usuariosPage .fixed-table-body {
         overflow-x: auto;
     }

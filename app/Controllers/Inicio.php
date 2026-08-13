@@ -8636,24 +8636,35 @@ public function getPagosPorEstablecimiento()
             'tabla' => 'vw_usuario',
             'where' => ['visible' => 1, 'id_usuario' => $session->get('id_usuario')]
         ]);
-  
+    
         $response = $Mglobal->getTabla([
             'tabla' => 'vw_usuario',
             'where' => ['visible' => 1, 'id_establecimiento_hotel' => $idUsuario->data[0]->id_establecimiento]
         ]);
-      
+        
         $data = array();
         if (!empty($response->data)) {
             $data = $response->data;
+            
+            foreach ($data as &$row) {
+                if (!empty($row->fecha_check_in)) {
+                    $timestamp = strtotime($row->fecha_check_in);
+                    if ($timestamp !== false) {
+                        $row->fecha_check_in = date('d/m/Y H:i', $timestamp);
+                    }
+                }
+                if (!empty($row->fecha_check_out)) {
+                    $timestamp = strtotime($row->fecha_check_out);
+                    if ($timestamp !== false) {
+                        $row->fecha_check_out = date('d/m/Y H:i', $timestamp);
+                    }
+                }
+            }
         }
 
         return $this->respond($data);
-        
     }
-  
-
-   
-
+    
     function encode_img_base64($img_path = false, $img_type = 'png')
     {
         if ($img_path) {
