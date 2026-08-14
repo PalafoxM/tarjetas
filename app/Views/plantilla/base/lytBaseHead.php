@@ -2,6 +2,15 @@
 <!DOCTYPE html>
 <html lang="es">
 
+<style>
+    .content-page {
+        margin-left: 0 !important;
+    }
+
+    .navbar-custom {
+        left: 0 !important;
+    }
+</style>
 <head>
         <meta charset="utf-8" />
         <title>SECTUR/FIC</title>
@@ -63,7 +72,7 @@
         ?>          
 
     </head>
-<body class="loading" data-layout-color="dark" data-leftbar-theme="dark" data-leftbar-compact-mode="condensed" data-layout-config='{"leftSideBarTheme":"dark","layoutBoxed":false,"leftSidebarCondensed":true,"leftSidebarScrollable":false,"darkMode":true,"showRightSidebarOnStart":false}'>
+<body class="loading" data-layout-color="dark" data-layout-config='{"layoutBoxed":false,"darkMode":true,"showRightSidebarOnStart":false}'>
         <!-- Begin page -->
         <script>            
             var base_url = "<?php echo base_url();?>";          
@@ -83,8 +92,7 @@
         </div>
         
         <div class="wrapper">
-        <?php echo view('secciones/vNavBar'); ?>           
-        <?php echo view('secciones/vSideBar'); ?>
+        <?php echo view('secciones/vNavBar'); ?>
         
         <div class="content-page"> 
 
