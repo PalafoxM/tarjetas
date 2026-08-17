@@ -122,7 +122,11 @@ $renderFirma = static function (string $texto) use ($firmaUsuarioLocalPath): voi
 ?>
     <div class="signature">
         <?php if ($firmaUsuarioLocalPath !== '' && is_file($firmaUsuarioLocalPath)): ?>
-            <img src="<?= esc($firmaUsuarioLocalPath) ?>" alt="Firma del usuario">
+            <div class="signature-image-wrap">
+                <img class="signature-image" src="<?= esc($firmaUsuarioLocalPath) ?>" alt="Firma del usuario" width="120" height="26">
+            </div>
+        <?php else: ?>
+            <div class="signature-space"></div>
         <?php endif; ?>
         <div class="signature-line"><?= esc($texto) ?></div>
     </div>
@@ -157,10 +161,12 @@ $vigenciaGeneral = $vigenciaHospedaje === $vigenciaAlimentos
         .qr-value { font-size: 8px; line-height: 1.35; word-break: break-word; }
         .qr-image { display: block; width: 82px; height: 82px; object-fit: contain; margin: 0 0 5px; }
         .money { text-align: right; font-weight: bold; }
-        .note { margin-top: 18px; padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc; }
-        .signature { margin-top: 34px; width: 320px; text-align: center; color: #475569; }
-        .signature img { display: block; margin: 0 auto 4px; max-width: 220px; max-height: 72px; }
-        .signature-line { border-top: 1px solid #64748b; padding-top: 6px; }
+        .note { margin-top: 12px; padding: 7px 9px; border: 1px solid #cbd5e1; background: #f8fafc; }
+        .signature { margin: 8px auto 0; width: 220px; text-align: center; color: #475569; page-break-inside: avoid; }
+        .signature-image-wrap { height: 26px; margin: 0 auto 2px; overflow: hidden; }
+        .signature-image { display: block; margin: 0 auto; width: 120px; height: 26px; object-fit: contain; }
+        .signature-space { height: 18px; }
+        .signature-line { border-top: 1px solid #64748b; padding-top: 2px; font-size: 8px; line-height: 1.05; }
         .page-break { page-break-before: always; }
         .detail-block { page-break-inside: avoid; }
     </style>
