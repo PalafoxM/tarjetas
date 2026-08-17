@@ -3174,21 +3174,12 @@ obtenerLabelPartida: function (idPartida) {
             return '<span class="text-muted">Sin orden</span>';
         }
 
-        var tieneHospedaje = Number(row.tiene_hospedaje || 0) === 1;
-        var tieneAlimentos = Number(row.tiene_alimentos || 0) === 1;
-        var etiqueta = tieneHospedaje && tieneAlimentos
-            ? 'Hospedaje y alimentos'
-            : tieneHospedaje
-                ? 'Hospedaje'
-                : tieneAlimentos
-                    ? 'Alimentos'
-                    : 'Orden';
         var globalBaseUrl = typeof base_url !== 'undefined' ? base_url : '';
         var urlBase = String(window.base_url || globalBaseUrl || '').replace(/\/?$/, '/');
         var url = urlBase + 'index.php/Usuario/generarPdfOrden/' + encodeURIComponent(idUsuario);
 
-        return '<a class="btn btn-sm btn-primary js-download-no-loader" data-no-loading="1" href="' + url + '" target="_blank" rel="noopener" title="Visualizar orden de ' + etiqueta.toLowerCase() + '">' +
-            '<i class="mdi mdi-file-pdf-box me-1"></i>' + etiqueta +
+        return '<a class="btn btn-sm btn-primary js-download-no-loader" data-no-loading="1" href="' + url + '" target="_blank" rel="noopener" title="Descargar orden homologada">' +
+            '<i class="mdi mdi-file-pdf-box me-1"></i>Descargar orden' +
             '</a>';
     },
 

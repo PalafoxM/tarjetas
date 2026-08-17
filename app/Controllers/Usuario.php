@@ -631,6 +631,7 @@ class Usuario extends BaseController
             'tarifa_total' => $this->nullableNumeric($data['tarifa_total'] ?? null),
         ];
         $dataInsert = array_merge($dataInsert, $assignment);
+        $dataInsert = $this->normalizeVigenciaFinalFields($dataInsert);
 
         if ($esPerfilTi) {
             $dataInsert['tiene_alimentos'] = 0;
@@ -936,7 +937,7 @@ class Usuario extends BaseController
             }
             
             $vigenciaDesde = $fechaDesde . ' 08:00:00';
-            $vigenciaHasta = $fechaHasta . ' 23:59:00';
+            $vigenciaHasta = $this->normalizarFinDeDiaVigencia($fechaHasta);
             $diasAlimentos = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
             
             if ($diasAlimentos <= 0) {
@@ -964,7 +965,7 @@ class Usuario extends BaseController
             }
             
             $vigenciaDesdeHosp = $fechaDesdeHos . ' 15:00:00';
-            $vigenciaHastaHosp = $fechaHastaHos . ' 12:00:00';
+            $vigenciaHastaHosp = $this->normalizarFinDeDiaVigencia($fechaHastaHos);
             
             $diasHospedaje = $this->calculateDateSpanDays($vigenciaDesdeHosp, $vigenciaHastaHosp);
             $nochesCalculadas = max(0, $diasHospedaje - 1);
@@ -1283,6 +1284,7 @@ class Usuario extends BaseController
                 'fec_act' => $fechaAhora,
                 'usu_act' => $idSesionUsuario,
             ];
+            $updateData = $this->normalizeVigenciaFinalFields($updateData);
             $updateData = $this->preserveInstitutionalFolioFields($updateData, $usuarioActual ?? []);
 
             $contraseniaNueva = trim((string) ($data['contrasenia'] ?? ''));
@@ -1514,6 +1516,7 @@ class Usuario extends BaseController
                     'usu_act' => $idSesionUsuario,
                     'id_usuario_padre' => $sequence === 1 ? null : $idUsuarioPadre,
                 ];
+                $insertData = $this->normalizeVigenciaFinalFields($insertData);
 
                 $response = $depositosService->reserveNewUser($insertData, $idSesionUsuario, $scriptName . '.reserve');
                 if ($response->error || empty($response->idRegistro)) {
@@ -1804,18 +1807,32 @@ class Usuario extends BaseController
 
     public function generarPdfOrden($id_usuario)
     {
-        $response = $this->globals->getTabla([
-            'tabla' => 'vw_usuario',
-            'where' => ['id_usuario' => (int) $id_usuario, 'visible' => 1],
-        ]);
-
-        if ($response->error || empty($response->data)) {
-            return $this->failNotFound('Cajero no encontrado');
+        $idUsuarioBeneficiario = (int) $id_usuario;
+        if ($idUsuarioBeneficiario <= 0) {
+            return $this->failNotFound('Beneficiario no encontrado');
         }
 
-        $pdfData = $this->buildUsuarioOrdenPdfData((int) $id_usuario, (array) $response->data[0]);
-        $pdfData['firma_usuario_url'] = $this->resolveUsuarioFirmaPdfSrc((int) $id_usuario, $pdfData['firma'] ?? null);
-        $pdfData['qr_usuario_url'] = $this->resolveUsuarioQrPdfSrc((int) $id_usuario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
+        $beneficiario = $this->getBaseUserRow($idUsuarioBeneficiario);
+        if (empty($beneficiario)) {
+            return $this->failNotFound('Beneficiario no encontrado');
+        }
+
+        $session = \Config\Services::session();
+        $idUsuarioSesion = (int) ($session->get('id_usuario') ?? 0);
+        $actorContext = $this->resolver->resolve($session->get());
+        if ($idUsuarioSesion <= 0 || !$this->resolver->canViewRow($actorContext, $beneficiario)) {
+            return $this->failForbidden('No autorizado para descargar esta orden');
+        }
+
+        $pdfData = $this->buildUsuarioOrdenPdfData($idUsuarioBeneficiario, $beneficiario);
+        $pdfData['firma_usuario_local_path'] = $this->resolveUsuarioFirmaPdfSrc($idUsuarioBeneficiario, $pdfData);
+        $pdfData['qr_usuario_local_path'] = $this->resolveUsuarioQrPdfSrc($idUsuarioBeneficiario, $pdfData['qr'] ?? ($pdfData['codigo_qr'] ?? null));
+        $pdfData['firma_usuario_url'] = $pdfData['firma_usuario_local_path'];
+        $pdfData['qr_usuario_url'] = $pdfData['qr_usuario_local_path'];
+        $pdfData['codigo_qr_impreso'] = $this->resolveCodigoQrImpreso(
+            $idUsuarioBeneficiario,
+            $pdfData['codigo_qr'] ?? ($pdfData['qr'] ?? '')
+        );
 
         $html = view('pdfs/vpdfOrdenUnificada', $pdfData);
         $mpdf = new \Mpdf\Mpdf([
@@ -1829,7 +1846,7 @@ class Usuario extends BaseController
         ]);
         $mpdf->SetTitle('Orden FIC');
         $mpdf->WriteHTML($html);
-        $mpdf->Output('orden-fic-' . (int) $id_usuario . '.pdf', 'I');
+        $mpdf->Output('orden-fic-' . $idUsuarioBeneficiario . '.pdf', 'I');
         exit;
     }
 
@@ -2368,9 +2385,13 @@ class Usuario extends BaseController
         ], static fn($value) => $value !== '')));
 
         $vigenciaDesde = $this->firstNonEmpty($data, ['fec_vigencia_desde', 'vigente_desde', 'fecha_check_in']);
-        $vigenciaHasta = $this->firstNonEmpty($data, ['fec_vigencia_hasta', 'vigente_hasta', 'fecha_check_out']);
+        $vigenciaHasta = $this->normalizarFinDeDiaVigencia(
+            $this->firstNonEmpty($data, ['fec_vigencia_hasta', 'vigente_hasta', 'fecha_check_out'])
+        );
         $vigenciaDesdeHosp = $this->firstNonEmpty($data, ['fec_vigencia_desde_hos', 'vigente_desde_hos']);
-        $vigenciaHastaHosp = $this->firstNonEmpty($data, ['fec_vigencia_hasta_hos', 'vigente_hasta_hos']);
+        $vigenciaHastaHosp = $this->normalizarFinDeDiaVigencia(
+            $this->firstNonEmpty($data, ['fec_vigencia_hasta_hos', 'vigente_hasta_hos'])
+        );
         $diasVigencia = $this->calculateDateSpanDays($vigenciaDesde, $vigenciaHasta);
         $diasVigenciaHosp = $this->calculateDateSpanDays($vigenciaDesdeHosp, $vigenciaHastaHosp);
         $tarifaDiariaAlimentos = $this->resolveNivelClienteMontoDeposito((int) ($data['id_nivel_cliente'] ?? 0));
@@ -2408,7 +2429,7 @@ class Usuario extends BaseController
 
         $data['nombre_completo'] = $nombreCompleto !== '' ? $nombreCompleto : trim((string) ($viewData['nombre_completo'] ?? ''));
         $data['usuario_login'] = trim((string) ($data['usuario'] ?? ''));
-        $data['folio_entrega'] = $this->firstNonEmptyFromSources($sources, ['folio', 'sub_folio', 'folio_entrega', 'folio_hospedaje']);
+        $data['folio_entrega'] = $this->firstNonEmptyFromSources($sources, ['folio_entrega', 'folio', 'folio_grupo', 'folio_hospedaje']);
         $data['folio'] = $this->firstNonEmptyFromSources($sources, ['folio']);
         $data['sub_folio'] = $this->firstNonEmptyFromSources($sources, ['sub_folio']);
         $data['pax_total'] = max(1, (int) ($data['pax_total'] ?? $data['pax'] ?? 1));
@@ -2417,6 +2438,7 @@ class Usuario extends BaseController
         $data['vigente_hasta'] = $vigenciaHasta;
         $data['vigente_desde_hosp'] = $vigenciaDesdeHosp;
         $data['vigente_hasta_hosp'] = $vigenciaHastaHosp;
+        $data['fecha_emision'] = $this->fechaHoraGuanajuato();
         $data['tarifa_resumen'] = [
             'monto_diario' => $tarifaDiariaAlimentos,
             'dias_vigencia' => $diasVigencia,
@@ -2427,11 +2449,13 @@ class Usuario extends BaseController
             'beneficio_qr_label' => $this->buildUsuarioOrdenBeneficioLabel($data),
             'hotel_nombre' => $this->resolveEstablecimientoNombre((int) ($data['id_establecimiento_hotel'] ?? 0)),
             'tipo_habitacion' => $this->resolveTipoHabitacionNombre((int) ($data['id_tipo_habitacion'] ?? 0)),
-            'fecha_check_in' => $data['fecha_check_in'] ?? null,
-            'fecha_check_out' => $data['fecha_check_out'] ?? null,
+            'fecha_check_in' => $this->firstNonEmptyFromSources($sources, ['fecha_check_in', 'fec_vigencia_desde_hos', 'vigente_desde_hosp']),
+            'fecha_check_out' => $this->normalizarFinDeDiaVigencia(
+                $this->firstNonEmptyFromSources($sources, ['fecha_check_out', 'fec_vigencia_hasta_hos', 'vigente_hasta_hosp'])
+            ),
             'vigente_desde_hosp' => $vigenciaDesdeHosp,
             'vigente_hasta_hosp' => $vigenciaHastaHosp,
-            'noches' => (int) ($data['noche'] ?? 0),
+            'noches' => $nochesHospedaje,
             'tarifa_noche' => $tarifaNocheHospedaje,
             'tarifa_total_hospedaje' => $totalHospedaje,
             'folio_hospedaje' => $data['folio_entrega'],
@@ -2575,6 +2599,49 @@ class Usuario extends BaseController
         return (int) $fromDate->diff($toDate)->days + 1;
     }
 
+    private function normalizarFinDeDiaVigencia(?string $fecha): string
+    {
+        $fecha = trim((string) $fecha);
+        if ($fecha === '' || strtoupper($fecha) === '\N') {
+            return '';
+        }
+
+        try {
+            $timezone = new \DateTimeZone('America/Mexico_City');
+            $dt = new \DateTimeImmutable($fecha, $timezone);
+            $raw = trim($fecha);
+
+            $soloFecha = preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1;
+            $hora = $dt->format('H:i:s');
+
+            if ($soloFecha || $hora === '00:00:00') {
+                return $dt->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+            }
+
+            return $dt->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) {
+            return $fecha;
+        }
+    }
+
+    private function normalizeVigenciaFinalFields(array $payload): array
+    {
+        foreach (['vigente_hasta', 'vigente_hasta_hosp', 'fec_vigencia_hasta', 'fec_vigencia_hasta_hos', 'fecha_check_out'] as $field) {
+            if (!array_key_exists($field, $payload)) {
+                continue;
+            }
+
+            if ($payload[$field] === null) {
+                continue;
+            }
+
+            $normalized = $this->normalizarFinDeDiaVigencia((string) $payload[$field]);
+            $payload[$field] = $normalized !== '' ? $normalized : null;
+        }
+
+        return $payload;
+    }
+
     private function buildUsuarioOrdenBeneficioLabel(array $data): string
     {
         $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
@@ -2623,25 +2690,63 @@ class Usuario extends BaseController
         ]);
 
         if ($response->error || empty($response->data)) {
-            return 'Habitacion #' . $idTipoHabitacion;
+            return 'Habitación #' . $idTipoHabitacion;
         }
 
-        return trim((string) ($response->data[0]->dsc_tipo_habitacion ?? '')) ?: 'Habitacion #' . $idTipoHabitacion;
+        return trim((string) ($response->data[0]->dsc_tipo_habitacion ?? '')) ?: 'Habitación #' . $idTipoHabitacion;
     }
 
-    private function resolveUsuarioFirmaPdfSrc(int $idUsuario, $storedPath = null): string
+    private function resolveUsuarioFirmaPdfSrc(int $idUsuario, $source = null): string
     {
-        $firma = trim((string) $storedPath);
-        if ($firma === '' && $idUsuario > 0) {
-            $row = $this->getBaseUserRow($idUsuario);
-            $firma = trim((string) ($row['firma'] ?? ''));
+        $row = is_array($source) ? $source : [];
+        if (!is_array($source) && trim((string) $source) !== '') {
+            $row['firma'] = trim((string) $source);
         }
 
-        if ($firma === '') {
-            return '';
+        if ($idUsuario > 0) {
+            $baseRow = $this->getBaseUserRow($idUsuario) ?? [];
+            $row = array_merge($baseRow, $row);
         }
 
-        return $this->resolveStoredPdfImageSrc((int) $idUsuario, $firma, 'firmas', 'firma_usuario', true);
+        $candidateFields = [
+            'firma',
+            'ruta_firma',
+            'ruta_firma_relativa',
+            'firma_usuario',
+            'firma_url',
+        ];
+        $candidates = [];
+        foreach ($candidateFields as $field) {
+            $candidate = trim((string) ($row[$field] ?? ''));
+            if ($candidate !== '' && !in_array($candidate, $candidates, true)) {
+                $candidates[] = $candidate;
+            }
+        }
+
+        $photoCandidate = trim((string) ($row['ruta_foto_relativa'] ?? ''));
+        if ($photoCandidate !== '' && stripos($photoCandidate, 'firma') !== false && !in_array($photoCandidate, $candidates, true)) {
+            $candidates[] = $photoCandidate;
+        }
+
+        $resolvedPath = '';
+        $resolvedCandidate = '';
+        foreach ($candidates as $candidate) {
+            $resolvedPath = $this->resolveStoredPdfImageSrc($idUsuario, $candidate, 'firmas', 'firma_usuario', true);
+            if ($resolvedPath !== '') {
+                $resolvedCandidate = $candidate;
+                break;
+            }
+        }
+
+        $diagnosticCandidate = $resolvedCandidate !== '' ? $resolvedCandidate : ($candidates[0] ?? '');
+        log_message('debug', '[orden_pdf] firma usuario {id_usuario}: firma_raw={firma_raw}; firma_key_hash={firma_key_hash}; firma_disponible={firma_disponible}', [
+            'id_usuario' => $idUsuario,
+            'firma_raw' => $this->sanitizeStoredPathForLog($diagnosticCandidate),
+            'firma_key_hash' => $this->buildSafeAssetKeyHash($diagnosticCandidate),
+            'firma_disponible' => $resolvedPath !== '' ? 'si' : 'no',
+        ]);
+
+        return $resolvedPath;
     }
 
     private function resolveUsuarioQrPdfSrc(int $idUsuario, $storedPath = null): string
@@ -2659,6 +2764,26 @@ class Usuario extends BaseController
         return $this->resolveStoredPdfImageSrc((int) $idUsuario, $qr, 'qrs', 'qr_usuario', false);
     }
 
+    private function resolveCodigoQrImpreso(int $idUsuario, $storedValue = null): string
+    {
+        $rawValue = trim((string) $storedValue);
+        if ($rawValue === '') {
+            return $idUsuario > 0 ? 'FIC-' . $idUsuario . '-QR' : '';
+        }
+
+        if (preg_match('#^https?://#i', $rawValue)) {
+            return $idUsuario > 0 ? 'FIC-' . $idUsuario . '-QR' : '';
+        }
+
+        if (preg_match('/\.(png|jpe?g|gif|webp|svg)$/i', $rawValue) || str_contains($rawValue, '/') || str_contains($rawValue, '\\')) {
+            return $idUsuario > 0 ? 'FIC-' . $idUsuario . '-QR' : basename($rawValue);
+        }
+
+        return mb_strlen($rawValue, 'UTF-8') <= 80
+            ? $rawValue
+            : ($idUsuario > 0 ? 'FIC-' . $idUsuario . '-QR' : mb_substr($rawValue, 0, 80, 'UTF-8'));
+    }
+
     private function resolveStoredPdfImageSrc(int $idUsuario, string $storedPath, string $subdirectory, string $filePrefix, bool $forceJpg): string
     {
         $storedPath = trim($storedPath);
@@ -2666,22 +2791,92 @@ class Usuario extends BaseController
             return '';
         }
 
+        $assetType = stripos($filePrefix, 'firma') !== false ? 'firma' : 'qr';
+        $status = null;
+        $sourceKind = 'desconocido';
+        $sanitizedSource = $this->sanitizeStoredPathForLog($storedPath);
+        $keyHash = $this->buildSafeAssetKeyHash($storedPath);
+
         $localPath = $this->resolveLocalPublicFilePath($storedPath);
         if ($localPath !== '' && is_file($localPath)) {
+            $this->logOrdenPdfAssetDiagnostic($assetType, $idUsuario, $sourceKind = 'local', $storedPath, true, 200, $keyHash);
             return str_replace('\\', '/', $localPath);
         }
 
+        if (preg_match('#^https?://#i', $storedPath)) {
+            $sourceKind = 'url_directa';
+            $directDownload = $this->downloadRemoteFile($storedPath);
+            $status = $directDownload['http_status'];
+            $directBody = $directDownload['body'];
+            if ($directBody !== '') {
+                $this->logOrdenPdfAssetDiagnostic($assetType, $idUsuario, $sourceKind, $storedPath, true, $status, $keyHash);
+                return $this->persistPdfImage($idUsuario, $storedPath, $directBody, $subdirectory, $filePrefix, $forceJpg);
+            }
+        }
+
+        $sourceKind = 's3_presignado';
         $url = $this->buildS3PresignedGetUrl($storedPath, 300);
         if ($url === '') {
+            $this->logOrdenPdfAssetDiagnostic($assetType, $idUsuario, $sourceKind, $storedPath, false, $status, $keyHash);
             return '';
         }
 
-        $imageBody = $this->downloadRemoteFile($url);
+        $signedDownload = $this->downloadRemoteFile($url);
+        $status = $signedDownload['http_status'];
+        $imageBody = $signedDownload['body'];
         if ($imageBody === '') {
+            $this->logOrdenPdfAssetDiagnostic($assetType, $idUsuario, $sourceKind, $storedPath, false, $status, $keyHash);
             return '';
         }
 
+        $this->logOrdenPdfAssetDiagnostic($assetType, $idUsuario, $sourceKind, $storedPath, true, $status, $keyHash);
         return $this->persistPdfImage((int) $idUsuario, $storedPath, $imageBody, $subdirectory, $filePrefix, $forceJpg);
+    }
+
+    private function buildSafeAssetKeyHash(string $storedPath): ?string
+    {
+        $path = trim($storedPath);
+        if ($path === '') {
+            return null;
+        }
+
+        $bucket = $this->envFirst(['AWS_BUCKET', 'AWS_S3_BUCKET', 'S3_BUCKET', 'S3_BUCKET_NAME']);
+        $key = $bucket !== '' ? $this->resolveS3ObjectKey($path, $bucket) : '';
+        if ($key === '') {
+            $key = $this->sanitizeStoredPathForLog($path);
+        }
+
+        return $key !== '' ? substr(sha1($key), 0, 12) : null;
+    }
+
+    private function logOrdenPdfAssetDiagnostic(string $assetType, int $idUsuario, string $sourceKind, string $storedPath, bool $exists, ?int $httpStatus = null, ?string $keyHash = null): void
+    {
+        log_message('debug', '[orden_pdf] asset candidato', [
+            'tipo' => $assetType,
+            'id_usuario' => $idUsuario,
+            'origen' => $sourceKind,
+            'asset_ref' => $this->sanitizeStoredPathForLog($storedPath),
+            'key_hash' => $keyHash,
+            'existe' => $exists,
+            'http_status' => $httpStatus,
+        ]);
+    }
+
+    private function sanitizeStoredPathForLog(string $storedPath): string
+    {
+        $path = trim($storedPath);
+        if ($path === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $path)) {
+            $parts = parse_url($path);
+            $host = (string) ($parts['host'] ?? '');
+            $urlPath = (string) ($parts['path'] ?? '');
+            return $host !== '' ? $host . $urlPath : $urlPath;
+        }
+
+        return $path;
     }
 
     private function resolveLocalPublicFilePath(string $storedPath): string
@@ -2710,15 +2905,21 @@ class Usuario extends BaseController
         return '';
     }
 
-    private function downloadRemoteFile(string $url): string
+    private function downloadRemoteFile(string $url): array
     {
         if ($url === '') {
-            return '';
+            return [
+                'body' => '',
+                'http_status' => null,
+            ];
         }
 
         if (!function_exists('curl_init')) {
             $body = @file_get_contents($url);
-            return is_string($body) ? $body : '';
+            return [
+                'body' => is_string($body) ? $body : '',
+                'http_status' => is_string($body) ? 200 : null,
+            ];
         }
 
         $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
@@ -2744,10 +2945,16 @@ class Usuario extends BaseController
         curl_close($curl);
 
         if (!is_string($body) || $httpCode < 200 || $httpCode >= 300) {
-            return '';
+            return [
+                'body' => '',
+                'http_status' => $httpCode > 0 ? $httpCode : null,
+            ];
         }
 
-        return $body;
+        return [
+            'body' => $body,
+            'http_status' => $httpCode,
+        ];
     }
 
     private function persistFirmaPdfImage(int $idUsuario, string $sourceKey, string $imageBody): string
@@ -2831,7 +3038,9 @@ class Usuario extends BaseController
         }
 
         $service = 's3';
-        $host = $bucket . '.s3.' . $region . '.amazonaws.com';
+        $host = $region === 'us-east-1'
+            ? $bucket . '.s3.amazonaws.com'
+            : $bucket . '.s3.' . $region . '.amazonaws.com';
         $amzDate = gmdate('Ymd\THis\Z');
         $dateStamp = gmdate('Ymd');
         $credentialScope = $dateStamp . '/' . $region . '/' . $service . '/aws4_request';
@@ -4060,10 +4269,10 @@ class Usuario extends BaseController
             }
             
             $vigenciaDesde = $fechaDesde . ' 08:00:00';
-            $vigenciaHasta = $fechaHasta . ' 23:59:00';
+            $vigenciaHasta = $this->normalizarFinDeDiaVigencia($fechaHasta);
         } else {
             $vigenciaDesde = $fechaDesde !== '' ? $fechaDesde : null;
-            $vigenciaHasta = $fechaHasta !== '' ? $fechaHasta : null;
+            $vigenciaHasta = $fechaHasta !== '' ? $this->normalizarFinDeDiaVigencia($fechaHasta) : null;
         }
         
        
@@ -4076,10 +4285,10 @@ class Usuario extends BaseController
             }
             
             $vigenciaDesdeHosp = $fechaDesdeHos . ' 15:00:00';
-            $vigenciaHastaHosp = $fechaHastaHos . ' 12:00:00';
+            $vigenciaHastaHosp = $this->normalizarFinDeDiaVigencia($fechaHastaHos);
         } else {
             $vigenciaDesdeHosp = $fechaDesdeHos !== '' ? $fechaDesdeHos : null;
-            $vigenciaHastaHosp = $fechaHastaHos !== '' ? $fechaHastaHos : null;
+            $vigenciaHastaHosp = $fechaHastaHos !== '' ? $this->normalizarFinDeDiaVigencia($fechaHastaHos) : null;
         }
         
 
@@ -4149,6 +4358,7 @@ class Usuario extends BaseController
             'fec_act' => $fechaAhora,
             'usu_act' => $idSesionUsuario,
         ], $assignment);
+        $updateData = $this->normalizeVigenciaFinalFields($updateData);
 
         $response = $this->globals->saveTabla(
             $updateData,
@@ -4194,9 +4404,9 @@ class Usuario extends BaseController
         $tieneHospedaje = (int) ($usuarioActual['tiene_hospedaje'] ?? 0) === 1;
         $idNivelCliente = (int) ($data['id_nivel_cliente'] ?? $usuarioActual['id_nivel_cliente'] ?? 0);
         $vigenciaDesde = trim((string) ($data['fec_vigencia_desde'] ?? $usuarioActual['fec_vigencia_desde'] ?? ''));
-        $vigenciaHasta = trim((string) ($data['fec_vigencia_hasta'] ?? $usuarioActual['fec_vigencia_hasta'] ?? ''));
+        $vigenciaHasta = $this->normalizarFinDeDiaVigencia((string) ($data['fec_vigencia_hasta'] ?? $usuarioActual['fec_vigencia_hasta'] ?? ''));
         $vigenciaDesdeHos = trim((string) ($data['fec_vigencia_desde_hos'] ?? $usuarioActual['fec_vigencia_desde_hos'] ?? ''));
-        $vigenciaHastaHos = trim((string) ($data['fec_vigencia_hasta_hos'] ?? $usuarioActual['fec_vigencia_hasta_hos'] ?? ''));
+        $vigenciaHastaHos = $this->normalizarFinDeDiaVigencia((string) ($data['fec_vigencia_hasta_hos'] ?? $usuarioActual['fec_vigencia_hasta_hos'] ?? ''));
 
         $montoDiario = 0.00;
         $montoAlimentos = 0.00;

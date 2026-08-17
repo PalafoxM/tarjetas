@@ -89,6 +89,9 @@ $routes->get('Usuario/exportarCajerosXlsx', 'Usuario::exportarCajerosXlsx');
 $routes->get('Usuario/exportarCajerosOrdenDiaXlsx', 'Usuario::exportarCajerosOrdenDiaXlsx');
 $routes->get('Usuario/exportarCajerosOrdenDiaPdf', 'Usuario::exportarCajerosOrdenDiaPdf');
 $routes->post('Usuario/subirIneFirmaCajero', 'Usuario::subirIneFirmaCajero');
+$routes->get('Usuario/generarPdfOrden/(:num)', 'Usuario::generarPdfOrden/$1');
+$routes->get('Usuario/generarPdfHospedaje/(:num)', 'Usuario::generarPdfHospedaje/$1');
+$routes->get('Usuario/generarPdfAlimentos/(:num)', 'Usuario::generarPdfAlimentos/$1');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 

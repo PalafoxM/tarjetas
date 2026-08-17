@@ -1,24 +1,24 @@
 <?php
 date_default_timezone_set('America/Mexico_City');
 
-function formatearFecha($fecha, $formato = 'd/m/Y H:i') {
+$formatearFecha = static function ($fecha, $formato = 'd/m/Y H:i'): string {
     if (empty($fecha)) return 'Sin definir';
     try {
         $dt = new DateTime($fecha, new DateTimeZone('America/Mexico_City'));
         return $dt->format($formato);
     } catch (Exception $e) {
-        return $fecha;
+        return (string) $fecha;
     }
-}
+};
 
 $beneficios = is_array($beneficios ?? null) ? $beneficios : [];
 $tarifaResumen = is_array($tarifa_resumen ?? null) ? $tarifa_resumen : [];
 
-$fechaEmision = !empty($fecha_emision) 
-    ? formatearFecha($fecha_emision) 
+$fechaEmision = !empty($fecha_emision)
+    ? $formatearFecha($fecha_emision)
     : date('d/m/Y H:i');
 
-$firmaUsuarioUrl = trim((string) ($firma_usuario_url ?? ''));
+$firmaUsuarioLocalPath = trim((string) ($firma_usuario_local_path ?? ($firma_usuario_url ?? '')));
 $nombreCompleto = trim((string) ($nombre_completo ?? ''));
 $usuarioRaw = $usuario_login ?? '';
 if ($usuarioRaw === '' && isset($usuario)) {
@@ -28,24 +28,27 @@ $usuarioLogin = trim((string) $usuarioRaw);
 $folioEntrega = trim((string) ($folio_entrega ?? ($folio ?? '')));
 $subFolioEntrega = trim((string) ($sub_folio ?? ''));
 $paxEntrega = max(1, (int) ($pax_total ?? ($pax ?? 1)));
-$codigoQrImpreso = (int) ($id_usuario ?? 0) > 0 ? 'FIC-' . (int) $id_usuario . '-QR' : '';
+$codigoQrImpreso = trim((string) ($codigo_qr_impreso ?? ''));
+if ($codigoQrImpreso === '') {
+    $codigoQrImpreso = (int) ($id_usuario ?? 0) > 0 ? 'FIC-' . (int) $id_usuario . '-QR' : '';
+}
 $codigoQr = trim((string) ($codigo_qr ?? ($qr ?? '')));
 $nipUsuario = trim((string) ($nip ?? ''));
-$qrUsuarioUrl = trim((string) ($qr_usuario_url ?? ''));
+$qrUsuarioLocalPath = trim((string) ($qr_usuario_local_path ?? ($qr_usuario_url ?? '')));
 $tieneHospedaje = (int) ($tiene_hospedaje ?? 0) === 1;
 $tieneAlimentos = (int) ($tiene_alimentos ?? 0) === 1;
 
 if ($tieneHospedaje && $tieneAlimentos) {
     $tituloOrden = 'Orden de hospedaje y alimentos';
-    $leyendaDocumento = 'Este documento acredita la orden de hospedaje y alimentos asociada al beneficiario para su periodo de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
+    $leyendaDocumento = 'Este documento acredita la orden de hospedaje y alimentos asociada al beneficiario para su período de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
     $textoFirma = 'Recibí orden de hospedaje y alimentos impresa';
 } elseif ($tieneHospedaje) {
     $tituloOrden = 'Orden de hospedaje';
-    $leyendaDocumento = 'Este documento acredita la orden de hospedaje asociada al beneficiario para su periodo de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación.';
+    $leyendaDocumento = 'Este documento acredita la orden de hospedaje asociada al beneficiario para su período de estancia autorizado. Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación.';
     $textoFirma = 'Recibí orden de hospedaje impresa';
 } elseif ($tieneAlimentos) {
     $tituloOrden = 'Orden de alimentos';
-    $leyendaDocumento = 'Este documento acredita la orden de alimentos asociada al beneficiario para su periodo de estancia autorizado. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
+    $leyendaDocumento = 'Este documento acredita la orden de alimentos asociada al beneficiario para su período de estancia autorizado. El consumo de alimentos deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.';
     $textoFirma = 'Recibí orden de alimentos impresa';
 } else {
     $tituloOrden = 'Orden FIC - Documento informativo';
@@ -71,6 +74,8 @@ $renderBeneficiario = static function (string $vigenciaLabel) use (
     $paxEntrega,
     $codigoQrImpreso,
     $codigoQr,
+    $qrUsuarioLocalPath,
+    $nipUsuario,
     $beneficioLabel
 ): void {
 ?>
@@ -93,8 +98,15 @@ $renderBeneficiario = static function (string $vigenciaLabel) use (
             <td class="value-half"><?= esc((string) $paxEntrega) ?></td>
         </tr>
         <tr>
-            <td class="label">Codigo QR</td>
-            <td class="qr-value" colspan="3"><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'Sin QR')) ?></td>
+            <td class="label">Código QR</td>
+            <td class="qr-value">
+                <?php if ($qrUsuarioLocalPath !== '' && is_file($qrUsuarioLocalPath)): ?>
+                    <img class="qr-image" src="<?= esc($qrUsuarioLocalPath) ?>" alt="Código QR del beneficiario">
+                <?php endif; ?>
+                <div><?= esc($codigoQrImpreso !== '' ? $codigoQrImpreso : ($codigoQr !== '' ? $codigoQr : 'QR no disponible')) ?></div>
+            </td>
+            <td class="label">NIP</td>
+            <td><?= esc($nipUsuario !== '' ? $nipUsuario : 'Sin definir') ?></td>
         </tr>
         <tr>
             <td class="label">Beneficio asignado</td>
@@ -106,11 +118,11 @@ $renderBeneficiario = static function (string $vigenciaLabel) use (
 <?php
 };
 
-$renderFirma = static function (string $texto) use ($firmaUsuarioUrl): void {
+$renderFirma = static function (string $texto) use ($firmaUsuarioLocalPath): void {
 ?>
     <div class="signature">
-        <?php if ($firmaUsuarioUrl !== ''): ?>
-            <img src="<?= esc($firmaUsuarioUrl) ?>" alt="Firma del usuario">
+        <?php if ($firmaUsuarioLocalPath !== '' && is_file($firmaUsuarioLocalPath)): ?>
+            <img src="<?= esc($firmaUsuarioLocalPath) ?>" alt="Firma del usuario">
         <?php endif; ?>
         <div class="signature-line"><?= esc($texto) ?></div>
     </div>
@@ -121,12 +133,15 @@ $checkInLabel = !empty($beneficios['fecha_check_in']) ? date('d/m/Y H:i', strtot
 $checkOutLabel = !empty($beneficios['fecha_check_out']) ? date('d/m/Y H:i', strtotime((string) $beneficios['fecha_check_out'])) : 'Sin definir';
 $vigenciaHospedaje = $formatDateRange($vigente_desde_hosp ?? '', $vigente_hasta_hosp ?? '');
 $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? '');
+$vigenciaGeneral = $vigenciaHospedaje === $vigenciaAlimentos
+    ? $vigenciaHospedaje
+    : 'Hospedaje: ' . $vigenciaHospedaje . ' | Alimentos: ' . $vigenciaAlimentos;
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Orden FIC</title>
+    <title><?= esc($tituloOrden) ?></title>
     <style>
         body { font-family: dejavusans, sans-serif; color: #172033; font-size: 11px; }
         .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 16px; }
@@ -139,17 +154,123 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
         .label { width: 22%; background: #f8fafc; font-weight: bold; color: #334155; white-space: nowrap; }
         .value-wide { width: 78%; }
         .value-half { width: 28%; }
-        .qr-value { font-size: 8px; line-height: 1.35; word-break: break-all; }
+        .qr-value { font-size: 8px; line-height: 1.35; word-break: break-word; }
+        .qr-image { display: block; width: 82px; height: 82px; object-fit: contain; margin: 0 0 5px; }
         .money { text-align: right; font-weight: bold; }
         .note { margin-top: 18px; padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc; }
         .signature { margin-top: 34px; width: 320px; text-align: center; color: #475569; }
         .signature img { display: block; margin: 0 auto 4px; max-width: 220px; max-height: 72px; }
         .signature-line { border-top: 1px solid #64748b; padding-top: 6px; }
         .page-break { page-break-before: always; }
+        .detail-block { page-break-inside: avoid; }
     </style>
 </head>
 <body>
-    <?php if ($tieneHospedaje): ?>
+    <?php if ($tieneHospedaje && $tieneAlimentos): ?>
+        <section>
+            <div class="header">
+                <div class="title">Orden de hospedaje y alimentos</div>
+                <div class="subtitle">Festival Internacional Cervantino / SECTURI</div>
+                <div class="subtitle">Emitido: <?= esc($fechaEmision) ?></div>
+            </div>
+
+            <?php $renderBeneficiario($vigenciaGeneral); ?>
+
+            <div class="detail-block">
+                <div class="section-title">Detalle de hospedaje</div>
+                <table>
+                    <tr>
+                        <td class="label">Hotel</td>
+                        <td><?= esc((string) ($beneficios['hotel_nombre'] ?? 'Sin hotel asignado')) ?></td>
+                        <td class="label">Tipo de habitación</td>
+                        <td><?= esc((string) ($beneficios['tipo_habitacion'] ?? 'Sin definir')) ?></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Check-in</td>
+                        <td><?= esc($checkInLabel) ?></td>
+                        <td class="label">Check-out</td>
+                        <td><?= esc($checkOutLabel) ?></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Noches</td>
+                        <td><?= esc((string) ($beneficios['noches'] ?? 0)) ?></td>
+                        <td class="label">Folio de hospedaje</td>
+                        <td><?= esc((string) ($beneficios['folio_hospedaje'] ?? ($folio_entrega ?? 'Sin folio'))) ?></td>
+                    </tr>
+                </table>
+
+                <div class="section-title">Importe autorizado de hospedaje</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Noches</th>
+                            <th>Tarifa por noche</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><?= esc((string) ($beneficios['tipo_habitacion'] ?? 'Hospedaje')) ?> en <?= esc((string) ($beneficios['hotel_nombre'] ?? 'Hotel asignado')) ?></td>
+                            <td><?= esc((string) ($beneficios['noches'] ?? 0)) ?></td>
+                            <td class="money">$<?= number_format((float) ($beneficios['tarifa_noche'] ?? 0), 2) ?></td>
+                            <td class="money">$<?= number_format((float) ($beneficios['tarifa_total_hospedaje'] ?? 0), 2) ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <?php if (!empty($beneficios['observaciones_hospedaje'])): ?>
+                    <div class="section-title">Observaciones de hospedaje</div>
+                    <div><?= nl2br(esc((string) $beneficios['observaciones_hospedaje'])) ?></div>
+                <?php endif; ?>
+            </div>
+
+            <div class="detail-block">
+                <div class="section-title">Detalle de alimentos</div>
+                <table>
+                    <tr>
+                        <td class="label">Concepto</td>
+                        <td>Consumo de alimentos autorizado durante la vigencia del QR.</td>
+                        <td class="label">Tarifa diaria</td>
+                        <td class="money">$<?= number_format((float) ($tarifaResumen['monto_diario'] ?? 0), 2) ?></td>
+                    </tr>
+                    <tr>
+                        <td class="label">Días autorizados</td>
+                        <td><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
+                        <td class="label">Total autorizado</td>
+                        <td class="money">$<?= number_format((float) ($tarifaResumen['tarifa_total'] ?? 0), 2) ?></td>
+                    </tr>
+                </table>
+
+                <div class="section-title">Importe autorizado de alimentos</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Tarifa diaria</th>
+                            <th>Días</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Orden de alimentos FIC</td>
+                            <td class="money">$<?= number_format((float) ($tarifaResumen['monto_diario'] ?? 0), 2) ?></td>
+                            <td><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
+                            <td class="money">$<?= number_format((float) ($tarifaResumen['tarifa_total'] ?? 0), 2) ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="note">
+                Este documento acredita la orden de hospedaje y alimentos asociada al beneficiario para el período autorizado.
+                Cualquier ajuste deberá realizarse por SECTURI conforme a las reglas operativas vigentes.
+            </div>
+
+            <?php $renderFirma('Recibí orden de hospedaje y alimentos impresa'); ?>
+        </section>
+    <?php elseif ($tieneHospedaje): ?>
         <section>
             <div class="header">
                 <div class="title">Orden de hospedaje</div>
@@ -164,7 +285,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                 <tr>
                     <td class="label">Hotel</td>
                     <td><?= esc((string) ($beneficios['hotel_nombre'] ?? 'Sin hotel asignado')) ?></td>
-                    <td class="label">Tipo de habitacion</td>
+                    <td class="label">Tipo de habitación</td>
                     <td><?= esc((string) ($beneficios['tipo_habitacion'] ?? 'Sin definir')) ?></td>
                 </tr>
                 <tr>
@@ -207,16 +328,14 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
             <?php endif; ?>
 
             <div class="note">
-                Este documento acredita la orden de hospedaje asociada al beneficiario para su periodo de estancia autorizado.
-                Cualquier ajuste debera realizarse por SECTURI antes de la ocupacion.
+                Este documento acredita la orden de hospedaje asociada al beneficiario para su período de estancia autorizado.
+                Cualquier ajuste deberá realizarse por SECTURI antes de la ocupación.
             </div>
 
-            <?php $renderFirma('Recibi orden de hospedaje impresa'); ?>
+            <?php $renderFirma('Recibí orden de hospedaje impresa'); ?>
         </section>
-    <?php endif; ?>
-
-    <?php if ($tieneAlimentos): ?>
-        <section class="<?= $tieneHospedaje ? 'page-break' : '' ?>">
+    <?php elseif ($tieneAlimentos): ?>
+        <section>
             <div class="header">
                 <div class="title">Orden de alimentos</div>
                 <div class="subtitle">Festival Internacional Cervantino / SECTURI</div>
@@ -234,7 +353,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                     <td class="money">$<?= number_format((float) ($tarifaResumen['monto_diario'] ?? 0), 2) ?></td>
                 </tr>
                 <tr>
-                    <td class="label">Dias autorizados</td>
+                    <td class="label">Días autorizados</td>
                     <td><?= esc((string) ($tarifaResumen['dias_vigencia'] ?? 0)) ?></td>
                     <td class="label">Total autorizado</td>
                     <td class="money">$<?= number_format((float) ($tarifaResumen['tarifa_total'] ?? 0), 2) ?></td>
@@ -247,7 +366,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                     <tr>
                         <th>Concepto</th>
                         <th>Tarifa diaria</th>
-                        <th>Dias</th>
+                        <th>Días</th>
                         <th>Total</th>
                     </tr>
                 </thead>
@@ -262,15 +381,13 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
             </table>
 
             <div class="note">
-                Este documento acredita la orden de alimentos asociada al beneficiario para el periodo de vigencia autorizado.
-                El consumo debera realizarse unicamente conforme a las reglas operativas vigentes del programa.
+                Este documento acredita la orden de alimentos asociada al beneficiario para el período de vigencia autorizado.
+                El consumo deberá realizarse únicamente conforme a las reglas operativas vigentes del programa.
             </div>
 
-            <?php $renderFirma('Recibi orden de alimentos impresa'); ?>
+            <?php $renderFirma('Recibí orden de alimentos impresa'); ?>
         </section>
-    <?php endif; ?>
-
-    <?php if (!$tieneHospedaje && !$tieneAlimentos): ?>
+    <?php else: ?>
         <section>
             <div class="header">
                 <div class="title">Orden FIC</div>
@@ -284,7 +401,7 @@ $vigenciaAlimentos = $formatDateRange($vigente_desde ?? '', $vigente_hasta ?? ''
                 Sin beneficio asignado para hospedaje o alimentos.
             </div>
 
-            <?php $renderFirma('Recibi orden impresa'); ?>
+            <?php $renderFirma('Recibí orden impresa'); ?>
         </section>
     <?php endif; ?>
 </body>
