@@ -3101,25 +3101,26 @@ obtenerLabelPartida: function (idPartida) {
 
     resolveQrPreview: function (row) {
         row = row || {};
-        var qrPath = String(row.qr || '').trim();
-        if (qrPath !== '') {
-            if (/^https?:\/\//i.test(qrPath)) {
-                return {
-                    url: qrPath,
-                    label: qrPath
-                };
-            }
-            return {
-                url: base_url + qrPath.replace(/^\/+/, ''),
-                label: qrPath
-            };
-        }
-
         var codigo = String(row.codigo_qr || row.api_token || ('FIC-' + String(row.id_usuario || ''))).trim();
         return {
-            url: 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=12&data=' + encodeURIComponent(codigo),
-            label: codigo
+            url: '',
+            label: codigo || 'QR del usuario'
         };
+    },
+
+    resolverUrlDocumentoUsuario: function (idUsuario, campo) {
+        var pagina = document.getElementById('usuariosPage') || document.getElementById('cajeroPage');
+        var documentoUrl = pagina ? String(pagina.dataset.documentoUrl || '').trim() : '';
+        if (!documentoUrl) {
+            return '';
+        }
+
+        var params = new URLSearchParams();
+        params.set('id_usuario', String(Number(idUsuario || 0)));
+        params.set('campo', String(campo || ''));
+        params.set('formato', 'json');
+
+        return documentoUrl + '?' + params.toString();
     },
 
     previewQrById: function (idUsuario) {
@@ -3140,14 +3141,29 @@ obtenerLabelPartida: function (idPartida) {
         }
 
         var preview = this.resolveQrPreview(row);
-        Swal.fire({
-            title: 'Previsualizar QR',
-            text: preview.label,
-            imageUrl: preview.url,
-            imageAlt: 'QR del usuario',
-            imageWidth: 280,
-            imageHeight: 280,
-            confirmButtonText: 'Cerrar'
+        var requestUrl = this.resolverUrlDocumentoUsuario(idUsuario, 'qr');
+        if (!requestUrl) {
+            Swal.fire('Error', 'No fue posible generar la ruta del QR.', 'error');
+            return;
+        }
+
+        $.getJSON(requestUrl).done(function (response) {
+            if (!response || response.error || !response.url) {
+                Swal.fire('Atenci\u00f3n', (response && (response.message || response.respuesta)) || 'No fue posible cargar el QR del usuario.', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Previsualizar QR',
+                text: preview.label,
+                imageUrl: response.url,
+                imageAlt: 'QR del usuario',
+                imageWidth: 280,
+                imageHeight: 280,
+                confirmButtonText: 'Cerrar'
+            });
+        }).fail(function (jqXHR) {
+            Swal.fire('Atenci\u00f3n', cajeros.extraerMensajeRespuesta(jqXHR, 'No fue posible cargar el QR del usuario.'), 'warning');
         });
     },
 

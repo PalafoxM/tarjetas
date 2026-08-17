@@ -88,6 +88,7 @@ $solicitudFolioCatalogoUrl = $puedeSolicitarFolioInstitucional ? base_url('index
     data-catalog-context="<?= esc(json_encode($contextoUsuario, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-role-options="<?= esc(json_encode($catalogRoleOptions, JSON_UNESCAPED_UNICODE), 'attr') ?>"
     data-usuarios-url="<?= esc(base_url('index.php/Usuario/getVistaUsuario'), 'attr') ?>"
+    data-documento-url="<?= esc(base_url('index.php/Usuario/verDocumentoUsuario'), 'attr') ?>"
     data-alta-url="<?= esc(base_url('index.php/Inicio/AltaUsuario'), 'attr') ?>">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>

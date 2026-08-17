@@ -232,7 +232,7 @@ class Usuario extends BaseController
     {
         $actorContext = $this->getActorContext();
         if (empty($actorContext['can_access_user_catalog'])) {
-            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar documentos.');
+            return $this->respondDocumentoUsuarioError(403, 'No tienes permisos para consultar documentos.');
         }
 
         $idUsuario = (int) ($this->request->getGet('id_usuario') ?? 0);
@@ -240,29 +240,74 @@ class Usuario extends BaseController
         $camposPermitidos = ['qr', 'ine_firma_cajero', 'ine_frontal', 'ine_trasera', 'firma'];
 
         if ($idUsuario <= 0 || !in_array($campo, $camposPermitidos, true)) {
-            return $this->response->setStatusCode(422)->setBody('Solicitud invalida.');
+            return $this->respondDocumentoUsuarioError(422, 'Solicitud invalida.');
         }
 
         $row = $this->getBaseUserRow($idUsuario);
         if (!$row) {
-            return $this->response->setStatusCode(404)->setBody('Usuario no encontrado.');
+            return $this->respondDocumentoUsuarioError(404, 'Usuario no encontrado.');
         }
 
         if (!$this->resolver->canViewRow($actorContext, $row)) {
-            return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar este usuario.');
+            return $this->respondDocumentoUsuarioError(403, 'No tienes permisos para consultar este usuario.');
         }
 
         $archivo = trim((string) ($row[$campo] ?? ''));
         if ($archivo === '') {
-            return $this->response->setStatusCode(404)->setBody('Archivo no disponible.');
+            return $this->respondDocumentoUsuarioError(404, 'Archivo no disponible.');
         }
 
-        $url = $this->buildS3PresignedGetUrl($archivo, 300);
+        $url = $this->resolveDocumentoUsuarioAccessUrl($archivo);
         if ($url === '') {
-            return $this->response->setStatusCode(500)->setBody('No fue posible generar el acceso temporal al archivo.');
+            return $this->respondDocumentoUsuarioError(500, 'No fue posible generar el acceso temporal al archivo.');
+        }
+
+        if ($this->request->getGet('formato') === 'json') {
+            return $this->respond([
+                'error' => false,
+                'url' => $url,
+                'campo' => $campo,
+                'id_usuario' => $idUsuario,
+                'label' => $campo === 'qr' ? 'QR del usuario' : 'Documento del usuario',
+            ]);
         }
 
         return redirect()->to($url);
+    }
+
+    private function respondDocumentoUsuarioError(int $status, string $message)
+    {
+        if ($this->request->getGet('formato') === 'json') {
+            return $this->response->setStatusCode($status)->setJSON([
+                'error' => true,
+                'message' => $message,
+            ]);
+        }
+
+        return $this->response->setStatusCode($status)->setBody($message);
+    }
+
+    private function resolveDocumentoUsuarioAccessUrl(string $archivo): string
+    {
+        $archivo = trim($archivo);
+        if ($archivo === '') {
+            return '';
+        }
+
+        $localPath = $this->resolveLocalPublicFilePath($archivo);
+        if ($localPath !== '' && is_file($localPath)) {
+            $normalizedLocal = str_replace('\\', '/', $localPath);
+            $normalizedRoot = str_replace('\\', '/', rtrim(FCPATH, '\\/'));
+            if (stripos($normalizedLocal, $normalizedRoot . '/') === 0) {
+                return base_url(substr($normalizedLocal, strlen($normalizedRoot) + 1));
+            }
+        }
+
+        if (preg_match('#^https?://#i', $archivo) && stripos($archivo, '.amazonaws.com/') === false) {
+            return $archivo;
+        }
+
+        return $this->buildS3PresignedGetUrl($archivo, 300);
     }
 
     public function getUsuariosFic()
