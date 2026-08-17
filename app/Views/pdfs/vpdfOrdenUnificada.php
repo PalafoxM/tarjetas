@@ -147,13 +147,13 @@ $vigenciaGeneral = $vigenciaHospedaje === $vigenciaAlimentos
     <meta charset="UTF-8">
     <title><?= esc($tituloOrden) ?></title>
     <style>
-        body { font-family: dejavusans, sans-serif; color: #172033; font-size: 11px; }
-        .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 16px; }
+        body { font-family: dejavusans, sans-serif; color: #172033; font-size: 11px; line-height: 1.25; }
+        .header { border-bottom: 2px solid #1d4ed8; padding-bottom: 9px; margin-bottom: 13px; }
         .title { font-size: 20px; font-weight: bold; color: #0f172a; }
         .subtitle { font-size: 11px; color: #475569; margin-top: 4px; }
-        .section-title { font-size: 13px; font-weight: bold; color: #0f172a; margin: 18px 0 8px; }
+        .section-title { font-size: 13px; font-weight: bold; color: #0f172a; margin: 14px 0 6px; }
         table { width: 100%; border-collapse: collapse; }
-        td, th { border: 1px solid #d7dee8; padding: 8px; }
+        td, th { border: 1px solid #d7dee8; padding: 7px 8px; }
         th { background: #e2e8f0; color: #0f172a; text-align: left; }
         .label { width: 22%; background: #f8fafc; font-weight: bold; color: #334155; white-space: nowrap; }
         .value-wide { width: 78%; }
@@ -161,12 +161,12 @@ $vigenciaGeneral = $vigenciaHospedaje === $vigenciaAlimentos
         .qr-value { font-size: 8px; line-height: 1.35; word-break: break-word; }
         .qr-image { display: block; width: 82px; height: 82px; object-fit: contain; margin: 0 0 5px; }
         .money { text-align: right; font-weight: bold; }
-        .note { margin-top: 12px; padding: 7px 9px; border: 1px solid #cbd5e1; background: #f8fafc; }
-        .signature { margin: 8px auto 0; width: 220px; text-align: center; color: #475569; page-break-inside: avoid; }
-        .signature-image-wrap { height: 26px; margin: 0 auto 2px; overflow: hidden; }
-        .signature-image { display: block; margin: 0 auto; width: 120px; height: 26px; object-fit: contain; }
-        .signature-space { height: 18px; }
-        .signature-line { border-top: 1px solid #64748b; padding-top: 2px; font-size: 8px; line-height: 1.05; }
+        .note { margin-top: 10px; padding: 7px 9px; border: 1px solid #cbd5e1; background: #f8fafc; line-height: 1.22; }
+        .signature { margin: 13px auto 0; width: 245px; text-align: center; color: #475569; page-break-inside: avoid; }
+        .signature-image-wrap { max-width: 140px; max-height: 32px; margin: 0 auto 4px; line-height: 0; }
+        .signature-image { display: block; margin: 0 auto; max-width: 140px; max-height: 32px; width: auto; height: auto; }
+        .signature-space { height: 22px; }
+        .signature-line { border-top: 1px solid #64748b; padding-top: 4px; font-size: 8.75px; line-height: 1.18; width: 245px; margin: 0 auto; }
         .page-break { page-break-before: always; }
         .detail-block { page-break-inside: avoid; }
     </style>
