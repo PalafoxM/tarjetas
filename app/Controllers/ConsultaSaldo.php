@@ -32,18 +32,12 @@ class ConsultaSaldo extends BaseController
     public function consultar()
     {
         $folio = trim((string) $this->request->getPost('folio'));
+        $invalidFolioMessage = 'Ingresa un folio válido de 3 dígitos, por ejemplo: 016.';
 
-        if ($folio === '') {
+        if (!preg_match('/^\d{3}$/', $folio)) {
             return $this->respond([
                 'error' => true,
-                'message' => 'Ingresa el folio de tu QR.',
-            ], 400);
-        }
-
-        if (mb_strlen($folio, 'UTF-8') > 100) {
-            return $this->respond([
-                'error' => true,
-                'message' => 'El folio capturado es demasiado largo. Verifica el dato e inténtalo nuevamente.',
+                'message' => $invalidFolioMessage,
             ], 400);
         }
 
@@ -135,7 +129,7 @@ class ConsultaSaldo extends BaseController
         if ($statusCode === 400) {
             return $this->respond([
                 'error' => true,
-                'message' => $message !== '' ? $message : 'Ingresa el folio de tu QR.',
+                'message' => $message !== '' ? $message : 'Ingresa un folio válido de 3 dígitos, por ejemplo: 016.',
             ], 400);
         }
 

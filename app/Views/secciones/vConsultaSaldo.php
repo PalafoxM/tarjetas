@@ -117,6 +117,15 @@
         text-transform: none;
     }
 
+    .balance-field__help {
+        display: block;
+        margin-top: 7px;
+        color: rgba(247, 232, 166, 0.78);
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.35;
+    }
+
     .balance-btn,
     .balance-back-link {
         display: inline-flex;
@@ -267,7 +276,8 @@
         <form id="consultaSaldoForm" data-consulta-url="<?= esc(base_url('index.php/ConsultaSaldo/consultar'), 'attr') ?>" novalidate>
             <div class="balance-field">
                 <label for="folioSaldo">Folio</label>
-                <input type="text" id="folioSaldo" name="folio" placeholder="Escribe el folio de tu QR" autocomplete="off" inputmode="text">
+                <input type="text" id="folioSaldo" name="folio" placeholder="Escribe el folio de tu QR" autocomplete="off" inputmode="numeric" maxlength="3" pattern="[0-9]{3}">
+                <small class="balance-field__help">Ingresa los 3 dígitos de tu folio, por ejemplo: 016.</small>
             </div>
 
             <button type="submit" id="btnConsultarSaldo" class="balance-btn">Consulta tu saldo</button>
@@ -319,8 +329,9 @@
         }
 
         const folio = String(input.value || '').trim();
-        if (folio === '') {
-            showMessage('error', 'Ingresa el folio de tu QR.');
+        const validFolioPattern = /^\d{3}$/;
+        if (!validFolioPattern.test(folio)) {
+            showMessage('error', 'Ingresa un folio válido de 3 dígitos, por ejemplo: 016.');
             input.focus();
             return;
         }
