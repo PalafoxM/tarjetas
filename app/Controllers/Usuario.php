@@ -1119,14 +1119,22 @@ class Usuario extends BaseController
         $paxTotal = (int) ($data['pax_total'] ?? $data['pax'] ?? $data['pax_ui'] ?? 1);
 
         if ($idUsuario <= 0 && in_array($grupoUsuario, ['fic', 'ug', 'secul', 'secturi'], true)) {
-            $idCatFolio = $this->resolveIdCatInstitucionalAlta($grupoUsuario);
+            $folioCatalog = $this->resolveFolioCatalogInstitucionalAlta($grupoUsuario);
+            $folioTable = (string) ($folioCatalog['table'] ?? '');
+            $idCatFolio = (int) ($folioCatalog['id_cat'] ?? 0);
             $idClaveFolio = $this->nullableInt($data['id_clave'] ?? null);
-            $folioConfigurado = $this->resolveFolioClaveInstitucionalAlta($db, $idCatFolio, (int) ($idClaveFolio ?? 0));
+            $folioConfigurado = $this->resolveFolioClaveInstitucionalAlta($db, $folioTable, $idCatFolio, (int) ($idClaveFolio ?? 0));
 
             if (empty($folioConfigurado)) {
                 return $this->respond([
                     'error' => true,
                     'respuesta' => 'No se ha configurado el folio inicial para esta clave.',
+                ]);
+            }
+            if ($this->isFolioClaveRangoAgotadoAlta($folioConfigurado)) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => 'Se agotó el rango de folios configurado para esta clave.',
                 ]);
             }
             $idClaveFolio = (int) ($folioConfigurado['id_clave'] ?? $idClaveFolio);
@@ -1618,9 +1626,11 @@ class Usuario extends BaseController
             if (!empty($folioConfigurado ?? []) && isset($idCatFolio, $idClaveFolio)) {
                 $advanceResult = $this->advanceFolioClaveInstitucionalAlta(
                     $db,
+                    (string) ($folioTable ?? 'cat_claves'),
                     (int) $idCatFolio,
                     (int) ($idClaveFolio ?? 0),
                     (string) $folioConfigurado['folio'],
+                    (string) ($folioConfigurado['folio_hasta'] ?? ''),
                     (string) $folioConfigurado['sub_folio'],
                     (string) ($folioSeleccionValida['folio'] ?? $folioConfigurado['folio']),
                     (string) ($folioSeleccionValida['sub_folio'] ?? $folioConfigurado['sub_folio'])
@@ -1833,6 +1843,7 @@ class Usuario extends BaseController
             'respuesta' => 'Consulta exitosa',
             'data' => [
                 'categorias' => $this->getCatalogData('cat_claves', ['visible' => 1], 'dsc_clave ASC'),
+                'categorias_secturi' => $this->getCatalogData('cat_claves_secturi', ['visible' => 1], 'dsc_clave ASC'),
                 'disciplinas' => $this->getCatalogData('cat_diciplina', ['visible' => 1], 'des_diciplina ASC'),
                 'paises' => $this->getCatalogData('cat_pais', ['visible' => 1], 'id_pais ASC'),
                 'estados' => $this->getCatalogData('cat_estado', ['visible' => 1], 'dsc_estado ASC'),
@@ -3338,29 +3349,34 @@ class Usuario extends BaseController
 
     private function resolveIdCatInstitucionalAlta(string $grupoUsuario): int
     {
-        $map = [
-            'fic' => 1,
-            'secul' => 2,
-            'ug' => 3,
-            'secturi' => 4,
-        ];
-
-        return (int) ($map[$grupoUsuario] ?? 0);
+        return (int) ($this->resolveFolioCatalogInstitucionalAlta($grupoUsuario)['id_cat'] ?? 0);
     }
 
-    private function resolveFolioClaveInstitucionalAlta($db, int $idCat, int $idClave): array
+    private function resolveFolioCatalogInstitucionalAlta(string $grupoUsuario): array
     {
-        if ($idCat <= 0 || $idClave <= 0) {
+        $map = [
+            'fic' => ['table' => 'cat_claves', 'id_cat' => 1],
+            'secul' => ['table' => 'cat_claves', 'id_cat' => 2],
+            'ug' => ['table' => 'cat_claves', 'id_cat' => 3],
+            'secturi' => ['table' => 'cat_claves_secturi', 'id_cat' => 4],
+        ];
+
+        return $map[strtolower(trim($grupoUsuario))] ?? [];
+    }
+
+    private function resolveFolioClaveInstitucionalAlta($db, string $table, int $idCat, int $idClave): array
+    {
+        if (!$this->isFolioCatalogTableAllowedAlta($table) || $idCat <= 0 || $idClave <= 0) {
             return [];
         }
 
-        $idClaveCanonico = $this->resolveCanonicalIdClaveInstitucionalAlta($db, $idCat, $idClave);
+        $idClaveCanonico = $this->resolveCanonicalIdClaveInstitucionalAlta($db, $table, $idCat, $idClave);
         if ($idClaveCanonico <= 0) {
             return [];
         }
 
-        $row = $db->table('cat_claves')
-            ->select('id_clave, folio, sub_folio')
+        $row = $db->table($table)
+            ->select('id_clave, id_cat, folio, folio_hasta, sub_folio, visible')
             ->where('visible', 1)
             ->where('id_cat', $idCat)
             ->where('id_clave', $idClaveCanonico)
@@ -3381,18 +3397,19 @@ class Usuario extends BaseController
 
         return [
             'folio' => $folio,
+            'folio_hasta' => preg_replace('/\D+/', '', (string) ($row['folio_hasta'] ?? '')),
             'sub_folio' => substr($subFolio, 0, 1),
             'id_clave' => (int) ($row['id_clave'] ?? $idClaveCanonico),
         ];
     }
 
-    private function resolveCanonicalIdClaveInstitucionalAlta($db, int $idCat, int $idClave): int
+    private function resolveCanonicalIdClaveInstitucionalAlta($db, string $table, int $idCat, int $idClave): int
     {
-        if ($idCat <= 0 || $idClave <= 0) {
+        if (!$this->isFolioCatalogTableAllowedAlta($table) || $idCat <= 0 || $idClave <= 0) {
             return 0;
         }
 
-        $row = $db->table('cat_claves')
+        $row = $db->table($table)
             ->select('id_clave, id_cat, dsc_clave, folio, visible')
             ->where('id_cat', $idCat)
             ->where('id_clave', $idClave)
@@ -3407,7 +3424,7 @@ class Usuario extends BaseController
             return (int) ($row['id_clave'] ?? 0);
         }
 
-        $mappedIdClave = $this->resolveMappedHiddenIdClaveInstitucionalAlta($db, $idCat, $idClave);
+        $mappedIdClave = $this->resolveMappedHiddenIdClaveInstitucionalAlta($db, $table, $idCat, $idClave);
         if ($mappedIdClave > 0) {
             return $mappedIdClave;
         }
@@ -3418,7 +3435,7 @@ class Usuario extends BaseController
             return 0;
         }
 
-        $activeRows = $db->table('cat_claves')
+        $activeRows = $db->table($table)
             ->select('id_clave, dsc_clave, folio')
             ->where('id_cat', $idCat)
             ->where('visible', 1)
@@ -3440,8 +3457,12 @@ class Usuario extends BaseController
         return 0;
     }
 
-    private function resolveMappedHiddenIdClaveInstitucionalAlta($db, int $idCat, int $idClave): int
+    private function resolveMappedHiddenIdClaveInstitucionalAlta($db, string $table, int $idCat, int $idClave): int
     {
+        if ($table !== 'cat_claves') {
+            return 0;
+        }
+
         $maps = [
             1 => [
                 3 => 2,
@@ -3456,7 +3477,7 @@ class Usuario extends BaseController
             return 0;
         }
 
-        $target = $db->table('cat_claves')
+        $target = $db->table($table)
             ->select('id_clave')
             ->where('id_cat', $idCat)
             ->where('id_clave', $targetIdClave)
@@ -3504,27 +3525,36 @@ class Usuario extends BaseController
             ];
         }
 
-        $nuevoFolio = $this->incrementFolioClaveInstitucionalAlta($folioActual);
-        if ($subFolioActual !== 'A' && $nuevoFolio !== '' && $folioSeleccionadoValor === $nuevoFolio && $subFolioSeleccionado === 'A') {
+        $next = $this->buildNextFolioClaveInstitucionalAlta(
+            $folioActual,
+            $subFolioActual,
+            (string) ($folioConfigurado['folio_hasta'] ?? '')
+        );
+        if (!empty($next) && $folioSeleccionadoValor === $next['folio'] && $subFolioSeleccionado === $next['sub_folio']) {
             return [
                 'folio' => $folioSeleccionadoValor,
                 'sub_folio' => $subFolioSeleccionado,
             ];
         }
 
-        if ($tipoSugerencia === 'nuevo_folio' && $subFolioActual !== 'A' && $nuevoFolio !== '') {
+        if ($tipoSugerencia === 'nuevo_folio' && !empty($next)) {
             return [
-                'folio' => $nuevoFolio,
-                'sub_folio' => 'A',
+                'folio' => $next['folio'],
+                'sub_folio' => $next['sub_folio'],
             ];
         }
 
         return [];
     }
 
-    private function advanceFolioClaveInstitucionalAlta($db, int $idCat, int $idClave, string $folioActual, string $subFolioActual, string $folioUsado, string $subFolioUsado): bool
+    private function advanceFolioClaveInstitucionalAlta($db, string $table, int $idCat, int $idClave, string $folioActual, string $folioHasta, string $subFolioActual, string $folioUsado, string $subFolioUsado): bool
     {
+        if (!$this->isFolioCatalogTableAllowedAlta($table)) {
+            return false;
+        }
+
         $folioActual = preg_replace('/\D+/', '', $folioActual);
+        $folioHasta = preg_replace('/\D+/', '', $folioHasta);
         $subFolioActual = strtoupper(trim($subFolioActual));
         $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
         $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
@@ -3537,12 +3567,22 @@ class Usuario extends BaseController
             return false;
         }
 
-        $next = $this->buildNextFolioClaveInstitucionalAlta($folioUsado, $subFolioUsado);
+        $next = $this->buildNextFolioClaveInstitucionalAlta($folioUsado, $subFolioUsado, $folioHasta);
+        if (empty($next) && $this->isFolioClaveRangoAgotadoAlta([
+            'folio' => $folioUsado,
+            'folio_hasta' => $folioHasta,
+            'sub_folio' => $subFolioUsado,
+        ])) {
+            $next = [
+                'folio' => $folioUsado,
+                'sub_folio' => $subFolioUsado,
+            ];
+        }
         if (empty($next)) {
             return false;
         }
 
-        $builder = $db->table('cat_claves');
+        $builder = $db->table($table);
         $builder->where('visible', 1)
             ->where('id_cat', $idCat)
             ->where('id_clave', $idClave)
@@ -3556,9 +3596,10 @@ class Usuario extends BaseController
         return $db->affectedRows() === 1;
     }
 
-    private function buildNextFolioClaveInstitucionalAlta(string $folioActual, string $subFolioActual): array
+    private function buildNextFolioClaveInstitucionalAlta(string $folioActual, string $subFolioActual, string $folioHasta = ''): array
     {
         $folioActual = preg_replace('/\D+/', '', $folioActual);
+        $folioHasta = preg_replace('/\D+/', '', $folioHasta);
         $subFolioActual = strtoupper(trim($subFolioActual));
         $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
         $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
@@ -3572,6 +3613,10 @@ class Usuario extends BaseController
                 'folio' => $folioActual,
                 'sub_folio' => chr(ord($subFolioActual) + 1),
             ];
+        }
+
+        if ($folioHasta !== '' && (int) $folioActual >= (int) $folioHasta) {
+            return [];
         }
 
         $nextFolio = $this->incrementFolioClaveInstitucionalAlta($folioActual);
@@ -3595,6 +3640,22 @@ class Usuario extends BaseController
         }
 
         return $nextFolio;
+    }
+
+    private function isFolioClaveRangoAgotadoAlta(array $folioClave): bool
+    {
+        $folio = preg_replace('/\D+/', '', (string) ($folioClave['folio'] ?? ''));
+        $folioHasta = preg_replace('/\D+/', '', (string) ($folioClave['folio_hasta'] ?? ''));
+        $subFolio = strtoupper(trim((string) ($folioClave['sub_folio'] ?? '')));
+        $subFolio = preg_replace('/[^A-Z]/', '', $subFolio);
+        $subFolio = $subFolio !== '' ? substr($subFolio, 0, 1) : '';
+
+        return $folio !== '' && $folioHasta !== '' && (int) $folio >= (int) $folioHasta && $subFolio === 'Z';
+    }
+
+    private function isFolioCatalogTableAllowedAlta(string $table): bool
+    {
+        return in_array($table, ['cat_claves', 'cat_claves_secturi'], true);
     }
 
     private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int

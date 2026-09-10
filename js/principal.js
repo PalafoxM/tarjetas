@@ -293,6 +293,7 @@ window.cajeros = {
     rowsBaseDiaLlegada: [],
     catalogos: {
         categorias: [],
+        categorias_secturi: [],
         disciplinas: [],
         paises: [],
         perfiles: [],
@@ -1261,11 +1262,7 @@ window.cajeros = {
         $.getJSON(base_url + 'index.php/Usuario/getCatalogosCrud', function (response) {
             var data = response && response.data ? response.data : response;
             cajeros.catalogos = $.extend(true, {}, cajeros.catalogos, data || {});
-            cajeros.poblarSelect('#categoria_ui', cajeros.catalogos.categorias, 'id_clave', 'dsc_clave', function (item) {
-                var clave = $.trim(String(item.clave || ''));
-                var descripcion = $.trim(String(item.dsc_clave || ''));
-                return clave !== '' && descripcion !== '' ? (clave + ' - ' + descripcion) : (descripcion || clave);
-            });
+            cajeros.actualizarCatalogoCategoriasPorGrupo();
             cajeros.poblarSelect('#disciplina_ui', cajeros.catalogos.disciplinas, 'id_diciplina', 'des_diciplina', function (item) {
                 return $.trim(item.des_diciplina || '');
             });
@@ -1302,6 +1299,23 @@ window.cajeros = {
             Swal.fire('Error', 'No fue posible cargar los cat\u00e1logos del formulario.', 'error');
         });
     },
+
+    obtenerCatalogoCategoriasActivo: function () {
+        var grupo = String($('#grupo_usuario').val() || this.obtenerGrupoSugerenciasFolio() || this.contexto.active_group || '').toLowerCase();
+        if (grupo === 'secturi') {
+            return this.catalogos.categorias_secturi || [];
+        }
+        return this.catalogos.categorias || [];
+    },
+
+    actualizarCatalogoCategoriasPorGrupo: function () {
+        this.poblarSelect('#categoria_ui', this.obtenerCatalogoCategoriasActivo(), 'id_clave', 'dsc_clave', function (item) {
+            var clave = $.trim(String(item.clave || ''));
+            var descripcion = $.trim(String(item.dsc_clave || ''));
+            return clave !== '' && descripcion !== '' ? (clave + ' - ' + descripcion) : (descripcion || clave);
+        });
+    },
+
     poblarSelect: function (selector, items, valueKey, labelKey, formatter) {
         var select = $(selector);
         if (!select.length) return;
@@ -1702,7 +1716,7 @@ window.cajeros = {
     },
 
     onCategoriaChange: function () {
-        var categoria = this.buscarPorId(this.catalogos.categorias, 'id_clave', $('#categoria_ui').val());
+        var categoria = this.buscarPorId(this.obtenerCatalogoCategoriasActivo(), 'id_clave', $('#categoria_ui').val());
         $('#id_clave').val(categoria ? (categoria.id_clave || '') : '');
         $('#clave_ui').val(categoria ? (categoria.clave || '') : '');
         if (this.isSolicitudFolioMode || this.folioSuggestionsEnabled || this.esEdicionInstitucionalAdmin()) {
@@ -1716,6 +1730,7 @@ window.cajeros = {
         var perfilVisible = $('#perfil_grupo');
 
         $('#grupo_usuario').val(mapping.group || '');
+        this.actualizarCatalogoCategoriasPorGrupo();
 
         perfilVisible.empty();
         perfilVisible.append(new Option('Seleccione', '', false, false));
