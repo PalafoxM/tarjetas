@@ -237,13 +237,18 @@
         cursor: pointer;
     }
 
-    .login-support-btn {
+    .login-panel-actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .login-panel-access,
+    .login-help-floating {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
-        margin-top: 12px;
-        width: 100%;
         border: 1px solid #d4af37;
         border-radius: 999px;
         padding: 10px 14px;
@@ -252,13 +257,34 @@
         font-family: Arial, sans-serif;
         font-size: 13px;
         font-weight: 700;
+        line-height: 1.25;
+        text-align: center;
+        text-decoration: none;
         cursor: pointer;
         transition: background 0.2s ease, transform 0.2s ease;
     }
 
-    .login-support-btn:hover {
+    .login-panel-access {
+        width: 100%;
+        min-height: 42px;
+        white-space: normal;
+    }
+
+    .login-help-floating {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 40;
+        min-width: 118px;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+    }
+
+    .login-panel-access:hover,
+    .login-help-floating:hover {
         background: rgba(212, 175, 55, 0.22);
         transform: translateY(-1px);
+        color: #fff3b0;
+        text-decoration: none;
     }
 
     .login-support-modal .modal-content {
@@ -349,10 +375,15 @@
     }
 
     .login-support-modal-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         min-height: 40px;
         border-radius: 999px;
         padding: 8px 18px;
         font-weight: 800;
+        line-height: 1.2;
+        text-align: center;
     }
 
     .login-support-modal-close:hover,
@@ -522,6 +553,14 @@
             flex-direction: column;
             align-items: center;
         }
+
+        .login-help-floating {
+            right: 14px;
+            bottom: 14px;
+            min-width: auto;
+            padding: 9px 12px;
+            font-size: 12px;
+        }
     }
 </style>
 
@@ -629,10 +668,14 @@
 
                             <button type="button" id="btnAcceder" class="btn btn-primary" onclick="loginTradicional();">Acceder</button>
 
-                            <button type="button" class="login-support-btn" data-bs-toggle="modal" data-bs-target="#modalSoporteLogin">
-                                <i class="mdi mdi-headset"></i>
-                                Soporte 24 horas
-                            </button>
+                            <div class="login-panel-actions" aria-label="Accesos auxiliares">
+                                <a class="login-panel-access" href="<?= esc(base_url('index.php/ConsultaSaldo'), 'attr') ?>">
+                                    Revisa tu saldo aquí
+                                </a>
+                                <a class="login-panel-access" href="https://tarjetasfic.guanajuato.gob.mx/lista/">
+                                    Lista de establecimientos participantes
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -659,11 +702,16 @@
     </div>
 </div>
 
+<button type="button" class="login-help-floating" data-bs-toggle="modal" data-bs-target="#modalSoporteLogin">
+    <span aria-hidden="true">🎧</span>
+    Ayuda
+</button>
+
 <div class="modal fade login-support-modal" id="modalSoporteLogin" tabindex="-1" aria-labelledby="modalSoporteLoginLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="modalSoporteLoginLabel">Soporte 24 horas</h5>
+                <h5 class="modal-title" id="modalSoporteLoginLabel">Ayuda</h5>
                 <button type="button" class="login-support-modal-close" data-bs-dismiss="modal" aria-label="Cerrar">&times;</button>
             </div>
             <div class="modal-body">
