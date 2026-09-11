@@ -138,6 +138,18 @@
             }
             showOverlay();
         });
+
+        window.addEventListener('pageshow', function (event) {
+            var nav = window.performance && window.performance.getEntriesByType
+                ? window.performance.getEntriesByType('navigation')[0]
+                : null;
+
+            if (event.persisted || (nav && nav.type === 'back_forward')) {
+                activeRequests = 0;
+                suppressNextNavigationLoader = false;
+                hideOverlay();
+            }
+        });
     }
 
     function init() {

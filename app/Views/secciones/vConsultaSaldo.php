@@ -280,8 +280,8 @@
                 <small class="balance-field__help">Ingresa los 3 dígitos de tu folio, por ejemplo: 016.</small>
             </div>
 
-            <button type="submit" id="btnConsultarSaldo" class="balance-btn">Consulta tu saldo</button>
-            <a class="balance-back-link" href="<?= esc(base_url(), 'attr') ?>">Volver al inicio</a>
+            <!--<button type="submit" id="btnConsultarSaldo" class="balance-btn">Consulta tu saldo</button>
+            <a class="balance-back-link" href="<?= esc(base_url(), 'attr') ?>">Volver al inicio</a>-->
 
             <div id="consultaSaldoMensaje" class="balance-message" role="status" aria-live="polite"></div>
         </form>
