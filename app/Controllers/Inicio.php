@@ -3321,17 +3321,82 @@ class Inicio extends BaseController {
             'sub_folio' => $subFolio,
         ]];
 
-        $next = $this->buildNextFolioClaveInstitucional($folio, $subFolio, (string) ($folioClave['folio_hasta'] ?? ''));
-        if (!empty($next)) {
+        $nuevoFolio = $this->buildNuevoFolioClaveInstitucional($folio, (string) ($folioClave['folio_hasta'] ?? ''));
+        if (!empty($nuevoFolio)) {
             $sugerencias[] = [
                 'tipo' => 'nuevo_folio',
-                'label' => 'Nuevo folio: ' . $next['folio'] . $next['sub_folio'],
-                'folio' => $next['folio'],
-                'sub_folio' => $next['sub_folio'],
+                'label' => 'Nuevo folio: ' . $nuevoFolio['folio'] . $nuevoFolio['sub_folio'],
+                'folio' => $nuevoFolio['folio'],
+                'sub_folio' => $nuevoFolio['sub_folio'],
             ];
         }
 
         return $sugerencias;
+    }
+
+    private function buildNuevoFolioClaveInstitucional(string $folio, string $folioHasta = ''): array
+    {
+        $folio = preg_replace('/\D+/', '', $folio);
+        $folioHasta = preg_replace('/\D+/', '', $folioHasta);
+
+        if ($folio === '') {
+            return [];
+        }
+
+        if ($folioHasta !== '' && (int) $folio >= (int) $folioHasta) {
+            return [];
+        }
+
+        return [
+            'folio' => $this->incrementFolioInstitucional($folio),
+            'sub_folio' => 'A',
+        ];
+    }
+
+    private function resolveFolioClaveSeleccionInstitucional(array $folioConfigurado, array $folioSeleccionado, string $tipoSugerencia = ''): array
+    {
+        $folioActual = preg_replace('/\D+/', '', (string) ($folioConfigurado['folio'] ?? ''));
+        $subFolioActual = strtoupper(trim((string) ($folioConfigurado['sub_folio'] ?? '')));
+        $subFolioActual = preg_replace('/[^A-Z]/', '', $subFolioActual);
+        $subFolioActual = $subFolioActual !== '' ? substr($subFolioActual, 0, 1) : '';
+
+        $folioSeleccionadoValor = preg_replace('/\D+/', '', (string) ($folioSeleccionado['folio'] ?? ''));
+        $subFolioSeleccionado = strtoupper(trim((string) ($folioSeleccionado['sub_folio'] ?? '')));
+        $subFolioSeleccionado = preg_replace('/[^A-Z]/', '', $subFolioSeleccionado);
+        $subFolioSeleccionado = $subFolioSeleccionado !== '' ? substr($subFolioSeleccionado, 0, 1) : '';
+        $tipoSugerencia = strtolower(trim($tipoSugerencia));
+
+        if ($folioActual === '' || $subFolioActual === '' || $folioSeleccionadoValor === '' || $subFolioSeleccionado === '') {
+            return [];
+        }
+
+        if ($folioSeleccionadoValor === $folioActual && $subFolioSeleccionado === $subFolioActual) {
+            return [
+                'folio' => $folioSeleccionadoValor,
+                'sub_folio' => $subFolioSeleccionado,
+            ];
+        }
+
+        $nuevoFolio = $this->buildNuevoFolioClaveInstitucional(
+            $folioActual,
+            (string) ($folioConfigurado['folio_hasta'] ?? '')
+        );
+
+        if ($tipoSugerencia === 'nuevo_folio' && !empty($nuevoFolio)) {
+            return [
+                'folio' => $nuevoFolio['folio'],
+                'sub_folio' => $nuevoFolio['sub_folio'],
+            ];
+        }
+
+        if (!empty($nuevoFolio) && $folioSeleccionadoValor === $nuevoFolio['folio'] && $subFolioSeleccionado === $nuevoFolio['sub_folio']) {
+            return [
+                'folio' => $folioSeleccionadoValor,
+                'sub_folio' => $subFolioSeleccionado,
+            ];
+        }
+
+        return [];
     }
 
     private function buildNextFolioClaveInstitucional(string $folio, string $subFolio, string $folioHasta = ''): array
@@ -4160,9 +4225,24 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $folio = (string) $folioClave['folio'];
+        $folioSeleccionValida = $this->resolveFolioClaveSeleccionInstitucional(
+            $folioClave,
+            [
+                'folio' => $folio,
+                'sub_folio' => $subFolio,
+            ],
+            (string) ($post['folio_sugerencia_tipo'] ?? '')
+        );
+        if (empty($folioSeleccionValida)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'El folio sugerido ya no esta disponible. Actualiza la sugerencia.',
+            ]);
+        }
+
+        $folio = (string) $folioSeleccionValida['folio'];
         $folioGrupo = $folio;
-        $subFolio = (string) $folioClave['sub_folio'];
+        $subFolio = (string) $folioSeleccionValida['sub_folio'];
         $idClaveFolio = (int) ($folioClave['id_clave'] ?? $idClaveFolio);
 
         if ($idPerfilSolicitado <= 0 || $usuario === '' || $nombre === '' || $primerApellido === '' || $folioGrupo === '') {
@@ -8440,11 +8520,26 @@ public function getPagosPorEstablecimiento()
             ]);
         }
 
-        $payload['folio'] = (string) $folioClave['folio'];
-        $payload['folio_ui'] = (string) $folioClave['folio'];
-        $payload['folio_grupo'] = (string) $folioClave['folio'];
-        $payload['sub_folio'] = (string) $folioClave['sub_folio'];
-        $payload['subf_ui'] = (string) $folioClave['sub_folio'];
+        $folioSeleccionValida = $this->resolveFolioClaveSeleccionInstitucional(
+            $folioClave,
+            [
+                'folio' => $payload['folio'] ?? $payload['folio_ui'] ?? $payload['folio_grupo'] ?? '',
+                'sub_folio' => $payload['sub_folio'] ?? $payload['subf_ui'] ?? '',
+            ],
+            (string) ($payload['folio_sugerencia_tipo'] ?? '')
+        );
+        if (empty($folioSeleccionValida)) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'ok' => false,
+                'message' => 'El folio sugerido ya no esta disponible. Actualiza la sugerencia.',
+            ]);
+        }
+
+        $payload['folio'] = (string) $folioSeleccionValida['folio'];
+        $payload['folio_ui'] = (string) $folioSeleccionValida['folio'];
+        $payload['folio_grupo'] = (string) $folioSeleccionValida['folio'];
+        $payload['sub_folio'] = (string) $folioSeleccionValida['sub_folio'];
+        $payload['subf_ui'] = (string) $folioSeleccionValida['sub_folio'];
         $payload['id_clave'] = (int) ($folioClave['id_clave'] ?? $idClaveFolio);
 
         if ((int) ($payload['perfil_grupo'] ?? 0) <= 0) {

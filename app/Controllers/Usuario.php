@@ -3525,22 +3525,21 @@ class Usuario extends BaseController
             ];
         }
 
-        $next = $this->buildNextFolioClaveInstitucionalAlta(
+        $nuevoFolio = $this->buildNuevoFolioClaveInstitucionalAlta(
             $folioActual,
-            $subFolioActual,
             (string) ($folioConfigurado['folio_hasta'] ?? '')
         );
-        if (!empty($next) && $folioSeleccionadoValor === $next['folio'] && $subFolioSeleccionado === $next['sub_folio']) {
+        if (!empty($nuevoFolio) && $folioSeleccionadoValor === $nuevoFolio['folio'] && $subFolioSeleccionado === $nuevoFolio['sub_folio']) {
             return [
                 'folio' => $folioSeleccionadoValor,
                 'sub_folio' => $subFolioSeleccionado,
             ];
         }
 
-        if ($tipoSugerencia === 'nuevo_folio' && !empty($next)) {
+        if ($tipoSugerencia === 'nuevo_folio' && !empty($nuevoFolio)) {
             return [
-                'folio' => $next['folio'],
-                'sub_folio' => $next['sub_folio'],
+                'folio' => $nuevoFolio['folio'],
+                'sub_folio' => $nuevoFolio['sub_folio'],
             ];
         }
 
@@ -3623,6 +3622,25 @@ class Usuario extends BaseController
 
         return [
             'folio' => $nextFolio,
+            'sub_folio' => 'A',
+        ];
+    }
+
+    private function buildNuevoFolioClaveInstitucionalAlta(string $folioActual, string $folioHasta = ''): array
+    {
+        $folioActual = preg_replace('/\D+/', '', $folioActual);
+        $folioHasta = preg_replace('/\D+/', '', $folioHasta);
+
+        if ($folioActual === '') {
+            return [];
+        }
+
+        if ($folioHasta !== '' && (int) $folioActual >= (int) $folioHasta) {
+            return [];
+        }
+
+        return [
+            'folio' => $this->incrementFolioClaveInstitucionalAlta($folioActual),
             'sub_folio' => 'A',
         ];
     }
