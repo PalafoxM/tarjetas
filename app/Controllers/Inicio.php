@@ -5447,11 +5447,18 @@ public function getPagosPorEstablecimiento()
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
-        $establecimientosResponse = $Mglobal->getTabla([
-            'tabla' => 'establecimiento',
-            'where' => ['visible' => 1],
-            'order' => 'id_tipo ASC, dsc_establecimiento ASC',
-        ]);
+        $db = \Config\Database::connect();
+        $establecimientosRows = $db->table('establecimiento e')
+            ->select('
+                e.*,
+                cte.dsc_tipo AS dsc_tipo_catalogo
+            ')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->where('e.visible', 1)
+            ->orderBy('e.id_tipo', 'ASC')
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->get()
+            ->getResultArray();
         $usuariosResponse = $Mglobal->getTabla([
             'tabla' => 'usuario',
             'where' => ['visible' => 1],
@@ -5476,28 +5483,21 @@ public function getPagosPorEstablecimiento()
             ];
         }
 
-        $typeLabels = [
-            1 => 'ESTABLECIMIENTO',
-            2 => 'HOTEL',
-            3 => 'INSTITUCIONAL',
-            4 => 'INSTITUCIONAL',
-            5 => 'INSTITUCIONAL',
-            6 => 'INSTITUCIONAL',
-            7 => 'INSTITUCIONAL',
-        ];
-
         $establecimientos = [];
-        foreach (($establecimientosResponse->data ?? []) as $row) {
+        foreach ($establecimientosRows as $row) {
             $item = (array) $row;
             $noProveedor = (int) ($item['no_proveedor'] ?? 0);
             $proveedor = $proveedoresIndex[$noProveedor] ?? null;
-            $item['dsc_tipo'] = $typeLabels[(int) ($item['id_tipo'] ?? 0)] ?? ('TIPO ' . (int) ($item['id_tipo'] ?? 0));
+            $tipoCatalogo = trim((string) ($item['dsc_tipo_catalogo'] ?? ''));
+            $idTipo = (int) ($item['id_tipo'] ?? 0);
+            $item['dsc_tipo'] = $tipoCatalogo !== ''
+                ? $tipoCatalogo
+                : ($idTipo > 0 ? 'TIPO ' . $idTipo : 'Sin tipo');
             $item['dsc_proveedor'] = $proveedor['nombre'] ?? ($noProveedor > 0 ? 'PADRON ' . $noProveedor : 'Sin proveedor');
             $establecimientos[] = (object) $item;
         }
 
         $proveedoresLigados = [];
-        $db = \Config\Database::connect();
         $relaciones = $db->table('usuario_establecimiento ue')
             ->select('
                 ue.id_usuario_establecimiento,
