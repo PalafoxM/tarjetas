@@ -4,6 +4,7 @@ use App\Libraries\Curps;
 use App\Libraries\DepositosProgramadosService;
 use App\Libraries\Fechas;
 use App\Libraries\Funciones;
+use App\Libraries\SecturiFoliosOficiales;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
 use Box\Spout\Common\Entity\Style\CellAlignment;
@@ -3107,6 +3108,39 @@ class Inicio extends BaseController {
             ]);
         }
 
+        if ($grupo === 'secturi') {
+            $folioAutorizado = $this->resolveSiguienteFolioSecturiInstitucional($db, $idClave);
+            if (empty($folioAutorizado)) {
+                return $this->response->setJSON([
+                    'ok' => true,
+                    'data' => [
+                        'sugerencias' => [],
+                        'mensaje' => 'Se agotó la lista de folios autorizados para esta clave.',
+                    ],
+                ]);
+            }
+
+            $label = $folioAutorizado['folio'] . $folioAutorizado['sub_folio'];
+            return $this->response->setJSON([
+                'ok' => true,
+                'data' => [
+                    'ultimo' => [
+                        'folio' => $folioAutorizado['folio'],
+                        'sub_folio' => $folioAutorizado['sub_folio'],
+                        'id_clave' => $folioAutorizado['id_clave'],
+                    ],
+                    'ultimo_label' => $label,
+                    'sugerencias' => [[
+                        'tipo' => 'siguiente_folio_autorizado',
+                        'label' => 'Siguiente folio autorizado: ' . $label,
+                        'folio' => $folioAutorizado['folio'],
+                        'sub_folio' => $folioAutorizado['sub_folio'],
+                    ]],
+                    'mensaje' => '',
+                ],
+            ]);
+        }
+
         $folioClave = $this->resolveFolioClaveInstitucional($db, $table, $idCat, $idClave);
         if (empty($folioClave)) {
             return $this->response->setJSON([
@@ -3160,6 +3194,79 @@ class Inicio extends BaseController {
         ];
 
         return $map[strtolower(trim($grupo))] ?? [];
+    }
+
+    private function resolveSiguienteFolioSecturiInstitucional($db, int $idClave): array
+    {
+        if ($idClave <= 0) {
+            return [];
+        }
+
+        $row = $db->table('cat_claves_secturi')
+            ->select('id_clave, clave, folio, sub_folio, visible')
+            ->where('visible', 1)
+            ->where('id_cat', 4)
+            ->where('id_clave', $idClave)
+            ->get()
+            ->getRowArray();
+
+        if (empty($row)) {
+            return [];
+        }
+
+        $clave = SecturiFoliosOficiales::normalizeClave((string) ($row['clave'] ?? ''));
+        $folio = preg_replace('/\D+/', '', (string) ($row['folio'] ?? ''));
+        $subFolioActual = SecturiFoliosOficiales::normalizeSubFolio($row['sub_folio'] ?? null);
+        if (!SecturiFoliosOficiales::contiene($clave, $folio, $subFolioActual)) {
+            return [];
+        }
+
+        foreach (SecturiFoliosOficiales::desdeSubFolio($clave, $subFolioActual) as $subFolio) {
+            if (!$this->folioSecturiUsuarioAsignado($db, (int) $row['id_clave'], $folio, $subFolio)) {
+                return [
+                    'id_clave' => (int) $row['id_clave'],
+                    'clave' => $clave,
+                    'folio' => $folio,
+                    'sub_folio' => $subFolio,
+                ];
+            }
+        }
+
+        return [];
+    }
+
+    private function resolveFolioSecturiSeleccionInstitucional($db, int $idClave, string $folio, string $subFolio): array
+    {
+        $folio = preg_replace('/\D+/', '', $folio);
+        $subFolio = SecturiFoliosOficiales::normalizeSubFolio($subFolio);
+
+        if ($idClave <= 0 || $folio === '' || $subFolio === '') {
+            return [];
+        }
+
+        $row = $this->resolveSiguienteFolioSecturiInstitucional($db, $idClave);
+        if (empty($row)) {
+            return [];
+        }
+
+        if ((string) $row['folio'] !== $folio || (string) $row['sub_folio'] !== $subFolio) {
+            return [];
+        }
+
+        return $row;
+    }
+
+    private function folioSecturiUsuarioAsignado($db, int $idClave, string $folio, string $subFolio): bool
+    {
+        return !empty($db->table('usuario')
+            ->select('id_usuario')
+            ->where('visible', 1)
+            ->where('id_clave', $idClave)
+            ->where('folio', $folio)
+            ->where('sub_folio', $subFolio)
+            ->limit(1)
+            ->get()
+            ->getRowArray());
     }
 
     private function resolveFolioClaveInstitucional($db, string $table, int $idCat, int $idClave): array
@@ -4211,28 +4318,33 @@ class Inicio extends BaseController {
         $idCatFolio = (int) ($folioCatalog['id_cat'] ?? 0);
         $folioTable = (string) ($folioCatalog['table'] ?? '');
         $idClaveFolio = (int) ($post['id_clave'] ?? 0);
-        $folioClave = $this->resolveFolioClaveInstitucional($db, $folioTable, $idCatFolio, $idClaveFolio);
-        if (empty($folioClave)) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'ok' => false,
-                'message' => 'No se ha configurado el folio inicial para esta clave.',
-            ]);
-        }
-        if ($this->isFolioClaveRangoAgotado($folioClave)) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'ok' => false,
-                'message' => 'Se agotó el rango de folios configurado para esta clave.',
-            ]);
-        }
+        if ($grupo === 'secturi') {
+            $folioSeleccionValida = $this->resolveFolioSecturiSeleccionInstitucional($db, $idClaveFolio, $folio, $subFolio);
+            $folioClave = $folioSeleccionValida;
+        } else {
+            $folioClave = $this->resolveFolioClaveInstitucional($db, $folioTable, $idCatFolio, $idClaveFolio);
+            if (empty($folioClave)) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok' => false,
+                    'message' => 'No se ha configurado el folio inicial para esta clave.',
+                ]);
+            }
+            if ($this->isFolioClaveRangoAgotado($folioClave)) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok' => false,
+                    'message' => 'Se agotó el rango de folios configurado para esta clave.',
+                ]);
+            }
 
-        $folioSeleccionValida = $this->resolveFolioClaveSeleccionInstitucional(
-            $folioClave,
-            [
-                'folio' => $folio,
-                'sub_folio' => $subFolio,
-            ],
-            (string) ($post['folio_sugerencia_tipo'] ?? '')
-        );
+            $folioSeleccionValida = $this->resolveFolioClaveSeleccionInstitucional(
+                $folioClave,
+                [
+                    'folio' => $folio,
+                    'sub_folio' => $subFolio,
+                ],
+                (string) ($post['folio_sugerencia_tipo'] ?? '')
+            );
+        }
         if (empty($folioSeleccionValida)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
@@ -8506,28 +8618,38 @@ public function getPagosPorEstablecimiento()
         $idCatFolio = (int) ($folioCatalog['id_cat'] ?? 0);
         $folioTable = (string) ($folioCatalog['table'] ?? '');
         $idClaveFolio = (int) ($payload['id_clave'] ?? 0);
-        $folioClave = $this->resolveFolioClaveInstitucional($db, $folioTable, $idCatFolio, $idClaveFolio);
-        if (empty($folioClave)) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'ok' => false,
-                'message' => 'No se ha configurado el folio inicial para esta clave.',
-            ]);
-        }
-        if ($this->isFolioClaveRangoAgotado($folioClave)) {
-            return $this->response->setStatusCode(422)->setJSON([
-                'ok' => false,
-                'message' => 'Se agotó el rango de folios configurado para esta clave.',
-            ]);
-        }
+        if ($grupoSolicitud === 'secturi') {
+            $folioSeleccionValida = $this->resolveFolioSecturiSeleccionInstitucional(
+                $db,
+                $idClaveFolio,
+                (string) ($payload['folio'] ?? $payload['folio_ui'] ?? $payload['folio_grupo'] ?? ''),
+                (string) ($payload['sub_folio'] ?? $payload['subf_ui'] ?? '')
+            );
+            $folioClave = $folioSeleccionValida;
+        } else {
+            $folioClave = $this->resolveFolioClaveInstitucional($db, $folioTable, $idCatFolio, $idClaveFolio);
+            if (empty($folioClave)) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok' => false,
+                    'message' => 'No se ha configurado el folio inicial para esta clave.',
+                ]);
+            }
+            if ($this->isFolioClaveRangoAgotado($folioClave)) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok' => false,
+                    'message' => 'Se agotó el rango de folios configurado para esta clave.',
+                ]);
+            }
 
-        $folioSeleccionValida = $this->resolveFolioClaveSeleccionInstitucional(
-            $folioClave,
-            [
-                'folio' => $payload['folio'] ?? $payload['folio_ui'] ?? $payload['folio_grupo'] ?? '',
-                'sub_folio' => $payload['sub_folio'] ?? $payload['subf_ui'] ?? '',
-            ],
-            (string) ($payload['folio_sugerencia_tipo'] ?? '')
-        );
+            $folioSeleccionValida = $this->resolveFolioClaveSeleccionInstitucional(
+                $folioClave,
+                [
+                    'folio' => $payload['folio'] ?? $payload['folio_ui'] ?? $payload['folio_grupo'] ?? '',
+                    'sub_folio' => $payload['sub_folio'] ?? $payload['subf_ui'] ?? '',
+                ],
+                (string) ($payload['folio_sugerencia_tipo'] ?? '')
+            );
+        }
         if (empty($folioSeleccionValida)) {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,

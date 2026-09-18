@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Libraries\DepositosProgramadosService;
+use App\Libraries\SecturiFoliosOficiales;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
 use CodeIgniter\API\ResponseTrait;
@@ -1123,35 +1124,39 @@ class Usuario extends BaseController
             $folioTable = (string) ($folioCatalog['table'] ?? '');
             $idCatFolio = (int) ($folioCatalog['id_cat'] ?? 0);
             $idClaveFolio = $this->nullableInt($data['id_clave'] ?? null);
-            $folioConfigurado = $this->resolveFolioClaveInstitucionalAlta($db, $folioTable, $idCatFolio, (int) ($idClaveFolio ?? 0));
 
-            if (empty($folioConfigurado)) {
-                return $this->respond([
-                    'error' => true,
-                    'respuesta' => 'No se ha configurado el folio inicial para esta clave.',
-                ]);
-            }
-            if ($this->isFolioClaveRangoAgotadoAlta($folioConfigurado)) {
-                return $this->respond([
-                    'error' => true,
-                    'respuesta' => 'Se agotó el rango de folios configurado para esta clave.',
-                ]);
-            }
-            $idClaveFolio = (int) ($folioConfigurado['id_clave'] ?? $idClaveFolio);
-            $data['id_clave'] = $idClaveFolio;
+            if ($grupoUsuario === 'secturi') {
+                $subFolioNormalizado = SecturiFoliosOficiales::normalizeSubFolio($subFolioBase);
+                $folioSeleccionValida = $this->resolveFolioSecturiSeleccionAlta($db, (int) ($idClaveFolio ?? 0), $folio, $subFolioNormalizado);
+                $folioConfigurado = $folioSeleccionValida;
+            } else {
+                $folioConfigurado = $this->resolveFolioClaveInstitucionalAlta($db, $folioTable, $idCatFolio, (int) ($idClaveFolio ?? 0));
 
-            $subFolioNormalizado = strtoupper(trim((string) $subFolioBase));
-            $subFolioNormalizado = preg_replace('/[^A-Z]/', '', $subFolioNormalizado);
-            $subFolioNormalizado = $subFolioNormalizado !== '' ? substr($subFolioNormalizado, 0, 1) : '';
-            $folioSeleccionado = [
-                'folio' => $folio,
-                'sub_folio' => $subFolioNormalizado,
-            ];
-            $folioSeleccionValida = $this->resolveFolioClaveSeleccionAlta(
-                $folioConfigurado,
-                $folioSeleccionado,
-                (string) ($data['folio_sugerencia_tipo'] ?? '')
-            );
+                if (empty($folioConfigurado)) {
+                    return $this->respond([
+                        'error' => true,
+                        'respuesta' => 'No se ha configurado el folio inicial para esta clave.',
+                    ]);
+                }
+                if ($this->isFolioClaveRangoAgotadoAlta($folioConfigurado)) {
+                    return $this->respond([
+                        'error' => true,
+                        'respuesta' => 'Se agotó el rango de folios configurado para esta clave.',
+                    ]);
+                }
+                $subFolioNormalizado = strtoupper(trim((string) $subFolioBase));
+                $subFolioNormalizado = preg_replace('/[^A-Z]/', '', $subFolioNormalizado);
+                $subFolioNormalizado = $subFolioNormalizado !== '' ? substr($subFolioNormalizado, 0, 1) : '';
+                $folioSeleccionado = [
+                    'folio' => $folio,
+                    'sub_folio' => $subFolioNormalizado,
+                ];
+                $folioSeleccionValida = $this->resolveFolioClaveSeleccionAlta(
+                    $folioConfigurado,
+                    $folioSeleccionado,
+                    (string) ($data['folio_sugerencia_tipo'] ?? '')
+                );
+            }
 
             if (empty($folioSeleccionValida)) {
                 return $this->respond([
@@ -1159,6 +1164,14 @@ class Usuario extends BaseController
                     'respuesta' => 'El folio sugerido ya no esta disponible. Actualiza la sugerencia.',
                 ]);
             }
+            $idClaveFolio = (int) ($folioSeleccionValida['id_clave'] ?? $folioConfigurado['id_clave'] ?? $idClaveFolio);
+            $folio = (string) ($folioSeleccionValida['folio'] ?? $folio);
+            $folioGrupo = $folio;
+            $subFolioBase = (string) ($folioSeleccionValida['sub_folio'] ?? $subFolioBase);
+            $data['id_clave'] = $idClaveFolio;
+            $data['folio'] = $folio;
+            $data['folio_grupo'] = $folioGrupo;
+            $data['sub_folio'] = $subFolioBase;
         }
 
         $personas = [];
@@ -1624,17 +1637,29 @@ class Usuario extends BaseController
             }
 
             if (!empty($folioConfigurado ?? []) && isset($idCatFolio, $idClaveFolio)) {
-                $advanceResult = $this->advanceFolioClaveInstitucionalAlta(
-                    $db,
-                    (string) ($folioTable ?? 'cat_claves'),
-                    (int) $idCatFolio,
-                    (int) ($idClaveFolio ?? 0),
-                    (string) $folioConfigurado['folio'],
-                    (string) ($folioConfigurado['folio_hasta'] ?? ''),
-                    (string) $folioConfigurado['sub_folio'],
-                    (string) ($folioSeleccionValida['folio'] ?? $folioConfigurado['folio']),
-                    (string) ($folioSeleccionValida['sub_folio'] ?? $folioConfigurado['sub_folio'])
-                );
+                if ($grupoUsuario === 'secturi') {
+                    $advanceResult = $this->consumeFolioSecturiAutorizadoAlta(
+                        $db,
+                        (int) ($idClaveFolio ?? 0),
+                        (string) ($folioSeleccionValida['clave'] ?? ''),
+                        (string) ($folioSeleccionValida['puntero_folio'] ?? ''),
+                        (string) ($folioSeleccionValida['puntero_sub_folio'] ?? ''),
+                        (string) ($folioSeleccionValida['folio'] ?? $folio),
+                        (string) ($folioSeleccionValida['sub_folio'] ?? $subFolioBase)
+                    );
+                } else {
+                    $advanceResult = $this->advanceFolioClaveInstitucionalAlta(
+                        $db,
+                        (string) ($folioTable ?? 'cat_claves'),
+                        (int) $idCatFolio,
+                        (int) ($idClaveFolio ?? 0),
+                        (string) $folioConfigurado['folio'],
+                        (string) ($folioConfigurado['folio_hasta'] ?? ''),
+                        (string) $folioConfigurado['sub_folio'],
+                        (string) ($folioSeleccionValida['folio'] ?? $folioConfigurado['folio']),
+                        (string) ($folioSeleccionValida['sub_folio'] ?? $folioConfigurado['sub_folio'])
+                    );
+                }
 
                 if (!$advanceResult) {
                     throw new \RuntimeException('El folio sugerido ya no esta disponible. Actualiza la sugerencia.');
@@ -3362,6 +3387,111 @@ class Usuario extends BaseController
         ];
 
         return $map[strtolower(trim($grupoUsuario))] ?? [];
+    }
+
+    private function resolveFolioSecturiSeleccionAlta($db, int $idClave, string $folio, string $subFolio): array
+    {
+        $folio = preg_replace('/\D+/', '', $folio);
+        $subFolio = SecturiFoliosOficiales::normalizeSubFolio($subFolio);
+
+        if ($idClave <= 0 || $folio === '' || $subFolio === '') {
+            return [];
+        }
+
+        $siguiente = $this->resolveSiguienteFolioSecturiAlta($db, $idClave);
+        if (empty($siguiente)) {
+            return [];
+        }
+
+        if ((string) $siguiente['folio'] !== $folio || (string) $siguiente['sub_folio'] !== $subFolio) {
+            return [];
+        }
+
+        return $siguiente;
+    }
+
+    private function consumeFolioSecturiAutorizadoAlta($db, int $idClave, string $clave, string $punteroFolio, string $punteroSubFolio, string $folio, string $subFolio): bool
+    {
+        $clave = SecturiFoliosOficiales::normalizeClave($clave);
+        $punteroFolio = preg_replace('/\D+/', '', $punteroFolio);
+        $punteroSubFolio = SecturiFoliosOficiales::normalizeSubFolio($punteroSubFolio);
+        $folio = preg_replace('/\D+/', '', $folio);
+        $subFolio = SecturiFoliosOficiales::normalizeSubFolio($subFolio);
+
+        if ($idClave <= 0 || $clave === '' || $punteroFolio === '' || $punteroSubFolio === '' || $folio === '' || $subFolio === '') {
+            return false;
+        }
+        if (!SecturiFoliosOficiales::contiene($clave, $folio, $subFolio)) {
+            return false;
+        }
+
+        $nextSubFolio = SecturiFoliosOficiales::siguienteSubFolio($clave, $subFolio);
+        $db->table('cat_claves_secturi')
+            ->where('visible', 1)
+            ->where('id_cat', 4)
+            ->where('id_clave', $idClave)
+            ->where('folio', $punteroFolio)
+            ->where('sub_folio', $punteroSubFolio)
+            ->update([
+                'folio' => $folio,
+                'sub_folio' => $nextSubFolio,
+            ]);
+
+        return $db->affectedRows() === 1;
+    }
+
+    private function resolveSiguienteFolioSecturiAlta($db, int $idClave): array
+    {
+        if ($idClave <= 0) {
+            return [];
+        }
+
+        $row = $db->table('cat_claves_secturi')
+            ->select('id_clave, clave, folio, sub_folio, visible')
+            ->where('visible', 1)
+            ->where('id_cat', 4)
+            ->where('id_clave', $idClave)
+            ->get()
+            ->getRowArray();
+
+        if (empty($row)) {
+            return [];
+        }
+
+        $clave = SecturiFoliosOficiales::normalizeClave((string) ($row['clave'] ?? ''));
+        $folio = preg_replace('/\D+/', '', (string) ($row['folio'] ?? ''));
+        $subFolioActual = SecturiFoliosOficiales::normalizeSubFolio($row['sub_folio'] ?? null);
+        if (!SecturiFoliosOficiales::contiene($clave, $folio, $subFolioActual)) {
+            return [];
+        }
+
+        foreach (SecturiFoliosOficiales::desdeSubFolio($clave, $subFolioActual) as $subFolio) {
+            if (!$this->folioSecturiUsuarioAsignadoAlta($db, (int) $row['id_clave'], $folio, $subFolio)) {
+                return [
+                    'id_clave' => (int) $row['id_clave'],
+                    'clave' => $clave,
+                    'folio' => $folio,
+                    'sub_folio' => $subFolio,
+                    'puntero_folio' => $folio,
+                    'puntero_sub_folio' => $subFolioActual,
+                ];
+            }
+        }
+
+        return [];
+    }
+
+    private function folioSecturiUsuarioAsignadoAlta($db, int $idClave, string $folio, string $subFolio): bool
+    {
+        return !empty($db->table('usuario')
+            ->select('id_usuario')
+            ->where('visible', 1)
+            ->where('id_clave', $idClave)
+            ->where('folio', $folio)
+            ->where('sub_folio', $subFolio)
+            ->limit(1)
+            ->get()
+            ->getRowArray());
     }
 
     private function resolveFolioClaveInstitucionalAlta($db, string $table, int $idCat, int $idClave): array
