@@ -1341,7 +1341,7 @@ class Usuario extends BaseController
                 'id_establecimiento' => $idEstablecimientoAlta,
                 'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
                 'id_partida' => $partidaUsuario,
-                'id_partida_alimentos' => ($tieneAlimentos) ? ($data['id_partida_alimentos'] ?? 3) : null,
+                'id_partida_alimentos' => $tieneAlimentos ? ($this->nullableInt($data['id_partida_alimentos'] ?? null) ?? 3) : null,
                 'id_pais' => $this->nullableInt($data['id_pais'] ?? null),
                 'id_estado' => $this->nullableInt($data['id_estado'] ?? null),
                 'id_clave' => $this->nullableInt($data['id_clave'] ?? null),
@@ -1555,7 +1555,7 @@ class Usuario extends BaseController
                     'visible' => 1,
                     'id_nivel_cliente' => $this->nullableInt($data['id_nivel_cliente'] ?? null),
                     'id_partida' => $partidaUsuario,
-                    'id_partida_alimentos' => ($tieneAlimentos) ? ($data['id_partida_alimentos'] ?? 3) : null,
+                    'id_partida_alimentos' => $tieneAlimentos ? ($this->nullableInt($data['id_partida_alimentos'] ?? null) ?? 3) : null,
                     'id_fic_perfil' => $this->nullableInt($assignment['id_fic_perfil'] ?? null),
                     'id_ug_perfil' => $this->nullableInt($assignment['id_ug_perfil'] ?? null),
                     'id_secul_perfil' => $this->nullableInt($assignment['id_secul_perfil'] ?? null),
@@ -3826,7 +3826,7 @@ class Usuario extends BaseController
         return in_array($table, ['cat_claves', 'cat_claves_secturi'], true);
     }
 
-    private function resolvePartidaAlta(array $data, string $grupoUsuario, array $existingRow = []): ?int
+    private function resolvePartidaAlta(array &$data, string $grupoUsuario, array $existingRow = []): ?int
     {
         $tieneAlimentos = (int) ($data['tiene_alimentos'] ?? 0) === 1;
         $tieneHospedaje = (int) ($data['tiene_hospedaje'] ?? 0) === 1;
