@@ -840,7 +840,16 @@ class Usuario extends BaseController
             ]);
         }
 
-        return $this->saveAltaUsuarioPayload($postData, $actorContext, (int) ($session->get('id_usuario') ?? 0), $scriptName);
+        try {
+            return $this->saveAltaUsuarioPayload($postData, $actorContext, (int) ($session->get('id_usuario') ?? 0), $scriptName);
+        } catch (\Throwable $e) {
+            log_message('error', 'Usuario.saveAltaUsuario.unhandled: ' . $e->getMessage());
+
+            return $this->respond([
+                'error' => true,
+                'respuesta' => 'No fue posible actualizar el usuario.',
+            ]);
+        }
     }
 
     private function normalizeHospedajePlanJson($value): ?string
@@ -933,6 +942,17 @@ class Usuario extends BaseController
                 'error' => true,
                 'respuesta' => 'El usuario que intentas editar no existe.',
             ]);
+        }
+
+        if ($isEditMode && $usuarioActual) {
+            $folioEditGuard = $this->guardInstitutionalEditFolioPayload($data, $usuarioActual);
+            if (!empty($folioEditGuard['error'])) {
+                return $this->respond([
+                    'error' => true,
+                    'respuesta' => (string) ($folioEditGuard['respuesta'] ?? 'No fue posible validar el folio institucional del usuario.'),
+                ]);
+            }
+            $data = $folioEditGuard['data'];
         }
 
         if (($data['grupo_usuario'] ?? '') === 'proveedor') {
@@ -4437,6 +4457,67 @@ class Usuario extends BaseController
         return (string) ($targetContext['active_group'] ?? '') === $grupoActor;
     }
 
+    private function guardInstitutionalEditFolioPayload(array $data, array $usuarioActual): array
+    {
+        $grupoActual = $this->resolveInstitutionalEditGroup($usuarioActual);
+        if ($grupoActual === '') {
+            return [
+                'error' => false,
+                'data' => $data,
+            ];
+        }
+
+        $grupoSolicitado = strtolower(trim((string) ($data['grupo_usuario'] ?? '')));
+        if ($grupoSolicitado !== '' && in_array($grupoSolicitado, ['fic', 'ug', 'secul', 'secturi'], true) && $grupoSolicitado !== $grupoActual) {
+            return [
+                'error' => true,
+                'respuesta' => 'El usuario ya cuenta con un folio institucional asignado y no puede cambiar de grupo desde la edición normal.',
+            ];
+        }
+
+        $perfilSolicitado = $this->nullableInt($data['id_perfil_catalogo'] ?? $data['id_perfil'] ?? null);
+        $grupoPerfilSolicitado = $this->resolveInstitutionalGroupFromBaseProfile($perfilSolicitado);
+        if ($grupoPerfilSolicitado !== '' && $grupoPerfilSolicitado !== $grupoActual) {
+            return [
+                'error' => true,
+                'respuesta' => 'El usuario ya cuenta con un folio institucional asignado y no puede cambiar de grupo desde la edición normal.',
+            ];
+        }
+
+        $data['grupo_usuario'] = $grupoActual;
+        $data['id_clave'] = $this->nullableInt($usuarioActual['id_clave'] ?? null);
+        $data['folio'] = trim((string) ($usuarioActual['folio'] ?? ''));
+        $data['folio_ui'] = $data['folio'];
+        $data['folio_grupo'] = trim((string) ($usuarioActual['folio_grupo'] ?? ($usuarioActual['folio'] ?? '')));
+        $data['sub_folio'] = trim((string) ($usuarioActual['sub_folio'] ?? ''));
+        $data['subf_ui'] = $data['sub_folio'];
+
+        return [
+            'error' => false,
+            'data' => $data,
+        ];
+    }
+
+    private function resolveInstitutionalEditGroup(array $usuarioActual): string
+    {
+        $context = $this->resolver->resolve($usuarioActual);
+        $grupo = strtolower(trim((string) ($context['active_group'] ?? '')));
+
+        return in_array($grupo, ['fic', 'ug', 'secul', 'secturi'], true) ? $grupo : '';
+    }
+
+    private function resolveInstitutionalGroupFromBaseProfile(?int $idPerfil): string
+    {
+        $map = [
+            4 => 'secturi',
+            8 => 'secul',
+            9 => 'fic',
+            10 => 'ug',
+        ];
+
+        return $map[(int) ($idPerfil ?? 0)] ?? '';
+    }
+
     private function handleInstitutionalUserEdit(
         array $data,
         array $usuarioActual,
@@ -4847,6 +4928,7 @@ class Usuario extends BaseController
     {
         $payload['pax_secuencia'] = (int) ($usuarioActual['pax_secuencia'] ?? ($payload['pax_secuencia'] ?? 1));
         $payload['es_titular_folio'] = (int) ($usuarioActual['es_titular_folio'] ?? ($payload['es_titular_folio'] ?? 1));
+        $payload['id_clave'] = $this->nullableInt($usuarioActual['id_clave'] ?? ($payload['id_clave'] ?? null));
         $payload['folio'] = trim((string) ($usuarioActual['folio'] ?? ($payload['folio'] ?? '')));
         $payload['folio_grupo'] = trim((string) ($usuarioActual['folio_grupo'] ?? ($payload['folio_grupo'] ?? ($payload['folio'] ?? ''))));
         $payload['sub_folio'] = trim((string) ($usuarioActual['sub_folio'] ?? ($payload['sub_folio'] ?? '')));
