@@ -955,7 +955,7 @@ class DepositosProgramadosService
             ]);
     }
 
-    private function resolveFoodPartidaByContext(array $context): ?int
+    public function resolveFoodPartidaByContext(array $context): ?int
     {
         $group = (string) ($context['active_group'] ?? '');
         $idTipoProveedor = (int) ($context['id_tipo_proveedor'] ?? 0);

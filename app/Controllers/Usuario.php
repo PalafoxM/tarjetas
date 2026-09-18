@@ -3923,6 +3923,11 @@ class Usuario extends BaseController
         return null; 
     }
 
+    private function resolveFoodPartidaByContext(array $context): ?int
+    {
+        return (new DepositosProgramadosService(null, $this->resolver))->resolveFoodPartidaByContext($context);
+    }
+
 
     private function resolveEstablecimientoAlta(array $data, string $grupoUsuario, ?int $selectedProfile, array $existingRow = []): ?int
     {
