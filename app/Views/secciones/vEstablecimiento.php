@@ -79,8 +79,27 @@ if (!empty($establecimientos)) {
 
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="establecimientos-pane" role="tabpanel" aria-labelledby="establecimientos-tab">
+                    <div class="row g-2 align-items-center mb-3">
+                        <div class="col-md-8 col-lg-6">
+                            <label class="visually-hidden" for="buscar-establecimientos-fic">Buscar establecimientos FIC</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark text-muted border-secondary">
+                                    <i class="mdi mdi-magnify"></i>
+                                </span>
+                                <input
+                                    type="search"
+                                    class="form-control bg-dark text-white border-secondary"
+                                    id="buscar-establecimientos-fic"
+                                    placeholder="Buscar establecimiento, tipo, proveedor o padrón..."
+                                    aria-label="Buscar establecimiento, tipo, proveedor o padrón">
+                                <button class="btn btn-outline-secondary" type="button" id="limpiar-establecimientos-fic">
+                                    Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-dark table-hover align-middle mb-0">
+                        <table class="table table-dark table-hover align-middle mb-0" id="tabla-establecimientos-fic">
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -97,7 +116,7 @@ if (!empty($establecimientos)) {
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($establecimientos as $establecimiento): ?>
-                                        <tr>
+                                        <tr data-fic-search-row>
                                             <td><?= esc((string) ($establecimiento->id_establecimiento ?? '')) ?></td>
                                             <td><?= esc((string) ($establecimiento->dsc_establecimiento ?? '')) ?></td>
                                             <td><?= esc((string) ($establecimiento->dsc_tipo ?? '')) ?></td>
@@ -105,6 +124,9 @@ if (!empty($establecimientos)) {
                                             <td><?= esc((string) ($establecimiento->no_proveedor ?? '')) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
+                                    <tr class="d-none" data-fic-no-results>
+                                        <td colspan="5" class="text-center text-muted py-4">No se encontraron coincidencias.</td>
+                                    </tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
@@ -112,8 +134,27 @@ if (!empty($establecimientos)) {
                 </div>
 
                 <div class="tab-pane fade" id="proveedores-pane" role="tabpanel" aria-labelledby="proveedores-tab">
+                    <div class="row g-2 align-items-center mb-3">
+                        <div class="col-md-8 col-lg-6">
+                            <label class="visually-hidden" for="buscar-proveedores-fic">Buscar proveedores FIC</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark text-muted border-secondary">
+                                    <i class="mdi mdi-magnify"></i>
+                                </span>
+                                <input
+                                    type="search"
+                                    class="form-control bg-dark text-white border-secondary"
+                                    id="buscar-proveedores-fic"
+                                    placeholder="Buscar establecimiento, padrón, proveedor, usuario o RFC..."
+                                    aria-label="Buscar establecimiento, padrón, proveedor, usuario o RFC">
+                                <button class="btn btn-outline-secondary" type="button" id="limpiar-proveedores-fic">
+                                    Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-dark table-hover align-middle mb-0">
+                        <table class="table table-dark table-hover align-middle mb-0" id="tabla-proveedores-fic">
                             <thead>
                                 <tr>
                                     <th>Establecimiento</th>
@@ -132,7 +173,7 @@ if (!empty($establecimientos)) {
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($proveedoresLigadosTab as $item): ?>
-                                        <tr>
+                                        <tr data-fic-search-row>
                                             <td><?= esc((string) ($item['dsc_establecimiento'] ?? '')) ?></td>
                                             <td><?= esc((string) ($item['no_proveedor'] ?? '')) ?></td>
                                             <td><?= esc((string) ($item['razon_social'] ?? 'Sin proveedor')) ?></td>
@@ -145,6 +186,9 @@ if (!empty($establecimientos)) {
                                             <td><?= esc((string) ($item['rfc'] ?? '')) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
+                                    <tr class="d-none" data-fic-no-results>
+                                        <td colspan="7" class="text-center text-muted py-4">No se encontraron coincidencias.</td>
+                                    </tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
@@ -154,6 +198,76 @@ if (!empty($establecimientos)) {
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var root = document.getElementById('establecimientos-fic-root');
+    if (!root) {
+        return;
+    }
+
+    function normalizarBusquedaFic(value) {
+        var text = String(value || '').toLowerCase();
+        if (typeof text.normalize === 'function') {
+            text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+        return text.trim();
+    }
+
+    function prepararBuscador(config) {
+        var input = root.querySelector(config.input);
+        var clearButton = root.querySelector(config.clearButton);
+        var table = root.querySelector(config.table);
+        if (!input || !clearButton || !table) {
+            return;
+        }
+
+        var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr[data-fic-search-row]'));
+        var noResultsRow = table.querySelector('tbody tr[data-fic-no-results]');
+
+        rows.forEach(function (row) {
+            row.dataset.ficSearchText = normalizarBusquedaFic(row.textContent || '');
+        });
+
+        function filtrar() {
+            var query = normalizarBusquedaFic(input.value);
+            var visibleCount = 0;
+
+            rows.forEach(function (row) {
+                var matches = query === '' || String(row.dataset.ficSearchText || '').indexOf(query) !== -1;
+                row.classList.toggle('d-none', !matches);
+                if (matches) {
+                    visibleCount += 1;
+                }
+            });
+
+            if (noResultsRow) {
+                noResultsRow.classList.toggle('d-none', query === '' || visibleCount > 0 || rows.length === 0);
+            }
+        }
+
+        input.addEventListener('input', filtrar);
+        clearButton.addEventListener('click', function () {
+            input.value = '';
+            filtrar();
+            input.focus();
+        });
+
+        filtrar();
+    }
+
+    prepararBuscador({
+        input: '#buscar-establecimientos-fic',
+        clearButton: '#limpiar-establecimientos-fic',
+        table: '#tabla-establecimientos-fic'
+    });
+
+    prepararBuscador({
+        input: '#buscar-proveedores-fic',
+        clearButton: '#limpiar-proveedores-fic',
+        table: '#tabla-proveedores-fic'
+    });
+})();
+</script>
 <?php return; ?>
 <?php endif; ?>
 <link rel="stylesheet" href="<?= base_url('css/fic-hotel.css') ?>?filever=<?= time() ?>">
