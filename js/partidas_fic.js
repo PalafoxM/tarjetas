@@ -10,6 +10,38 @@
         fn();
     }
 
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            var existing = document.querySelector('script[data-src="' + src + '"]');
+            if (existing) {
+                if (window.ApexCharts) {
+                    resolve();
+                    return;
+                }
+
+                existing.addEventListener('load', function () {
+                    resolve();
+                }, { once: true });
+                existing.addEventListener('error', function () {
+                    reject(new Error('No fue posible cargar ' + src));
+                }, { once: true });
+                return;
+            }
+
+            var script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            script.dataset.src = src;
+            script.onload = function () {
+                resolve();
+            };
+            script.onerror = function () {
+                reject(new Error('No fue posible cargar ' + src));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
     function toNumber(value) {
         if (value === null || value === undefined) {
             return 0;
@@ -29,6 +61,13 @@
         }).format(Number(value) || 0);
     }
 
+    function sanitizeKey(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'partida';
+    }
+
     function renderNoData(mount, message) {
         mount.innerHTML = '<div class="partidas-chart-empty">' + message + '</div>';
     }
@@ -37,12 +76,96 @@
         var formattedAvailable = formatCurrency(item.available);
 
         return '' +
-            '<button class="partidas-donut-card partidas-available-balance" type="button" data-partida-id="' + item.id + '" title="Saldo disponible: ' + formattedAvailable + '" aria-label="Saldo disponible: ' + formattedAvailable + '">' +
+            '<article class="partidas-donut-card" data-partida-id="' + item.id + '" title="Saldo disponible: ' + formattedAvailable + '" aria-label="Saldo disponible: ' + formattedAvailable + '">' +
                 '<span class="partidas-chart-summary-label">' + item.label + '</span>' +
                 '<strong class="partidas-donut-card__title">' + item.note + '</strong>' +
-                '<span class="partidas-available-label">Saldo disponible</span>' +
-                '<span class="partidas-available-amount">' + formattedAvailable + '</span>' +
-            '</button>';
+                '<div class="partidas-donut-card__chart" id="partidasDonut-' + sanitizeKey(item.label) + '"></div>' +
+            '</article>';
+    }
+
+    function renderSingleDonut(chartEl, item) {
+        if (typeof window.ApexCharts === 'undefined') {
+            chartEl.innerHTML = '<div class="partidas-chart-empty">ApexCharts no esta disponible.</div>';
+            return null;
+        }
+
+        var formattedAvailable = formatCurrency(item.available);
+        var chartOptions = {
+            chart: {
+                type: 'donut',
+                height: 310,
+                toolbar: { show: false },
+                foreColor: '#cbd5e1',
+                animations: {
+                    enabled: true,
+                    easing: 'easeinout',
+                    speed: 650
+                }
+            },
+            series: [item.available],
+            labels: ['Disponible'],
+            colors: [item.color],
+            legend: { show: false },
+            stroke: {
+                width: 0
+            },
+            states: {
+                hover: {
+                    filter: { type: 'lighten', value: 0.08 }
+                },
+                active: {
+                    allowMultipleDataPointsSelection: false,
+                    filter: { type: 'darken', value: 0.55 }
+                }
+            },
+            dataLabels: {
+                enabled: false
+            },
+            plotOptions: {
+                pie: {
+                    expandOnClick: false,
+                    donut: {
+                        size: '72%',
+                        labels: {
+                            show: true,
+                            name: {
+                                show: false
+                            },
+                            value: {
+                                show: false
+                            },
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: 'Disponible',
+                                color: '#93c5fd',
+                                fontSize: '14px',
+                                fontWeight: 800,
+                                formatter: function () {
+                                    return formattedAvailable;
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            tooltip: {
+                y: {
+                    formatter: function () {
+                        return 'Saldo disponible: ' + formattedAvailable;
+                    },
+                    title: {
+                        formatter: function () {
+                            return '';
+                        }
+                    }
+                }
+            }
+        };
+
+        var chart = new window.ApexCharts(chartEl, chartOptions);
+        chart.render();
+        return chart;
     }
 
     function destroyChartInstances(root) {
@@ -105,6 +228,33 @@
 
         destroyChartInstances(root);
         mount.innerHTML = '<div class="partidas-donut-grid">' + chartData.map(buildDonutCardMarkup).join('') + '</div>';
+
+        function mountChart() {
+            var chartInstances = [];
+            chartData.forEach(function (item) {
+                var chartEl = document.getElementById('partidasDonut-' + sanitizeKey(item.label));
+                if (!chartEl) {
+                    return;
+                }
+
+                var chart = renderSingleDonut(chartEl, item);
+                if (chart) {
+                    chartInstances.push(chart);
+                }
+            });
+            root.__partidasCharts = chartInstances;
+        }
+
+        if (window.ApexCharts) {
+            mountChart();
+            return;
+        }
+
+        loadScript('https://cdn.jsdelivr.net/npm/apexcharts@6/dist/apexcharts.min.js')
+            .then(mountChart)
+            .catch(function () {
+                renderNoData(mount, 'No fue posible cargar ApexCharts.');
+            });
     }
 
     onReady(function () {
