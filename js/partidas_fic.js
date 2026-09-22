@@ -72,6 +72,18 @@
         mount.innerHTML = '<div class="partidas-chart-empty">' + message + '</div>';
     }
 
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function resolveInitialBalance(dashboard) {
+        var meta = dashboard && typeof dashboard === 'object' && dashboard.meta && typeof dashboard.meta === 'object'
+            ? dashboard.meta
+            : {};
+        var initialBalance = toNumber(meta.saldo_inicial_2210);
+        return initialBalance > 0 ? initialBalance : 0;
+    }
+
     function buildDonutCardMarkup(item) {
         var formattedAvailable = formatCurrency(item.available);
 
@@ -102,9 +114,9 @@
                     speed: 650
                 }
             },
-            series: [item.available],
-            labels: ['Disponible'],
-            colors: [item.color],
+            series: [item.available, item.used],
+            labels: ['Disponible', 'Utilizado'],
+            colors: [item.color, 'rgba(71, 85, 105, 0.78)'],
             legend: { show: false },
             stroke: {
                 width: 0
@@ -151,12 +163,16 @@
             },
             tooltip: {
                 y: {
-                    formatter: function () {
-                        return 'Saldo disponible: ' + formattedAvailable;
+                    formatter: function (value, opts) {
+                        if (opts.seriesIndex === 1) {
+                            return formatCurrency(value);
+                        }
+
+                        return formatCurrency(value);
                     },
                     title: {
-                        formatter: function () {
-                            return '';
+                        formatter: function (seriesName) {
+                            return seriesName === 'Utilizado' ? 'Saldo utilizado' : 'Saldo disponible';
                         }
                     }
                 }
@@ -195,12 +211,15 @@
         }
 
         var partidas = Array.isArray(dashboard.partidas) ? dashboard.partidas : [];
+        var initialBalance = resolveInitialBalance(dashboard);
         var palette = ['#60a5fa', '#34d399', '#fbbf24', '#f97316', '#a78bfa', '#fb7185', '#22d3ee', '#c084fc'];
         var priorityOrder = { 2: 0, 3: 1, 1: 2 };
 
         var chartData = partidas
             .map(function (partida, index) {
-                var available = toNumber(partida.monto_disponible);
+                var rawAvailable = toNumber(partida.monto_disponible);
+                var available = initialBalance > 0 ? clamp(rawAvailable, 0, initialBalance) : 0;
+                var used = initialBalance > 0 ? Math.max(0, initialBalance - available) : 0;
                 var id = Number(partida.id_partida || 0);
 
                 return {
@@ -208,11 +227,12 @@
                     label: String(partida.partida || ('Partida ' + (index + 1))),
                     note: String(partida.des_partida || 'Sin descripcion'),
                     available: available,
+                    used: used,
                     color: String(partida.color_dashboard || palette[index % palette.length])
                 };
             })
             .filter(function (item) {
-                return item.available > 0 && (item.id === 2 || item.id === 3 || item.id === 1);
+                return initialBalance > 0 && (item.id === 2 || item.id === 3 || item.id === 1);
             })
             .sort(function (a, b) {
                 var aOrder = Object.prototype.hasOwnProperty.call(priorityOrder, a.id) ? priorityOrder[a.id] : 99;

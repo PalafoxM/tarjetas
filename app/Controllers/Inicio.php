@@ -18,6 +18,8 @@ require_once ROOTPATH . 'spout/src/Spout/Autoloader/autoload.php';
 class Inicio extends BaseController {
 
     use ResponseTrait;
+    private const PARTIDA_2210_SALDO_INICIAL_DASHBOARD = 216920.00;
+
     private $defaultData = array(
         'title' => 'Turnos 2.0',
         'layout' => 'plantilla/lytDefault',
@@ -4957,6 +4959,7 @@ class Inicio extends BaseController {
         $resumenOriginal = is_array($seed['resumen'] ?? null) ? $seed['resumen'] : [];
         $meta = is_array($seed['meta'] ?? null) ? $seed['meta'] : [];
         $meta['scope'] = 'partida_2210_temporal';
+        $meta['saldo_inicial_2210'] = number_format(self::PARTIDA_2210_SALDO_INICIAL_DASHBOARD, 2, '.', '');
 
         return [
             'resumen' => [
