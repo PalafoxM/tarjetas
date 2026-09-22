@@ -333,20 +333,30 @@ class DepositosProgramadosService
             return ['applied' => false, 'message' => 'El usuario no tiene vigencia completa para aplicar depositos.'];
         }
 
-        $start = $tipoEvento === 'activacion'
-            ? $referenceDate->setTime(0, 0, 0)
-            : $referenceDate->modify('+1 day')->setTime(0, 0, 0);
-        $start = $this->normalizeDateToStart($start);
-        if ($start < $vigenciaInicio) {
-            $start = $vigenciaInicio;
-        }
-        if ($start > $vigenciaFin) {
-            return ['applied' => false, 'message' => 'La vigencia ya concluyo.'];
-        }
+        if ($tipoEvento === 'activacion') {
+            $fechaActivacion = $referenceDate->setTime(0, 0, 0);
+            if ($fechaActivacion > $vigenciaFin) {
+                return ['applied' => false, 'message' => 'La vigencia ya concluyo.'];
+            }
 
-        $end = $this->endOfWeekSunday($start);
-        if ($end > $vigenciaFin) {
-            $end = $vigenciaFin;
+            $start = $this->normalizeDateToStart($vigenciaInicio);
+            $end = $referenceDate->setTime(23, 59, 59);
+            if ($end > $vigenciaFin) {
+                $end = $vigenciaFin;
+            }
+        } else {
+            $start = $this->normalizeDateToStart($referenceDate->modify('+1 day')->setTime(0, 0, 0));
+            if ($start < $vigenciaInicio) {
+                $start = $vigenciaInicio;
+            }
+            if ($start > $vigenciaFin) {
+                return ['applied' => false, 'message' => 'La vigencia ya concluyo.'];
+            }
+
+            $end = $this->endOfWeekSunday($start);
+            if ($end > $vigenciaFin) {
+                $end = $vigenciaFin;
+            }
         }
 
         $days = $this->countInclusiveDays($start, $end);
