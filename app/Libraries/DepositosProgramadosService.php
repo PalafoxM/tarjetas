@@ -224,12 +224,9 @@ class DepositosProgramadosService
         $response->respuesta = 'Error | No fue posible activar el QR';
 
         $user = $this->getUserRow($idUsuario);
-        if (
-            (int) ($user['activo_qr'] ?? 0) === 1
-            && round((float) ($user['monto_deposito_operativo'] ?? 0), 2) > 0
-        ) {
+        if ((int) ($user['activo_qr'] ?? 0) === 1) {
             $response->error = false;
-            $response->respuesta = 'QR ya estaba activo y el deposito inicial ya fue aplicado.';
+            $response->respuesta = 'QR ya estaba activo.';
             $response->id_usuario = $idUsuario;
             $response->aplicado = 0.00;
             return $response;
@@ -288,7 +285,7 @@ class DepositosProgramadosService
     {
         $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
         $users = $this->db->table('usuario')
-            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos')
+            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, fecha_ultimo_deposito_alimentos, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos')
             ->where('visible', 1)
             ->where('activo_qr', 1)
             ->groupStart()
@@ -359,18 +356,32 @@ class DepositosProgramadosService
             }
         }
 
-        $days = $this->countInclusiveDays($start, $end);
-        if ($days <= 0) {
-            return ['applied' => false, 'message' => 'No hay dias pendientes para aplicar.'];
-        }
-
         $dailyAmount = $this->resolveDailyAmount($user);
-        $foodAmount = (int) ($user['tiene_alimentos'] ?? 0) === 1 ? round($dailyAmount * $days, 2) : 0.00;
-        $hotelAmount = $tipoEvento === 'activacion' && (int) ($user['tiene_hospedaje'] ?? 0) === 1
+        $foodStart = $this->normalizeDateToStart($vigenciaInicio);
+        $ultimoDepositoAlimentos = $this->resolveUserDate($user, ['fecha_ultimo_deposito_alimentos']);
+        if ($ultimoDepositoAlimentos !== null) {
+            $siguienteDiaAlimentos = $ultimoDepositoAlimentos->modify('+1 day')->setTime(0, 0, 0);
+            if ($siguienteDiaAlimentos > $foodStart) {
+                $foodStart = $siguienteDiaAlimentos;
+            }
+        }
+        $foodEnd = $referenceDate->setTime(23, 59, 59);
+        if ($foodEnd > $vigenciaFin) {
+            $foodEnd = $vigenciaFin;
+        }
+        $foodDaysCalculados = (int) ($user['tiene_alimentos'] ?? 0) === 1
+            ? $this->countInclusiveDays($foodStart, $foodEnd)
+            : 0;
+
+        $foodAmountCalculado = $dailyAmount > 0 && $foodDaysCalculados > 0
+            ? round($dailyAmount * $foodDaysCalculados, 2)
+            : 0.00;
+        $hotelAmountCalculado = $tipoEvento === 'activacion' && (int) ($user['tiene_hospedaje'] ?? 0) === 1
             ? $this->resolveHospedajeAmount($user)
             : 0.00;
-        $totalApplied = round($foodAmount + $hotelAmount, 2);
-        if ($totalApplied <= 0) {
+
+        $totalCalculado = round($foodAmountCalculado + $hotelAmountCalculado, 2);
+        if ($totalCalculado <= 0) {
             return ['applied' => false, 'message' => 'El monto calculado es cero.'];
         }
 
@@ -383,18 +394,30 @@ class DepositosProgramadosService
             return ['applied' => false, 'message' => 'No hay saldo programado pendiente por aplicar.'];
         }
 
-        if ($totalApplied > $saldoPendienteLiberar) {
-            if ($hotelAmount >= $saldoPendienteLiberar) {
-                $hotelAmount = $saldoPendienteLiberar;
-                $foodAmount = 0.00;
-            } else {
-                $foodAmount = round($saldoPendienteLiberar - $hotelAmount, 2);
-            }
-            $totalApplied = $saldoPendienteLiberar;
+        $hotelAmountAplicado = round(min($hotelAmountCalculado, $saldoPendienteLiberar), 2);
+        $saldoDisponibleAlimentos = round(max(0.00, $saldoPendienteLiberar - $hotelAmountAplicado), 2);
+        $diasAlimentosAplicables = 0;
+        if ($foodAmountCalculado > 0 && $dailyAmount > 0 && $saldoDisponibleAlimentos >= $dailyAmount) {
+            $diasAlimentosAplicables = min(
+                $foodDaysCalculados,
+                (int) floor($saldoDisponibleAlimentos / $dailyAmount)
+            );
+        }
+        $foodAmountAplicado = round($diasAlimentosAplicables * $dailyAmount, 2);
+        $totalApplied = round($hotelAmountAplicado + $foodAmountAplicado, 2);
+        if ($totalApplied <= 0) {
+            return ['applied' => false, 'message' => 'No hay dias completos de alimentos ni hospedaje por aplicar.'];
         }
 
-        $saldoNuevoAlimentos = round($foodAmount, 2);
-        $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmount), 2);
+        $fechaUltimoDepositoAlimentos = null;
+        if ($diasAlimentosAplicables > 0) {
+            $fechaUltimoDepositoAlimentos = $foodStart
+                ->modify('+' . ($diasAlimentosAplicables - 1) . ' days')
+                ->format('Y-m-d');
+        }
+
+        $saldoNuevoAlimentos = round($foodAmountAplicado, 2);
+        $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmountAplicado), 2);
         $saldoNuevoReservado = $saldoAnteriorReservado;
         $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
         $programStatus = $saldoNuevoOperativo >= $saldoAnteriorReservado ? 'aplicado' : 'operativo';
@@ -411,7 +434,9 @@ class DepositosProgramadosService
                     'deposito_programado_estatus' => $programStatus,
                     'fec_act' => $referenceDate->format('Y-m-d H:i:s'),
                     'usu_act' => $actorUserId,
-                ]);
+                ] + ($fechaUltimoDepositoAlimentos !== null ? [
+                    'fecha_ultimo_deposito_alimentos' => $fechaUltimoDepositoAlimentos,
+                ] : []));
 
             if ($this->db->transStatus() === false) {
                 throw new RuntimeException('La transaccion de aplicacion no pudo completarse.');
@@ -425,6 +450,15 @@ class DepositosProgramadosService
                 'program_row' => [
                     'periodo_inicio' => $start->format('Y-m-d'),
                     'periodo_fin' => $end->format('Y-m-d'),
+                    'periodo_alimentos_inicio' => $foodDaysCalculados > 0 ? $foodStart->format('Y-m-d') : null,
+                    'periodo_alimentos_fin' => $foodDaysCalculados > 0 ? $foodEnd->format('Y-m-d') : null,
+                    'fecha_ultimo_deposito_alimentos' => $fechaUltimoDepositoAlimentos,
+                    'dias_alimentos_calculados' => $foodDaysCalculados,
+                    'dias_alimentos_aplicados' => $diasAlimentosAplicables,
+                    'monto_alimentos_calculado' => $foodAmountCalculado,
+                    'monto_alimentos_aplicado' => $foodAmountAplicado,
+                    'monto_hospedaje_calculado' => $hotelAmountCalculado,
+                    'monto_hospedaje_aplicado' => $hotelAmountAplicado,
                     'tipo_evento' => $tipoEvento,
                 ],
             ];
@@ -670,7 +704,7 @@ class DepositosProgramadosService
     {
         $now = $this->resolveDateTime($referenceDate) ?? new DateTimeImmutable('now', new DateTimeZone(self::TZ));
         $users = $this->db->table('usuario')
-            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos')
+            ->select('id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, fecha_ultimo_deposito_alimentos, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos')
             ->where('visible', 1)
             ->where('activo_qr', 1)
             ->groupStart()
@@ -1066,24 +1100,27 @@ class DepositosProgramadosService
 
     private function resolveDailyAmount(array $data): float
     {
+        $idNivel = (int) ($data['id_nivel_cliente'] ?? 0);
+        if ($idNivel > 0) {
+            $row = $this->db->table('cat_nivel_cliente')
+                ->select('monto_deposito')
+                ->where('id_nivel_cliente', $idNivel)
+                ->where('visible', 1)
+                ->get()
+                ->getRowArray();
+
+            $catalogAmount = round((float) ($row['monto_deposito'] ?? 0), 2);
+            if ($catalogAmount > 0) {
+                return $catalogAmount;
+            }
+        }
+
         $amount = round((float) ($data['monto_deposito'] ?? 0), 2);
         if ($amount > 0) {
             return $amount;
         }
 
-        $idNivel = (int) ($data['id_nivel_cliente'] ?? 0);
-        if ($idNivel <= 0) {
-            return 0.00;
-        }
-
-        $row = $this->db->table('cat_nivel_cliente')
-            ->select('monto_deposito')
-            ->where('id_nivel_cliente', $idNivel)
-            ->where('visible', 1)
-            ->get()
-            ->getRowArray();
-
-        return round((float) ($row['monto_deposito'] ?? 0), 2);
+        return 0.00;
     }
 
     private function resolveHospedajeAmount(array $data): float
