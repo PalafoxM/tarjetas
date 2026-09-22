@@ -37,25 +37,12 @@
         var formattedAvailable = formatCurrency(item.available);
 
         return '' +
-            '<article class="partidas-donut-card" data-partida-id="' + item.id + '">' +
-                '<div class="partidas-donut-card__head">' +
-                    '<div>' +
-                        '<span class="partidas-chart-summary-label">' + item.label + '</span>' +
-                        '<h3 class="partidas-donut-card__title">' + item.note + '</h3>' +
-                    '</div>' +
-                    '<div class="partidas-donut-card__meta">' +
-                        '<span>Disponible</span>' +
-                        '<strong>' + formattedAvailable + '</strong>' +
-                    '</div>' +
-                '</div>' +
-                '<button class="partidas-donut-card__chart partidas-available-balance" type="button" title="Saldo disponible: ' + formattedAvailable + '" aria-label="Saldo disponible: ' + formattedAvailable + '">' +
-                    '<span>Disponible</span>' +
-                    '<strong>' + formattedAvailable + '</strong>' +
-                '</button>' +
-                '<div class="partidas-donut-card__footer">' +
-                    '<span>Saldo disponible: ' + formattedAvailable + '</span>' +
-                '</div>' +
-            '</article>';
+            '<button class="partidas-donut-card partidas-available-balance" type="button" data-partida-id="' + item.id + '" title="Saldo disponible: ' + formattedAvailable + '" aria-label="Saldo disponible: ' + formattedAvailable + '">' +
+                '<span class="partidas-chart-summary-label">' + item.label + '</span>' +
+                '<strong class="partidas-donut-card__title">' + item.note + '</strong>' +
+                '<span class="partidas-available-label">Saldo disponible</span>' +
+                '<span class="partidas-available-amount">' + formattedAvailable + '</span>' +
+            '</button>';
     }
 
     function destroyChartInstances(root) {

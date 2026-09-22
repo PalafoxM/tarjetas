@@ -17,6 +17,8 @@ if (!empty($previewInterfaceActiva)) {
 $resumen = is_array($dashboardSeed['resumen'] ?? null) ? $dashboardSeed['resumen'] : [];
 $partidas = is_array($dashboardSeed['partidas'] ?? null) ? $dashboardSeed['partidas'] : [];
 $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
+$countPartidas = count($partidas);
+$partidasLabel = $countPartidas . ' ' . ($countPartidas === 1 ? 'partida' : 'partidas');
 ?>
 
 <div class="partidas-shell" id="partidas-fic-root"
@@ -39,7 +41,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
                 <span class="partidas-badge">Última actualización</span>
                 <div class="partidas-muted mt-2"><?= esc((string) ($meta['ultima_actualizacion'] ?? '--')) ?></div>
             </div>
-            <div class="partidas-muted">Fuente: <?= esc((string) ($meta['source'] ?? 'node')) ?> · <?= esc((string) count($partidas)) ?> partidas</div>
+            <div class="partidas-muted">Fuente: <?= esc((string) ($meta['source'] ?? 'node')) ?> · <?= esc($partidasLabel) ?></div>
         </div>
 
         <div class="partidas-grid">
