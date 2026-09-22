@@ -145,38 +145,7 @@
                     donut: {
                         size: '72%',
                         labels: {
-                            show: true,
-                            name: {
-                                show: true,
-                                color: '#93c5fd',
-                                fontSize: '14px',
-                                fontWeight: 800,
-                                offsetY: -10,
-                                formatter: function () {
-                                    return 'Disponible';
-                                }
-                            },
-                            value: {
-                                show: true,
-                                color: '#f8fafc',
-                                fontSize: '26px',
-                                fontWeight: 800,
-                                offsetY: 8,
-                                formatter: function () {
-                                    return formattedAvailable;
-                                }
-                            },
-                            total: {
-                                show: true,
-                                showAlways: true,
-                                label: 'Disponible',
-                                color: '#93c5fd',
-                                fontSize: '14px',
-                                fontWeight: 800,
-                                formatter: function () {
-                                    return formattedAvailable;
-                                }
-                            }
+                            show: false
                         }
                     }
                 }
