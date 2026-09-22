@@ -91,7 +91,13 @@
             '<article class="partidas-donut-card" data-partida-id="' + item.id + '" title="Saldo disponible: ' + formattedAvailable + '" aria-label="Saldo disponible: ' + formattedAvailable + '">' +
                 '<span class="partidas-chart-summary-label">' + item.label + '</span>' +
                 '<strong class="partidas-donut-card__title">' + item.note + '</strong>' +
-                '<div class="partidas-donut-card__chart" id="partidasDonut-' + sanitizeKey(item.label) + '"></div>' +
+                '<div class="partidas-donut-card__chart">' +
+                    '<div class="partidas-donut-card__apex" id="partidasDonut-' + sanitizeKey(item.label) + '"></div>' +
+                    '<div class="partidas-donut-center" aria-hidden="true">' +
+                        '<span>Disponible</span>' +
+                        '<strong>' + formattedAvailable + '</strong>' +
+                    '</div>' +
+                '</div>' +
             '</article>';
     }
 
@@ -141,10 +147,24 @@
                         labels: {
                             show: true,
                             name: {
-                                show: false
+                                show: true,
+                                color: '#93c5fd',
+                                fontSize: '14px',
+                                fontWeight: 800,
+                                offsetY: -10,
+                                formatter: function () {
+                                    return 'Disponible';
+                                }
                             },
                             value: {
-                                show: false
+                                show: true,
+                                color: '#f8fafc',
+                                fontSize: '26px',
+                                fontWeight: 800,
+                                offsetY: 8,
+                                formatter: function () {
+                                    return formattedAvailable;
+                                }
                             },
                             total: {
                                 show: true,

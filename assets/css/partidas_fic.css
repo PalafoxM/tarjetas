@@ -111,11 +111,13 @@
 }
 
 .partidas-multi-pie-chart {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
     border-radius: 16px;
-    border: 1px dashed rgba(96, 165, 250, .22);
-    background:
-        linear-gradient(180deg, rgba(148, 163, 184, .06), rgba(148, 163, 184, .03)),
-        repeating-linear-gradient(90deg, transparent, transparent 11.5%, rgba(96, 165, 250, .05) 11.5%, rgba(96, 165, 250, .05) 12.5%);
+    border: 1px solid rgba(96, 165, 250, .12);
+    background: rgba(15, 23, 42, .28);
     padding: 16px;
     min-height: 320px;
 }
@@ -179,20 +181,31 @@
 }
 
 .partidas-donut-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    display: flex;
+    width: 100%;
+    justify-content: center;
 }
 
 .partidas-donut-card {
-    background: rgba(30, 41, 59, .82);
-    border: 1px solid rgba(148, 163, 184, .12);
-    border-radius: 16px;
-    padding: 16px;
     display: flex;
+    width: 100%;
+    max-width: 620px;
+    min-height: 430px;
     flex-direction: column;
-    gap: 12px;
-    min-height: 380px;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    margin-inline: auto;
+    padding: 2rem 2rem 2.25rem;
+    border: 1px solid rgba(96, 165, 250, .28);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 50% 18%, rgba(96, 165, 250, .28), transparent 42%),
+        linear-gradient(180deg, rgba(15, 23, 42, .98), rgba(17, 24, 39, .98));
+    box-shadow: 0 22px 50px rgba(2, 6, 23, .32), inset 0 1px 0 rgba(255, 255, 255, .04);
+    color: #bfdbfe;
+    text-align: center;
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 
 .partidas-donut-card__head {
@@ -203,10 +216,19 @@
 }
 
 .partidas-donut-card__title {
-    margin: .3rem 0 0;
-    font-size: 1rem;
+    display: block;
+    margin: .2rem 0 1rem;
+    font-size: 1.2rem;
     font-weight: 800;
     color: #f8fafc;
+}
+
+.partidas-donut-card:hover,
+.partidas-donut-card:focus {
+    border-color: rgba(147, 197, 253, .58);
+    box-shadow: 0 26px 54px rgba(37, 99, 235, .24), inset 0 1px 0 rgba(255, 255, 255, .06);
+    outline: none;
+    transform: translateY(-1px);
 }
 
 .partidas-donut-card__meta {
@@ -224,7 +246,42 @@
 }
 
 .partidas-donut-card__chart {
-    min-height: 270px;
+    position: relative;
+    width: min(100%, 320px);
+    min-height: 310px;
+    margin-inline: auto;
+}
+
+.partidas-donut-card__apex,
+.partidas-donut-card__apex .apexcharts-canvas,
+.partidas-donut-card__apex svg {
+    max-width: 100%;
+}
+
+.partidas-donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+}
+
+.partidas-donut-center span {
+    color: #93c5fd;
+    font-size: .88rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+}
+
+.partidas-donut-center strong {
+    margin-top: .18rem;
+    color: #f8fafc;
+    font-size: clamp(1.45rem, 4vw, 1.85rem);
+    font-weight: 800;
+    line-height: 1.05;
 }
 
 .partidas-donut-card__footer {
@@ -301,8 +358,17 @@
 @media (max-width: 992px) {
     .partidas-grid,
     .partidas-chart-layout,
-    .partidas-chart-summary,
-    .partidas-donut-grid {
+    .partidas-chart-summary {
         grid-template-columns: 1fr;
+    }
+
+    .partidas-donut-card {
+        min-height: 360px;
+        padding: 1.35rem;
+    }
+
+    .partidas-donut-card__chart {
+        width: min(100%, 280px);
+        min-height: 280px;
     }
 }

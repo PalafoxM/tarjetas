@@ -218,8 +218,42 @@
 }
 
 .partidas-donut-card__chart {
+    position: relative;
     width: min(100%, 320px);
     min-height: 310px;
+    margin-inline: auto;
+}
+
+.partidas-donut-card__apex,
+.partidas-donut-card__apex .apexcharts-canvas,
+.partidas-donut-card__apex svg {
+    max-width: 100%;
+}
+
+.partidas-donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    text-align: center;
+}
+
+.partidas-donut-center span {
+    color: #93c5fd;
+    font-size: 0.88rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.partidas-donut-center strong {
+    margin-top: 0.18rem;
+    color: #f8fafc;
+    font-size: clamp(1.45rem, 4vw, 1.85rem);
+    font-weight: 800;
+    line-height: 1.05;
 }
 
 .partidas-donut-card__title {
