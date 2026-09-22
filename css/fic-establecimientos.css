@@ -76,6 +76,18 @@
     border-color: #4b5563;
 }
 
+#establecimientos-pane #buscar-establecimientos-fic,
+#establecimientos-pane #buscar-establecimientos-fic:focus {
+    background-color: #ffffff;
+    color: #1f2937 !important;
+    caret-color: #1f2937;
+}
+
+#establecimientos-pane #buscar-establecimientos-fic::placeholder {
+    color: #6b7280;
+    opacity: 1;
+}
+
 .text-uppercase-live {
     text-transform: uppercase;
 }

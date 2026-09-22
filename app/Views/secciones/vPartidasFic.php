@@ -84,7 +84,7 @@ $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
             <div class="partidas-chart-head">
                 <div>
                     <h2 class="partidas-chart-title">Distribución visual por partida</h2>
-                    <p class="partidas-chart-copy">Vista comparativa del presupuesto oficial por partida usando 3 donuts independientes para ver el consumo separado e interactivo.</p>
+                    <p class="partidas-chart-copy">Vista del presupuesto oficial por partida para consultar su consumo de forma interactiva.</p>
                 </div>
             </div>
             <div id="partidasMultiPieChart" class="partidas-multi-pie-chart"></div>

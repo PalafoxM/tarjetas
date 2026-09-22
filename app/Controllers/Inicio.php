@@ -4822,11 +4822,11 @@ class Inicio extends BaseController {
                         return (int) ($a['id_partida'] ?? 0) <=> (int) ($b['id_partida'] ?? 0);
                     });
 
-                    return [
+                    return $this->applyPartidasDashboardTemporaryScope([
                         'resumen' => is_array($payload['resumen'] ?? null) ? $payload['resumen'] : $defaultSeed['resumen'],
                         'partidas' => $partidasFinales,
                         'meta' => is_array($payload['meta'] ?? null) ? $payload['meta'] : $defaultSeed['meta'],
-                    ];
+                    ]);
                 }
             } catch (\Throwable $e) {
                 log_message('error', 'No fue posible consultar el seed de partidas en backSti (' . $url . '): ' . $e->getMessage());
@@ -4894,7 +4894,7 @@ class Inicio extends BaseController {
 
         $porcentajeGlobal = $montoPresupuesto > 0 ? (($montoEjercido / $montoPresupuesto) * 100) : 0;
 
-        return [
+        return $this->applyPartidasDashboardTemporaryScope([
             'resumen' => [
                 'monto_presupuesto' => '$' . number_format($montoPresupuesto, 2),
                 'monto_ejercido' => '$' . number_format($montoEjercido, 2),
@@ -4912,8 +4912,84 @@ class Inicio extends BaseController {
                 'ultima_actualizacion' => $fechaActualizacion !== '' ? $fechaActualizacion : date('Y-m-d H:i:s'),
                 'source' => 'local',
             ],
+        ]);
+    }
+
+    private function applyPartidasDashboardTemporaryScope(array $seed): array
+    {
+        // TEMP FIC 2026:
+        // Dashboard limitado temporalmente a partida 2210.
+        // Rehabilitar 3390A y 3390B cuando operación lo solicite.
+        $partidas = array_values(array_filter(
+            is_array($seed['partidas'] ?? null) ? $seed['partidas'] : [],
+            static function ($partida): bool {
+                if (!is_array($partida)) {
+                    return false;
+                }
+
+                return trim((string) ($partida['partida'] ?? '')) === '2210';
+            }
+        ));
+
+        $montoPresupuesto = 0.0;
+        $montoEjercido = 0.0;
+        $montoDisponible = 0.0;
+        $usuariosAsignados = 0;
+        $usuariosQrActivo = 0;
+        $movimientosCobro = 0;
+        $consumoOperativo = 0.0;
+
+        foreach ($partidas as $partida) {
+            $presupuesto = $this->parseDashboardMoneyValue($partida['monto_presupuesto'] ?? 0);
+            $ejercido = $this->parseDashboardMoneyValue($partida['monto_ejercido'] ?? 0);
+            $disponible = $this->parseDashboardMoneyValue($partida['monto_disponible'] ?? 0);
+
+            $montoPresupuesto += $presupuesto;
+            $montoEjercido += $ejercido;
+            $montoDisponible += $disponible;
+            $consumoOperativo += max(0, $presupuesto - $disponible);
+            $usuariosAsignados += (int) ($partida['usuarios_asignados'] ?? 0);
+            $usuariosQrActivo += (int) ($partida['usuarios_qr_activo'] ?? 0);
+            $movimientosCobro += (int) ($partida['movimientos_cobro'] ?? 0);
+        }
+
+        $porcentajeGlobal = $montoPresupuesto > 0 ? (($montoEjercido / $montoPresupuesto) * 100) : 0;
+        $resumenOriginal = is_array($seed['resumen'] ?? null) ? $seed['resumen'] : [];
+        $meta = is_array($seed['meta'] ?? null) ? $seed['meta'] : [];
+        $meta['scope'] = 'partida_2210_temporal';
+
+        return [
+            'resumen' => [
+                'monto_presupuesto' => '$' . number_format($montoPresupuesto, 2),
+                'monto_ejercido' => '$' . number_format($montoEjercido, 2),
+                'monto_disponible' => '$' . number_format($montoDisponible, 2),
+                'usuarios_asignados' => (string) $usuariosAsignados,
+                'usuarios_qr_activo' => (string) $usuariosQrActivo,
+                'movimientos_cobro' => (string) $movimientosCobro,
+                'consumo_operativo' => '$' . number_format($consumoOperativo, 2),
+                'porcentaje_ejercido' => number_format($porcentajeGlobal, 2) . '%',
+                'estatus' => (string) ($resumenOriginal['estatus'] ?? (!empty($partidas) ? 'Con datos' : 'Sin datos')),
+                'ultima_actualizacion' => (string) ($resumenOriginal['ultima_actualizacion'] ?? $meta['ultima_actualizacion'] ?? date('Y-m-d H:i:s')),
+            ],
+            'partidas' => $partidas,
+            'meta' => $meta,
         ];
     }
+
+    private function parseDashboardMoneyValue($value): float
+    {
+        if (is_numeric($value)) {
+            return round((float) $value, 2);
+        }
+
+        $normalized = preg_replace('/[^0-9.-]/', '', (string) $value);
+        if ($normalized === '' || $normalized === null) {
+            return 0.0;
+        }
+
+        return round((float) $normalized, 2);
+    }
+
     private function buildProviderDashboardData(int $idUsuario, int $idEstablecimientoFiltro = 0): array
 {
     $db = \Config\Database::connect();
