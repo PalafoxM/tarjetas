@@ -7947,6 +7947,7 @@ public function getPagosPorEstablecimiento()
         if ($idTipoEstablecimiento === 1) {
             return [
                 'id_perfil_solicitado' => 5,
+                'id_tipo_proveedor_usuario' => 2,
                 'tipo_solicitud' => 'alta_gerente',
                 'tipo_usuario_solicitado' => 'GERENTE',
             ];
@@ -7955,6 +7956,7 @@ public function getPagosPorEstablecimiento()
         if ($idTipoEstablecimiento === 2) {
             return [
                 'id_perfil_solicitado' => 7,
+                'id_tipo_proveedor_usuario' => 3,
                 'tipo_solicitud' => 'alta_recepcion',
                 'tipo_usuario_solicitado' => 'RECEPCI?N',
             ];
@@ -7962,6 +7964,7 @@ public function getPagosPorEstablecimiento()
 
         return [
             'id_perfil_solicitado' => 0,
+            'id_tipo_proveedor_usuario' => 0,
             'tipo_solicitud' => '',
             'tipo_usuario_solicitado' => 'SIN DEFINIR',
         ];
@@ -8342,7 +8345,7 @@ public function getPagosPorEstablecimiento()
         $fechaAhora = date('Y-m-d H:i:s');
         $insertData = [
             'id_proveedor' => (int) ($solicitud['id_proveedor'] ?? 0),
-            'id_tipo_proveedor' => (int) ($solicitud['id_tipo_proveedor'] ?? 0),
+            'id_tipo_proveedor' => (int) ($tipoInfo['id_tipo_proveedor_usuario'] ?? 0),
             'id_establecimiento' => (int) ($solicitud['id_establecimiento'] ?? 0),
             'id_perfil' => $idPerfil,
             'nombre' => (string) ($solicitud['nombre'] ?? ''),
