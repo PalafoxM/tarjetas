@@ -4,6 +4,7 @@ use App\Libraries\Curps;
 use App\Libraries\DepositosProgramadosService;
 use App\Libraries\Fechas;
 use App\Libraries\Funciones;
+use App\Libraries\PagoPartidaConciliacionService;
 use App\Libraries\SecturiFoliosOficiales;
 use App\Libraries\UsuarioPerfilResolver;
 use App\Models\Mglobal;
@@ -4750,6 +4751,15 @@ class Inicio extends BaseController {
     }
     private function buildPartidasDashboardSeed(): array
     {
+        $session = \Config\Services::session();
+
+        try {
+            $actorUserId = (int) ($session->get('id_usuario') ?? 0);
+            (new PagoPartidaConciliacionService())->conciliarPendientes($actorUserId, 100);
+        } catch (\Throwable $e) {
+            log_message('error', 'No fue posible conciliar pagos pendientes antes del dashboard de partidas: ' . $e->getMessage());
+        }
+
         $defaultSeed = [
             'resumen' => [
                 'monto_presupuesto' => '$0.00',
@@ -4769,7 +4779,6 @@ class Inicio extends BaseController {
             ],
         ];
 
-        $session = \Config\Services::session();
         $jwt = new \App\Libraries\Funciones();
         $token = $jwt->generateToken([
             'id' => (int) ($session->get('id_perfil') ?? 0),
@@ -6763,55 +6772,69 @@ public function getPagosPorEstablecimiento()
             'proveedor_id' => (int) ($usuarioProveedor['id_proveedor'] ?? 0),
         ]);
 
-        $db->transStart();
-        $db->table('solicitud_pago')->insert([
-            'folio_solicitud' => $folioSolicitud,
-            'id_usuario' => $idUsuarioCliente,
-            'id_establecimiento' => $idEstablecimientoProveedor,
-            'monto_solicitado' => number_format($total, 2, '.', ''),
-            'metodo_autorizacion' => 'web',
-            'estatus' => 'autorizado',
-            'token_autorizacion' => bin2hex(random_bytes(16)),
-            'fecha_respuesta' => $fechaAhora,
-            'motivo_rechazo' => null,
-            'observaciones' => $observacionesPago,
-            'fec_reg' => $fechaAhora,
-            'usu_reg' => $idSesionUsuario,
-            'fec_act' => $fechaAhora,
-            'usu_act' => $idSesionUsuario,
-            'visible' => 1,
-        ]);
-        $idSolicitudPago = (int) $db->insertID();
+        $idSolicitudPago = 0;
+        $idPago = 0;
+        $impactoPartida = [];
 
-        $db->table('usuario')
-            ->where('id_usuario', $idUsuarioCliente)
-            ->where('visible', 1)
-            ->update([
-                'monto_deposito' => number_format($saldoNuevo, 2, '.', ''),
+        $db->transBegin();
+        try {
+            $db->table('solicitud_pago')->insert([
+                'folio_solicitud' => $folioSolicitud,
+                'id_usuario' => $idUsuarioCliente,
+                'id_establecimiento' => $idEstablecimientoProveedor,
+                'monto_solicitado' => number_format($total, 2, '.', ''),
+                'metodo_autorizacion' => 'web',
+                'estatus' => 'autorizado',
+                'token_autorizacion' => bin2hex(random_bytes(16)),
+                'fecha_respuesta' => $fechaAhora,
+                'motivo_rechazo' => null,
+                'observaciones' => $observacionesPago,
+                'fec_reg' => $fechaAhora,
+                'usu_reg' => $idSesionUsuario,
                 'fec_act' => $fechaAhora,
                 'usu_act' => $idSesionUsuario,
+                'visible' => 1,
             ]);
+            $idSolicitudPago = (int) $db->insertID();
 
-        $db->table('pagos')->insert([
-            'id_tipo_pago' => 2,
-            'id_usuario' => $idUsuarioCliente,
-            'id_establecimiento' => $idEstablecimientoProveedor,
-            'id_solicitud_pago' => 3,
-            'monto' => number_format($monto, 2, '.', ''),
-            'propina' => number_format($propinaMonto, 2, '.', ''),
-            'total' => number_format($total, 2, '.', ''),
-            'fec_reg' => $fechaAhora,
-            'usu_reg' => $idSesionUsuario,
-            'visible' => 1,
-        ]);
-        $db->transComplete();
+            $db->table('usuario')
+                ->where('id_usuario', $idUsuarioCliente)
+                ->where('visible', 1)
+                ->update([
+                    'monto_deposito' => number_format($saldoNuevo, 2, '.', ''),
+                    'fec_act' => $fechaAhora,
+                    'usu_act' => $idSesionUsuario,
+                ]);
 
-        if ($db->transStatus() === false) {
+            $db->table('pagos')->insert([
+                'id_tipo_pago' => 2,
+                'id_usuario' => $idUsuarioCliente,
+                'id_establecimiento' => $idEstablecimientoProveedor,
+                'id_solicitud_pago' => $idSolicitudPago,
+                'monto' => number_format($monto, 2, '.', ''),
+                'propina' => number_format($propinaMonto, 2, '.', ''),
+                'total' => number_format($total, 2, '.', ''),
+                'fec_reg' => $fechaAhora,
+                'usu_reg' => $idSesionUsuario,
+                'visible' => 1,
+            ]);
+            $idPago = (int) $db->insertID();
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('La transaccion de pago no pudo completarse.');
+            }
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            log_message('error', 'Inicio.guardarPagoSinQrProveedor: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setJSON([
                 'ok' => false,
                 'message' => 'No fue posible aplicar el pago.',
             ]);
         }
+
+        $impactoPartida = (new PagoPartidaConciliacionService())->conciliarPago($idPago, $idSesionUsuario, $fechaAhora);
 
         return $this->response->setJSON([
             'ok' => true,
@@ -6819,6 +6842,7 @@ public function getPagosPorEstablecimiento()
             'data' => [
                 'id_usuario' => $idUsuarioCliente,
                 'folio' => $folio,
+                'id_pago' => $idPago,
                 'id_solicitud_pago' => $idSolicitudPago,
                 'folio_solicitud' => $folioSolicitud,
                 'monto' => number_format($monto, 2, '.', ''),
@@ -6826,6 +6850,7 @@ public function getPagosPorEstablecimiento()
                 'total' => number_format($total, 2, '.', ''),
                 'saldo_anterior' => number_format($saldoActual, 2, '.', ''),
                 'saldo_nuevo' => number_format($saldoNuevo, 2, '.', ''),
+                'impacto_partida' => $impactoPartida,
             ],
         ]);
     }
