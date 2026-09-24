@@ -4868,6 +4868,9 @@ class Inicio extends BaseController {
         $fechaActualizacion = '';
 
         foreach ($rows as $row) {
+            $idPartida = (int) ($row['id_partida'] ?? 0);
+            $partidaClave = trim((string) ($row['partida'] ?? ''));
+            $usuariosPartida = $this->countUsuariosAsignacionOperativaActivaPorPartida($idPartida, $partidaClave);
             $presupuesto = (float) ($row['monto_presupuesto'] ?? 0);
             $ejercido = (float) ($row['monto_ejercido'] ?? 0);
             $disponible = (float) ($row['monto_disponible'] ?? 0);
@@ -4877,7 +4880,7 @@ class Inicio extends BaseController {
             $montoEjercido += $ejercido;
             $montoDisponible += $disponible;
             $consumoOperativo += $consumo;
-            $usuariosAsignados += 0;
+            $usuariosAsignados += $usuariosPartida;
             $usuariosQrActivo += 0;
             $movimientosCobro += 0;
             $fechaAct = trim((string) ($row['fec_act'] ?? ''));
@@ -4886,7 +4889,7 @@ class Inicio extends BaseController {
             }
 
             $partidas[] = [
-                'id_partida' => (int) ($row['id_partida'] ?? 0),
+                'id_partida' => $idPartida,
                 'partida' => (string) ($row['partida'] ?? ''),
                 'des_partida' => (string) ($row['des_partida'] ?? ''),
                 'monto_presupuesto' => '$' . number_format($presupuesto, 2),
@@ -4894,7 +4897,7 @@ class Inicio extends BaseController {
                 'monto_disponible' => '$' . number_format($disponible, 2),
                 'consumo_operativo' => '$' . number_format($consumo, 2),
                 'porcentaje_ejercido' => number_format($porcentaje, 2) . '%',
-                'usuarios_asignados' => 0,
+                'usuarios_asignados' => $usuariosPartida,
                 'usuarios_qr_activo' => 0,
                 'movimientos_cobro' => 0,
                 'estatus' => (string) ($row['estatus'] ?? 'Sin definir'),
@@ -4924,6 +4927,48 @@ class Inicio extends BaseController {
                 'source' => 'local',
             ],
         ]);
+    }
+
+    private function countUsuariosAsignacionOperativaActivaPorPartida(int $idPartida, string $partidaClave = ''): int
+    {
+        if ($idPartida <= 0) {
+            return 0;
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table('usuario u')
+            ->select('COUNT(DISTINCT u.id_usuario) AS total')
+            ->where('u.visible', 1)
+            ->whereNotIn('u.id_perfil', [2, 5, 7])
+            ->groupStart()
+                ->where('u.id_tipo_proveedor IS NULL', null, false)
+                ->orWhere('u.id_tipo_proveedor', 0)
+            ->groupEnd();
+
+        $clave = strtoupper(trim($partidaClave));
+        if ($idPartida === 2 || $clave === '3390A') {
+            $builder
+                ->where('u.tiene_hospedaje', 1)
+                ->where('u.id_partida', $idPartida);
+        } elseif (in_array($idPartida, [1, 3], true) || in_array($clave, ['2210', '3390B'], true)) {
+            $builder
+                ->where('u.tiene_alimentos', 1)
+                ->groupStart()
+                    ->where('u.id_partida', $idPartida)
+                    ->orWhere('u.id_partida_alimentos', $idPartida)
+                ->groupEnd();
+        } else {
+            $builder
+                ->groupStart()
+                    ->where('u.tiene_alimentos', 1)
+                    ->orWhere('u.tiene_hospedaje', 1)
+                ->groupEnd()
+                ->where('u.id_partida', $idPartida);
+        }
+
+        $row = $builder->get()->getRowArray();
+
+        return (int) ($row['total'] ?? 0);
     }
 
     private function applyPartidasDashboardTemporaryScope(array $seed): array
