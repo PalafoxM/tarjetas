@@ -46,7 +46,7 @@
 
 .partidas-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
 }
 
@@ -250,6 +250,33 @@
     width: min(100%, 320px);
     min-height: 310px;
     margin-inline: auto;
+}
+
+.partidas-donut-card__usage {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: .5rem;
+    margin-top: .25rem;
+    padding: .65rem .95rem;
+    border: 1px solid rgba(148, 163, 184, .14);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, .58);
+    color: #cbd5e1;
+}
+
+.partidas-donut-card__usage span {
+    color: #94a3b8;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.partidas-donut-card__usage strong {
+    color: #f8fafc;
+    font-size: 1.05rem;
+    font-weight: 800;
 }
 
 .partidas-donut-card__apex,

@@ -86,9 +86,10 @@
 
     function buildDonutCardMarkup(item) {
         var formattedAvailable = formatCurrency(item.available);
+        var formattedUsed = formatCurrency(item.used);
 
         return '' +
-            '<article class="partidas-donut-card" data-partida-id="' + item.id + '" title="Saldo disponible: ' + formattedAvailable + '" aria-label="Saldo disponible: ' + formattedAvailable + '">' +
+            '<article class="partidas-donut-card" data-partida-id="' + item.id + '" title="Saldo disponible: ' + formattedAvailable + '. Saldo utilizado: ' + formattedUsed + '" aria-label="Saldo disponible: ' + formattedAvailable + '. Saldo utilizado: ' + formattedUsed + '">' +
                 '<span class="partidas-chart-summary-label">' + item.label + '</span>' +
                 '<strong class="partidas-donut-card__title">' + item.note + '</strong>' +
                 '<div class="partidas-donut-card__chart">' +
@@ -97,6 +98,10 @@
                         '<span>Disponible</span>' +
                         '<strong>' + formattedAvailable + '</strong>' +
                     '</div>' +
+                '</div>' +
+                '<div class="partidas-donut-card__usage" aria-label="Saldo utilizado">' +
+                    '<span>Utilizado</span>' +
+                    '<strong>' + formattedUsed + '</strong>' +
                 '</div>' +
             '</article>';
     }

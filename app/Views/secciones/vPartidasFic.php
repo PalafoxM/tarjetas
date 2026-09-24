@@ -19,6 +19,9 @@ $partidas = is_array($dashboardSeed['partidas'] ?? null) ? $dashboardSeed['parti
 $meta = is_array($dashboardSeed['meta'] ?? null) ? $dashboardSeed['meta'] : [];
 $countPartidas = count($partidas);
 $partidasLabel = $countPartidas . ' ' . ($countPartidas === 1 ? 'partida' : 'partidas');
+$saldoOriginal = is_numeric($meta['saldo_inicial_2210'] ?? null)
+    ? '$' . number_format((float) $meta['saldo_inicial_2210'], 2)
+    : (string) ($meta['saldo_inicial_2210'] ?? '$0.00');
 ?>
 
 <div class="partidas-shell" id="partidas-fic-root"
@@ -46,7 +49,12 @@ $partidasLabel = $countPartidas . ' ' . ($countPartidas === 1 ? 'partida' : 'par
 
         <div class="partidas-grid">
             <div class="partidas-card">
-                <span class="partidas-card__label">Disponible</span>
+                <span class="partidas-card__label">Saldo original</span>
+                <div class="partidas-card__value"><?= esc($saldoOriginal) ?></div>
+                <div class="partidas-card__note">Saldo inicial de la partida</div>
+            </div>
+            <div class="partidas-card">
+                <span class="partidas-card__label">Saldo vigente</span>
                 <div class="partidas-card__value"><?= esc((string) ($resumen['monto_disponible'] ?? '$0.00')) ?></div>
                 <div class="partidas-card__note">Saldo vigente por partida</div>
             </div>
