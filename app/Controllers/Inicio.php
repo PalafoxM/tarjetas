@@ -4753,13 +4753,6 @@ class Inicio extends BaseController {
     {
         $session = \Config\Services::session();
 
-        try {
-            $actorUserId = (int) ($session->get('id_usuario') ?? 0);
-            (new PagoPartidaConciliacionService())->conciliarPendientes($actorUserId, 100);
-        } catch (\Throwable $e) {
-            log_message('error', 'No fue posible conciliar pagos pendientes antes del dashboard de partidas: ' . $e->getMessage());
-        }
-
         $defaultSeed = [
             'resumen' => [
                 'monto_presupuesto' => '$0.00',
