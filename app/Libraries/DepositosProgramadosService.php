@@ -365,10 +365,7 @@ class DepositosProgramadosService
                 $foodStart = $siguienteDiaAlimentos;
             }
         }
-        $foodEnd = $referenceDate->setTime(23, 59, 59);
-        if ($foodEnd > $vigenciaFin) {
-            $foodEnd = $vigenciaFin;
-        }
+        $foodEnd = $this->resolveFoodEnd($referenceDate, $vigenciaFin, $tipoEvento);
         $foodDaysCalculados = (int) ($user['tiene_alimentos'] ?? 0) === 1
             ? $this->countInclusiveDays($foodStart, $foodEnd)
             : 0;
@@ -1183,6 +1180,15 @@ class DepositosProgramadosService
         $offset = 7 - $dayOfWeek;
 
         return $date->modify('+' . $offset . ' days')->setTime(23, 59, 59);
+    }
+
+    private function resolveFoodEnd(DateTimeImmutable $referenceDate, DateTimeImmutable $vigenciaFin, string $tipoEvento): DateTimeImmutable
+    {
+        $foodEnd = $tipoEvento === 'activacion'
+            ? $this->endOfWeekSunday($referenceDate)
+            : $referenceDate->setTime(23, 59, 59);
+
+        return $foodEnd > $vigenciaFin ? $vigenciaFin : $foodEnd;
     }
 
     private function countInclusiveDays(DateTimeImmutable $start, DateTimeImmutable $end): int
