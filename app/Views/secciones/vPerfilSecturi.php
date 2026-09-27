@@ -94,6 +94,17 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
                 Ver facturas
             </a>
         </article>
+
+         <article class="fic-access-card fic-access-card--teal">
+            <div>
+                <span class="fic-access-card__category">Restaurantes Consumos</span>
+                <h2>Consumos</h2>
+                <p>Consulta movimientos de consumo en restaurantes.</p>
+            </div>
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/Consumos') ?>">
+                Consultar consumos
+            </a>
+        </article>
     </section>
 </div>
 
