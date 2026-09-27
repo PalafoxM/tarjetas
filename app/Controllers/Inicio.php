@@ -965,6 +965,93 @@ class Inicio extends BaseController {
         exit;
     }
 
+   public function Consumos()
+    {
+        $session = \Config\Services::session();
+        $Mglobal = new Mglobal;
+        $data = array();
+
+        $establecimiento = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => [
+                'id_tipo' => 1,
+                'visible' => 1,
+            ],
+        ]);
+
+        if (isset($establecimiento->data) && !empty($establecimiento->data)) {
+            
+            foreach ($establecimiento->data as $k => $v) {
+                // 1. Inicializamos en 0 por si el establecimiento no tiene pagos
+                $montoTotal = 0; 
+                
+                $monto = $Mglobal->getTabla([
+                    'tabla' => 'pagos',
+                    'where' => [
+                        'id_establecimiento' => $v->id_establecimiento,
+                        'visible' => 1,
+                    ],
+                ]); 
+                
+                if(isset($monto->data) && !empty($monto->data)){
+                    foreach ($monto->data as $key => $value) {
+                        $montoTotal += $value->monto;
+                    }
+                }
+                
+                // 2. Asignamos el monto total (sea 0 o la suma de sus pagos) al objeto
+                $establecimiento->data[$k]->monto_total = $montoTotal;
+            }
+        }
+        
+        // Pasamos la variable $establecimiento a la vista si es necesario
+        $data['establecimientos'] = $establecimiento;
+        //die(var_dump($data['establecimientos']));
+        $data['scripts']     = array('principal', 'agregar');
+        $data['contentView'] = 'secciones/vConsumos';
+        $this->_renderView($data);
+    }
+
+    public function DetalleConsumos(int $idEstablecimiento = 0)
+    {
+        if ($idEstablecimiento <= 0) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Establecimiento no válido.');
+        }
+
+        $db = \Config\Database::connect();
+        $establecimiento = $db->table('establecimiento')
+            ->select('id_establecimiento, no_proveedor, dsc_establecimiento')
+            ->where('id_establecimiento', $idEstablecimiento)
+            ->where('id_tipo', 1)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($establecimiento)) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('El restaurante solicitado no existe.');
+        }
+
+        $pagos = $db->table('pagos p')
+            ->select("\n                p.id_pago,\n                p.id_solicitud_pago,\n                p.id_usuario,\n                p.monto,\n                p.propina,\n                p.total,\n                p.fec_reg,\n                sp.folio_solicitud,\n                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS cliente\n            ", false)
+            ->join('usuario u', 'u.id_usuario = p.id_usuario', 'left')
+            ->join('solicitud_pago sp', 'sp.id_solicitud_pago = p.id_solicitud_pago', 'left')
+            ->where('p.id_establecimiento', $idEstablecimiento)
+            ->where('p.visible', 1)
+            ->orderBy('p.fec_reg', 'DESC')
+            ->orderBy('p.id_pago', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        $data = [
+            'establecimientoConsumos' => $establecimiento,
+            'pagosConsumos' => $pagos,
+            'scripts' => ['principal', 'agregar'],
+            'contentView' => 'secciones/vConsumosDetalle',
+        ];
+
+        $this->_renderView($data);
+    }
+
     private function resolveReporteVentasOrdenPago(array $row): string
     {
         $folioSolicitud = trim((string) ($row['folio_solicitud'] ?? ''));
@@ -6740,9 +6827,8 @@ public function getPagosPorEstablecimiento()
 
         $folio = strtoupper(trim((string) ($this->request->getPost('folio') ?? '')));
         $monto = round((float) ($this->request->getPost('monto') ?? 0), 2);
-        $propinaPorcentaje = (int) ($this->request->getPost('propina_porcentaje') ?? 0);
+        $propinaPorcentaje = 0;
         $nip = trim((string) ($this->request->getPost('nip') ?? ''));
-        $porcentajesPermitidos = [0, 5, 10, 15, 20];
 
         if (!preg_match('/^FIC-(\d+)-QR$/', $folio, $matches)) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -6752,10 +6838,10 @@ public function getPagosPorEstablecimiento()
         }
 
         $idUsuarioCliente = (int) ($matches[1] ?? 0);
-        if ($idUsuarioCliente <= 0 || $monto <= 0 || !in_array($propinaPorcentaje, $porcentajesPermitidos, true) || $nip === '') {
+        if ($idUsuarioCliente <= 0 || $monto <= 0 || $nip === '') {
             return $this->response->setStatusCode(422)->setJSON([
                 'ok' => false,
-                'message' => 'Completa folio, monto, propina y NIP con valores validos.',
+                'message' => 'Completa folio, monto y NIP con valores válidos.',
             ]);
         }
 
@@ -6780,8 +6866,8 @@ public function getPagosPorEstablecimiento()
             ]);
         }
 
-        $propinaMonto = round($monto * $propinaPorcentaje / 100, 2);
-        $total = round($monto + $propinaMonto, 2);
+        $propinaMonto = 0.0;
+        $total = $monto;
         $saldoActual = round((float) ($cliente['monto_deposito'] ?? 0), 2);
 
         if ($total > $saldoActual) {

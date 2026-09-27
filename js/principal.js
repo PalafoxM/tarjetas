@@ -746,7 +746,7 @@ window.cajeros = {
                 cajeros.limpiarPagoSinQr();
             });
 
-        $('#pago_sin_qr_monto, #pago_sin_qr_propina')
+        $('#pago_sin_qr_monto')
             .off('input.pagoSinQr change.pagoSinQr')
             .on('input.pagoSinQr change.pagoSinQr', this.actualizarTotalPagoSinQr.bind(this));
 
@@ -909,11 +909,7 @@ window.cajeros = {
     },
     actualizarTotalPagoSinQr: function () {
         var monto = Number($('#pago_sin_qr_monto').val() || 0);
-        var porcentaje = Number($('#pago_sin_qr_propina').val() || 0);
-        var propina = monto > 0 ? (monto * porcentaje / 100) : 0;
-        var total = monto + propina;
-
-        $('#pago_sin_qr_total').val(total > 0 ? total.toFixed(2) : '');
+        $('#pago_sin_qr_total').val(monto > 0 ? monto.toFixed(2) : '');
     },
     enviarPagoSinQr: function () {
         var boton = $('#btnEnviarPagoSinQr');

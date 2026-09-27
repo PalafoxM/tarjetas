@@ -36,6 +36,8 @@ $routes->get('Inicio/PagosFic', 'Inicio::PagosFic');
 $routes->get('Inicio/FacturasFic', 'Inicio::FacturasFic');
 $routes->get('Inicio/SolicitudesUsuarioFic', 'Inicio::SolicitudesUsuarioFic');
 $routes->get('Inicio/ReportesInstitucionales', 'Inicio::ReportesInstitucionales');
+$routes->get('Inicio/Consumos', 'Inicio::Consumos');
+$routes->get('Inicio/Consumos/(:num)', 'Inicio::DetalleConsumos/$1');
 $routes->get('Inicio/exportarReporteInstitucionalSaldosPdf/(:segment)', 'Inicio::exportarReporteInstitucionalSaldosPdf/$1');
 $routes->get('Inicio/exportarReporteInstitucionalConsumosPdf/(:segment)', 'Inicio::exportarReporteInstitucionalConsumosPdf/$1');
 $routes->get('Inicio/getFacturasFic', 'Inicio::getFacturasFic');

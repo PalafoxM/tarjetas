@@ -621,7 +621,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Captura el folio del cliente, monto, propina y NIP para aplicar el cargo al saldo disponible.</p>
+                    <p class="text-muted mb-3">Captura el folio del cliente, monto y NIP para aplicar el cargo al saldo disponible.</p>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label" for="pago_sin_qr_folio">Folio</label>
@@ -630,16 +630,6 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                         <div class="col-md-6">
                             <label class="form-label" for="pago_sin_qr_monto">Monto</label>
                             <input type="number" step="0.01" min="0.01" id="pago_sin_qr_monto" name="monto" class="form-control" required autocomplete="off">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="pago_sin_qr_propina">Propina</label>
-                            <select id="pago_sin_qr_propina" name="propina_porcentaje" class="form-select" required>
-                                <option value="0">0%</option>
-                                <option value="5">5%</option>
-                                <option value="10">10%</option>
-                                <option value="15">15%</option>
-                                <option value="20">20%</option>
-                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="pago_sin_qr_total">Total</label>
