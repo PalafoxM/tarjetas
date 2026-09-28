@@ -115,6 +115,76 @@ final class DepositosProgramadosServiceActivationHorizonTest extends CIUnitTestC
         $this->assertSame('2026-09-24', $foodEnd->format('Y-m-d'));
     }
 
+    public function testWeeklyFoodBalanceAccumulatesOverConsumedBalance(): void
+    {
+        $balance = $this->invokeServiceMethod(
+            'calculateFoodBalanceAfterApplication',
+            'semanal',
+            183.0,
+            660.0
+        );
+
+        $this->assertSame(843.0, $balance);
+    }
+
+    public function testWeeklyFoodBalanceAccumulatesWhenThereWereNoConsumptions(): void
+    {
+        $balance = $this->invokeServiceMethod(
+            'calculateFoodBalanceAfterApplication',
+            'semanal',
+            1760.0,
+            660.0
+        );
+
+        $this->assertSame(2420.0, $balance);
+    }
+
+    public function testActivationFoodBalanceKeepsReplacementSemantics(): void
+    {
+        $balance = $this->invokeServiceMethod(
+            'calculateFoodBalanceAfterApplication',
+            'activacion',
+            220.0,
+            2420.0
+        );
+
+        $this->assertSame(2420.0, $balance);
+    }
+
+    public function testWeeklyWindowWithSundayMarkerDoesNotApplyAgain(): void
+    {
+        $window = $this->weeklyFoodWindow([
+            'fec_vigencia_desde' => '2026-09-17',
+            'fec_vigencia_hasta' => '2026-10-25',
+            'fecha_ultimo_deposito_alimentos' => '2026-09-27',
+            'tiene_alimentos' => 1,
+            'monto_deposito' => 220,
+        ], '2026-09-27');
+
+        $this->assertSame('2026-09-28', $window['start']);
+        $this->assertSame('2026-09-27', $window['end']);
+        $this->assertSame(0, $window['days']);
+        $this->assertSame(0.0, $window['amount']);
+        $this->assertNull($window['marker']);
+    }
+
+    public function testWeeklyWindowIsCappedByValidityEnd(): void
+    {
+        $window = $this->weeklyFoodWindow([
+            'fec_vigencia_desde' => '2026-09-17',
+            'fec_vigencia_hasta' => '2026-09-26',
+            'fecha_ultimo_deposito_alimentos' => '2026-09-24',
+            'tiene_alimentos' => 1,
+            'monto_deposito' => 220,
+        ], '2026-09-24');
+
+        $this->assertSame('2026-09-25', $window['start']);
+        $this->assertSame('2026-09-26', $window['end']);
+        $this->assertSame(2, $window['days']);
+        $this->assertSame(440.0, $window['amount']);
+        $this->assertSame('2026-09-26', $window['marker']);
+    }
+
     private function activationFoodWindow(array $user, string $referenceDate): array
     {
         $vigenciaInicio = $this->invokeServiceMethod('resolveUserDate', $user, ['fec_vigencia_desde']);
@@ -130,6 +200,38 @@ final class DepositosProgramadosServiceActivationHorizonTest extends CIUnitTestC
         }
 
         $foodEnd = $this->invokeServiceMethod('resolveFoodEnd', $this->date($referenceDate), $vigenciaFin, 'activacion');
+        $foodDays = (int) ($user['tiene_alimentos'] ?? 0) === 1
+            ? $this->invokeServiceMethod('countInclusiveDays', $foodStart, $foodEnd)
+            : 0;
+        $foodAmount = $foodDays > 0 ? round($foodDays * (float) ($user['monto_deposito'] ?? 0), 2) : 0.0;
+        $marker = $foodDays > 0
+            ? $foodStart->modify('+' . ($foodDays - 1) . ' days')->format('Y-m-d')
+            : null;
+
+        return [
+            'start' => $foodStart->format('Y-m-d'),
+            'end' => $foodEnd->format('Y-m-d'),
+            'days' => $foodDays,
+            'amount' => $foodAmount,
+            'marker' => $marker,
+        ];
+    }
+
+    private function weeklyFoodWindow(array $user, string $referenceDate): array
+    {
+        $vigenciaInicio = $this->invokeServiceMethod('resolveUserDate', $user, ['fec_vigencia_desde']);
+        $vigenciaFin = $this->invokeServiceMethod('resolveUserDate', $user, ['fec_vigencia_hasta']);
+        $foodStart = $this->invokeServiceMethod('normalizeDateToStart', $vigenciaInicio);
+        $ultimoDepositoAlimentos = $this->invokeServiceMethod('resolveUserDate', $user, ['fecha_ultimo_deposito_alimentos']);
+
+        if ($ultimoDepositoAlimentos !== null) {
+            $siguienteDiaAlimentos = $ultimoDepositoAlimentos->modify('+1 day')->setTime(0, 0, 0);
+            if ($siguienteDiaAlimentos > $foodStart) {
+                $foodStart = $siguienteDiaAlimentos;
+            }
+        }
+
+        $foodEnd = $this->invokeServiceMethod('resolveFoodEnd', $this->date($referenceDate), $vigenciaFin, 'semanal');
         $foodDays = (int) ($user['tiene_alimentos'] ?? 0) === 1
             ? $this->invokeServiceMethod('countInclusiveDays', $foodStart, $foodEnd)
             : 0;

@@ -356,6 +356,10 @@ class DepositosProgramadosService
             }
         }
 
+        if ($tipoEvento !== 'activacion') {
+            return $this->applyCurrentWindowWithLockedUser($user, $tipoEvento, $referenceDate, $actorUserId);
+        }
+
         $dailyAmount = $this->resolveDailyAmount($user);
         $foodStart = $this->normalizeDateToStart($vigenciaInicio);
         $ultimoDepositoAlimentos = $this->resolveUserDate($user, ['fecha_ultimo_deposito_alimentos']);
@@ -413,7 +417,7 @@ class DepositosProgramadosService
                 ->format('Y-m-d');
         }
 
-        $saldoNuevoAlimentos = round($foodAmountAplicado, 2);
+        $saldoNuevoAlimentos = $this->calculateFoodBalanceAfterApplication($tipoEvento, $saldoAnteriorAlimentos, $foodAmountAplicado);
         $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmountAplicado), 2);
         $saldoNuevoReservado = $saldoAnteriorReservado;
         $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
@@ -465,6 +469,168 @@ class DepositosProgramadosService
             log_message('error', 'DepositosProgramadosService.applyCurrentWindow: ' . $e->getMessage());
             return ['applied' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    private function applyCurrentWindowWithLockedUser(array $user, string $tipoEvento, DateTimeImmutable $referenceDate, int $actorUserId): array
+    {
+        $idUsuario = (int) ($user['id_usuario'] ?? 0);
+        if ($idUsuario <= 0) {
+            return ['applied' => false, 'message' => 'Usuario invalido.'];
+        }
+
+        $this->db->transBegin();
+        try {
+            $lockedUser = $this->db->query(
+                'SELECT id_usuario, id_establecimiento, id_partida, id_perfil, id_tipo_proveedor, id_fic_perfil, id_secul_perfil, id_ug_perfil, id_secturi_perfil, monto_deposito, monto_deposito_hotel, monto_deposito_reservado, monto_deposito_operativo, deposito_programado_estatus, fecha_ultimo_deposito_alimentos, activo_qr, fec_vigencia_desde, fec_vigencia_hasta, fecha_check_in, fecha_check_out, tarifa_total, tarifa_noche, noche, tiene_alimentos, tiene_hospedaje, id_nivel_cliente, visible, id_partida_alimentos
+                 FROM usuario
+                 WHERE id_usuario = ?
+                   AND visible = 1
+                 FOR UPDATE',
+                [$idUsuario]
+            )->getRowArray();
+
+            if (empty($lockedUser)) {
+                throw new RuntimeException('El usuario no existe o no esta visible.');
+            }
+
+            $vigenciaInicio = $this->resolveUserDate($lockedUser, ['fec_vigencia_desde', 'fecha_check_in']);
+            $vigenciaFin = $this->resolveUserDate($lockedUser, ['fec_vigencia_hasta', 'fecha_check_out']);
+            if ($vigenciaInicio === null || $vigenciaFin === null) {
+                $this->db->transRollback();
+                return ['applied' => false, 'message' => 'El usuario no tiene vigencia completa para aplicar depositos.'];
+            }
+
+            $start = $this->normalizeDateToStart($referenceDate->modify('+1 day')->setTime(0, 0, 0));
+            if ($start < $vigenciaInicio) {
+                $start = $vigenciaInicio;
+            }
+            if ($start > $vigenciaFin) {
+                $this->db->transRollback();
+                return ['applied' => false, 'message' => 'La vigencia ya concluyo.'];
+            }
+
+            $end = $this->endOfWeekSunday($start);
+            if ($end > $vigenciaFin) {
+                $end = $vigenciaFin;
+            }
+
+            $dailyAmount = $this->resolveDailyAmount($lockedUser);
+            $foodStart = $this->normalizeDateToStart($vigenciaInicio);
+            $ultimoDepositoAlimentos = $this->resolveUserDate($lockedUser, ['fecha_ultimo_deposito_alimentos']);
+            if ($ultimoDepositoAlimentos !== null) {
+                $siguienteDiaAlimentos = $ultimoDepositoAlimentos->modify('+1 day')->setTime(0, 0, 0);
+                if ($siguienteDiaAlimentos > $foodStart) {
+                    $foodStart = $siguienteDiaAlimentos;
+                }
+            }
+            $foodEnd = $this->resolveFoodEnd($referenceDate, $vigenciaFin, $tipoEvento);
+            $foodDaysCalculados = (int) ($lockedUser['tiene_alimentos'] ?? 0) === 1
+                ? $this->countInclusiveDays($foodStart, $foodEnd)
+                : 0;
+
+            $foodAmountCalculado = $dailyAmount > 0 && $foodDaysCalculados > 0
+                ? round($dailyAmount * $foodDaysCalculados, 2)
+                : 0.00;
+            $hotelAmountCalculado = 0.00;
+            $totalCalculado = round($foodAmountCalculado + $hotelAmountCalculado, 2);
+            if ($totalCalculado <= 0) {
+                $this->db->transRollback();
+                return ['applied' => false, 'message' => 'El monto calculado es cero.'];
+            }
+
+            $saldoAnteriorAlimentos = round((float) ($lockedUser['monto_deposito'] ?? 0), 2);
+            $saldoAnteriorHotel = round((float) ($lockedUser['monto_deposito_hotel'] ?? 0), 2);
+            $saldoAnteriorReservado = round((float) ($lockedUser['monto_deposito_reservado'] ?? 0), 2);
+            $saldoAnteriorOperativo = round((float) ($lockedUser['monto_deposito_operativo'] ?? 0), 2);
+            $saldoPendienteLiberar = round(max(0.00, $saldoAnteriorReservado - $saldoAnteriorOperativo), 2);
+            if ($saldoPendienteLiberar <= 0) {
+                $this->db->transRollback();
+                return ['applied' => false, 'message' => 'No hay saldo programado pendiente por aplicar.'];
+            }
+
+            $hotelAmountAplicado = 0.00;
+            $saldoDisponibleAlimentos = round(max(0.00, $saldoPendienteLiberar - $hotelAmountAplicado), 2);
+            $diasAlimentosAplicables = 0;
+            if ($foodAmountCalculado > 0 && $dailyAmount > 0 && $saldoDisponibleAlimentos >= $dailyAmount) {
+                $diasAlimentosAplicables = min(
+                    $foodDaysCalculados,
+                    (int) floor($saldoDisponibleAlimentos / $dailyAmount)
+                );
+            }
+            $foodAmountAplicado = round($diasAlimentosAplicables * $dailyAmount, 2);
+            $totalApplied = round($hotelAmountAplicado + $foodAmountAplicado, 2);
+            if ($totalApplied <= 0) {
+                $this->db->transRollback();
+                return ['applied' => false, 'message' => 'No hay dias completos de alimentos ni hospedaje por aplicar.'];
+            }
+
+            $fechaUltimoDepositoAlimentos = null;
+            if ($diasAlimentosAplicables > 0) {
+                $fechaUltimoDepositoAlimentos = $foodStart
+                    ->modify('+' . ($diasAlimentosAplicables - 1) . ' days')
+                    ->format('Y-m-d');
+            }
+
+            $saldoNuevoAlimentos = $this->calculateFoodBalanceAfterApplication($tipoEvento, $saldoAnteriorAlimentos, $foodAmountAplicado);
+            $saldoNuevoHotel = round(max($saldoAnteriorHotel, $hotelAmountAplicado), 2);
+            $saldoNuevoReservado = $saldoAnteriorReservado;
+            $saldoNuevoOperativo = round($saldoAnteriorOperativo + $totalApplied, 2);
+            $programStatus = $saldoNuevoOperativo >= $saldoAnteriorReservado ? 'aplicado' : 'operativo';
+
+            $this->db->table('usuario')
+                ->where('id_usuario', $idUsuario)
+                ->update([
+                    'monto_deposito' => number_format($saldoNuevoAlimentos, 2, '.', ''),
+                    'monto_deposito_hotel' => number_format($saldoNuevoHotel, 2, '.', ''),
+                    'monto_deposito_reservado' => number_format($saldoNuevoReservado, 2, '.', ''),
+                    'monto_deposito_operativo' => number_format($saldoNuevoOperativo, 2, '.', ''),
+                    'deposito_programado_estatus' => $programStatus,
+                    'fec_act' => $referenceDate->format('Y-m-d H:i:s'),
+                    'usu_act' => $actorUserId,
+                ] + ($fechaUltimoDepositoAlimentos !== null ? [
+                    'fecha_ultimo_deposito_alimentos' => $fechaUltimoDepositoAlimentos,
+                ] : []));
+
+            if ($this->db->transStatus() === false) {
+                throw new RuntimeException('La transaccion de aplicacion no pudo completarse.');
+            }
+
+            $this->db->transCommit();
+
+            return [
+                'applied' => true,
+                'applied_amount' => $totalApplied,
+                'program_row' => [
+                    'periodo_inicio' => $start->format('Y-m-d'),
+                    'periodo_fin' => $end->format('Y-m-d'),
+                    'periodo_alimentos_inicio' => $foodDaysCalculados > 0 ? $foodStart->format('Y-m-d') : null,
+                    'periodo_alimentos_fin' => $foodDaysCalculados > 0 ? $foodEnd->format('Y-m-d') : null,
+                    'fecha_ultimo_deposito_alimentos' => $fechaUltimoDepositoAlimentos,
+                    'dias_alimentos_calculados' => $foodDaysCalculados,
+                    'dias_alimentos_aplicados' => $diasAlimentosAplicables,
+                    'monto_alimentos_calculado' => $foodAmountCalculado,
+                    'monto_alimentos_aplicado' => $foodAmountAplicado,
+                    'monto_hospedaje_calculado' => $hotelAmountCalculado,
+                    'monto_hospedaje_aplicado' => $hotelAmountAplicado,
+                    'tipo_evento' => $tipoEvento,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            $this->markProgramError($idUsuario, $tipoEvento, $referenceDate->format('Y-m-d H:i:s'), $actorUserId, $e->getMessage());
+            log_message('error', 'DepositosProgramadosService.applyCurrentWindowWithLockedUser: ' . $e->getMessage());
+            return ['applied' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function calculateFoodBalanceAfterApplication(string $tipoEvento, float $saldoActual, float $foodAmountAplicado): float
+    {
+        $foodAmountAplicado = round($foodAmountAplicado, 2);
+        if ($tipoEvento === 'activacion') {
+            return $foodAmountAplicado;
+        }
+
+        return round(max(0.00, $saldoActual) + $foodAmountAplicado, 2);
     }
     
     private function markProgramError(int $idUsuario, string $tipoEvento, string $referenceDate, int $actorUserId, string $message): void
