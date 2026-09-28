@@ -35,7 +35,16 @@ $qrUrl = $qrRegistrado
             <span class="cliente-kicker">FIC Cliente</span>
             <h1 class="cliente-title">Bienvenido a FIC</h1>
             <p class="cliente-subtitle">En esta sección podrás consultar tu saldo disponible y tu último movimiento.</p>
-
+           <?php if ($activo_qr == 1): ?>
+            <div class="cliente-stats">
+                <div class="cliente-stat">
+                     <span class="cliente-callout-text text-danger">Este QR aún no se encuentra activo para operar.</span>
+                    <strong class="cliente-stat-value">$0.00</strong>
+                    <span class="cliente-stat-note">Saldo no disponible.</span>
+                </div>
+            </div>
+            <?php endif; ?>
+           <?php if ($activo_qr != 1): ?>
             <div class="cliente-stats">
                 <div class="cliente-stat">
                     <span class="cliente-stat-label">Saldo disponible</span>
@@ -43,6 +52,7 @@ $qrUrl = $qrRegistrado
                     <span class="cliente-stat-note">Saldo disponible sincronizado con el mismo valor que consume la app.</span>
                 </div>
             </div>
+            <?php endif; ?>
         </article>
 
         <article class="cliente-shell cliente-qr-card">
