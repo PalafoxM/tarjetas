@@ -1352,7 +1352,7 @@ class DepositosProgramadosService
     {
         $foodEnd = $tipoEvento === 'activacion'
             ? $this->endOfWeekSunday($referenceDate)
-            : $referenceDate->setTime(23, 59, 59);
+            : $this->endOfWeekSunday($referenceDate->modify('+1 day'));
 
         return $foodEnd > $vigenciaFin ? $vigenciaFin : $foodEnd;
     }

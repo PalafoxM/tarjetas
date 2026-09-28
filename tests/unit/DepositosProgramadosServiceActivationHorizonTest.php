@@ -103,16 +103,16 @@ final class DepositosProgramadosServiceActivationHorizonTest extends CIUnitTestC
         $this->assertNull($window['marker']);
     }
 
-    public function testWeeklyFoodEndStillUsesReferenceDate(): void
+    public function testWeeklyFoodEndCoversNextWeekSunday(): void
     {
         $foodEnd = $this->invokeServiceMethod(
             'resolveFoodEnd',
-            $this->date('2026-09-24'),
+            $this->date('2026-09-27'),
             $this->date('2026-10-25'),
             'semanal'
         );
 
-        $this->assertSame('2026-09-24', $foodEnd->format('Y-m-d'));
+        $this->assertSame('2026-10-04', $foodEnd->format('Y-m-d'));
     }
 
     public function testWeeklyFoodBalanceAccumulatesOverConsumedBalance(): void
@@ -151,7 +151,7 @@ final class DepositosProgramadosServiceActivationHorizonTest extends CIUnitTestC
         $this->assertSame(2420.0, $balance);
     }
 
-    public function testWeeklyWindowWithSundayMarkerDoesNotApplyAgain(): void
+    public function testWeeklyWindowWithSundayMarkerCoversNextFullWeek(): void
     {
         $window = $this->weeklyFoodWindow([
             'fec_vigencia_desde' => '2026-09-17',
@@ -162,7 +162,41 @@ final class DepositosProgramadosServiceActivationHorizonTest extends CIUnitTestC
         ], '2026-09-27');
 
         $this->assertSame('2026-09-28', $window['start']);
-        $this->assertSame('2026-09-27', $window['end']);
+        $this->assertSame('2026-10-04', $window['end']);
+        $this->assertSame(7, $window['days']);
+        $this->assertSame(1540.0, $window['amount']);
+        $this->assertSame('2026-10-04', $window['marker']);
+    }
+
+    public function testWeeklyWindowWithDelayedMarkerCatchesUpThroughNextSunday(): void
+    {
+        $window = $this->weeklyFoodWindow([
+            'fec_vigencia_desde' => '2026-09-17',
+            'fec_vigencia_hasta' => '2026-10-25',
+            'fecha_ultimo_deposito_alimentos' => '2026-09-24',
+            'tiene_alimentos' => 1,
+            'monto_deposito' => 220,
+        ], '2026-09-27');
+
+        $this->assertSame('2026-09-25', $window['start']);
+        $this->assertSame('2026-10-04', $window['end']);
+        $this->assertSame(10, $window['days']);
+        $this->assertSame(2200.0, $window['amount']);
+        $this->assertSame('2026-10-04', $window['marker']);
+    }
+
+    public function testWeeklyWindowAlreadyCoveredThroughNextSundayDoesNotApplyAgain(): void
+    {
+        $window = $this->weeklyFoodWindow([
+            'fec_vigencia_desde' => '2026-09-17',
+            'fec_vigencia_hasta' => '2026-10-25',
+            'fecha_ultimo_deposito_alimentos' => '2026-10-04',
+            'tiene_alimentos' => 1,
+            'monto_deposito' => 220,
+        ], '2026-09-27');
+
+        $this->assertSame('2026-10-05', $window['start']);
+        $this->assertSame('2026-10-04', $window['end']);
         $this->assertSame(0, $window['days']);
         $this->assertSame(0.0, $window['amount']);
         $this->assertNull($window['marker']);
@@ -176,7 +210,7 @@ final class DepositosProgramadosServiceActivationHorizonTest extends CIUnitTestC
             'fecha_ultimo_deposito_alimentos' => '2026-09-24',
             'tiene_alimentos' => 1,
             'monto_deposito' => 220,
-        ], '2026-09-24');
+        ], '2026-09-27');
 
         $this->assertSame('2026-09-25', $window['start']);
         $this->assertSame('2026-09-26', $window['end']);
