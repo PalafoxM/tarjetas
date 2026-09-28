@@ -35,7 +35,7 @@ $qrUrl = $qrRegistrado
             <span class="cliente-kicker">FIC Cliente</span>
             <h1 class="cliente-title">Bienvenido a FIC</h1>
             <p class="cliente-subtitle">En esta sección podrás consultar tu saldo disponible y tu último movimiento.</p>
-           <?php if ($activo_qr == 1): ?>
+           <?php if ($activo_qr == 0): ?>
             <div class="cliente-stats">
                 <div class="cliente-stat">
                      <span class="cliente-callout-text text-danger">Este QR aún no se encuentra activo para operar.</span>
@@ -44,7 +44,7 @@ $qrUrl = $qrRegistrado
                 </div>
             </div>
             <?php endif; ?>
-           <?php if ($activo_qr != 1): ?>
+           <?php if ($activo_qr == 1): ?>
             <div class="cliente-stats">
                 <div class="cliente-stat">
                     <span class="cliente-stat-label">Saldo disponible</span>
