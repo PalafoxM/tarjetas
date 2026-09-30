@@ -73,8 +73,8 @@
     <!-- Date and Folio -->
     <?php
         $meses = array("ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE");
-        $fecha = strtotime($registro_pt->fecha_tramite);
-        $fecha_texto = "SILAO, GTO. " . date("d", strtotime($registro_pt->fecha_tramite)) . " DE " . $meses[date("n", strtotime($registro_pt->fecha_tramite))-1] . " DEL " . date("Y", strtotime($registro_pt->fecha_tramite));
+        $fecha = date("d/m/Y");
+        $fecha_texto = "SILAO, GTO. " . date("d") . " DE " . $meses[date("n", )-1] . " DEL " . date("Y");
         
         $folio = isset($registro_pt->no_consecutivo) ? $registro_pt->no_consecutivo : 'SIN FOLIO';
     ?>
@@ -124,7 +124,7 @@
     ?>
     <div class="content">
         Por medio del presente, me permito solicitar su apoyo para que se realice el trámite de Pago a Tercero pago a terceros de
-        folio <strong><?= $folio ?></strong> por la cantidad de <strong>$<?= $importe_total ?> (<?= $importe_letra ?>)</strong>,
+        folio <strong>PT SECTURI/SSIDT/DGCT/FIC-TA/<?=$id_formateado?>/2026</strong> por la cantidad de <strong>$<?= $importe_total ?> (<?= $importe_letra ?>)</strong>,
         de comprobante(s) fiscal(es) No. <strong><?= $comprobantes_text ?></strong> por concepto de <strong><?= $concepto_text ?></strong> al proveedor <strong><?= $proveedor_nombre ?></strong>.
     </div>
 
@@ -135,7 +135,7 @@
 
     <!-- Content Body 3 - Legal -->
     <div class="content">
-        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong><?= ($registro_pt->clausula)?$registro_pt->clausula:'NO APLICA' ?></strong> de instrumento jurídico <strong><?= (!empty($registro_pt->no_convenio))?$registro_pt->no_convenio:'NO APLICA' ?></strong> recibí
+        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>PRIMERA</strong> de instrumento jurídico <strong><?= (!empty($establecimiento->no_convenio))?$establecimiento->no_convenio:'NO APLICA' ?></strong> recibí
         el producto, atendiendo lo que establece el marco normativo aplicable. El producto recibido se nos ha
         entregado a entera satisfacción en tiempo y forma, quedando bajo mi responsabilidad el uso y/o
         distribución, así como el resguardo y custodia de los expedientes originales y entregables correspondientes.
@@ -160,9 +160,9 @@
 
     <!-- Signature -->
     <?php
-        $responsable = isset($registro_pt->nombre_responsable_2) ? $registro_pt->nombre_responsable_2 : 'MARCO ANTONIO MORALES GARCÍA';
+        $responsable = 'MTRO. DAVID AYALA SAUCEDO';
         // Title hardcoded in image or use variable if available? Image: DIRECTOR/A GENERAL DE INNOVACIÓN E INTELIGENCIA TURÍSTICA
-        $cargo_responsable = $registro_pt->cargo_responsable_2; // Hardcoded default based on image
+        $cargo_responsable = 'SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO' // Hardcoded default based on image
     ?>
     <div class="signature-section">
         ATENTAMENTE

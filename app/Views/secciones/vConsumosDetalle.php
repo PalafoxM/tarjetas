@@ -22,6 +22,13 @@ $fecha = static function ($valor): string {
     $timestamp = strtotime((string) $valor);
     return $timestamp ? date('d/m/Y H:i:s', $timestamp) : 'Sin fecha';
 };
+
+$idEstablecimiento = (int) ($establecimiento['id_establecimiento'] ?? 0);
+$montoHojaAzul = number_format((float) ($resumen['total'] ?? 0), 2, '.', '');
+$hojaAzulUrl = base_url('index.php/Usuario/HojaAzul/' . $idEstablecimiento)
+    . '?' . http_build_query(['monto' => $montoHojaAzul]);
+$hojaLiberacionUrl = base_url('index.php/Usuario/HojaLiberacion/' . $idEstablecimiento)
+    . '?' . http_build_query(['monto' => $montoHojaAzul]);
 ?>
 
 <style>
@@ -127,6 +134,23 @@ $fecha = static function ($valor): string {
             </div>
         </div>
     </div>
+
+    <a
+        target="_blank"
+        rel="noopener"
+        class="btn btn-sm btn-outline-warning mb-3"
+        href="<?= esc($hojaAzulUrl, 'attr') ?>"
+        title="Generar formato PT">
+        <i class="mdi mdi-receipt-text-outline me-1"></i> Hoja Azul PT
+    </a>
+    <a
+        target="_blank"
+        rel="noopener"
+        class="btn btn-sm btn-outline-success mb-3"
+        href="<?= esc($hojaLiberacionUrl, 'attr') ?>"
+        title="Generar formato de liberación">
+        <i class="mdi mdi-receipt-text-outline me-1"></i> Hoja de Liberación
+    </a>
 
     <div class="consumos-detail-table p-3 p-lg-4">
         <?php if (!empty($pagos)): ?>

@@ -1,3 +1,97 @@
+<?php
+$monto_total = round((float) str_replace(['$', ',', ' '], '', (string) ($monto_total ?? 0)), 2);
+
+$apocoparUno = static function (string $texto): string {
+    if (preg_match('/veintiuno$/u', $texto)) {
+        return preg_replace('/veintiuno$/u', 'veintiún', $texto) ?? $texto;
+    }
+    if (preg_match('/ y uno$/u', $texto)) {
+        return preg_replace('/ y uno$/u', ' y un', $texto) ?? $texto;
+    }
+    if ($texto === 'uno') {
+        return 'un';
+    }
+    return preg_replace('/ uno$/u', ' un', $texto) ?? $texto;
+};
+
+$convertirEnteroALetras = null;
+$convertirEnteroALetras = static function (int $numero) use (&$convertirEnteroALetras, $apocoparUno): string {
+    $unidades = [
+        0 => 'cero', 1 => 'uno', 2 => 'dos', 3 => 'tres', 4 => 'cuatro',
+        5 => 'cinco', 6 => 'seis', 7 => 'siete', 8 => 'ocho', 9 => 'nueve',
+        10 => 'diez', 11 => 'once', 12 => 'doce', 13 => 'trece', 14 => 'catorce',
+        15 => 'quince', 16 => 'dieciséis', 17 => 'diecisiete', 18 => 'dieciocho',
+        19 => 'diecinueve', 20 => 'veinte', 21 => 'veintiuno', 22 => 'veintidós',
+        23 => 'veintitrés', 24 => 'veinticuatro', 25 => 'veinticinco',
+        26 => 'veintiséis', 27 => 'veintisiete', 28 => 'veintiocho', 29 => 'veintinueve',
+    ];
+    $decenas = [30 => 'treinta', 40 => 'cuarenta', 50 => 'cincuenta', 60 => 'sesenta', 70 => 'setenta', 80 => 'ochenta', 90 => 'noventa'];
+    $centenas = [200 => 'doscientos', 300 => 'trescientos', 400 => 'cuatrocientos', 500 => 'quinientos', 600 => 'seiscientos', 700 => 'setecientos', 800 => 'ochocientos', 900 => 'novecientos'];
+
+    if ($numero < 30) {
+        return $unidades[$numero];
+    }
+    if ($numero < 100) {
+        $base = intdiv($numero, 10) * 10;
+        $resto = $numero % 10;
+        return $decenas[$base] . ($resto > 0 ? ' y ' . $convertirEnteroALetras($resto) : '');
+    }
+    if ($numero === 100) {
+        return 'cien';
+    }
+    if ($numero < 1000) {
+        $base = intdiv($numero, 100) * 100;
+        $resto = $numero % 100;
+        $prefijo = $base === 100 ? 'ciento' : $centenas[$base];
+        return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+    }
+    if ($numero < 1000000) {
+        $miles = intdiv($numero, 1000);
+        $resto = $numero % 1000;
+        $prefijo = $miles === 1 ? 'mil' : $apocoparUno($convertirEnteroALetras($miles)) . ' mil';
+        return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+    }
+    if ($numero < 1000000000) {
+        $millones = intdiv($numero, 1000000);
+        $resto = $numero % 1000000;
+        $prefijo = $millones === 1
+            ? 'un millón'
+            : $apocoparUno($convertirEnteroALetras($millones)) . ' millones';
+        return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+    }
+
+    $milesDeMillones = intdiv($numero, 1000000000);
+    $resto = $numero % 1000000000;
+    $prefijo = $milesDeMillones === 1
+        ? 'mil millones'
+        : $apocoparUno($convertirEnteroALetras($milesDeMillones)) . ' mil millones';
+    return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+};
+
+$convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras, $apocoparUno): string {
+    $monto = round(abs((float) $valor), 2);
+    $enteros = (int) floor($monto);
+    $centavos = (int) round(($monto - $enteros) * 100);
+
+    if ($centavos === 100) {
+        $enteros++;
+        $centavos = 0;
+    }
+
+    $letras = $apocoparUno($convertirEnteroALetras($enteros));
+    $moneda = $enteros === 1 ? 'peso' : 'pesos';
+    $separadorMoneda = $enteros >= 1000000 && $enteros % 1000000 === 0 ? ' de ' : ' ';
+
+    $resultado = sprintf('%s%s%s %02d/100 M.N.', $letras, $separadorMoneda, $moneda, $centavos);
+    if (function_exists('mb_strtoupper')) {
+        return mb_strtoupper($resultado, 'UTF-8');
+    }
+
+    return strtr(strtoupper($resultado), [
+        'á' => 'Á', 'é' => 'É', 'í' => 'Í', 'ó' => 'Ó', 'ú' => 'Ú', 'ñ' => 'Ñ',
+    ]);
+};
+?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -84,8 +178,8 @@
             </tr>
             <tr>
                 <td>21</td>
-                <td><?= isset($registro_pt->fecha_tramite) ? date('d/m/Y', strtotime($registro_pt->fecha_tramite)) : '' ?></td>
-                <td><?= isset($registro_pt->no_consecutivo) ? $registro_pt->no_consecutivo : '' ?></td>
+                <td><?=  date('d/m/Y') ?></td>
+            <td><h6>PT SECTURI/SSIDT/DGCT/FIC-TA/<?= $id_formateado ?>/2026</h6></td>
             </tr>
         </tbody>
     </table>
@@ -110,36 +204,62 @@
         <tbody>
             <?php 
             $rows = isset($periodo_factura_rows) && !empty($periodo_factura_rows) ? $periodo_factura_rows : [];
-            $total_rows = count($rows) > 0 ? count($rows) : 1;
-            
-            // Dummy row if empty
-            if(empty($rows)) $rows = [(object)['encabezado' => '', 'proyecto_clave' => '', 'partida_clave' => '', 'importe' => '']];
+            $detalleRows = [];
 
-            foreach($rows as $index => $row): 
+            foreach ($rows as $row) {
+                $tieneRetenciones = !empty($mostrar_retenciones_pt) && !empty($row->tiene_retenciones_calculadas);
+                $importePrincipal = $tieneRetenciones
+                    ? (float) ($row->subtotal_calculado ?? 0) + (float) ($row->iva_calculado ?? 0)
+                    : (float) str_replace(',', '', (string) ($row->importe ?? 0));
+
+                $detalleRows[] = [
+                    'comprobante' => $row->no_comprobante ?? '',
+                    'proyecto' => $tieneRetenciones ? 'SUBTOTAL' : ($row->proyecto ?? ''),
+                    'partida' => $row->partida ?? '',
+                    'importe' => $importePrincipal,
+                ];
+
+                if ($tieneRetenciones && isset($row->isr) && (float) $row->isr > 0) {
+                    $detalleRows[] = [
+                        'comprobante' => $row->no_comprobante ?? '',
+                        'proyecto' => 'ISR',
+                        'partida' => '',
+                        'importe' => -(float) $row->isr,
+                    ];
+                }
+
+                if ($tieneRetenciones && isset($row->impuesto_local) && (float) $row->impuesto_local > 0) {
+                    $detalleRows[] = [
+                        'comprobante' => $row->no_comprobante ?? '',
+                        'proyecto' => 'ISR CEDULAR',
+                        'partida' => '',
+                        'importe' => -(float) $row->impuesto_local,
+                    ];
+                }
+            }
+
+            if (empty($detalleRows)) {
+                $detalleRows[] = ['comprobante' => '', 'proyecto' => '', 'partida' => '', 'importe' => 0];
+            }
+
+            foreach($detalleRows as $index => $detalle):
             ?>
             <tr>
-                <td><?= isset($row->no_comprobante) ? $row->no_comprobante : '' ?></td>
-                <td><?= isset($row->proyecto) ? $row->proyecto : '' ?></td>
-                <td><?= isset($row->partida) ? $row->partida : '' ?></td>
-                <td>$<?= isset($row->importe) ? ($row->importe) : '0.00' ?></td>
+                <td><?= $detalle['comprobante'] ?></td>
+                <td>E027QC04182601</td>
+                <td>2210</td>
+                <td><?= $monto_total < 0 ? '' : '$' ?><?= number_format(abs((float) $monto_total), 2) ?></td>
                 
                 <?php if($index === 0): ?>
-                <td rowspan="<?= count($rows) ?>" class="text-left" style="vertical-align: top;">
+                <td rowspan="<?= count($detalleRows) ?>" class="text-left" style="vertical-align: top;">
                     <div class="font-bold">DATOS DEL PROVEEDOR NACIONAL</div>
-                    <?php if(!empty($row->nombre_proveedor_1)): ?>
-                        <div><?= $row->nombre_proveedor_1 ?></div>
-                    <?php endif; ?>
-                    
-                    <?php // Try to use row specific fields if they were saved in the item (which they weren't in the schema showed) 
-                          // Or use variables passed to view if available
-                    ?>
                    <!-- Hardcoded example structure as per requirements, could be dynamic -->
-                   <div><span class="font-bold">No. PROVEEDOR:</span> <?= isset($registro_pt->no_proveedor) ? $registro_pt->no_proveedor : '' ?></div>
-                   <div><span class="font-bold">RFC:</span> <?= isset($registro_pt->rfc_proveedor) ? $registro_pt->rfc_proveedor : '' ?></div>
-                   <div><span class="font-bold">NOMBRE:</span> <?= isset($registro_pt->nombre_proveedor_1) ? $registro_pt->nombre_proveedor_1 : '' ?></div>
-                   <div><span class="font-bold">NO. CUENTA:</span> <?= isset($registro_pt->no_cuenta) ? $registro_pt->no_cuenta : '' ?></div>
-                   <div><span class="font-bold">BANCO:</span> <?= isset($registro_pt->banco) ? $registro_pt->banco : '' ?></div>
-                   <div><span class="font-bold">CLABE:</span> <?= isset($registro_pt->clabe) ? $registro_pt->clabe : '' ?></div>
+                   <div><span class="font-bold">No. PROVEEDOR:</span> <?= isset($establecimiento->no_proveedor) ? $establecimiento->no_proveedor : '' ?></div>
+                   <div><span class="font-bold">RFC:</span> <?= isset($establecimiento->rfc) ? $establecimiento->rfc : '' ?></div>
+                   <div><span class="font-bold">NOMBRE:</span> <?= isset($establecimiento->razon_social) ? $establecimiento->razon_social : '' ?></div>
+                   <div><span class="font-bold">NO. CUENTA:</span> <?= isset($establecimiento->no_cuenta) ? $establecimiento->no_cuenta : '' ?></div>
+                   <div><span class="font-bold">BANCO:</span> <?= isset($establecimiento->banco) ? $establecimiento->banco : '' ?></div>
+                   <div><span class="font-bold">CLABE:</span> <?= isset($establecimiento->clabe) ? $establecimiento->clabe : '' ?></div>
                 </td>
                 <?php endif; ?>
             </tr>
@@ -151,17 +271,17 @@
     <table>
         <tr>
             <td colspan="3" class="text-left no-border">
-                <span class="font-bold">No. CONTRATO y/o CONVENIO:</span> <?= isset($registro_pt->no_convenio) ? $registro_pt->no_convenio : '' ?>
+                <span class="font-bold">No. CONTRATO y/o CONVENIO:</span> <?= isset($establecimiento->no_contrato) ? $establecimiento->no_contrato : '' ?>
                 <br>
-                <span class="font-bold">No. RESERVA:</span> <?= isset($registro_pt->no_reserva) ? $registro_pt->no_reserva : '' ?>
+                <span class="font-bold">No. RESERVA:</span> 5413298
             </td>
             <td width="30%" class="font-bold">
-                 $<?= isset($registro_pt->importe_total_num) ? $registro_pt->importe_total_num : '' ?>
+                <?= $monto_total < 0 ? '' : '$' ?><?= number_format(abs((float) $monto_total), 2) ?>
             </td>
         </tr>
         <tr>
             <td colspan="4" class="text-center font-bold">
-                <?= isset($registro_pt->importe_letra) ? $registro_pt->importe_letra : '' ?>
+                <?= esc($convertirNumeroALetras($monto_total)) ?>
             </td>
         </tr>
     </table>
@@ -187,13 +307,13 @@
                 </td>
                 <td style="height: 80px; vertical-align: bottom;">
                     <br><br><br>
-                     <strong><?= (isset($registro_pt->nombre_autoriza) && $registro_pt->nombre_autoriza != 'NO APLICA') ? $registro_pt->nombre_autoriza : '' ?></strong><br>
-                    <span style="font-size: 8pt;"><?= (isset($registro_pt->cargo_autoriza) && $registro_pt->cargo_autoriza != 'NO APLICA') ? $registro_pt->cargo_autoriza : '' ?></span>
+                     <strong>MTRO. DAVID AYALA SAUCEDO</strong><br>
+                    <span style="font-size: 6pt;">SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO POR ACUERDO SECRETARIAL N° 003-02/2026</span>
                 </td>
                 <td style="height: 80px; vertical-align: bottom;">
                     <br><br><br>
-                     <strong><?= (isset($registro_pt->nombre_responsable) && $registro_pt->nombre_responsable != 'NO APLICA') ? $registro_pt->nombre_responsable : '' ?></strong><br>
-                    <span style="font-size: 8pt;"><?= (isset($registro_pt->cargo_responsable) && $registro_pt->cargo_responsable != 'NO APLICA') ? $registro_pt->cargo_responsable : '' ?></span>
+                     <strong>MTRO. DAVID AYALA SAUCEDO</strong><br>
+                    <span style="font-size: 8pt;">SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO</span>
                 </td>
             </tr>
             <tr>
@@ -204,8 +324,8 @@
                  <td colspan="2" class="no-border"></td>
                  <td style="height: 80px; vertical-align: bottom;">
                       <br><br><br>
-                     <strong><?= (isset($registro_pt->nombre_responsable_2) && $registro_pt->nombre_responsable_2 != 'NO APLICA') ? $registro_pt->nombre_responsable_2 : '' ?></strong><br>
-                    <span style="font-size: 8pt;"><?= (isset($registro_pt->cargo_responsable_2) && $registro_pt->cargo_responsable_2 != 'NO APLICA') ? $registro_pt->cargo_responsable_2 : '' ?></span>
+                     <strong>HUGO RAMÍREZ DUARTE</strong><br>
+                    <span style="font-size: 8pt;">DIRECTOR GENERAL DE COMPETITIVIDAD TURÍSTICA</span>
                  </td>
             </tr>
         </tbody>

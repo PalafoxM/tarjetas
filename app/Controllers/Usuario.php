@@ -100,6 +100,89 @@ class Usuario extends BaseController
     {
         return $this->getUsuarios();
     }
+    public function HojaLiberacion($id_establecimiento, $monto_total = null)
+    {
+        $idEstablecimiento = (int) $id_establecimiento;
+        if ($idEstablecimiento <= 0) {
+            return $this->response->setStatusCode(400)->setBody('El establecimiento no es válido.');
+        }
+         $Mglobal = new Mglobal();
+
+        $establecimiento = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => ['id_establecimiento' => $idEstablecimiento, 'visible' => 1],
+        ]);
+
+        $data['establecimiento'] = $establecimiento->data[0] ?? null;
+        $data['id_formateado'] = str_pad((string) $idEstablecimiento, 3, '0', STR_PAD_LEFT);
+           // For mPDF, passing local absolute path is better and avoids base64 issues
+        $data['logo'] = FCPATH . 'assets/logo-guanajuato.png';
+        $data['norma'] = FCPATH . 'assets/Norma.png';
+        //die( var_dump($data['logo']) ); // Debug if needed
+       // die( var_dump($data) );
+        $html = view('pdfs/vPdfLiberacionPago', $data);
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_top' => 10,
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_bottom' => 10,
+            'format' => 'Letter',
+            'tempDir' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'mpdf'
+        ]);
+        
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('LiberacionPago_' . $idEstablecimiento . '.pdf', 'I');
+        exit;
+        
+    }
+
+    public function HojaAzul($id_establecimiento, $monto_total = null)
+    {
+        $idEstablecimiento = (int) $id_establecimiento;
+        if ($idEstablecimiento <= 0) {
+            return $this->response->setStatusCode(400)->setBody('El establecimiento no es válido.');
+        }
+
+        $montoRecibido = $monto_total ?? $this->request->getGet('monto');
+        $montoNormalizado = str_replace(['$', ',', ' '], '', trim((string) $montoRecibido));
+        if (!preg_match('/^\d+(?:\.\d{1,2})?$/', $montoNormalizado)) {
+            return $this->response->setStatusCode(422)->setBody('El monto debe enviarse como decimal, por ejemplo: 3219.00.');
+        }
+
+        $montoTotal = round((float) $montoNormalizado, 2);
+
+        $Mglobal = new Mglobal();
+        $establecimiento = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => ['id_establecimiento' => $idEstablecimiento, 'visible' => 1],
+        ]);
+
+        $registroEstablecimiento = $establecimiento->data[0] ?? null;
+        if ($registroEstablecimiento === null) {
+            return $this->response->setStatusCode(404)->setBody('No se encontró el establecimiento solicitado.');
+        }
+
+        $data = [];
+        $data['logo'] = FCPATH . 'assets/logo-guanajuato.png';
+        $data['establecimiento'] = $registroEstablecimiento;
+        $data['id_formateado'] = str_pad((string) $idEstablecimiento, 3, '0', STR_PAD_LEFT);
+        $data['monto_total'] = $montoTotal;
+        $html = view('pdfs/vPdfFormatoPT', $data);
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_top' => 10,
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_bottom' => 10,
+            'format' => 'Letter',
+            'tempDir' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'mpdf'
+        ]);
+
+        $mpdf->WriteHTML($html);
+        $mpdf->Output('FormatPagoTerceros_' . $idEstablecimiento . '.pdf', 'I');
+        exit;
+    }
 
     public function exportarCajerosXlsx()
     {

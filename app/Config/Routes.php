@@ -97,6 +97,9 @@ $routes->get('Usuario/verDocumentoUsuario', 'Usuario::verDocumentoUsuario');
 $routes->get('Usuario/generarPdfOrden/(:num)', 'Usuario::generarPdfOrden/$1');
 $routes->get('Usuario/generarPdfHospedaje/(:num)', 'Usuario::generarPdfHospedaje/$1');
 $routes->get('Usuario/generarPdfAlimentos/(:num)', 'Usuario::generarPdfAlimentos/$1');
+$routes->get('Usuario/HojaAzul/(:num)/(:segment)', 'Usuario::HojaAzul/$1/$2');
+$routes->get('Usuario/HojaAzul/(:num)', 'Usuario::HojaAzul/$1');
+$routes->get('Usuario/HojaLiberacion/(:num)/(:segment)', 'Usuario::HojaLiberacion/$1/$2');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 

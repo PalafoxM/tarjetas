@@ -1048,6 +1048,8 @@ class Inicio extends BaseController {
             'scripts' => ['principal', 'agregar'],
             'contentView' => 'secciones/vConsumosDetalle',
         ];
+        $data['idEstablecimiento'] = $idEstablecimiento;
+        
 
         $this->_renderView($data);
     }

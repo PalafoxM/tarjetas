@@ -170,7 +170,10 @@ $formatearMoneda = static function ($monto): string {
                                             title="Ver desglose de pagos">
                                             <i class="mdi mdi-receipt-text-outline me-1"></i> Ver desglose
                                         </a>
+                                       
                                     <?php endif; ?>
+
+                                       
                                 </td>
                             </tr>
                         <?php endforeach; ?>
