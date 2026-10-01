@@ -312,6 +312,41 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
         min-width: 880px;
     }
 
+    .provider-history-filter {
+        display: flex;
+        align-items: flex-end;
+        gap: .75rem;
+        flex-wrap: wrap;
+        padding: 0 1rem 1rem;
+    }
+
+    .provider-history-filter .form-label {
+        color: #e2e8f0;
+        font-weight: 700;
+        margin-bottom: .35rem;
+    }
+
+    .provider-history-filter .form-control {
+        min-height: 42px;
+        min-width: min(100%, 260px);
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, .34);
+        background: rgba(15, 23, 42, .92);
+        color: #f8fafc;
+    }
+
+    .provider-history-filter .btn {
+        min-height: 42px;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+
+    .provider-history-filter__state {
+        flex-basis: 100%;
+        color: #94a3b8;
+        font-size: .88rem;
+    }
+
     .provider-history-empty {
         padding: 18px;
         text-align: center;
@@ -569,6 +604,17 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                     </div>
                 </div>
                 <div class="card-body provider-table-wrap pt-0">
+                    <?php $hayMovimientosProveedor = !empty($solicitudPago); ?>
+                    <div class="provider-history-filter" aria-label="Filtro de historial de pagos por día">
+                        <div>
+                            <label class="form-label" for="filtro_dia_movimiento_proveedor">Día de movimiento</label>
+                            <input type="date" class="form-control" id="filtro_dia_movimiento_proveedor" <?= $hayMovimientosProveedor ? '' : 'disabled' ?>>
+                        </div>
+                        <button type="button" class="btn btn-outline-light" id="limpiar_filtro_dia_movimiento_proveedor" disabled>Todos los días</button>
+                        <div class="provider-history-filter__state" id="filtro_dia_movimiento_proveedor_estado">
+                            <?= $hayMovimientosProveedor ? 'Mostrando movimientos de todos los días.' : 'No hay movimientos disponibles para filtrar.' ?>
+                        </div>
+                    </div>
                     <?php if (!empty($solicitudPago)): ?>
                         <table
                             id="tabla-historial-pagos-proveedor"
@@ -584,21 +630,27 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                             data-search-align="left">
                             <thead>
                                 <tr>
-                                    <th data-sortable="true">Folio</th>
-                                    <th data-sortable="true">Método</th>
-                                    <th data-sortable="true">Monto</th>
-                                    <th data-sortable="true">Estatus</th>
-                                    <th data-sortable="true">Fecha</th>
+                                    <th data-field="folio_solicitud" data-sortable="true">Folio</th>
+                                    <th data-field="metodo_autorizacion" data-sortable="true">Método</th>
+                                    <th data-field="monto_solicitado" data-sortable="true">Monto</th>
+                                    <th data-field="estatus" data-sortable="true">Estatus</th>
+                                    <th data-field="fec_reg" data-sortable="true">Fecha</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($solicitudPago as $pago): ?>
-                                    <tr>
+                                    <?php
+                                        $fechaMovimientoRaw = trim((string) ($pago['fec_reg'] ?? ''));
+                                        $fechaMovimientoVisible = $fechaMovimientoRaw !== '' && strtotime($fechaMovimientoRaw) !== false
+                                            ? date('Y-m-d H:i:s', strtotime($fechaMovimientoRaw))
+                                            : $fechaMovimientoRaw;
+                                    ?>
+                                    <tr data-dia-movimiento="<?= esc(substr($fechaMovimientoRaw, 0, 10), 'attr') ?>">
                                         <td><?= esc((string) ($pago['folio_solicitud'] ?? 'Sin folio')) ?></td>
                                         <td><?= esc((string) ($pago['metodo_autorizacion'] ?? 'Sin método')) ?></td>
                                         <td><?= $formatMoney($pago['monto_solicitado'] ?? 0) ?></td>
                                         <td><?= $estatusBadge((string) ($pago['estatus'] ?? '')) ?></td>
-                                        <td><?= esc((string) ( date('Y-m-d H:i:s', strtotime($pago['fec_reg'] ?? '')) ?? '')) ?></td>
+                                        <td><?= esc($fechaMovimientoVisible) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -649,6 +701,97 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        'use strict';
+
+        const table = $('#tabla-historial-pagos-proveedor');
+        const input = $('#filtro_dia_movimiento_proveedor');
+        const clearButton = $('#limpiar_filtro_dia_movimiento_proveedor');
+        const state = $('#filtro_dia_movimiento_proveedor_estado');
+
+        if (!table.length || !input.length || typeof table.bootstrapTable !== 'function') {
+            return;
+        }
+
+        let baseRows = [];
+
+        const normalizeDate = (value) => {
+            const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+            return match ? `${match[1]}-${match[2]}-${match[3]}` : '';
+        };
+
+        const formatDate = (value) => {
+            const normalized = normalizeDate(value);
+            if (!normalized) {
+                return '';
+            }
+
+            const parts = normalized.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        };
+
+        const rowDate = (row) => normalizeDate(row && row.fec_reg ? row.fec_reg : '');
+
+        const currentFilteredRows = () => {
+            const day = normalizeDate(input.val());
+            if (!day) {
+                return baseRows.slice();
+            }
+
+            return baseRows.filter((row) => rowDate(row) === day);
+        };
+
+        const updateState = (rows) => {
+            const day = normalizeDate(input.val());
+            if (!state.length) {
+                return;
+            }
+
+            if (!day) {
+                state.text('Mostrando movimientos de todos los días.');
+                return;
+            }
+
+            if (rows.length === 0) {
+                state.text('No hay movimientos registrados para el día seleccionado.');
+                return;
+            }
+
+            state.text(`Mostrando ${rows.length} ${rows.length === 1 ? 'movimiento' : 'movimientos'} del ${formatDate(day)}.`);
+        };
+
+        const applyFilter = () => {
+            const day = normalizeDate(input.val());
+            const rows = currentFilteredRows();
+
+            clearButton.prop('disabled', !day);
+            table.bootstrapTable('load', rows);
+            table.bootstrapTable('selectPage', 1);
+            updateState(rows);
+        };
+
+        $(function () {
+            baseRows = table.bootstrapTable('getData', {
+                useCurrentPage: false,
+                includeHiddenRows: true,
+                unfiltered: true,
+            }) || [];
+
+            input.off('change.filtroDiaMovimientoProveedor input.filtroDiaMovimientoProveedor')
+                .on('change.filtroDiaMovimientoProveedor input.filtroDiaMovimientoProveedor', applyFilter);
+
+            clearButton.off('click.filtroDiaMovimientoProveedor')
+                .on('click.filtroDiaMovimientoProveedor', function () {
+                    input.val('');
+                    applyFilter();
+                });
+
+            updateState(baseRows);
+        });
+    })();
+</script>
 
 <div class="modal fade provider-modal" id="modalSolicitudPersonal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
