@@ -11,6 +11,8 @@ use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelMedium;
 use Box\Spout\Writer\Common\Creator\WriterEntityFactory;
 
+
+
 require_once APPPATH . 'Libraries/PHPMailer/Exception.php';
 require_once APPPATH . 'Libraries/PHPMailer/PHPMailer.php';
 require_once APPPATH . 'Libraries/PHPMailer/SMTP.php';
@@ -100,7 +102,102 @@ class Usuario extends BaseController
     {
         return $this->getUsuarios();
     }
-    public function HojaLiberacion($id_establecimiento, $monto_total = null)
+
+    public function convertirNumeroALetras($valor): string
+    {
+        $monto = round($this->parseDecimalValue($valor), 2);
+        $esNegativo = $monto < 0;
+        $centavosTotales = (int) round(abs($monto) * 100);
+        $enteros = intdiv($centavosTotales, 100);
+        $centavos = $centavosTotales % 100;
+
+        $apocoparUno = static function (string $texto): string {
+            if (preg_match('/veintiuno$/u', $texto)) {
+                return preg_replace('/veintiuno$/u', 'veintiún', $texto) ?? $texto;
+            }
+            if (preg_match('/ y uno$/u', $texto)) {
+                return preg_replace('/ y uno$/u', ' y un', $texto) ?? $texto;
+            }
+            if ($texto === 'uno') {
+                return 'un';
+            }
+
+            return preg_replace('/ uno$/u', ' un', $texto) ?? $texto;
+        };
+
+        $convertirEnteroALetras = null;
+        $convertirEnteroALetras = static function (int $numero) use (&$convertirEnteroALetras, $apocoparUno): string {
+            $unidades = [
+                0 => 'cero', 1 => 'uno', 2 => 'dos', 3 => 'tres', 4 => 'cuatro',
+                5 => 'cinco', 6 => 'seis', 7 => 'siete', 8 => 'ocho', 9 => 'nueve',
+                10 => 'diez', 11 => 'once', 12 => 'doce', 13 => 'trece', 14 => 'catorce',
+                15 => 'quince', 16 => 'dieciséis', 17 => 'diecisiete', 18 => 'dieciocho',
+                19 => 'diecinueve', 20 => 'veinte', 21 => 'veintiuno', 22 => 'veintidós',
+                23 => 'veintitrés', 24 => 'veinticuatro', 25 => 'veinticinco',
+                26 => 'veintiséis', 27 => 'veintisiete', 28 => 'veintiocho', 29 => 'veintinueve',
+            ];
+            $decenas = [30 => 'treinta', 40 => 'cuarenta', 50 => 'cincuenta', 60 => 'sesenta', 70 => 'setenta', 80 => 'ochenta', 90 => 'noventa'];
+            $centenas = [200 => 'doscientos', 300 => 'trescientos', 400 => 'cuatrocientos', 500 => 'quinientos', 600 => 'seiscientos', 700 => 'setecientos', 800 => 'ochocientos', 900 => 'novecientos'];
+
+            if ($numero < 30) {
+                return $unidades[$numero];
+            }
+            if ($numero < 100) {
+                $base = intdiv($numero, 10) * 10;
+                $resto = $numero % 10;
+                return $decenas[$base] . ($resto > 0 ? ' y ' . $convertirEnteroALetras($resto) : '');
+            }
+            if ($numero === 100) {
+                return 'cien';
+            }
+            if ($numero < 1000) {
+                $base = intdiv($numero, 100) * 100;
+                $resto = $numero % 100;
+                $prefijo = $base === 100 ? 'ciento' : $centenas[$base];
+                return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+            }
+            if ($numero < 1000000) {
+                $miles = intdiv($numero, 1000);
+                $resto = $numero % 1000;
+                $prefijo = $miles === 1 ? 'mil' : $apocoparUno($convertirEnteroALetras($miles)) . ' mil';
+                return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+            }
+            if ($numero < 1000000000) {
+                $millones = intdiv($numero, 1000000);
+                $resto = $numero % 1000000;
+                $prefijo = $millones === 1
+                    ? 'un millón'
+                    : $apocoparUno($convertirEnteroALetras($millones)) . ' millones';
+                return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+            }
+
+            $milesDeMillones = intdiv($numero, 1000000000);
+            $resto = $numero % 1000000000;
+            $prefijo = $milesDeMillones === 1
+                ? 'mil millones'
+                : $apocoparUno($convertirEnteroALetras($milesDeMillones)) . ' mil millones';
+            return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+        };
+
+        $letras = $apocoparUno($convertirEnteroALetras($enteros));
+        $moneda = $enteros === 1 ? 'peso' : 'pesos';
+        $separadorMoneda = $enteros >= 1000000 && $enteros % 1000000 === 0 ? ' de ' : ' ';
+        $resultado = sprintf('%s%s%s %02d/100 M.N.', $letras, $separadorMoneda, $moneda, $centavos);
+
+        if ($esNegativo) {
+            $resultado = 'menos ' . $resultado;
+        }
+
+        if (function_exists('mb_strtoupper')) {
+            return mb_strtoupper($resultado, 'UTF-8');
+        }
+
+        return strtr(strtoupper($resultado), [
+            'á' => 'Á', 'é' => 'É', 'í' => 'Í', 'ó' => 'Ó', 'ú' => 'Ú', 'ñ' => 'Ñ',
+        ]);
+    }
+
+    public function HojaLiberacion($id_establecimiento)
     {
         $idEstablecimiento = (int) $id_establecimiento;
         if ($idEstablecimiento <= 0) {
@@ -118,8 +215,14 @@ class Usuario extends BaseController
            // For mPDF, passing local absolute path is better and avoids base64 issues
         $data['logo'] = FCPATH . 'assets/logo-guanajuato.png';
         $data['norma'] = FCPATH . 'assets/Norma.png';
+        $montoRecibido = $this->request->getGet('monto');
+       $montoTotal = $this->parseDecimalValue($montoRecibido ?? 0);
+       //die(var_dump($montoTotal));
+       // $montoTotal = $this->parseDecimalValue($monto_total ?? 0);
+        $data['monto_letra'] = $this->convertirNumeroALetras($montoTotal);
+        $data['monto_total'] = $montoTotal;
         //die( var_dump($data['logo']) ); // Debug if needed
-       // die( var_dump($data) );
+        //die( var_dump($data) );
         $html = view('pdfs/vPdfLiberacionPago', $data);
 
         $mpdf = new \Mpdf\Mpdf([
@@ -136,7 +239,6 @@ class Usuario extends BaseController
         exit;
         
     }
-
     public function HojaAzul($id_establecimiento, $monto_total = null)
     {
         $idEstablecimiento = (int) $id_establecimiento;

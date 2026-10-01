@@ -123,19 +123,19 @@
         $concepto_text = isset($registro_pt->concepto) ? $registro_pt->concepto : '[CONCEPTO PENDIENTE]'; 
     ?>
     <div class="content">
-        Por medio del presente, me permito solicitar su apoyo para que se realice el trámite de Pago a Tercero pago a terceros de
-        folio <strong>PT SECTURI/SSIDT/DGCT/FIC-TA/<?=$id_formateado?>/2026</strong> por la cantidad de <strong>$<?= $importe_total ?> (<?= $importe_letra ?>)</strong>,
-        de comprobante(s) fiscal(es) No. <strong><?= $comprobantes_text ?></strong> por concepto de <strong><?= $concepto_text ?></strong> al proveedor <strong><?= $proveedor_nombre ?></strong>.
+        Por medio del presente, me permito solicitar su apoyo para que se realice el trámite de Pago a Tercero del
+        folio <strong>PT SECTURI/SSIDT/DGCT/FIC-TA/<?=$id_formateado?>/2026</strong> por la cantidad de <strong>$<?= $monto_total ?> (<?= $monto_letra ?>)</strong>,
+        de comprobante(s) fiscal(es) No. <strong><?= $comprobantes_text ?></strong> por concepto de <strong>Consumo de alimentos durante la 54° Edición del FIC, del 03 al 18 deoctubre del 2024</strong> al proveedor <strong><?= $proveedor_nombre ?></strong>.
     </div>
 
     <!-- Content Body 2 -->
     <div class="content">
-        Lo anterior con cargo al proyecto(s) <strong><?= $proyectos_text ?></strong> a las partida(s) presupuestal(es) <strong><?= $partidas_text ?></strong>
+        Lo anterior con cargo al proyecto(s) <strong>E027QC04182601</strong> a las partida presupuestal <strong>2210</strong>
     </div>
 
     <!-- Content Body 3 - Legal -->
     <div class="content">
-        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>PRIMERA</strong> de instrumento jurídico <strong><?= (!empty($establecimiento->no_convenio))?$establecimiento->no_convenio:'NO APLICA' ?></strong> recibí
+        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>PRIMERA</strong> de instrumento jurídico <strong><?= (!empty($establecimiento->no_contrato))?$establecimiento->no_contrato:'NO APLICA' ?></strong> recibí
         el producto, atendiendo lo que establece el marco normativo aplicable. El producto recibido se nos ha
         entregado a entera satisfacción en tiempo y forma, quedando bajo mi responsabilidad el uso y/o
         distribución, así como el resguardo y custodia de los expedientes originales y entregables correspondientes.
