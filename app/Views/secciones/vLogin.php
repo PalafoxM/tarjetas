@@ -669,9 +669,9 @@
                             <button type="button" id="btnAcceder" class="btn btn-primary" onclick="loginTradicional();">Acceder</button>
 
                             <div class="login-panel-actions" aria-label="Accesos auxiliares">
-                                <a class="login-panel-access" href="<?= esc(base_url('index.php/ConsultaSaldo'), 'attr') ?>">
+                                <!-- <a class="login-panel-access" href="<?= esc(base_url('index.php/ConsultaSaldo'), 'attr') ?>">
                                     Revisa tu saldo aquí
-                                </a>
+                                </a> -->
                                 <a class="login-panel-access" href="https://tarjetasfic.guanajuato.gob.mx/lista/">
                                     Lista de establecimientos participantes
                                 </a>
