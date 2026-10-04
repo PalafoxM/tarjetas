@@ -1032,9 +1032,10 @@ class Inicio extends BaseController {
         }
 
         $pagos = $db->table('pagos p')
-            ->select("\n                p.id_pago,\n                p.id_solicitud_pago,\n                p.id_usuario,\n                p.monto,\n                p.propina,\n                p.total,\n                p.fec_reg,\n                sp.folio_solicitud,\n                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS cliente\n            ", false)
+            ->select("\n                p.id_pago,\n                p.id_tipo_pago,\n                p.id_solicitud_pago,\n                p.id_usuario,\n                p.monto,\n                p.propina,\n                p.total,\n                p.fec_reg,\n                sp.folio_solicitud,\n                ctp.dsc_pago AS metodo_pago,\n                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS cliente\n            ", false)
             ->join('usuario u', 'u.id_usuario = p.id_usuario', 'left')
             ->join('solicitud_pago sp', 'sp.id_solicitud_pago = p.id_solicitud_pago', 'left')
+            ->join('cat_tipo_pago ctp', 'ctp.id_tipo_pago = p.id_tipo_pago AND ctp.visible = 1', 'left')
             ->where('p.id_establecimiento', $idEstablecimiento)
             ->where('p.visible', 1)
             ->orderBy('p.fec_reg', 'DESC')
@@ -1049,7 +1050,7 @@ class Inicio extends BaseController {
             'contentView' => 'secciones/vConsumosDetalle',
         ];
         $data['idEstablecimiento'] = $idEstablecimiento;
-        
+       // die(var_dump($data['idEstablecimiento']));
 
         $this->_renderView($data);
     }

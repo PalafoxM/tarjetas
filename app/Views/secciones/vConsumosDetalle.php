@@ -14,6 +14,13 @@ $resumen = array_reduce($pagos, static function (array $acumulado, array $pago):
     return $acumulado;
 }, ['monto' => 0.0, 'propina' => 0.0, 'total' => 0.0]);
 
+$metodosPago = array_values(array_unique(array_filter(array_map(static function (array $pago): string {
+    return strtoupper(trim((string) ($pago['metodo_pago'] ?? '')));
+}, $pagos))));
+$metodoPagoResumen = count($metodosPago) > 1
+    ? 'Mixto'
+    : ($metodosPago[0] ?? 'No especificado');
+
 $moneda = static function ($valor): string {
     return '$' . number_format((float) $valor, 2, '.', ',');
 };
@@ -123,8 +130,8 @@ $hojaLiberacionUrl = base_url('index.php/Usuario/HojaLiberacion/' . $idEstableci
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="consumos-detail-summary h-100 p-3">
-                <div class="consumos-detail-label">Propinas</div>
-                <p class="consumos-detail-value"><?= esc($moneda($resumen['propina'])) ?></p>
+                <div class="consumos-detail-label">Método de pago</div>
+                <p class="consumos-detail-value"><?= esc($metodoPagoResumen) ?></p>
             </div>
         </div>
         <div class="col-12 col-sm-6 col-xl-3">
@@ -173,6 +180,7 @@ $hojaLiberacionUrl = base_url('index.php/Usuario/HojaLiberacion/' . $idEstableci
                             <th data-sortable="true">Pago</th>
                             <th data-sortable="true">Folio</th>
                             <th data-sortable="true">Cliente</th>
+                            <th data-sortable="true">Método de pago</th>
                             <th data-sortable="true" data-align="right">Consumo</th>
                             <th data-sortable="true" data-align="right">Propina</th>
                             <th data-sortable="true" data-align="right">Total</th>
@@ -185,6 +193,12 @@ $hojaLiberacionUrl = base_url('index.php/Usuario/HojaLiberacion/' . $idEstableci
                                 <td>#<?= (int) ($pago['id_pago'] ?? 0) ?></td>
                                 <td><?= esc((string) ($pago['folio_solicitud'] ?? $pago['id_solicitud_pago'] ?? 'Sin folio')) ?></td>
                                 <td><?= esc(trim((string) ($pago['cliente'] ?? '')) ?: 'Sin nombre') ?></td>
+                                <td>
+                                    <?php $metodoPago = strtoupper(trim((string) ($pago['metodo_pago'] ?? ''))); ?>
+                                    <span class="badge <?= $metodoPago === 'NIP' ? 'bg-warning text-dark' : 'bg-info text-dark' ?>">
+                                        <?= esc($metodoPago !== '' ? $metodoPago : 'Sin método') ?>
+                                    </span>
+                                </td>
                                 <td><?= esc($moneda($pago['monto'] ?? 0)) ?></td>
                                 <td><?= esc($moneda($pago['propina'] ?? 0)) ?></td>
                                 <td class="fw-bold"><?= esc($moneda($pago['total'] ?? 0)) ?></td>
