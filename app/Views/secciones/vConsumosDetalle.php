@@ -15,7 +15,7 @@ $resumen = array_reduce($pagos, static function (array $acumulado, array $pago):
 }, ['monto' => 0.0, 'propina' => 0.0, 'total' => 0.0]);
 
 $metodosPago = array_values(array_unique(array_filter(array_map(static function (array $pago): string {
-    return strtoupper(trim((string) ($pago['metodo_pago'] ?? '')));
+    return strtoupper(trim((string) ($pago['metodo_autorizacion'] ?? '')));
 }, $pagos))));
 $metodoPagoResumen = count($metodosPago) > 1
     ? 'Mixto'
@@ -194,7 +194,7 @@ $hojaLiberacionUrl = base_url('index.php/Usuario/HojaLiberacion/' . $idEstableci
                                 <td><?= esc((string) ($pago['folio_solicitud'] ?? $pago['id_solicitud_pago'] ?? 'Sin folio')) ?></td>
                                 <td><?= esc(trim((string) ($pago['cliente'] ?? '')) ?: 'Sin nombre') ?></td>
                                 <td>
-                                    <?php $metodoPago = strtoupper(trim((string) ($pago['metodo_pago'] ?? ''))); ?>
+                                    <?php $metodoPago = strtoupper(trim((string) ($pago['metodo_autorizacion'] ?? ''))); ?>
                                     <span class="badge <?= $metodoPago === 'NIP' ? 'bg-warning text-dark' : 'bg-info text-dark' ?>">
                                         <?= esc($metodoPago !== '' ? $metodoPago : 'Sin método') ?>
                                     </span>
