@@ -789,38 +789,99 @@ function loginTradicionalEnter(event) {
 }
 
 function loginTradicional() {
-    const usuario = $('#usuario').val();
-    const contrasenia = $('#contrasenia').val();
+    const boton = $('#btnAcceder');
 
-    if (!usuario || !contrasenia) {
-        Swal.fire('Atencion', 'Es requerido el usuario y contraseña', 'error');
+    if (boton.prop('disabled')) {
         return;
     }
 
-    const boton = $('#btnAcceder');
+    const usuario = $('#usuario').val();
+    const contrasenia = $('#contrasenia').val();
+    const csrfName = $('#csrf_login_name').val();
+    const csrfHash = $('#csrf_login_hash').val();
+
+    if (!usuario || !contrasenia) {
+        Swal.fire(
+            'Atención',
+            'Es requerido el usuario y contraseña',
+            'error'
+        );
+        return;
+    }
+
+    if (!csrfName || !csrfHash) {
+        Swal.fire(
+            'Actualiza la página',
+            'No fue posible obtener el token de seguridad.',
+            'warning'
+        );
+        return;
+    }
+
+    const datos = {
+        usuario: usuario,
+        contrasenia: contrasenia
+    };
+
+    datos[csrfName] = csrfHash;
+
     boton.prop('disabled', true).text('Validando...');
 
     $.ajax({
         type: 'POST',
         url: base_url + 'index.php/Login/validar_usuario',
-        data: {
-            usuario: usuario,
-            contrasenia: contrasenia
-        },
+        data: datos,
         dataType: 'json',
+
         success: function(response) {
+            // El controlador debe devolver el token vigente.
+            if (response.csrfName && response.csrfHash) {
+                $('#csrf_login_name').val(response.csrfName);
+                $('#csrf_login_hash').val(response.csrfHash);
+
+                $('meta[name="csrf-token-name"]')
+                    .attr('content', response.csrfName);
+
+                $('meta[name="csrf-token"]')
+                    .attr('content', response.csrfHash);
+            }
+
             if (!response.error) {
-                Swal.fire('Acceso correcto', 'Bienvenida, persona servidora publica.', 'success');
+                Swal.fire(
+                    'Acceso correcto',
+                    'Bienvenida, persona servidora pública.',
+                    'success'
+                );
+
                 setTimeout(() => {
-                    window.location.href = base_url + 'index.php/Inicio';
+                    window.location.href =
+                        base_url + 'index.php/Inicio';
                 }, 1000);
             } else {
-                Swal.fire('Usuario incorrecto', 'Favor de verificar sus credenciales', 'error');
+                Swal.fire(
+                    'Usuario incorrecto',
+                    'Favor de verificar sus credenciales',
+                    'error'
+                );
             }
         },
-        error: function() {
-            Swal.fire('Error en la conexion', 'No fue posible validar el usuario.', 'error');
+
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                Swal.fire(
+                    'Actualiza la página',
+                    'La validación de seguridad falló. Recarga la página e intenta nuevamente.',
+                    'warning'
+                );
+            } else {
+                Swal.fire(
+                    'Error en la conexión',
+                    'No fue posible validar el usuario. Recarga la página antes de intentar nuevamente.',
+                    'error'
+                );
+            }
         },
+
         complete: function() {
             boton.prop('disabled', false).text('Acceder');
         }

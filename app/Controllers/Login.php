@@ -125,6 +125,14 @@ class Login extends BaseController {
                     ])));
                 }
 
+                unset(
+                    $usuarioSesion['contrasenia'],
+                    $usuarioSesion['password'],
+                    $usuarioSesion['token']
+                );
+
+                $usuarioSesion['logueado'] = 1;
+
                 $session->regenerate();
                 $session->set($usuarioSesion);
 
@@ -138,6 +146,9 @@ class Login extends BaseController {
             log_message('error', 'Error al conectar con la API de backSti: ' . $e->getMessage());
             $response->respuesta = 'Error | Conexión fallida con backSti';
         }       
+        $response->csrfName = csrf_token();
+        $response->csrfHash = csrf_hash();
+
         return $this->respond($response);
     }
     public function cerrar() {
