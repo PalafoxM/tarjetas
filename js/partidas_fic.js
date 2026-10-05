@@ -10,10 +10,21 @@
         fn();
     }
 
-    function loadScript(src) {
+   function loadScript(src, integrity) {
         return new Promise(function (resolve, reject) {
-            var existing = document.querySelector('script[data-src="' + src + '"]');
+            var existing = document.querySelector(
+                'script[data-src="' + src + '"]'
+            );
+
             if (existing) {
+                if (
+                    existing.integrity !== integrity ||
+                    existing.crossOrigin !== 'anonymous'
+                ) {
+                    reject(new Error('El script existente no tiene el SRI esperado.'));
+                    return;
+                }
+
                 if (window.ApexCharts) {
                     resolve();
                     return;
@@ -22,22 +33,33 @@
                 existing.addEventListener('load', function () {
                     resolve();
                 }, { once: true });
+
                 existing.addEventListener('error', function () {
+                    existing.remove();
                     reject(new Error('No fue posible cargar ' + src));
                 }, { once: true });
+
                 return;
             }
 
             var script = document.createElement('script');
+
+            // Configura SRI antes de insertar el elemento.
+            script.integrity = integrity;
+            script.crossOrigin = 'anonymous';
             script.src = src;
             script.async = true;
             script.dataset.src = src;
+
             script.onload = function () {
                 resolve();
             };
+
             script.onerror = function () {
+                script.remove();
                 reject(new Error('No fue posible cargar ' + src));
             };
+
             document.head.appendChild(script);
         });
     }
@@ -264,7 +286,10 @@
             return;
         }
 
-        loadScript('https://cdn.jsdelivr.net/npm/apexcharts@6/dist/apexcharts.min.js')
+        loadScript(
+            'https://cdn.jsdelivr.net/npm/apexcharts@6.10.0/dist/apexcharts.min.js',
+            'sha384-5EG9CeSqSzymwY307XCL4zMqifjcpwh/uGHYg1CPiyMNHVvfCcx8VZi2JzW2035O'
+        )
             .then(mountChart)
             .catch(function () {
                 renderNoData(mount, 'No fue posible cargar ApexCharts.');
