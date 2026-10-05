@@ -53,11 +53,26 @@ window.addEventListener('load', function () {
         header: headerMeta.getAttribute('content')
     };
 
-    window.jQuery.ajaxSetup({
-        beforeSend: function (xhr) {
-            xhr.setRequestHeader(window.FicCsrf.header, window.FicCsrf.token);
+   window.jQuery.ajaxSetup({
+    beforeSend: function (xhr, settings) {
+        const destino = new URL(settings.url, window.location.href);
+
+        // Envía el token únicamente al mismo origen.
+        if (destino.origin !== window.location.origin) {
+            return;
         }
-    });
+
+        const token = document.querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content');
+
+        const header = document.querySelector('meta[name="csrf-header"]')
+            ?.getAttribute('content');
+
+        if (token && header) {
+            xhr.setRequestHeader(header, token);
+        }
+    }
+});
 })(window, document);
 </script>
 <script src="<?= base_url('/js/global-loading.js') ?>"></script>
