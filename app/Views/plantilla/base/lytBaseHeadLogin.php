@@ -6,8 +6,7 @@
     <title>SUSI</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta content="Sistema de Administración de Capacitación" name="description" />
-    <meta content="Agustin Palafox Marin" name="author" />
-    <meta name="developer" content="palafox.marin@hotmail.com">
+
   
     <link rel="shortcut icon" href="<?php echo base_url(); ?>assets/huella.png">
 
