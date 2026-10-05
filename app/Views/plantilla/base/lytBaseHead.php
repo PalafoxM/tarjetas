@@ -45,7 +45,11 @@
         <script type="text/javascript" src="<?php echo base_url();?>/assets/fileinput5/js/fileinput.js"></script>
         <script type="text/javascript" src="<?php echo base_url();?>/assets/fileinput5/js/locales/es.js"></script>
         <script type="text/javascript" src="<?php echo base_url();?>/assets/fileinput5/themes/fas/theme.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"
+            integrity="sha384-nLoOnA/BDh8A/jxqtckg4DumuCGOBYUnNJLZdQz/zfYNp3wcjGSoWTAzgko06G/2"
+            crossorigin="anonymous">
+        </script>
         
         <!--Bootstrap table-->
         <link href="<?php echo (base_url('/assets/bootstrap-table-master/dist_/bootstrap-table.min.css'));?>" rel="stylesheet">
