@@ -849,7 +849,7 @@ function loginTradicional() {
             if (!response.error) {
                 Swal.fire(
                     'Acceso correcto',
-                    'Bienvenida, persona servidora pública.',
+                    'Bienvenido al sistema',
                     'success'
                 );
 
