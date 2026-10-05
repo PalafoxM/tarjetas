@@ -5,10 +5,15 @@ use CodeIgniter\Router\RouteCollection;
 /**
  * @var RouteCollection $routes
  */
+$routes->setAutoRoute(false);
 $routes->get('/', 'Login::index');
 $routes->get('Login', 'Login::index');
 $routes->get('Login/cerrar', 'Login::cerrar');
-$routes->post('Login/validar_usuario', 'Login::validar_usuario');
+$routes->post(
+    'Login/validar_usuario',
+    'Login::validar_usuario',
+    ['filter' => 'csrf']
+);
 $routes->get('ConsultaSaldo', 'ConsultaSaldo::index');
 $routes->post('ConsultaSaldo/consultar', 'ConsultaSaldo::consultar');
 $routes->get('Inicio/getPagosPorEstablecimiento', 'Inicio::getPagosPorEstablecimiento');
