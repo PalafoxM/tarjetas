@@ -50,9 +50,32 @@ class Login extends BaseController {
         $response = new \stdClass();
         $response->error = true;
         $response->respuesta = "Error al validar usuario";
-        $session = \Config\Services::session();
+       $session = \Config\Services::session();
+
+        // Limitador de intentos de login por IP.
+        $throttler = \Config\Services::throttler();
+
+        $throttleKey = 'fic_login_' . hash(
+            'sha256',
+            $this->request->getIPAddress()
+        );
+
+        if ($throttler->check($throttleKey, 5, 60) === false) {
+            $retryAfter = max(1, (int) $throttler->getTokentime());
+
+            return $this->response
+                ->setStatusCode(429)
+                ->setHeader('Retry-After', (string) $retryAfter)
+                ->setJSON([
+                    'error'     => true,
+                    'respuesta' => 'Demasiados intentos. Espera antes de intentar nuevamente.',
+                    'csrfName'  => csrf_token(),
+                    'csrfHash'  => csrf_hash(),
+                ]);
+        }
+
         $catalogos = new Mglobal;
-         $client = \Config\Services::curlrequest();
+       $client = \Config\Services::curlrequest();
         
         $usuario     = $this->request->getPost('usuario');
         $contrasenia = $this->request->getPost('contrasenia');
