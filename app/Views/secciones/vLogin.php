@@ -865,22 +865,42 @@ function loginTradicional() {
                 );
             }
         },
+      error: function(xhr) {
+        const respuesta = xhr.responseJSON;
 
-        error: function(xhr) {
-            if (xhr.status === 403) {
-                Swal.fire(
-                    'Actualiza la página',
-                    'La validación de seguridad falló. Recarga la página e intenta nuevamente.',
-                    'warning'
-                );
-            } else {
-                Swal.fire(
-                    'Error en la conexión',
-                    'No fue posible validar el usuario. Recarga la página antes de intentar nuevamente.',
-                    'error'
-                );
-            }
-        },
+        if (respuesta && respuesta.csrfName && respuesta.csrfHash) {
+            $('#csrf_login_name').val(respuesta.csrfName);
+            $('#csrf_login_hash').val(respuesta.csrfHash);
+
+            $('meta[name="csrf-token-name"]')
+                .attr('content', respuesta.csrfName);
+
+            $('meta[name="csrf-token"]')
+                .attr('content', respuesta.csrfHash);
+        }
+
+        if (xhr.status === 429) {
+            const espera = xhr.getResponseHeader('Retry-After') || '60';
+
+            Swal.fire(
+                'Demasiados intentos',
+                'Espera ' + espera + ' segundos antes de intentar nuevamente.',
+                'warning'
+            );
+        } else if (xhr.status === 403) {
+            Swal.fire(
+                'Actualiza la página',
+                'La validación de seguridad falló. Recarga la página e intenta nuevamente.',
+                'warning'
+            );
+        } else {
+            Swal.fire(
+                'Error en la conexión',
+                'No fue posible validar el usuario. Recarga la página antes de intentar nuevamente.',
+                'error'
+            );
+        }
+    },
 
         complete: function() {
             boton.prop('disabled', false).text('Acceder');
