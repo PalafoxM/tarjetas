@@ -653,7 +653,7 @@
                                 <label for="contrasenia">Contraseña</label>
                                 <div class="login-password-wrap">
                                     <input type="password" class="form-control login-password-input" id="contrasenia" placeholder="Ingresa tu contraseña" autocomplete="current-password">
-                                    <button type="button" id="togglePasswordBtn" class="login-password-toggle" title="Mostrar u ocultar contraseña" onclick="togglePasswordVisibility()">
+                                    <button type="button" id="togglePasswordBtn" class="login-password-toggle" title="Mostrar u ocultar contraseña">
                                         <svg id="icon-eye"  width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                             <circle cx="12" cy="12" r="3"></circle>
@@ -666,7 +666,7 @@
                                 </div>
                             </div>
 
-                            <button type="button" id="btnAcceder" class="btn btn-primary" onclick="loginTradicional();">Acceder</button>
+                            <button type="button" id="btnAcceder" class="btn btn-primary" >Acceder</button>
 
                             <div class="login-panel-actions" aria-label="Accesos auxiliares">
                                 <!-- <a class="login-panel-access" href="<?= esc(base_url('index.php/ConsultaSaldo'), 'attr') ?>">
@@ -910,4 +910,10 @@ function loginTradicional() {
 
 document.getElementById('usuario')?.addEventListener('keydown', loginTradicionalEnter);
 document.getElementById('contrasenia')?.addEventListener('keydown', loginTradicionalEnter);
+
+document.getElementById('togglePasswordBtn')
+    ?.addEventListener('click', togglePasswordVisibility);
+
+document.getElementById('btnAcceder')
+    ?.addEventListener('click', loginTradicional);
 </script>
