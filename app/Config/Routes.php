@@ -130,6 +130,10 @@ $routes->get(
     'Inicio/buscarProveedoresPadronFic',
     'Inicio::buscarProveedoresPadronFic'
 );
+$routes->get(
+    'Inicio/getProveedorPadronFic',
+    'Inicio::getProveedorPadronFic'
+);
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 
