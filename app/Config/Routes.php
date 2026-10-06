@@ -114,7 +114,11 @@ $routes->get('Inicio/AltaUsuario/(:num)', 'Inicio::AltaUsuario/$1');
 // Consultas de usuarios
 $routes->get('Usuario/getVistaUsuario', 'Usuario::getVistaUsuario');
 $routes->get('Usuario/getVistaUsuarioFic', 'Usuario::getVistaUsuarioFic');
-$routes->post('Usuario/getUsuario', 'Usuario::getUsuario');
+$routes->post(
+    'Usuario/getUsuario',
+    'Usuario::getUsuario',
+    ['filter' => 'csrf']
+);
 
 // Guardado y baja
 $routes->post('Usuario/saveCajero', 'Usuario::saveCajero');
