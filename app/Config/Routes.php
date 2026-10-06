@@ -105,6 +105,7 @@ $routes->get('Usuario/generarPdfHospedaje/(:num)', 'Usuario::generarPdfHospedaje
 $routes->get('Usuario/generarPdfAlimentos/(:num)', 'Usuario::generarPdfAlimentos/$1');
 $routes->get('Usuario/HojaAzul/(:num)/(:segment)', 'Usuario::HojaAzul/$1/$2');
 $routes->get('Usuario/HojaAzul/(:num)', 'Usuario::HojaAzul/$1');
+$routes->get('Usuario/HojaLiberacion/(:num)', 'Usuario::HojaLiberacion/$1');
 $routes->get('Usuario/HojaLiberacion/(:num)/(:segment)', 'Usuario::HojaLiberacion/$1/$2');
 // Pantallas de usuarios
 $routes->get('Inicio/Usuarios', 'Inicio::Usuarios');
