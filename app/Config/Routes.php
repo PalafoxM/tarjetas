@@ -30,6 +30,7 @@ $routes->get('Inicio/PerfilSeculConsulta', 'Inicio::PerfilSeculConsulta');
 $routes->get('Inicio/PerfilUg', 'Inicio::PerfilUg');
 $routes->get('Inicio/PerfilUgConsulta', 'Inicio::PerfilUgConsulta');
 $routes->get('Inicio/Cajero', 'Inicio::Cajero');
+$routes->get('Usuario/getUsuarios', 'Usuario::getUsuarios');
 $routes->get('Inicio/SolicitudAlta', 'Inicio::SolicitudAlta');
 $routes->get('Inicio/SolicitudAlta/(:segment)', 'Inicio::SolicitudAlta/$1');
 $routes->get('Inicio/getDashboardPartidasFic', 'Inicio::getDashboardPartidasFic');
