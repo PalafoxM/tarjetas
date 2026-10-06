@@ -15,6 +15,9 @@
 <?php if (isset($scripts)) : foreach ($scripts as $js) : ?>
 <script src="<?= base_url("js/{$js}.js") ?>?filever=<?= time() ?>"></script>
 <?php endforeach; endif; ?>
+
+<script src="<?= base_url('js/fic-login.js') ?>?v=<?= time() ?>"></script>
+
     </body>
 
 </html>
