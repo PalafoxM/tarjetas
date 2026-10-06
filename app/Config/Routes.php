@@ -125,6 +125,11 @@ $routes->post(
 $routes->post('Usuario/saveCajero', 'Usuario::saveCajero');
 $routes->post('Usuario/saveUsuario', 'Usuario::saveUsuario');
 $routes->post('Usuario/deleteUsuario', 'Usuario::deleteUsuario');
+
+$routes->get(
+    'Inicio/buscarProveedoresPadronFic',
+    'Inicio::buscarProveedoresPadronFic'
+);
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 
