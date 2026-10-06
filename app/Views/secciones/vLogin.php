@@ -682,23 +682,7 @@
             </div>
         </div>
 
- <!--        <div id="login_google_access" class="login-google-access">
-            <div class="form-group mb-0 row" id="btn_login">
-                <div class="col-12 mt-2">
-                    <button class="btn btn-gradient-primary btn-round btn-block waves-effect waves-light"
-                        onclick="iniciarGoogle();" type="button">Ingresar a SUSI con Google</button>
-                </div>
-            </div>
-            <div class="form-group mb-0 row" id="btn_load" style="display:none;">
-                <div class="col-12 mt-2">
-                    <button class="btn btn-gradient-primary btn-round btn-block waves-effect waves-light"
-                        type="button" disabled>
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        Validando...
-                    </button>
-                </div>
-            </div>
-        </div> -->
+
     </div>
 </div>
 
@@ -773,14 +757,7 @@ function losePass() {
     Swal.fire("Para restablecer la contraseña", '<p>Favor de comunicarte con el Administrador</p>', 'info');
 }
 
-function iniciarGoogle() {
-    $('#btn_login').hide();
-    $('#btn_load').show();
 
-    setTimeout(() => {
-        window.location.href = '<?= base_url("index.php/Auth/login") ?>';
-    }, 300);
-}
 
 function loginTradicionalEnter(event) {
     if (event.key === 'Enter') {
