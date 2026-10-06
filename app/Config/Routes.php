@@ -106,6 +106,20 @@ $routes->get('Usuario/generarPdfAlimentos/(:num)', 'Usuario::generarPdfAlimentos
 $routes->get('Usuario/HojaAzul/(:num)/(:segment)', 'Usuario::HojaAzul/$1/$2');
 $routes->get('Usuario/HojaAzul/(:num)', 'Usuario::HojaAzul/$1');
 $routes->get('Usuario/HojaLiberacion/(:num)/(:segment)', 'Usuario::HojaLiberacion/$1/$2');
+// Pantallas de usuarios
+$routes->get('Inicio/Usuarios', 'Inicio::Usuarios');
+$routes->get('Inicio/AltaUsuario', 'Inicio::AltaUsuario');
+$routes->get('Inicio/AltaUsuario/(:num)', 'Inicio::AltaUsuario/$1');
+
+// Consultas de usuarios
+$routes->get('Usuario/getVistaUsuario', 'Usuario::getVistaUsuario');
+$routes->get('Usuario/getVistaUsuarioFic', 'Usuario::getVistaUsuarioFic');
+$routes->post('Usuario/getUsuario', 'Usuario::getUsuario');
+
+// Guardado y baja
+$routes->post('Usuario/saveCajero', 'Usuario::saveCajero');
+$routes->post('Usuario/saveUsuario', 'Usuario::saveUsuario');
+$routes->post('Usuario/deleteUsuario', 'Usuario::deleteUsuario');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 
