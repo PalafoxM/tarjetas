@@ -83,7 +83,9 @@ window.addEventListener('load', function () {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
 
-
+<?php if (isset($scripts)) : foreach ($scripts as $js) : ?>
+<script src="<?= base_url("js/{$js}.js") ?>?filever=<?= time() ?>"></script>
+<?php endforeach; endif; ?>
     </body>
 
 </html>
