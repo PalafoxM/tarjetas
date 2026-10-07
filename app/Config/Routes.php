@@ -55,7 +55,7 @@ $routes->get('Inicio/exportarReporteVentasProveedorXlsx', 'Inicio::exportarRepor
 $routes->get('Inicio/exportarReporteVentasProveedorPdf', 'Inicio::exportarReporteVentasProveedorPdf');
 $routes->get('Inicio/exportarReporteVentasProveedorPdfFormato', 'Inicio::exportarReporteVentasProveedorPdfFormato');
 $routes->get('Usuario/getCatalogosCrud', 'Usuario::getCatalogosCrud');
-$routes->post('Usuario/saveAltaUsuario', 'Usuario::saveAltaUsuario');
+
 $routes->get('Inicio/getSugerenciasFolioInstitucional', 'Inicio::getSugerenciasFolioInstitucional');
 $routes->get('Inicio/getSolicitudFolioEditable', 'Inicio::getSolicitudFolioEditable');
 $routes->get('Inicio/getSolicitudesUsuarioFicPerfil', 'Inicio::getSolicitudesUsuarioFicPerfil');
@@ -147,6 +147,12 @@ $routes->get(
 $routes->get(
     'Inicio/getProveedorPadronFic',
     'Inicio::getProveedorPadronFic'
+);
+
+$routes->post(
+    'Usuario/saveAltaUsuario',
+    'Usuario::saveAltaUsuario',
+    ['filter' => 'csrf']
 );
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
