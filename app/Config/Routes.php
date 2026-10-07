@@ -122,9 +122,23 @@ $routes->post(
 );
 
 // Guardado y baja
-$routes->post('Usuario/saveCajero', 'Usuario::saveCajero');
-$routes->post('Usuario/saveUsuario', 'Usuario::saveUsuario');
-$routes->post('Usuario/deleteUsuario', 'Usuario::deleteUsuario');
+$routes->post(
+    'Usuario/saveCajero',
+    'Usuario::saveCajero',
+    ['filter' => 'csrf']
+);
+
+$routes->post(
+    'Usuario/saveUsuario',
+    'Usuario::saveUsuario',
+    ['filter' => 'csrf']
+);
+
+$routes->post(
+    'Usuario/deleteUsuario',
+    'Usuario::deleteUsuario',
+    ['filter' => 'csrf']
+);
 
 $routes->get(
     'Inicio/buscarProveedoresPadronFic',
