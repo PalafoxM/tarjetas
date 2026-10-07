@@ -700,12 +700,14 @@
             </div>
             <div class="modal-body">
                 <div class="support-contact-item">
-                    <span class="support-contact-label">Telefono</span>
-                    <a href="tel:+524731391180">473 139 1180</a>
+                    <span class="support-contact-label">Teléfono</span>
+                    <a href="tel:+524731391180">473 139 1180</a><br>
+                    <a href="tel:+524731391180">473 122 6698</a>
                 </div>
                 <div class="support-contact-item">
                     <span class="support-contact-label">Correo</span>
-                    <a href="mailto:a.palafoxm@guanajuato.gob.mx">a.palafoxm@guanajuato.gob.mx</a>
+                    <a href="mailto:a.palafoxm@guanajuato.gob.mx">a.palafoxm@guanajuato.gob.mx</a><br>
+                    <a href="mailto:a.palafoxm@guanajuato.gob.mx">rsalbap@guanajuato.gob.mx</a>
                 </div>
             </div>
             <div class="modal-footer">
