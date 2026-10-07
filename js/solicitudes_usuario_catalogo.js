@@ -28,6 +28,23 @@ var solicitudesUsuarioCatalogo = (function () {
         return output;
     }
 
+    function getCsrfPayload() {
+        var payload = {};
+        var tokenNameMeta = document.querySelector(
+            'meta[name="csrf-token-name"]'
+        );
+        var tokenMeta = document.querySelector(
+            'meta[name="csrf-token"]'
+        );
+
+        if (tokenNameMeta && tokenMeta &&
+            tokenNameMeta.content && tokenMeta.content) {
+            payload[tokenNameMeta.content] = tokenMeta.content;
+        }
+
+        return payload;
+    }
+
     function clearAlert() {
         var alert = $('#solicitudUsuarioCatalogoAlert');
         if (!alert.length) return;
