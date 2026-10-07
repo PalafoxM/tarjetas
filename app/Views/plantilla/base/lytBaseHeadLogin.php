@@ -28,6 +28,10 @@ $loginBackgroundUrls = [$loginDefaultBackgroundUrl];
     <link rel="shortcut icon"
           href="<?= base_url('assets/images/proyecto/favicon.png') ?>"
           type="image/x-icon">
+     <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.min.css"
+      integrity="sha384-dCW5imOdApH6OwpFau8cZNKjqVbJYnCA5q+8YsMYP3XwXKsV6Jfz1u6MZLnXaBsS"
+      crossorigin="anonymous">
 
     <link rel="stylesheet" href="<?= base_url('css/fic-common.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/parallax/styles.css') ?>">

@@ -1,11 +1,9 @@
 
 <script src="<?= base_url('assets/parallax/libraries.min.js') ?>"></script>
 <script src="<?= base_url('assets/parallax/jquery.parallax.js') ?>"></script>
-<script
-    src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"
-    integrity="sha384-nLoOnA/BDh8A/jxqtckg4DumuCGOBYUnNJLZdQz/zfYNp3wcjGSoWTAzgko06G/2"
-    crossorigin="anonymous">
-</script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.min.js"
+        integrity="sha384-hW8ZCQHtRH+nVOAkHZ4amZvYsAtKn1ZOvMV6dNag1Rb1thWmLZMBKTRxFV0cOxiK"
+        crossorigin="anonymous"></script>
 
 <script src="<?= base_url('/js/global-loading.js') ?>"></script>
 <script src="<?= base_url('js/fic-login-footer.js') ?>?v=<?= time() ?>"></script>
