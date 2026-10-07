@@ -36,37 +36,3 @@ window.addEventListener('load', function () {
     $scene.parallax();
     window.addEventListener('resize', resizeScene);
 })(window);
-
-(function (window, document) {
-    var tokenMeta = document.querySelector('meta[name="csrf-token"]');
-    var headerMeta = document.querySelector('meta[name="csrf-header"]');
-    if (!tokenMeta || !headerMeta || !window.jQuery) {
-        return;
-    }
-
-    window.FicCsrf = {
-        token: tokenMeta.getAttribute('content'),
-        header: headerMeta.getAttribute('content')
-    };
-
-   window.jQuery.ajaxSetup({
-    beforeSend: function (xhr, settings) {
-        const destino = new URL(settings.url, window.location.href);
-
-        // Envía el token únicamente al mismo origen.
-        if (destino.origin !== window.location.origin) {
-            return;
-        }
-
-        const token = document.querySelector('meta[name="csrf-token"]')
-            ?.getAttribute('content');
-
-        const header = document.querySelector('meta[name="csrf-header"]')
-            ?.getAttribute('content');
-
-        if (token && header) {
-            xhr.setRequestHeader(header, token);
-        }
-    }
-});
-})(window, document);

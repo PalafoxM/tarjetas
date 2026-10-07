@@ -70,65 +70,8 @@
         <script src="<?= base_url("/assets/parsley_2_9/dist/i18n/es.js")?>"></script>
         <script src="<?= base_url("/js/general.js")?>"></script>
         <script src="<?= base_url("/js/global-loading.js")?>"></script>
+        <script src="<?= base_url("/js/csrf-session.js")?>?filever=<?= time() ?>"></script>
         <script src="<?= base_url("/js/realtime_ui.js")?>?filever=<?= time() ?>"></script>
-
-        <script>
-(function ($) {
-    'use strict';
-
-    function meta(name) {
-        return document.querySelector('meta[name="' + name + '"]');
-    }
-
-    $.ajaxPrefilter(function (options, originalOptions, xhr) {
-        var url;
-
-        try {
-            url = new URL(options.url, window.location.href);
-        } catch (error) {
-            return;
-        }
-
-        // Solo solicitudes a controladores CI4 del mismo origen.
-        if (
-            url.origin !== window.location.origin ||
-            url.pathname.indexOf('/index.php/') === -1
-        ) {
-            return;
-        }
-
-        var method = String(options.type || 'GET').toUpperCase();
-
-        if (!/^(POST|PUT|PATCH|DELETE)$/.test(method)) {
-            return;
-        }
-
-        var tokenMeta = meta('csrf-token');
-        var headerMeta = meta('csrf-header');
-
-        if (!tokenMeta || !headerMeta) {
-            return;
-        }
-
-        var header = headerMeta.content;
-
-        if (!header || !tokenMeta.content) {
-            return;
-        }
-
-        xhr.setRequestHeader(header, tokenMeta.content);
-
-        // Se registra antes de los callbacks propios de la petición.
-        xhr.always(function () {
-            var nextToken = xhr.getResponseHeader(header);
-
-            if (nextToken) {
-                tokenMeta.content = nextToken;
-            }
-        });
-    });
-})(window.jQuery);
-</script>
 
         <?php if (isset($scripts)): foreach ($scripts as $js): ?>
             <script src="<?php echo base_url() . "/js/{$js}.js" ?>?filever=<?php echo time() ?>" type="text/javascript"></script>

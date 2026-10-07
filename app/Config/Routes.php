@@ -9,11 +9,7 @@ $routes->setAutoRoute(false);
 $routes->get('/', 'Login::index');
 $routes->get('Login', 'Login::index');
 $routes->get('Login/cerrar', 'Login::cerrar');
-$routes->post(
-    'Login/validar_usuario',
-    'Login::validar_usuario',
-    ['filter' => 'csrf']
-);
+$routes->post('Login/validar_usuario', 'Login::validar_usuario');
 $routes->get('ConsultaSaldo', 'ConsultaSaldo::index');
 $routes->post('ConsultaSaldo/consultar', 'ConsultaSaldo::consultar');
 $routes->get('Inicio/getPagosPorEstablecimiento', 'Inicio::getPagosPorEstablecimiento');
@@ -115,30 +111,14 @@ $routes->get('Inicio/AltaUsuario/(:num)', 'Inicio::AltaUsuario/$1');
 // Consultas de usuarios
 $routes->get('Usuario/getVistaUsuario', 'Usuario::getVistaUsuario');
 $routes->get('Usuario/getVistaUsuarioFic', 'Usuario::getVistaUsuarioFic');
-$routes->post(
-    'Usuario/getUsuario',
-    'Usuario::getUsuario',
-    ['filter' => 'csrf']
-);
+$routes->post('Usuario/getUsuario', 'Usuario::getUsuario');
 
 // Guardado y baja
-$routes->post(
-    'Usuario/saveCajero',
-    'Usuario::saveCajero',
-    ['filter' => 'csrf']
-);
+$routes->post('Usuario/saveCajero', 'Usuario::saveCajero');
 
-$routes->post(
-    'Usuario/saveUsuario',
-    'Usuario::saveUsuario',
-    ['filter' => 'csrf']
-);
+$routes->post('Usuario/saveUsuario', 'Usuario::saveUsuario');
 
-$routes->post(
-    'Usuario/deleteUsuario',
-    'Usuario::deleteUsuario',
-    ['filter' => 'csrf']
-);
+$routes->post('Usuario/deleteUsuario', 'Usuario::deleteUsuario');
 
 $routes->get(
     'Inicio/buscarProveedoresPadronFic',
@@ -149,11 +129,7 @@ $routes->get(
     'Inicio::getProveedorPadronFic'
 );
 
-$routes->post(
-    'Usuario/saveAltaUsuario',
-    'Usuario::saveAltaUsuario',
-    ['filter' => 'csrf']
-);
+$routes->post('Usuario/saveAltaUsuario', 'Usuario::saveAltaUsuario');
 // $routes->get('pdfTurno/(:num)', 'Inicio::pdfTurno/$1');
 
 

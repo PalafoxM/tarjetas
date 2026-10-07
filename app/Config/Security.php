@@ -71,7 +71,9 @@ class Security extends BaseConfig
      *
      * Regenerate CSRF Token on every submission.
      */
-    public bool $regenerate = true;
+    // El token permanece vigente durante la sesion para evitar carreras entre
+    // peticiones AJAX simultaneas. Se reemplaza al iniciar una nueva sesion.
+    public bool $regenerate = false;
 
     /**
      * --------------------------------------------------------------------------

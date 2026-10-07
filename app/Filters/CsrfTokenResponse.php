@@ -18,10 +18,6 @@ class CsrfTokenResponse implements FilterInterface
         ResponseInterface $response,
         $arguments = null
     ) {
-        if (!$request->isAJAX()) {
-            return;
-        }
-
         $method = strtoupper($request->getMethod());
 
         if (!in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
