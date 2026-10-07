@@ -142,6 +142,18 @@ var solicitudesUsuarioFic = (function () {
             payload[name] = this.value;
         });
 
+        var tokenNameMeta = document.querySelector(
+            'meta[name="csrf-token-name"]'
+        );
+        var tokenMeta = document.querySelector(
+            'meta[name="csrf-token"]'
+        );
+
+        if (tokenNameMeta && tokenMeta &&
+            tokenNameMeta.content && tokenMeta.content) {
+            payload[tokenNameMeta.content] = tokenMeta.content;
+        }
+
         return payload;
     }
 
