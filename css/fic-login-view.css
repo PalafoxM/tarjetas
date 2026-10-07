@@ -1,5 +1,5 @@
     .fic-login-body {
-        background: url("../images/fondo_susi.png") center center / cover no-repeat fixed !important;
+      background: url("../images/fondo_susi.png") center center / cover no-repeat !important;
     }
 
     .login-stage {
@@ -48,7 +48,7 @@
     }
 
     .login-stage .background {
-        background: url("<?= base_url('images/fondo_susi.png') ?>") center center / cover no-repeat !important;
+        background: url("../images/fondo_susi.png") center center / cover no-repeat !important;
         inset: -2% !important;
         width: 104% !important;
         opacity: 1;
