@@ -141,7 +141,7 @@ class Login extends BaseController {
 
                 if (empty($turnstileResult['success'])) {
                     log_message(
-                        'warning',
+                        'error',
                         'Turnstile rechazo: ' . json_encode([
                             'tokenPresente' => $turnstileToken !== '',
                             'errorCodes' => $turnstileResult['errorCodes'] ?? [],
