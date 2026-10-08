@@ -445,6 +445,26 @@
         opacity: 0.82;
     }
 
+    .login-turnstile {
+        width: 100%;
+        margin: 14px 0;
+    }
+
+    .login-turnstile[hidden] {
+        display: none !important;
+    }
+
+    .login-turnstile__label {
+        margin: 0 0 8px;
+        color: #f4d675;
+        font-size: 13px;
+    }
+
+    #turnstile_widget {
+        width: 100%;
+        min-height: 65px;
+    }
+
     .login-auth-panel .spinner-border {
         display: inline-block;
         width: 1rem;

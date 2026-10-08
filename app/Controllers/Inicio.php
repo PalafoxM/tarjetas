@@ -967,46 +967,29 @@ class Inicio extends BaseController {
 
    public function Consumos()
     {
-        $session = \Config\Services::session();
-        $Mglobal = new Mglobal;
-        $data = array();
+        $db = \Config\Database::connect();
+        $establecimientos = $db->query(
+            "SELECT
+                e.*,
+                COALESCE(pt.monto_total, 0) AS monto_total
+             FROM establecimiento e
+             LEFT JOIN (
+                SELECT id_establecimiento, ROUND(SUM(monto), 2) AS monto_total
+                FROM pagos
+                WHERE visible = 1
+                GROUP BY id_establecimiento
+             ) pt ON pt.id_establecimiento = e.id_establecimiento
+             WHERE e.id_tipo = 1
+               AND e.visible = 1
+             ORDER BY e.dsc_establecimiento ASC"
+        )->getResultArray();
 
-        $establecimiento = $Mglobal->getTabla([
-            'tabla' => 'establecimiento',
-            'where' => [
-                'id_tipo' => 1,
-                'visible' => 1,
-            ],
-        ]);
-
-        if (isset($establecimiento->data) && !empty($establecimiento->data)) {
-            
-            foreach ($establecimiento->data as $k => $v) {
-                // 1. Inicializamos en 0 por si el establecimiento no tiene pagos
-                $montoTotal = 0; 
-                
-                $monto = $Mglobal->getTabla([
-                    'tabla' => 'pagos',
-                    'where' => [
-                        'id_establecimiento' => $v->id_establecimiento,
-                        'visible' => 1,
-                    ],
-                ]); 
-                
-                if(isset($monto->data) && !empty($monto->data)){
-                    foreach ($monto->data as $key => $value) {
-                        $montoTotal += $value->monto;
-                    }
-                }
-                
-                // 2. Asignamos el monto total (sea 0 o la suma de sus pagos) al objeto
-                $establecimiento->data[$k]->monto_total = $montoTotal;
-            }
-        }
-        
-        // Pasamos la variable $establecimiento a la vista si es necesario
-        $data['establecimientos'] = $establecimiento;
-        //die(var_dump($data['establecimientos']));
+        $data = [];
+        $data['establecimientos'] = [
+            'error' => false,
+            'respuesta' => 'Consulta exitosa',
+            'data' => $establecimientos,
+        ];
         $data['scripts']     = array('principal', 'agregar');
         $data['contentView'] = 'secciones/vConsumos';
         $this->_renderView($data);
@@ -5076,11 +5059,30 @@ class Inicio extends BaseController {
         $usuariosQrActivo = 0;
         $movimientosCobro = 0;
         $consumoOperativo = 0.0;
+        $pagosPorPartida = $this->getPagosAplicadosPorPartida();
 
-        foreach ($partidas as $partida) {
+        foreach ($partidas as &$partida) {
+            $idPartida = (int) ($partida['id_partida'] ?? 0);
+            $partidaClave = trim((string) ($partida['partida'] ?? ''));
             $presupuesto = $this->parseDashboardMoneyValue($partida['monto_presupuesto'] ?? 0);
             $ejercido = $this->parseDashboardMoneyValue($partida['monto_ejercido'] ?? 0);
             $disponible = $this->parseDashboardMoneyValue($partida['monto_disponible'] ?? 0);
+
+            if ($partidaClave === '2210') {
+                $pagoPartida = $pagosPorPartida[$idPartida] ?? ['monto' => 0.0, 'movimientos' => 0];
+                $presupuesto = self::PARTIDA_2210_SALDO_INICIAL_DASHBOARD;
+                $ejercido = round((float) ($pagoPartida['monto'] ?? 0), 2);
+                $disponible = round(max(0, $presupuesto - $ejercido), 2);
+
+                $partida['monto_presupuesto'] = '$' . number_format($presupuesto, 2);
+                $partida['monto_ejercido'] = '$' . number_format($ejercido, 2);
+                $partida['monto_disponible'] = '$' . number_format($disponible, 2);
+                $partida['consumo_operativo'] = '$' . number_format($ejercido, 2);
+                $partida['porcentaje_ejercido'] = $presupuesto > 0
+                    ? number_format(($ejercido / $presupuesto) * 100, 2) . '%'
+                    : '0.00%';
+                $partida['movimientos_cobro'] = (int) ($pagoPartida['movimientos'] ?? 0);
+            }
 
             $montoPresupuesto += $presupuesto;
             $montoEjercido += $ejercido;
@@ -5090,12 +5092,15 @@ class Inicio extends BaseController {
             $usuariosQrActivo += (int) ($partida['usuarios_qr_activo'] ?? 0);
             $movimientosCobro += (int) ($partida['movimientos_cobro'] ?? 0);
         }
+        unset($partida);
 
         $porcentajeGlobal = $montoPresupuesto > 0 ? (($montoEjercido / $montoPresupuesto) * 100) : 0;
         $resumenOriginal = is_array($seed['resumen'] ?? null) ? $seed['resumen'] : [];
         $meta = is_array($seed['meta'] ?? null) ? $seed['meta'] : [];
         $meta['scope'] = 'partida_2210_temporal';
         $meta['saldo_inicial_2210'] = number_format(self::PARTIDA_2210_SALDO_INICIAL_DASHBOARD, 2, '.', '');
+        $meta['source'] = 'pagos';
+        $meta['consumo_source'] = 'pagos.monto';
 
         return [
             'resumen' => [
@@ -5113,6 +5118,42 @@ class Inicio extends BaseController {
             'partidas' => $partidas,
             'meta' => $meta,
         ];
+    }
+
+    private function getPagosAplicadosPorPartida(): array
+    {
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('pago_partida_movimiento')) {
+            return [];
+        }
+
+        $rows = $db->table('pagos p')
+            ->select('ppm.id_partida, COUNT(DISTINCT p.id_pago) AS movimientos, COALESCE(SUM(p.monto), 0) AS monto', false)
+            ->join(
+                'pago_partida_movimiento ppm',
+                "ppm.id_pago = p.id_pago AND ppm.tipo_movimiento = 'aplicacion' AND ppm.visible = 1",
+                'inner',
+                false
+            )
+            ->where('p.visible', 1)
+            ->groupBy('ppm.id_partida')
+            ->get()
+            ->getResultArray();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $idPartida = (int) ($row['id_partida'] ?? 0);
+            if ($idPartida <= 0) {
+                continue;
+            }
+
+            $result[$idPartida] = [
+                'movimientos' => (int) ($row['movimientos'] ?? 0),
+                'monto' => round((float) ($row['monto'] ?? 0), 2),
+            ];
+        }
+
+        return $result;
     }
 
     private function parseDashboardMoneyValue($value): float

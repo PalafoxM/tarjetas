@@ -103,6 +103,15 @@
                                 </div>
                             </div>
 
+                            <div
+                                id="turnstile_container"
+                                class="login-turnstile"
+                                data-sitekey="<?= esc((string) ($turnstileSiteKey ?? ''), 'attr') ?>"
+                                hidden>
+                                <p class="login-turnstile__label">Confirma que eres una persona para continuar.</p>
+                                <div id="turnstile_widget"></div>
+                            </div>
+
                             <button type="button" id="btnAcceder" class="btn btn-primary" >Acceder</button>
 
                             <div class="login-panel-actions" aria-label="Accesos auxiliares">

@@ -47,6 +47,80 @@ function loginTradicionalEnter(event) {
     }
 }
 
+let turnstileWidgetId = null;
+let turnstileScriptPromise = null;
+
+function cargarTurnstile() {
+    if (window.turnstile) {
+        return Promise.resolve(window.turnstile);
+    }
+
+    if (turnstileScriptPromise) {
+        return turnstileScriptPromise;
+    }
+
+    turnstileScriptPromise = new Promise(function(resolve, reject) {
+        const script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.async = true;
+        script.defer = true;
+        script.onload = function() {
+            if (window.turnstile) {
+                resolve(window.turnstile);
+                return;
+            }
+            turnstileScriptPromise = null;
+            reject(new Error('Turnstile no está disponible.'));
+        };
+        script.onerror = function() {
+            turnstileScriptPromise = null;
+            reject(new Error('No fue posible cargar Turnstile.'));
+        };
+        document.head.appendChild(script);
+    });
+
+    return turnstileScriptPromise;
+}
+
+function mostrarCaptcha() {
+    const container = document.getElementById('turnstile_container');
+    const siteKey = container?.dataset.sitekey || '';
+
+    if (!container || !siteKey) {
+        Swal.fire('Error de configuración', 'No fue posible cargar la validación CAPTCHA.', 'error');
+        return Promise.reject(new Error('TURNSTILE_SITE_KEY no está configurada.'));
+    }
+
+    container.hidden = false;
+
+    return cargarTurnstile().then(function(turnstile) {
+        if (turnstileWidgetId === null) {
+            turnstileWidgetId = turnstile.render('#turnstile_widget', {
+                sitekey: siteKey,
+                theme: 'dark',
+                size: 'flexible',
+                action: 'login'
+            });
+        }
+
+        return turnstileWidgetId;
+    }).catch(function(error) {
+        Swal.fire('CAPTCHA no disponible', 'Recarga la página e inténtalo nuevamente.', 'warning');
+        return null;
+    });
+}
+
+function reiniciarCaptcha() {
+    if (window.turnstile && turnstileWidgetId !== null) {
+        window.turnstile.reset(turnstileWidgetId);
+    }
+}
+
+function captchaEsRequerido() {
+    const container = document.getElementById('turnstile_container');
+    return Boolean(container && !container.hidden);
+}
+
 function loginTradicional() {
     const boton = $('#btnAcceder');
 
@@ -81,6 +155,19 @@ function loginTradicional() {
         usuario: usuario,
         contrasenia: contrasenia
     };
+
+    if (captchaEsRequerido()) {
+        const captchaToken = window.turnstile && turnstileWidgetId !== null
+            ? window.turnstile.getResponse(turnstileWidgetId)
+            : '';
+
+        if (!captchaToken) {
+            Swal.fire('Validación requerida', 'Completa el CAPTCHA para continuar.', 'warning');
+            return;
+        }
+
+        datos['cf-turnstile-response'] = captchaToken;
+    }
 
     datos[csrfName] = csrfHash;
 
@@ -117,9 +204,13 @@ function loginTradicional() {
                         base_url + 'index.php/Inicio';
                 }, 1000);
             } else {
+                if (response.captchaRequired) {
+                    mostrarCaptcha();
+                    reiniciarCaptcha();
+                }
                 Swal.fire(
                     'Usuario incorrecto',
-                    'Favor de verificar sus credenciales',
+                    response.respuesta || 'Favor de verificar sus credenciales',
                     'error'
                 );
             }
@@ -138,12 +229,23 @@ function loginTradicional() {
                 .attr('content', respuesta.csrfHash);
         }
 
+        if (respuesta && respuesta.captchaRequired) {
+            mostrarCaptcha();
+            reiniciarCaptcha();
+        }
+
         if (xhr.status === 429) {
             const espera = xhr.getResponseHeader('Retry-After') || '60';
 
             Swal.fire(
                 'Demasiados intentos',
                 'Espera ' + espera + ' segundos antes de intentar nuevamente.',
+                'warning'
+            );
+        } else if (xhr.status === 422) {
+            Swal.fire(
+                'Validación requerida',
+                (respuesta && respuesta.respuesta) || 'Completa nuevamente el CAPTCHA.',
                 'warning'
             );
         } else if (xhr.status === 403) {
