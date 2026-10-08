@@ -139,6 +139,16 @@ class Login extends BaseController {
                     $this->request->getIPAddress()
                 );
 
+                if (empty($turnstileResult['success'])) {
+                    log_message(
+                        'warning',
+                        'Turnstile rechazo: ' . json_encode([
+                            'tokenPresente' => $turnstileToken !== '',
+                            'errorCodes' => $turnstileResult['errorCodes'] ?? [],
+                        ])
+                    );
+                }
+
                 if (!empty($turnstileResult['unavailable'])) {
                     return $this->response
                         ->setStatusCode(503)
