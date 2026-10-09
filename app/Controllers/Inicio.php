@@ -935,6 +935,7 @@ class Inicio extends BaseController {
 
         $rows = $this->buildReporteVentasProveedorRows($dashboard);
         $periodoLabel = $this->buildReporteVentasPeriodoLabel($rows);
+        $layout = $this->resolveReporteVentasLayout($dashboard, $idEstablecimiento);
         $filename = 'reporte_consumos_facturados_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.pdf';
 
         $tempDir = WRITEPATH . 'mpdf-temp';
@@ -954,9 +955,10 @@ class Inicio extends BaseController {
                 'margin_bottom' => 12,
             ]);
 
-            $mpdf->SetTitle('Reporte de consumos facturados');
-            $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtml($rows, $periodoLabel));
-            $mpdf->Output($filename, 'I');
+            $mpdf->SetTitle((string) ($layout['titulo'] ?? 'Reporte de consumos facturados'));
+            $mpdf->WriteHTML($this->buildReporteVentasProveedorPdfHtml($rows, $periodoLabel, $layout));
+            $salida = $this->request->getGet('download') ? 'D' : 'I';
+            $mpdf->Output($filename, $salida);
         } catch (\Throwable $e) {
             log_message('error', 'Error al generar PDF de reporte de ventas proveedor: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setBody('No fue posible generar el PDF solicitado.');

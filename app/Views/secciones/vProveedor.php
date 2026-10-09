@@ -13,7 +13,7 @@ $solicitudPago = array_values(array_map(static function ($item) {
 }, is_array($solicitudPago ?? null) ? $solicitudPago : []));
 $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars($ventasCorteContexto) : (is_array($ventasCorteContexto ?? null) ? $ventasCorteContexto : []);
 $idEstablecimientoActual = (int) ($idEstablecimientoActual ?? 0);
-$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdfFormato');
+$reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdf');
 if ($idEstablecimientoActual > 0) {
     $reporteVentasUrl .= '?id_establecimiento=' . $idEstablecimientoActual . '&download=1';
 }
@@ -484,6 +484,11 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 <button class="btn btn-success provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalPagoSinQr">
                     <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR
                 </button>
+                <?php if ($esVistaEstablecimientoEspecifico && $idEstablecimientoActual > 0): ?>
+                    <a class="btn btn-outline-light provider-action" href="<?= esc($reporteVentasUrl, 'attr') ?>">
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Reporte de consumo
+                    </a>
+                <?php endif; ?>
             </div>
         </section>
 
