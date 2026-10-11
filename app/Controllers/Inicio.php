@@ -10260,6 +10260,7 @@ public function getPagosPorEstablecimiento()
             ? 'Consulta institucional SECTURI con autorización para aprobar o rechazar solicitudes de folio.'
             : 'Acceso institucional SECTURI con capacidades operativas equivalentes al perfil TI.';
         $data['inicioModoConsulta'] = $modo === 'consulta';
+        $data['puedeAdministrarCortesProveedor'] = !empty($this->resolveCorteProveedorAdminContext()['autorizado']);
         $data['contentView'] = 'secciones/vPerfilSecturi';
         $this->_renderView($data);
     }

@@ -1,5 +1,6 @@
 ﻿<?php
 $inicioModoConsulta = !empty($inicioModoConsulta);
+$puedeAdministrarCortesProveedor = !empty($puedeAdministrarCortesProveedor);
 $hubTitle = (string) ($hubTitle ?? 'Perfil SECTURI');
 $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo consulta.');
 ?>
@@ -95,7 +96,7 @@ $hubSubtitle = (string) ($hubSubtitle ?? 'Acceso institucional SECTURI en modo c
             </a>
         </article>
 
-        <?php if (!$inicioModoConsulta): ?>
+        <?php if ($puedeAdministrarCortesProveedor): ?>
         <article class="fic-access-card fic-access-card--blue">
             <div>
                 <span class="fic-access-card__category">Proveedores</span>
