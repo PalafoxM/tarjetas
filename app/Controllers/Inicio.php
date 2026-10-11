@@ -7848,13 +7848,147 @@ public function getPagosPorEstablecimiento()
 
     public function pdfPagoTerceros()
     {
-        $id = (int) ($this->request->getGet('id_factura') ?? $this->request->getGet('id') ?? 0);
-        $data = $this->buildFacturaFormatoData($id);
-        if ($data === null) {
+        $Mglobal = new Mglobal();
+        $id = (int) ($this->request->getGet('id_factura') ?? 0);
+        if ($id <= 0) {
+            return $this->response->setStatusCode(400)->setBody('ID de factura inválido.');
+        }
+
+        $datosFactura = $Mglobal->getTabla(['tabla' => 'facturas', 'where' => ['id_factura' => $id]]);
+        if (!isset($datosFactura->data[0])) {
             return $this->response->setStatusCode(404)->setBody('Factura no encontrada.');
         }
 
+        $registroFactura = $datosFactura->data[0];
+        $rutaXmlS3 = trim((string) ($registroFactura->xml ?? ''));
+
+        if ($rutaXmlS3 === '') {
+            return $this->response->setStatusCode(422)->setBody('La factura no tiene un archivo XML registrado.');
+        }
+
+        $contenidoXml = $this->readStoredFileContents($rutaXmlS3);
+
+        if ($contenidoXml === '') {
+            log_message('error', 'Inicio.pdfPagoTerceros: no se pudo leer el XML de la factura ' . $id . ' desde el almacenamiento.');
+            return $this->response->setStatusCode(502)->setBody('No fue posible obtener el XML de la factura desde el almacenamiento.');
+        }
+
+        $libxmlAnterior = libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($contenidoXml, \SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
+        $erroresXml = libxml_get_errors();
+        libxml_clear_errors();
+        libxml_use_internal_errors($libxmlAnterior);
+
+        if ($xml === false) {
+            log_message('error', 'Inicio.pdfPagoTerceros: XML inválido para factura ' . $id . '. Errores: ' . count($erroresXml));
+            return $this->response->setStatusCode(422)->setBody('El archivo XML de la factura no es válido.');
+        }
+
+        $atributos = $xml->attributes();
+        $serieXml = trim((string) ($atributos['Serie'] ?? ''));
+        $folioXml = trim((string) ($atributos['Folio'] ?? ''));
+        $fechaXml = trim((string) ($atributos['Fecha'] ?? ''));
+        $montoXml = round((float) ($atributos['Total'] ?? 0), 2);
+        $folioComprobante = trim($serieXml . ($serieXml !== '' && $folioXml !== '' ? '-' : '') . $folioXml);
+
+        $timbres = $xml->xpath('//*[local-name()="TimbreFiscalDigital"]');
+        $uuidXml = '';
+        if (is_array($timbres) && isset($timbres[0])) {
+            $atributosTimbre = $timbres[0]->attributes();
+            $uuidXml = trim((string) ($atributosTimbre['UUID'] ?? ''));
+        }
+        if ($folioComprobante === '') {
+            $folioComprobante = $uuidXml !== '' ? $uuidXml : 'FAC-' . $id;
+        }
+
+        $namespaces = $xml->getNamespaces(true);
+        $cfdiNamespace = $namespaces['cfdi'] ?? null;
+        $cfdi = $cfdiNamespace ? $xml->children($cfdiNamespace) : $xml;
+        $emisor = $cfdi->Emisor ?? null;
+        $nombreEmisor = '';
+        $rfcEmisor = '';
+        if ($emisor) {
+            $atributosEmisor = $emisor->attributes();
+            $nombreEmisor = trim((string) ($atributosEmisor['Nombre'] ?? ''));
+            $rfcEmisor = trim((string) ($atributosEmisor['Rfc'] ?? ''));
+        }
+
+        $conceptosXml = [];
+        if (isset($cfdi->Conceptos)) {
+            foreach ($cfdi->Conceptos->Concepto as $conceptoXml) {
+                $descripcion = trim((string) ($conceptoXml->attributes()['Descripcion'] ?? ''));
+                if ($descripcion !== '') {
+                    $conceptosXml[] = $descripcion;
+                }
+            }
+        }
+
+        $idEstablecimiento = (int) ($registroFactura->id_estableciemiento ?? 0);
+        $establecimiento = $Mglobal->getTabla([
+            'tabla' => 'establecimiento',
+            'where' => ['id_establecimiento' => $idEstablecimiento],
+        ]);
+        if (!isset($establecimiento->data[0])) {
+            return $this->response->setStatusCode(404)->setBody('Establecimiento no encontrado.');
+        }
+
+        $registroEstablecimiento = $establecimiento->data[0];
+        $esRestaurante = (int) ($registroEstablecimiento->id_tipo ?? 0) === 1;
+        $partida = $esRestaurante ? '2210' : '3390';
+        $prefijoFolio = $esRestaurante
+            ? 'PT SECTURI/SSIDT/DGCT/FIC/TA/'
+            : 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
+        $nombreProveedor = $nombreEmisor !== ''
+            ? $nombreEmisor
+            : (string) ($registroEstablecimiento->dsc_establecimiento ?? '');
+        $rfcProveedor = $rfcEmisor !== ''
+            ? $rfcEmisor
+            : (string) ($registroEstablecimiento->rfc ?? '');
+
+        $registroPt = (object) [
+            'fecha_tramite' => $fechaXml !== '' ? $fechaXml : (string) ($registroFactura->fec_reg ?? date('Y-m-d H:i:s')),
+            'no_consecutivo' => $prefijoFolio . str_pad((string) $id, 3, '0', STR_PAD_LEFT) . '/2026',
+            'no_proveedor' => (string) ($registroEstablecimiento->no_proveedor ?? ''),
+            'rfc_proveedor' => $rfcProveedor,
+            'nombre_proveedor_1' => $nombreProveedor,
+            'no_cuenta' => (string) ($registroEstablecimiento->no_cuenta ?? ''),
+            'banco' => (string) ($registroEstablecimiento->banco ?? ''),
+            'clabe' => (string) ($registroEstablecimiento->clabe ?? ''),
+            'no_convenio' => (string) ($registroEstablecimiento->no_contrato ?? 'NO APLICA'),
+            'no_reserva' => '',
+            'importe_total_num' => number_format($montoXml, 2, '.', ','),
+            'importe_letra' => $this->convertirImporteALetras($montoXml),
+            'concepto' => implode(', ', array_unique($conceptosXml)),
+        ];
+
+        $filaFactura = (object) [
+            'no_comprobante' => $folioComprobante,
+            'proyecto' => 'E027QC04182601',
+            'dsc_proyecto' => 'Festival Internacional Cervantino',
+            'partida' => $partida,
+            'dsc_partida' => 'Servicios integrales',
+            'importe' => number_format($montoXml, 2, '.', ','),
+            'nombre_proveedor_1' => $nombreProveedor,
+        ];
+
+        $data = [
+            'registroFactura' => $registroFactura,
+            'registro_pt' => $registroPt,
+            'periodo_factura_rows' => [$filaFactura],
+            'id_formateado' => str_pad((string) $idEstablecimiento, 3, '0', STR_PAD_LEFT),
+            'folio_xml' => $folioComprobante,
+            'uuid_xml' => $uuidXml,
+            'monto_total' => $montoXml,
+            'logo' => FCPATH . 'assets/logo-guanajuato.png',
+        ];
+
         $html = view('pdfs/vPdfFormatoPT', $data);
+
+        $tempDir = WRITEPATH . 'mpdf-temp' . DIRECTORY_SEPARATOR . 'pago-terceros';
+        if (!is_dir($tempDir) && !@mkdir($tempDir, 0775, true) && !is_dir($tempDir)) {
+            log_message('error', 'Inicio.pdfPagoTerceros: no fue posible crear el directorio temporal de mPDF.');
+            return $this->response->setStatusCode(500)->setBody('No fue posible preparar la generación del PDF.');
+        }
 
         $mpdf = new \Mpdf\Mpdf([
             'margin_top' => 10,
@@ -7862,32 +7996,80 @@ public function getPagosPorEstablecimiento()
             'margin_right' => 10,
             'margin_bottom' => 10,
             'format' => 'Letter',
-            'tempDir' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'mpdf'
+            'default_font' => 'dejavusans',
+            'tempDir' => $tempDir,
         ]);
-        
+
+        $mpdf->SetTitle('Formato de pago a terceros');
         $mpdf->WriteHTML($html);
-        $mpdf->Output('FormatPagoTerceros_' . $id . '.pdf', 'I');
+        $mpdf->Output('FormatPagoTerceros_' . $idEstablecimiento . '.pdf', 'I');
         exit;
     }
 
     public function pdfLiberacionPago()
     {
-        $id = (int) ($this->request->getGet('id_factura') ?? $this->request->getGet('id') ?? 0);
-        $data = $this->buildFacturaFormatoData($id);
-        if ($data === null) {
+        $id = (int) $this->request->getGet('id_factura');
+        $Mglobal = new Mglobal();
+        $data = array();
+        $idFactura = $Mglobal->getTabla(['tabla' => 'facturas', 'where' => ['id_factura' => $id]]);
+        if (isset($idFactura->data) && empty($idFactura->data)) {
             return $this->response->setStatusCode(404)->setBody('Factura no encontrada.');
         }
+        $datosFactura = $idFactura->data[0];
+        $rutaXmlS3 = trim((string) ($datosFactura->xml ?? ''));
 
+        if ($rutaXmlS3 === '') {
+            return $this->response->setStatusCode(422)->setBody('La factura no tiene un archivo XML registrado.');
+        }
+
+        $contenidoXml = $this->readStoredFileContents($rutaXmlS3);
+
+        $xml = simplexml_load_string($contenidoXml, \SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
+        if ($xml === false) {
+            log_message('error', 'Inicio.pdfPagoTerceros: XML inválido para factura ' . $id . '. Errores: ' . count($erroresXml));
+            return $this->response->setStatusCode(422)->setBody('El archivo XML de la factura no es válido.');
+        }
+
+        $atributos = $xml->attributes();
+        $serieXml = trim((string) ($atributos['Serie'] ?? ''));
+        $folioXml = trim((string) ($atributos['Folio'] ?? ''));
+        $fechaXml = trim((string) ($atributos['Fecha'] ?? ''));
+        $montoXml = round((float) ($atributos['Total'] ?? 0), 2);
+        $data['importe_letra'] = $this->convertirImporteALetras($montoXml);
+        $establecimiento = $Mglobal->getTabla(['tabla' => 'establecimiento', 'where' => ['id_establecimiento' => $idFactura->data[0]->id_estableciemiento]]);
+        if (isset($establecimiento->data) && empty($establecimiento->data)) {
+            return $this->response->setStatusCode(404)->setBody('Establecimiento no encontrado.');
+        }
+
+        $datosEstablecimiento = $establecimiento->data[0];
+
+        $data['montoXml'] = $montoXml;
+        $data['folioXml'] = $folioXml;
+        $data['banco'] = $datosEstablecimiento->banco;
+        $data['razon_social'] = $datosEstablecimiento->razon_social;
+        $data['clabe'] = $datosEstablecimiento->clabe;
+        $data['rfc'] = $datosEstablecimiento->rfc;
+        $data['no_contrato'] = $datosEstablecimiento->no_contrato;
+        $data['no_proveedor'] = $datosEstablecimiento->no_proveedor;
+        $data['folio'] = 'PT SECTURI/SSIDT/DGCT/FIC/TA/' . str_pad((string) $datosEstablecimiento->id_establecimiento, 3, '0', STR_PAD_LEFT) . '/2026';
+
+        $data['logo'] = FCPATH . 'assets/logo-guanajuato.png';
         $data['norma'] = FCPATH . 'assets/Norma.png';
+        //die(var_dump($data));
         $html = view('pdfs/vPdfLiberacionPago', $data);
 
+        $tempDir = WRITEPATH . 'mpdf-temp' . DIRECTORY_SEPARATOR . 'pago-terceros';
+        if (!is_dir($tempDir) && !@mkdir($tempDir, 0775, true) && !is_dir($tempDir)) {
+            log_message('error', 'Inicio.pdfPagoTerceros: no fue posible crear el directorio temporal de mPDF.');
+            return $this->response->setStatusCode(500)->setBody('No fue posible preparar la generación del PDF.');
+        }
         $mpdf = new \Mpdf\Mpdf([
             'margin_top' => 10,
             'margin_left' => 10,
             'margin_right' => 10,
             'margin_bottom' => 10,
             'format' => 'Letter',
-            'tempDir' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'mpdf'
+            'tempDir' => $tempDir,
         ]);
         
         $mpdf->WriteHTML($html);
@@ -8265,36 +8447,78 @@ public function getPagosPorEstablecimiento()
             return '';
         }
 
-        $url = $this->buildS3PresignedGetUrl($storedPath, 300);
-        if ($url === '') {
-            return '';
+        $download = function (string $url): array {
+            if (!function_exists('curl_init')) {
+                $body = @file_get_contents($url);
+                return [
+                    'body' => is_string($body) ? $body : '',
+                    'http_code' => is_string($body) ? 200 : 0,
+                    'error' => '',
+                    's3_error' => '',
+                ];
+            }
+
+            $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
+            $sslVerify = !in_array($sslVerifyValue, ['0', 'false', 'no'], true);
+            $curl = curl_init($url);
+            $options = [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 30,
+                CURLOPT_SSL_VERIFYPEER => $sslVerify,
+                CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+            ];
+            $caInfo = $this->resolveCurlCaInfo();
+            if ($sslVerify && $caInfo !== '') {
+                $options[CURLOPT_CAINFO] = $caInfo;
+            }
+            curl_setopt_array($curl, $options);
+            $body = curl_exec($curl);
+            $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($curl);
+            curl_close($curl);
+
+            $s3Error = '';
+            if (is_string($body) && ($httpCode < 200 || $httpCode >= 300)) {
+                $s3Error = $this->extractS3ErrorMessage($body);
+            }
+
+            return [
+                'body' => is_string($body) && $httpCode >= 200 && $httpCode < 300 ? $body : '',
+                'http_code' => $httpCode,
+                'error' => $curlError,
+                's3_error' => $s3Error,
+            ];
+        };
+
+        $urls = [];
+        if (preg_match('#^https?://#i', $storedPath)) {
+            $urls['directa'] = $storedPath;
         }
 
-        if (!function_exists('curl_init')) {
-            $body = @file_get_contents($url);
-            return is_string($body) ? $body : '';
+        $presignedUrl = $this->buildS3PresignedGetUrl($storedPath, 300);
+        if ($presignedUrl !== '' && !in_array($presignedUrl, $urls, true)) {
+            $urls['presignada'] = $presignedUrl;
         }
 
-        $sslVerifyValue = strtolower($this->envFirst(['AWS_SSL_VERIFY', 'S3_SSL_VERIFY'], 'true'));
-        $sslVerify = !in_array($sslVerifyValue, ['0', 'false', 'no'], true);
-        $curl = curl_init($url);
-        $options = [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_SSL_VERIFYPEER => $sslVerify,
-            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
-        ];
-        $caInfo = $this->resolveCurlCaInfo();
-        if ($sslVerify && $caInfo !== '') {
-            $options[CURLOPT_CAINFO] = $caInfo;
-        }
-        curl_setopt_array($curl, $options);
-        $body = curl_exec($curl);
-        $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
+        foreach ($urls as $tipo => $url) {
+            $result = $download($url);
+            if ($result['body'] !== '') {
+                return $result['body'];
+            }
 
-        return is_string($body) && $httpCode >= 200 && $httpCode < 300 ? $body : '';
+            log_message(
+                'error',
+                'Inicio.readStoredFileContents: descarga S3 ' . $tipo
+                . ' fallida. HTTP ' . (int) $result['http_code']
+                . ($result['error'] !== '' ? '. cURL: ' . $result['error'] : '')
+                . ($result['s3_error'] !== '' ? '. AWS: ' . $result['s3_error'] : '')
+            );
+        }
+
+        return '';
     }
 
     private function persistFacturaLocalFile(string $sourcePath, string $fileName): string
@@ -8892,8 +9116,15 @@ public function getPagosPorEstablecimiento()
         $fileCandidates = [
             ROOTPATH . 'cacert.pem',
             WRITEPATH . 'cacert.pem',
-            'C:\wamp64\apps\phpmyadmin5.2.1\vendor\composer\ca-bundle\res\cacert.pem',
         ];
+
+        $wampCaBundles = glob('C:\\wamp64\\apps\\phpmyadmin*\\vendor\\composer\\ca-bundle\\res\\cacert.pem');
+        if (is_array($wampCaBundles)) {
+            usort($wampCaBundles, static function (string $a, string $b): int {
+                return (int) @filemtime($b) <=> (int) @filemtime($a);
+            });
+            $fileCandidates = array_merge($fileCandidates, $wampCaBundles);
+        }
 
         foreach ($fileCandidates as $candidate) {
             if (is_file($candidate)) {
@@ -8920,6 +9151,17 @@ public function getPagosPorEstablecimiento()
         $accessKey = $this->envFirst(['AWS_ACCESS_KEY_ID', 'AWS_ACCESS_KEY', 'S3_ACCESS_KEY', 'S3_KEY']);
         $secretKey = $this->envFirst(['AWS_SECRET_ACCESS_KEY', 'AWS_SECRET_KEY', 'S3_SECRET_KEY', 'S3_SECRET']);
         $sessionToken = $this->envFirst(['AWS_SESSION_TOKEN', 'S3_SESSION_TOKEN']);
+
+        if (preg_match('#^https?://#i', $storedPath)) {
+            $parts = parse_url($storedPath);
+            $storedHost = strtolower((string) ($parts['host'] ?? ''));
+            if (preg_match('/^(.+)\.s3(?:\.([a-z0-9-]+))?\.amazonaws\.com$/i', $storedHost, $hostParts)) {
+                $bucket = (string) $hostParts[1];
+                if (!empty($hostParts[2])) {
+                    $region = (string) $hostParts[2];
+                }
+            }
+        }
 
         if ($bucket === '' || $accessKey === '' || $secretKey === '') {
             log_message('error', 'Inicio.buildS3PresignedGetUrl: missing S3 env vars.');

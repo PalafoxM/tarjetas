@@ -3,6 +3,9 @@ $registro_pt = isset($registro_pt) && is_object($registro_pt) ? $registro_pt : (
 $monto_total = round((float) str_replace(['$', ',', ' '], '', (string) ($registro_pt->importe_total_num ?? 0)), 2);
 $importe_letra = (string) ($registro_pt->importe_letra ?? '');
 $folio_formato = (string) ($registro_pt->no_consecutivo ?? '');
+$fecha_tramite_raw = trim((string) ($registro_pt->fecha_tramite ?? ''));
+$fecha_tramite_timestamp = $fecha_tramite_raw !== '' ? strtotime($fecha_tramite_raw) : false;
+$fecha_tramite = $fecha_tramite_timestamp !== false ? date('d/m/Y', $fecha_tramite_timestamp) : date('d/m/Y');
 
 $apocoparUno = static function (string $texto): string {
     if (preg_match('/veintiuno$/u', $texto)) {
@@ -181,7 +184,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             </tr>
             <tr>
                 <td>21</td>
-                <td><?=  date('d/m/Y') ?></td>
+                <td><?= esc($fecha_tramite) ?></td>
             <td><h6><?= esc($folio_formato) ?></h6></td>
             </tr>
         </tbody>
@@ -248,7 +251,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             foreach($detalleRows as $index => $detalle):
             ?>
             <tr>
-                <td><?= $detalle['comprobante'] ?></td>
+                <td><?= esc((string) $detalle['comprobante']) ?></td>
                 <td><?= esc($detalle['proyecto']) ?></td>
                 <td><?= esc($detalle['partida']) ?></td>
                 <td><?= (float) $detalle['importe'] < 0 ? '' : '$' ?><?= number_format(abs((float) $detalle['importe']), 2) ?></td>
@@ -275,7 +278,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             <td colspan="3" class="text-left no-border">
                 <span class="font-bold">No. CONTRATO y/o CONVENIO:</span> <?= esc((string) ($registro_pt->no_convenio ?? '')) ?>
                 <br>
-                <span class="font-bold">No. RESERVA:</span> <?= esc((string) ($registro_pt->no_reserva ?? '')) ?>
+                <span class="font-bold">No. RESERVA:</span> 5413298
             </td>
             <td width="30%" class="font-bold">
                 <?= $monto_total < 0 ? '' : '$' ?><?= number_format(abs((float) $monto_total), 2) ?>
