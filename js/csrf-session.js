@@ -7,13 +7,26 @@
         return document.querySelector('meta[name="' + name + '"]');
     }
 
+    function normalizeToken(token) {
+        if (!token) {
+            return '';
+        }
+
+        return String(token)
+            .split(',')
+            .map(function (value) {
+                return value.trim();
+            })
+            .filter(Boolean)[0] || '';
+    }
+
     function getConfig() {
         var tokenMeta = getMeta('csrf-token');
         var headerMeta = getMeta('csrf-header');
         var nameMeta = getMeta('csrf-token-name');
 
         return {
-            token: tokenMeta ? tokenMeta.getAttribute('content') || '' : '',
+            token: normalizeToken(tokenMeta ? tokenMeta.getAttribute('content') || '' : ''),
             header: headerMeta ? headerMeta.getAttribute('content') || '' : '',
             name: nameMeta ? nameMeta.getAttribute('content') || '' : ''
         };
@@ -28,24 +41,25 @@
     }
 
     function updateToken(token) {
-        if (!token) {
+        var normalizedToken = normalizeToken(token);
+        if (!normalizedToken) {
             return;
         }
 
         var config = getConfig();
         var tokenMeta = getMeta('csrf-token');
         if (tokenMeta) {
-            tokenMeta.setAttribute('content', token);
+            tokenMeta.setAttribute('content', normalizedToken);
         }
 
         if (config.name) {
             document.querySelectorAll('input[name="' + config.name + '"]').forEach(function (input) {
-                input.value = token;
+                input.value = normalizedToken;
             });
         }
 
         window.FicCsrf = {
-            token: token,
+            token: normalizedToken,
             header: config.header,
             name: config.name
         };

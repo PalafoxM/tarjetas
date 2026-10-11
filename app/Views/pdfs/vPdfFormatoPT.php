@@ -1,5 +1,8 @@
 <?php
-$monto_total = round((float) str_replace(['$', ',', ' '], '', (string) ($monto_total ?? 0)), 2);
+$registro_pt = isset($registro_pt) && is_object($registro_pt) ? $registro_pt : (object) [];
+$monto_total = round((float) str_replace(['$', ',', ' '], '', (string) ($registro_pt->importe_total_num ?? 0)), 2);
+$importe_letra = (string) ($registro_pt->importe_letra ?? '');
+$folio_formato = (string) ($registro_pt->no_consecutivo ?? '');
 
 $apocoparUno = static function (string $texto): string {
     if (preg_match('/veintiuno$/u', $texto)) {
@@ -179,7 +182,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             <tr>
                 <td>21</td>
                 <td><?=  date('d/m/Y') ?></td>
-            <td><h6>PT SECTURI/SSIDT/DGCT/FIC-TA/<?= $id_formateado ?>/2026</h6></td>
+            <td><h6><?= esc($folio_formato) ?></h6></td>
             </tr>
         </tbody>
     </table>
@@ -246,20 +249,19 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             ?>
             <tr>
                 <td><?= $detalle['comprobante'] ?></td>
-                <td>E027QC04182601</td>
-                <td>2210</td>
-                <td><?= $monto_total < 0 ? '' : '$' ?><?= number_format(abs((float) $monto_total), 2) ?></td>
+                <td><?= esc($detalle['proyecto']) ?></td>
+                <td><?= esc($detalle['partida']) ?></td>
+                <td><?= (float) $detalle['importe'] < 0 ? '' : '$' ?><?= number_format(abs((float) $detalle['importe']), 2) ?></td>
                 
                 <?php if($index === 0): ?>
                 <td rowspan="<?= count($detalleRows) ?>" class="text-left" style="vertical-align: top;">
                     <div class="font-bold">DATOS DEL PROVEEDOR NACIONAL</div>
-                   <!-- Hardcoded example structure as per requirements, could be dynamic -->
-                   <div><span class="font-bold">No. PROVEEDOR:</span> <?= isset($establecimiento->no_proveedor) ? $establecimiento->no_proveedor : '' ?></div>
-                   <div><span class="font-bold">RFC:</span> <?= isset($establecimiento->rfc) ? $establecimiento->rfc : '' ?></div>
-                   <div><span class="font-bold">NOMBRE:</span> <?= isset($establecimiento->razon_social) ? $establecimiento->razon_social : '' ?></div>
-                   <div><span class="font-bold">NO. CUENTA:</span> <?= isset($establecimiento->no_cuenta) ? $establecimiento->no_cuenta : '' ?></div>
-                   <div><span class="font-bold">BANCO:</span> <?= isset($establecimiento->banco) ? $establecimiento->banco : '' ?></div>
-                   <div><span class="font-bold">CLABE:</span> <?= isset($establecimiento->clabe) ? $establecimiento->clabe : '' ?></div>
+                   <div><span class="font-bold">No. PROVEEDOR:</span> <?= esc((string) ($registro_pt->no_proveedor ?? '')) ?></div>
+                   <div><span class="font-bold">RFC:</span> <?= esc((string) ($registro_pt->rfc_proveedor ?? '')) ?></div>
+                   <div><span class="font-bold">NOMBRE:</span> <?= esc((string) ($registro_pt->nombre_proveedor_1 ?? '')) ?></div>
+                   <div><span class="font-bold">NO. CUENTA:</span> <?= esc((string) ($registro_pt->no_cuenta ?? '')) ?></div>
+                   <div><span class="font-bold">BANCO:</span> <?= esc((string) ($registro_pt->banco ?? '')) ?></div>
+                   <div><span class="font-bold">CLABE:</span> <?= esc((string) ($registro_pt->clabe ?? '')) ?></div>
                 </td>
                 <?php endif; ?>
             </tr>
@@ -271,9 +273,9 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
     <table>
         <tr>
             <td colspan="3" class="text-left no-border">
-                <span class="font-bold">No. CONTRATO y/o CONVENIO:</span> <?= isset($establecimiento->no_contrato) ? $establecimiento->no_contrato : '' ?>
+                <span class="font-bold">No. CONTRATO y/o CONVENIO:</span> <?= esc((string) ($registro_pt->no_convenio ?? '')) ?>
                 <br>
-                <span class="font-bold">No. RESERVA:</span> 5413298
+                <span class="font-bold">No. RESERVA:</span> <?= esc((string) ($registro_pt->no_reserva ?? '')) ?>
             </td>
             <td width="30%" class="font-bold">
                 <?= $monto_total < 0 ? '' : '$' ?><?= number_format(abs((float) $monto_total), 2) ?>
@@ -281,7 +283,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
         </tr>
         <tr>
             <td colspan="4" class="text-center font-bold">
-                <?= esc($convertirNumeroALetras($monto_total)) ?>
+                <?= esc($importe_letra !== '' ? $importe_letra : $convertirNumeroALetras($monto_total)) ?>
             </td>
         </tr>
     </table>

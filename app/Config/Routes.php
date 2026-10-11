@@ -36,6 +36,7 @@ $routes->post('Inicio/guardarSolicitudUsuarioProveedor', 'Inicio::guardarSolicit
 $routes->get('Inicio/PartidasFic', 'Inicio::PartidasFic');
 $routes->get('Inicio/PagosFic', 'Inicio::PagosFic');
 $routes->get('Inicio/FacturasFic', 'Inicio::FacturasFic');
+$routes->get('Inicio/CortesProveedor', 'Inicio::CortesProveedor');
 $routes->get('Inicio/SolicitudesUsuarioFic', 'Inicio::SolicitudesUsuarioFic');
 $routes->get('Inicio/ReportesInstitucionales', 'Inicio::ReportesInstitucionales');
 $routes->get('Inicio/Consumos', 'Inicio::Consumos');
@@ -78,6 +79,8 @@ $routes->post('Inicio/rechazarSolicitudNuevoFolioTi', 'Inicio::rechazarSolicitud
 $routes->post('Inicio/guardarPagoSinQrProveedor', 'Inicio::guardarPagoSinQrProveedor');
 $routes->post('Inicio/enviarFacturaProveedor', 'Inicio::enviarFacturaProveedor');
 $routes->post('Inicio/subirReporteProveedor', 'Inicio::subirReporteProveedor');
+$routes->post('Inicio/guardarCorteProveedor', 'Inicio::guardarCorteProveedor');
+$routes->post('Inicio/cambiarVisibilidadCorteProveedor', 'Inicio::cambiarVisibilidadCorteProveedor');
 $routes->get('Inicio/pdfProveedorEncabezadoFactura/(:num)', 'Inicio::pdfProveedorEncabezadoFactura/$1');
 $routes->get('Inicio/pdfProveedorFormatoPT/(:num)', 'Inicio::pdfProveedorFormatoPT/$1');
 $routes->get('Inicio/pdfProveedorLiberacionPago/(:num)', 'Inicio::pdfProveedorLiberacionPago/$1');

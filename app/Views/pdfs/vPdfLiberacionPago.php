@@ -72,11 +72,12 @@
 
     <!-- Date and Folio -->
     <?php
+        $registro_pt = isset($registro_pt) && is_object($registro_pt) ? $registro_pt : (object) [];
         $meses = array("ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE");
         $fecha = date("d/m/Y");
         $fecha_texto = "SILAO, GTO. " . date("d") . " DE " . $meses[date("n", )-1] . " DEL " . date("Y");
         
-        $folio = isset($registro_pt->no_consecutivo) ? $registro_pt->no_consecutivo : 'SIN FOLIO';
+        $folio = (string) ($registro_pt->no_consecutivo ?? 'SIN FOLIO');
     ?>
     <div class="date-folio">
         <div><?= $fecha_texto ?></div>
@@ -93,8 +94,8 @@
     <!-- Content Body 1 -->
     <?php
         // Prepare dynamic values
-        $importe_total = isset($registro_pt->importe_total_num) ? $registro_pt->importe_total_num : '0.00';
-        $importe_letra = isset($registro_pt->importe_letra) ? $registro_pt->importe_letra : '';
+        $importe_total = (string) ($registro_pt->importe_total_num ?? '0.00');
+        $importe_letra = (string) ($registro_pt->importe_letra ?? '');
         
         // Comprobantes (comma separated)
         $comprobantes = [];
@@ -118,24 +119,26 @@
         $proyectos_text = implode(', ', array_unique($proyectos));
         $partidas_text = implode(', ', array_unique($partidas));
         
-        $proveedor_nombre = isset($registro_pt->nombre_proveedor_1) ? $registro_pt->nombre_proveedor_1 : 'PROVEEDOR';
-        // Note: Concepto is missing in input form, check if 'contrato_convenio' is used or leave placeholder
-        $concepto_text = isset($registro_pt->concepto) ? $registro_pt->concepto : '[CONCEPTO PENDIENTE]'; 
+        $proveedor_nombre = (string) ($registro_pt->nombre_proveedor_1 ?? 'PROVEEDOR');
+        $concepto_text = (string) ($registro_pt->concepto ?? 'Servicios registrados en factura');
+        $proyectos_text = $proyectos_text !== '' ? $proyectos_text : 'E027QC04182601';
+        $partidas_text = $partidas_text !== '' ? $partidas_text : '';
+        $clausula_text = (string) ($registro_pt->clausula ?? $registro_pt->no_convenio ?? 'NO APLICA');
     ?>
     <div class="content">
         Por medio del presente, me permito solicitar su apoyo para que se realice el trámite de Pago a Tercero del
-        folio <strong>PT SECTURI/SSIDT/DGCT/FIC-TA/<?=$id_formateado?>/2026</strong> por la cantidad de <strong>$<?= $monto_total ?> (<?= $monto_letra ?>)</strong>,
-        de comprobante(s) fiscal(es) No. <strong><?= $comprobantes_text ?></strong> por concepto de <strong>Consumo de alimentos durante la 54° Edición del FIC, del 03 al 18 deoctubre del 2024</strong> al proveedor <strong><?= $proveedor_nombre ?></strong>.
+        folio <strong><?= esc($folio) ?></strong> por la cantidad de <strong>$<?= esc($importe_total) ?> (<?= esc($importe_letra) ?>)</strong>,
+        de comprobante(s) fiscal(es) No. <strong><?= esc($comprobantes_text) ?></strong> por concepto de <strong><?= esc($concepto_text) ?></strong> al proveedor <strong><?= esc($proveedor_nombre) ?></strong>.
     </div>
 
     <!-- Content Body 2 -->
     <div class="content">
-        Lo anterior con cargo al proyecto(s) <strong>E027QC04182601</strong> a las partida presupuestal <strong>2210</strong>
+        Lo anterior con cargo al proyecto(s) <strong><?= esc($proyectos_text) ?></strong> a la partida presupuestal <strong><?= esc($partidas_text) ?></strong>
     </div>
 
     <!-- Content Body 3 - Legal -->
     <div class="content">
-        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>PRIMERA</strong> de instrumento jurídico <strong><?= (!empty($establecimiento->no_contrato))?$establecimiento->no_contrato:'NO APLICA' ?></strong> recibí
+        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>PRIMERA</strong> de instrumento jurídico <strong><?= esc($clausula_text) ?></strong> recibí
         el producto, atendiendo lo que establece el marco normativo aplicable. El producto recibido se nos ha
         entregado a entera satisfacción en tiempo y forma, quedando bajo mi responsabilidad el uso y/o
         distribución, así como el resguardo y custodia de los expedientes originales y entregables correspondientes.
@@ -160,9 +163,8 @@
 
     <!-- Signature -->
     <?php
-        $responsable = 'MTRO. DAVID AYALA SAUCEDO';
-        // Title hardcoded in image or use variable if available? Image: DIRECTOR/A GENERAL DE INNOVACIÓN E INTELIGENCIA TURÍSTICA
-        $cargo_responsable = 'SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO' // Hardcoded default based on image
+        $responsable = (string) ($registro_pt->nombre_responsable ?? 'MTRO. DAVID AYALA SAUCEDO');
+        $cargo_responsable = (string) ($registro_pt->cargo_responsable ?? 'SUBSECRETARIO DE IDENTIDAD Y DESARROLLO TURÍSTICO');
     ?>
     <div class="signature-section">
         ATENTAMENTE

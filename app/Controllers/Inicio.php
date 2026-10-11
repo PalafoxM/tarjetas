@@ -20,6 +20,13 @@ class Inicio extends BaseController {
 
     use ResponseTrait;
     private const PARTIDA_2210_SALDO_INICIAL_DASHBOARD = 216920.00;
+    private const PRIMER_CORTE_PROVEEDOR_ID = 'primer_corte_2026';
+    private const PRIMER_CORTE_PROVEEDOR_TIMEZONE = 'America/Mexico_City';
+    private const PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO = '2026-09-13 00:00:00';
+    private const PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_INICIO = '2026-10-09 00:00:00';
+    private const PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN = '2026-10-19 23:59:59';
+    private const PROVEEDOR_CORTE_SEGUNDO_ENVIO_INICIO = '2026-10-19 00:00:00';
+    private const PROVEEDOR_CORTE_MAX_PERIODOS = 2;
 
     private $defaultData = array(
         'title' => 'Turnos 2.0',
@@ -88,6 +95,327 @@ class Inicio extends BaseController {
         }
         echo view($data['layout'], $data); 
                       
+    }
+
+    private function resolvePrimerCorteProveedorContext(?\DateTimeImmutable $now = null): array
+    {
+        $timezone = new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE);
+        $now = $now !== null ? $now->setTimezone($timezone) : new \DateTimeImmutable('now', $timezone);
+        $db = \Config\Database::connect();
+        $schemaReady = $this->cortesProveedorSchemaReady($db);
+        $corte = $this->resolveActiveCorteProveedor($db, $now);
+
+        if ($corte === null && $schemaReady) {
+            $corte = $db->table('cortes_proveedor')
+                ->where('visible', 1)
+                ->orderBy('numero_corte', 'ASC')
+                ->get()
+                ->getRowArray();
+        }
+
+        $inicioVentasTexto = trim((string) ($corte['fecha_inicio_periodo_global'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO));
+        $inicioDocumentacionTexto = trim((string) ($corte['fecha_inicio_recepcion'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_INICIO));
+        $finDocumentacionTexto = trim((string) ($corte['fecha_fin_recepcion'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN));
+
+        $inicioVentas = new \DateTimeImmutable($inicioVentasTexto !== '' ? $inicioVentasTexto : self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO, $timezone);
+        $inicioDocumentacion = new \DateTimeImmutable($inicioDocumentacionTexto !== '' ? $inicioDocumentacionTexto : self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_INICIO, $timezone);
+        $finDocumentacion = new \DateTimeImmutable($finDocumentacionTexto !== '' ? $finDocumentacionTexto : self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN, $timezone);
+
+        $estado = 'antes';
+        if ($now >= $inicioDocumentacion && $now <= $finDocumentacion) {
+            $estado = 'activo';
+        } elseif ($now > $finDocumentacion) {
+            $estado = 'cerrado';
+        }
+
+        $finReporte = $now < $finDocumentacion ? $now : $finDocumentacion;
+        if ($finReporte < $inicioVentas) {
+            $finReporte = $inicioVentas;
+        }
+
+        return [
+            'id' => $corte['id_corte'] ?? self::PRIMER_CORTE_PROVEEDOR_ID,
+            'id_corte' => (int) ($corte['id_corte'] ?? 0),
+            'numero_corte' => (int) ($corte['numero_corte'] ?? 1),
+            'nombre' => (string) ($corte['nombre'] ?? 'Primer corte proveedores 2026'),
+            'timezone' => self::PRIMER_CORTE_PROVEEDOR_TIMEZONE,
+            'inicio_ventas' => $inicioVentas->format('Y-m-d H:i:s'),
+            'inicio_documentacion' => $inicioDocumentacion->format('Y-m-d H:i:s'),
+            'fin_documentacion' => $finDocumentacion->format('Y-m-d H:i:s'),
+            'fin_reporte_efectivo' => $finReporte->format('Y-m-d H:i:s'),
+            'schema_ready' => $schemaReady,
+            'estado' => $estado,
+            'activo' => $estado === 'activo',
+            'antes' => $estado === 'antes',
+            'cerrado' => $estado === 'cerrado',
+            'mensaje_cerrado' => 'El periodo de recepcion de documentos del primer corte ha finalizado. Espera la apertura del siguiente corte.',
+        ];
+    }
+
+    private function isPrimerCorteProveedorApplicable(array $contextoUsuario): bool
+    {
+        $session = \Config\Services::session();
+
+        return !empty($contextoUsuario['is_provider_flow'])
+            || !empty($contextoUsuario['is_recepcion_flow'])
+            || !empty($session->get('id_proveedor'));
+    }
+
+    private function getPrimerCorteProveedorReportePeriodo(array $contexto): array
+    {
+        return [
+            'inicio' => (string) ($contexto['inicio_ventas'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO),
+            'fin' => (string) ($contexto['fin_reporte_efectivo'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN),
+        ];
+    }
+
+    private function getCorteProveedorReportePeriodo(array $contexto, int $idEstablecimiento = 0, int $idProveedor = 0): array
+    {
+        $inicio = (string) ($contexto['inicio_ventas'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO);
+        $periodo = ['numero_periodo_resuelto' => 1];
+        $db = \Config\Database::connect();
+        if ($idEstablecimiento > 0 && !empty($contexto['id_corte']) && $this->cortesProveedorSchemaReady($db)) {
+            $corte = $this->resolveCorteProveedorById((int) $contexto['id_corte'], $db);
+            if (is_array($corte)) {
+                $periodo = $this->resolvePeriodoProveedorActual($idEstablecimiento, $idProveedor, $corte, $db);
+                $inicio = (string) ($periodo['fecha_inicio_periodo_resuelta'] ?? $inicio);
+            }
+        }
+
+        return [
+            'inicio' => $inicio,
+            'inicio_operador' => ((int) ($periodo['numero_periodo_resuelto'] ?? 1) === 2) ? '>' : '>=',
+            'fin' => (string) ($contexto['fin_reporte_efectivo'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN),
+        ];
+    }
+
+    private function buildPrimerCorteProveedorPeriodoLabel(array $contexto): string
+    {
+        $timezone = new \DateTimeZone((string) ($contexto['timezone'] ?? self::PRIMER_CORTE_PROVEEDOR_TIMEZONE));
+        $inicio = new \DateTimeImmutable((string) ($contexto['inicio_ventas'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO), $timezone);
+        $fin = new \DateTimeImmutable((string) ($contexto['fin_reporte_efectivo'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN), $timezone);
+
+        return 'Primer corte: periodo del ' . $inicio->format('d/m/Y H:i') . ' al ' . $fin->format('d/m/Y H:i');
+    }
+
+    private function cortesProveedorSchemaReady(?\CodeIgniter\Database\BaseConnection $db = null): bool
+    {
+        $db = $db ?? \Config\Database::connect();
+
+        return $db->tableExists('cortes_proveedor') && $db->tableExists('proveedor_corte_periodo');
+    }
+
+    private function resolveCorteProveedorAdminContext(): array
+    {
+        $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+
+        return [
+            'contexto' => $contextoUsuario,
+            'autorizado' => !empty($contextoUsuario['is_ti_master'])
+                || (!empty($contextoUsuario['can_access_secturi_dashboard']) && (int) ($contextoUsuario['group_role'] ?? 0) === 1),
+        ];
+    }
+
+    private function resolveActiveCorteProveedor(?\CodeIgniter\Database\BaseConnection $db = null, ?\DateTimeImmutable $now = null): ?array
+    {
+        $db = $db ?? \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db)) {
+            return null;
+        }
+
+        $timezone = new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE);
+        $now = $now !== null ? $now->setTimezone($timezone) : new \DateTimeImmutable('now', $timezone);
+        $nowSql = $now->format('Y-m-d H:i:s');
+
+        $row = $db->table('cortes_proveedor')
+            ->where('visible', 1)
+            ->where('fecha_inicio_recepcion <=', $nowSql)
+            ->where('fecha_fin_recepcion >=', $nowSql)
+            ->orderBy('numero_corte', 'ASC')
+            ->get()
+            ->getRowArray();
+
+        return is_array($row) ? $row : null;
+    }
+
+    private function resolveCorteProveedorById(int $idCorte, ?\CodeIgniter\Database\BaseConnection $db = null): ?array
+    {
+        $db = $db ?? \Config\Database::connect();
+        if ($idCorte <= 0 || !$this->cortesProveedorSchemaReady($db)) {
+            return null;
+        }
+
+        $row = $db->table('cortes_proveedor')
+            ->where('id_corte', $idCorte)
+            ->get()
+            ->getRowArray();
+
+        return is_array($row) ? $row : null;
+    }
+
+    private function getSegundoPeriodoProveedorInicio(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable(
+            self::PROVEEDOR_CORTE_SEGUNDO_ENVIO_INICIO,
+            new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE)
+        );
+    }
+
+    private function resolveProveedorPeriodoInicio(int $idEstablecimiento, array $corte, ?\CodeIgniter\Database\BaseConnection $db = null): string
+    {
+        $actual = $this->resolvePeriodoProveedorActual($idEstablecimiento, 0, $corte, $db);
+
+        return (string) ($actual['fecha_inicio_periodo_resuelta'] ?? $corte['fecha_inicio_periodo_global'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO);
+    }
+
+    private function getProveedorCortePeriodos(int $idEstablecimiento, array $corte, ?\CodeIgniter\Database\BaseConnection $db = null): array
+    {
+        $db = $db ?? \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db) || $idEstablecimiento <= 0 || empty($corte['id_corte'])) {
+            return [];
+        }
+
+        return $db->table('proveedor_corte_periodo')
+            ->where('id_corte', (int) $corte['id_corte'])
+            ->where('id_establecimiento', $idEstablecimiento)
+            ->where('visible', 1)
+            ->orderBy('numero_periodo', 'ASC')
+            ->get()
+            ->getResultArray();
+    }
+
+    private function resolvePeriodoProveedorActual(int $idEstablecimiento, int $idProveedor, array $corte, ?\CodeIgniter\Database\BaseConnection $db = null): array
+    {
+        $db = $db ?? \Config\Database::connect();
+        $fechaInicioGlobal = trim((string) ($corte['fecha_inicio_periodo_global'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO));
+        $periodos = $this->getProveedorCortePeriodos($idEstablecimiento, $corte, $db);
+        $cerrados = array_values(array_filter($periodos, static function (array $row): bool {
+            return (string) ($row['estado'] ?? '') === 'cerrado';
+        }));
+        $abiertos = array_values(array_filter($periodos, static function (array $row): bool {
+            return (string) ($row['estado'] ?? '') !== 'cerrado';
+        }));
+
+        usort($cerrados, static function (array $a, array $b): int {
+            return ((int) ($a['numero_periodo'] ?? 0)) <=> ((int) ($b['numero_periodo'] ?? 0));
+        });
+        usort($abiertos, static function (array $a, array $b): int {
+            return ((int) ($a['numero_periodo'] ?? 0)) <=> ((int) ($b['numero_periodo'] ?? 0));
+        });
+
+        $ultimoCerrado = !empty($cerrados) ? end($cerrados) : [];
+        $periodo = !empty($abiertos) ? $abiertos[0] : [];
+        $numeroPeriodo = 1;
+        $inicio = $fechaInicioGlobal !== '' ? $fechaInicioGlobal : self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO;
+        $cicloFinalizado = false;
+        $facturasEmitidas = count($cerrados);
+
+        if (!empty($periodo)) {
+            $numeroPeriodo = (int) ($periodo['numero_periodo'] ?? 1);
+            $inicio = (string) ($periodo['fecha_inicio_periodo'] ?? $inicio);
+        } elseif (!empty($ultimoCerrado)) {
+            $numeroCerrado = (int) ($ultimoCerrado['numero_periodo'] ?? 0);
+            $fechaFinAnterior = trim((string) ($ultimoCerrado['fecha_fin_periodo'] ?? $ultimoCerrado['fecha_envio'] ?? ''));
+            $fechaFinTs = $fechaFinAnterior !== '' ? strtotime($fechaFinAnterior) : false;
+            $segundoInicioTs = strtotime(self::PROVEEDOR_CORTE_SEGUNDO_ENVIO_INICIO);
+
+            if ($numeroCerrado >= self::PROVEEDOR_CORTE_MAX_PERIODOS || ($numeroCerrado === 1 && $fechaFinTs !== false && $segundoInicioTs !== false && $fechaFinTs >= $segundoInicioTs)) {
+                $cicloFinalizado = true;
+                $numeroPeriodo = min(self::PROVEEDOR_CORTE_MAX_PERIODOS, max(1, $numeroCerrado));
+                $inicio = $fechaFinAnterior !== '' ? $fechaFinAnterior : $inicio;
+            } else {
+                $numeroPeriodo = $numeroCerrado + 1;
+                $inicio = $fechaFinAnterior !== '' ? $fechaFinAnterior : $inicio;
+            }
+        }
+
+        $periodo['numero_periodo_resuelto'] = $numeroPeriodo;
+        $periodo['fecha_inicio_periodo_resuelta'] = $inicio;
+        $periodo['id_proveedor_resuelto'] = $idProveedor;
+        $periodo['facturas_emitidas'] = $facturasEmitidas;
+        $periodo['ciclo_finalizado'] = $cicloFinalizado;
+        $periodo['ultimo_cierre'] = (string) ($ultimoCerrado['fecha_fin_periodo'] ?? $ultimoCerrado['fecha_envio'] ?? '');
+        $periodo['periodos_cerrados'] = $cerrados;
+
+        return $periodo;
+    }
+
+    private function persistReporteProveedorCorte(array $corte, int $idProveedor, int $idEstablecimiento, string $url, int $idUsuario): bool
+    {
+        $db = \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db) || empty($corte['id_corte']) || $idProveedor <= 0 || $idEstablecimiento <= 0 || $url === '') {
+            return false;
+        }
+
+        $existente = $this->resolvePeriodoProveedorActual($idEstablecimiento, $idProveedor, $corte, $db);
+        if (!empty($existente['ciclo_finalizado'])) {
+            return false;
+        }
+
+        $numeroPeriodo = (int) ($existente['numero_periodo_resuelto'] ?? 1);
+        if ($numeroPeriodo < 1 || $numeroPeriodo > self::PROVEEDOR_CORTE_MAX_PERIODOS) {
+            return false;
+        }
+
+        $data = [
+            'id_corte' => (int) $corte['id_corte'],
+            'id_proveedor' => $idProveedor,
+            'id_establecimiento' => $idEstablecimiento,
+            'numero_periodo' => $numeroPeriodo,
+            'fecha_inicio_periodo' => (string) ($existente['fecha_inicio_periodo_resuelta'] ?? $this->resolveProveedorPeriodoInicio($idEstablecimiento, $corte, $db)),
+            'estado' => 'documentos',
+            'reporte_url' => $url,
+            'usu_act' => $idUsuario,
+            'visible' => 1,
+        ];
+
+        if (!empty($existente['id_periodo'])) {
+            return (bool) $db->table('proveedor_corte_periodo')
+                ->where('id_periodo', (int) $existente['id_periodo'])
+                ->where('estado !=', 'cerrado')
+                ->update(array_merge($data, ['fec_act' => date('Y-m-d H:i:s')]));
+        }
+
+        $data['fec_reg'] = date('Y-m-d H:i:s');
+        $data['usu_reg'] = $idUsuario;
+
+        return (bool) $db->table('proveedor_corte_periodo')->insert($data);
+    }
+
+    private function buildProviderCortePeriodoMap(array $dashboard): array
+    {
+        $contexto = $dashboard['primerCorteProveedor'] ?? $this->resolvePrimerCorteProveedorContext();
+        $idCorte = (int) ($contexto['id_corte'] ?? 0);
+        $db = \Config\Database::connect();
+        if ($idCorte <= 0 || !$this->cortesProveedorSchemaReady($db)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach (is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [] as $item) {
+            $row = is_object($item) ? get_object_vars($item) : (array) $item;
+            $id = (int) ($row['id_establecimiento'] ?? 0);
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        $map = [];
+        $corte = $this->resolveCorteProveedorById($idCorte, $db);
+        $idProveedor = (int) ($dashboard['proveedorPerfil']['id_proveedor'] ?? 0);
+        foreach (array_values(array_unique($ids)) as $idEstablecimiento) {
+            $map[$idEstablecimiento] = is_array($corte)
+                ? $this->resolvePeriodoProveedorActual((int) $idEstablecimiento, $idProveedor, $corte, $db)
+                : [];
+        }
+
+        return $map;
     }
 
    public function index()
@@ -297,6 +625,7 @@ class Inicio extends BaseController {
                     $idEstablecimientoFiltro
                 ));
                 $data['contextoUsuario'] = $contextoUsuario;
+                $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
 
                 if ($perfilId == 5 && $idEstablecimientoFiltro > 0) {
                     $data['proveedorEstablecimientos'] = array_values(array_filter(
@@ -437,6 +766,8 @@ class Inicio extends BaseController {
         $data = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
         $data['scripts'] = ['principal', 'agregar'];
         $data['contextoUsuario'] = $contextoUsuario;
+        $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
+        $data['primerCorteProveedorPeriodos'] = $this->buildProviderCortePeriodoMap($data);
         $data['contentView'] = 'secciones/vProveedorFormatos';
         $this->_renderView($data);
     }
@@ -466,6 +797,8 @@ class Inicio extends BaseController {
         $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
+        $primerCorte = $this->resolvePrimerCorteProveedorContext();
+        $aplicaPrimerCorte = $this->isPrimerCorteProveedorApplicable($contextoUsuario);
 
         $idEstablecimientoSesion = (int) ($session->get('id_establecimiento') ?? 0);
         if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor')) && $idEstablecimientoSesion <= 0) {
@@ -480,6 +813,22 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON([
                 'error' => true,
                 'respuesta' => 'Selecciona un establecimiento valido.',
+            ]);
+        }
+
+        if ($aplicaPrimerCorte && !$primerCorte['activo']) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => !empty($primerCorte['cerrado'])
+                    ? $primerCorte['mensaje_cerrado']
+                    : 'La recepcion de documentos del primer corte aun no esta disponible.',
+            ]);
+        }
+
+        if ($aplicaPrimerCorte && empty($primerCorte['schema_ready'])) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'La estructura de cortes de proveedores aun no esta instalada.',
             ]);
         }
 
@@ -506,6 +855,42 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
                 'respuesta' => 'El establecimiento no pertenece a la sesion.',
+            ]);
+        }
+
+        $db = \Config\Database::connect();
+        $corteActivo = $aplicaPrimerCorte ? $this->resolveCorteProveedorById((int) ($primerCorte['id_corte'] ?? 0), $db) : null;
+        $periodoCorte = $aplicaPrimerCorte && is_array($corteActivo)
+            ? $this->resolvePeriodoProveedorActual(
+                $idEstablecimiento,
+                (int) ($dashboard['proveedorPerfil']['id_proveedor'] ?? 0),
+                $corteActivo,
+                $db
+            )
+            : [];
+
+        if ($aplicaPrimerCorte && !empty($periodoCorte['ciclo_finalizado'])) {
+            return $this->response->setStatusCode(409)->setJSON([
+                'error' => true,
+                'respuesta' => ((int) ($periodoCorte['facturas_emitidas'] ?? 0) >= self::PROVEEDOR_CORTE_MAX_PERIODOS)
+                    ? 'Ya utilizaste los dos cortes disponibles para este ciclo.'
+                    : 'El ciclo de cortes de este establecimiento ya finalizo.',
+            ]);
+        }
+
+        $numeroPeriodoActual = (int) ($periodoCorte['numero_periodo_resuelto'] ?? 1);
+        $fechaEnvioDt = new \DateTimeImmutable('now', new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE));
+        if ($aplicaPrimerCorte && $numeroPeriodoActual === 2 && $fechaEnvioDt < $this->getSegundoPeriodoProveedorInicio()) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'Tu segundo periodo ya esta activo. La segunda y ultima factura podra enviarse el 19 de octubre.',
+            ]);
+        }
+
+        if ($aplicaPrimerCorte && trim((string) ($periodoCorte['reporte_url'] ?? '')) === '') {
+            return $this->response->setStatusCode(422)->setJSON([
+                'error' => true,
+                'respuesta' => 'Sube primero el reporte de ventas PDF del primer corte antes de enviar la factura.',
             ]);
         }
 
@@ -563,32 +948,37 @@ class Inicio extends BaseController {
         $xmlPath = $tmpDir . DIRECTORY_SEPARATOR . $xmlName;
         $pdfPath = $tmpDir . DIRECTORY_SEPARATOR . $pdfName;
         $prefix = 'ACTIVACIONESFIC/FACTURAS';
-        $xmlUrl = $this->uploadFileToS3($xmlPath, $prefix . '/' . $xmlName, 'application/xml');
-        $pdfUrl = $this->uploadFileToS3($pdfPath, $prefix . '/' . $pdfName, 'application/pdf');
+        $xmlUrl = null;
+        $pdfUrl = null;
         $facturaGuardadaLocalmente = false;
 
-        if (($xmlUrl === null || $pdfUrl === null) && ENVIRONMENT !== 'production') {
+        if (ENVIRONMENT !== 'production') {
             $xmlLocalUrl = $this->persistFacturaLocalFile($xmlPath, $xmlName);
             $pdfLocalUrl = $this->persistFacturaLocalFile($pdfPath, $pdfName);
             if ($xmlLocalUrl !== '' && $pdfLocalUrl !== '') {
                 $xmlUrl = $xmlLocalUrl;
                 $pdfUrl = $pdfLocalUrl;
                 $facturaGuardadaLocalmente = true;
-                log_message('warning', 'Inicio.enviarFacturaProveedor: usando fallback local para factura. ' . $this->lastS3Error);
             }
+        } else {
+            $xmlUrl = $this->uploadFileToS3($xmlPath, $prefix . '/' . $xmlName, 'application/xml');
+            $pdfUrl = $this->uploadFileToS3($pdfPath, $prefix . '/' . $pdfName, 'application/pdf');
         }
 
         @unlink($xmlPath);
         @unlink($pdfPath);
 
-        if ($xmlUrl === null || $pdfUrl === null) {
+        if ($xmlUrl === null || $xmlUrl === '' || $pdfUrl === null || $pdfUrl === '') {
+            $mensajeAlmacenamiento = ENVIRONMENT !== 'production'
+                ? 'No fue posible guardar la factura en almacenamiento local de pruebas.'
+                : 'No fue posible subir la factura a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : '');
+
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
-                'respuesta' => 'No fue posible subir la factura a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+                'respuesta' => $mensajeAlmacenamiento,
             ]);
         }
 
-        $db = \Config\Database::connect();
         if (!$db->tableExists('facturas')) {
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
@@ -596,29 +986,152 @@ class Inicio extends BaseController {
             ]);
         }
 
+        $idUsuarioSesion = (int) ($session->get('id_usuario') ?? 0);
+        $db->transBegin();
+
+        if ($aplicaPrimerCorte) {
+            if (!is_array($corteActivo)) {
+                $db->transRollback();
+                return $this->response->setStatusCode(409)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'No fue posible cerrar el corte: el ciclo ya no esta activo.',
+                ]);
+            }
+
+            $periodoBloqueado = $db->query(
+                'SELECT *
+                   FROM proveedor_corte_periodo
+                  WHERE id_corte = ?
+                    AND id_establecimiento = ?
+                    AND numero_periodo = ?
+                    AND visible = 1
+                  FOR UPDATE',
+                [
+                    (int) $corteActivo['id_corte'],
+                    $idEstablecimiento,
+                    $numeroPeriodoActual,
+                ]
+            )->getRowArray();
+
+            if (!is_array($periodoBloqueado)) {
+                $db->transRollback();
+                return $this->response->setStatusCode(409)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'No fue posible cerrar el corte: falta el periodo del proveedor.',
+                ]);
+            }
+
+            $numeroPeriodoBloqueado = (int) ($periodoBloqueado['numero_periodo'] ?? 0);
+            if ($numeroPeriodoBloqueado < 1 || $numeroPeriodoBloqueado > self::PROVEEDOR_CORTE_MAX_PERIODOS || $numeroPeriodoBloqueado !== $numeroPeriodoActual) {
+                $db->transRollback();
+                return $this->response->setStatusCode(409)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'No fue posible cerrar el corte: el periodo no es valido.',
+                ]);
+            }
+
+            if ((string) ($periodoBloqueado['estado'] ?? '') === 'cerrado') {
+                $db->transRollback();
+                return $this->response->setStatusCode(409)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'Este periodo ya fue cerrado.',
+                ]);
+            }
+
+            if (trim((string) ($periodoBloqueado['reporte_url'] ?? '')) === '') {
+                $db->transRollback();
+                return $this->response->setStatusCode(409)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'No fue posible cerrar el corte: falta reporte del periodo.',
+                ]);
+            }
+
+            $fechaEnvioDt = new \DateTimeImmutable('now', new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE));
+            $primerCorteBloqueado = $this->resolvePrimerCorteProveedorContext($fechaEnvioDt);
+            if (empty($primerCorteBloqueado['activo'])) {
+                $db->transRollback();
+                return $this->response->setStatusCode(403)->setJSON([
+                    'error' => true,
+                    'respuesta' => !empty($primerCorteBloqueado['cerrado'])
+                        ? $primerCorteBloqueado['mensaje_cerrado']
+                        : 'La recepcion de documentos del primer corte aun no esta disponible.',
+                ]);
+            }
+
+            if ($numeroPeriodoActual === 2 && $fechaEnvioDt < $this->getSegundoPeriodoProveedorInicio()) {
+                $db->transRollback();
+                return $this->response->setStatusCode(403)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'Tu segundo periodo ya esta activo. La segunda y ultima factura podra enviarse el 19 de octubre.',
+                ]);
+            }
+        } else {
+            $fechaEnvioDt = new \DateTimeImmutable('now', new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE));
+        }
+
+        $fechaEnvio = $fechaEnvioDt->format('Y-m-d H:i:s');
         $guardado = $db->table('facturas')->insert([
             'xml' => $xmlUrl,
             'pdf' => $pdfUrl,
             'id_estableciemiento' => $idEstablecimiento,
             'id_estatus' => 1,
-            'fec_reg' => date('Y-m-d H:i:s'),
-            'usu_reg' => (int) ($session->get('id_usuario') ?? 0),
+            'fec_reg' => $fechaEnvio,
+            'usu_reg' => $idUsuarioSesion,
             'visible' => 1,
         ]);
+        $idFactura = (int) $db->insertID();
 
         if (!$guardado) {
+            $db->transRollback();
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
                 'respuesta' => 'Los archivos se almacenaron, pero no se pudo guardar la factura.',
             ]);
         }
 
+        if ($aplicaPrimerCorte && is_array($corteActivo)) {
+            $cerrado = $db->table('proveedor_corte_periodo')
+                ->where('id_corte', (int) $corteActivo['id_corte'])
+                ->where('id_establecimiento', $idEstablecimiento)
+                ->where('numero_periodo', $numeroPeriodoActual)
+                ->where('visible', 1)
+                ->where('estado <>', 'cerrado')
+                ->update([
+                    'fecha_fin_periodo' => $fechaEnvio,
+                    'fecha_envio' => $fechaEnvio,
+                    'estado' => 'cerrado',
+                    'id_factura' => $idFactura,
+                    'factura_pdf' => $pdfUrl,
+                    'factura_xml' => $xmlUrl,
+                    'fec_act' => $fechaEnvio,
+                    'usu_act' => $idUsuarioSesion,
+                ]);
+
+            if (!$cerrado || $db->affectedRows() !== 1) {
+                $db->transRollback();
+                return $this->response->setStatusCode(409)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'Este periodo ya fue cerrado.',
+                ]);
+            }
+        }
+
+        if (!$db->transStatus()) {
+            $db->transRollback();
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'No fue posible guardar atomicamente la factura y el cierre del corte.',
+            ]);
+        }
+
+        $db->transCommit();
+
         return $this->response->setJSON([
             'error' => false,
             'respuesta' => $facturaGuardadaLocalmente
                 ? 'Factura enviada correctamente en almacenamiento local de pruebas.'
                 : 'Factura enviada correctamente.',
-            'id_factura' => (int) $db->insertID(),
+            'id_factura' => $idFactura,
             'xml' => $xmlUrl,
             'pdf' => $pdfUrl,
         ]);
@@ -629,6 +1142,8 @@ class Inicio extends BaseController {
         $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
+        $primerCorte = $this->resolvePrimerCorteProveedorContext();
+        $aplicaPrimerCorte = $this->isPrimerCorteProveedorApplicable($contextoUsuario);
 
         if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -642,6 +1157,22 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setJSON([
                 'error' => true,
                 'respuesta' => 'Selecciona un establecimiento valido.',
+            ]);
+        }
+
+        if ($aplicaPrimerCorte && !$primerCorte['activo']) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => !empty($primerCorte['cerrado'])
+                    ? $primerCorte['mensaje_cerrado']
+                    : 'La recepcion de reportes del primer corte aun no esta disponible.',
+            ]);
+        }
+
+        if ($aplicaPrimerCorte && empty($primerCorte['schema_ready'])) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'respuesta' => 'La estructura de cortes de proveedores aun no esta instalada.',
             ]);
         }
 
@@ -707,14 +1238,31 @@ class Inicio extends BaseController {
 
         $localPath = $tmpDir . DIRECTORY_SEPARATOR . $fileName;
         $objectKey = rtrim((string) ($configReporte['prefix'] ?? 'ACTIVAVIONESFIC/REPORTES'), '/') . '/' . $fileName;
-        $url = $this->uploadFileToS3($localPath, $objectKey, 'application/pdf');
+        $url = ENVIRONMENT !== 'production'
+            ? $this->persistReporteProveedorLocalFile($localPath, $fileName)
+            : $this->uploadFileToS3($localPath, $objectKey, 'application/pdf');
         @unlink($localPath);
 
-        if ($url === null) {
+        if ($url === null || $url === '') {
+            $mensajeAlmacenamiento = ENVIRONMENT !== 'production'
+                ? 'No fue posible guardar el reporte en almacenamiento local de pruebas.'
+                : 'No fue posible subir el reporte a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : '');
+
             return $this->response->setStatusCode(500)->setJSON([
                 'error' => true,
-                'respuesta' => 'No fue posible subir el reporte a S3.' . ($this->lastS3Error !== '' ? ' Detalle: ' . $this->lastS3Error : ''),
+                'respuesta' => $mensajeAlmacenamiento,
             ]);
+        }
+
+        if ($aplicaPrimerCorte) {
+            $idProveedor = (int) ($dashboard['proveedorPerfil']['id_proveedor'] ?? 0);
+            $corteActivo = $this->resolveCorteProveedorById((int) ($primerCorte['id_corte'] ?? 0));
+            if (!is_array($corteActivo) || !$this->persistReporteProveedorCorte($corteActivo, $idProveedor, $idEstablecimiento, $url, (int) ($session->get('id_usuario') ?? 0))) {
+                return $this->response->setStatusCode(500)->setJSON([
+                    'error' => true,
+                    'respuesta' => 'El reporte se subio, pero no fue posible persistirlo para el corte.',
+                ]);
+            }
         }
 
         return $this->response->setJSON([
@@ -779,6 +1327,7 @@ class Inicio extends BaseController {
     $data['contextoUsuario'] = $contextoUsuario;
     $data['idEstablecimientoActual'] = $idEstablecimiento;
     $data['esVistaEstablecimientoEspecifico'] = true;
+    $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
     $data['contentView'] = 'secciones/vProveedor';
     $this->_renderView($data);
 }
@@ -802,9 +1351,14 @@ class Inicio extends BaseController {
         $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
+        $primerCorte = $this->resolvePrimerCorteProveedorContext();
 
         if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
+        }
+
+        if ($this->isPrimerCorteProveedorApplicable($contextoUsuario) && !$primerCorte['activo']) {
+            return $this->response->setStatusCode(403)->setBody(!empty($primerCorte['cerrado']) ? $primerCorte['mensaje_cerrado'] : 'La descarga del reporte del primer corte aun no esta disponible.');
         }
 
         $idUsuario = (int) $session->get('id_usuario');
@@ -817,7 +1371,7 @@ class Inicio extends BaseController {
             session_write_close();
         }
 
-        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        $dashboard = $this->buildProviderDashboardData($idUsuario, 0, $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento));
         if ($idEstablecimiento > 0) {
             $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
@@ -846,7 +1400,7 @@ class Inicio extends BaseController {
         $writer->addRow(WriterEntityFactory::createRowFromArray(['SECRETARÍA DE TURISMO E IDENTIDAD', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['53 FESTIVAL INTERNACIONAL CERVANTINO', '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['REPORTE DE CONSUMOS FACTURADOS', '', '', '', '', ''], $titleStyle));
-        $writer->addRow(WriterEntityFactory::createRowFromArray([$this->buildReporteVentasPeriodoLabel($rows), '', '', '', '', ''], $titleStyle));
+        $writer->addRow(WriterEntityFactory::createRowFromArray([$this->buildPrimerCorteProveedorPeriodoLabel($primerCorte), '', '', '', '', ''], $titleStyle));
         $writer->addRow(WriterEntityFactory::createRowFromArray(['', '', '', '', '', '']));
         $writer->addRow(WriterEntityFactory::createRowFromArray([
             'Orden Pago',
@@ -913,9 +1467,14 @@ class Inicio extends BaseController {
         $session = \Config\Services::session();
         $resolver = new UsuarioPerfilResolver();
         $contextoUsuario = $resolver->resolve($session->get());
+        $primerCorte = $this->resolvePrimerCorteProveedorContext();
 
         if (empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']) && empty($session->get('id_proveedor'))) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
+        }
+
+        if ($this->isPrimerCorteProveedorApplicable($contextoUsuario) && !$primerCorte['activo']) {
+            return $this->response->setStatusCode(403)->setBody(!empty($primerCorte['cerrado']) ? $primerCorte['mensaje_cerrado'] : 'La descarga del reporte del primer corte aun no esta disponible.');
         }
 
         $idUsuario = (int) $session->get('id_usuario');
@@ -928,13 +1487,13 @@ class Inicio extends BaseController {
             session_write_close();
         }
 
-        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        $dashboard = $this->buildProviderDashboardData($idUsuario, 0, $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento));
         if ($idEstablecimiento > 0) {
             $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
 
         $rows = $this->buildReporteVentasProveedorRows($dashboard);
-        $periodoLabel = $this->buildReporteVentasPeriodoLabel($rows);
+        $periodoLabel = $this->buildPrimerCorteProveedorPeriodoLabel($primerCorte);
         $layout = $this->resolveReporteVentasLayout($dashboard, $idEstablecimiento);
         $filename = 'reporte_consumos_facturados_' . ($idEstablecimiento > 0 ? $idEstablecimiento : 'general') . '.pdf';
 
@@ -1349,9 +1908,16 @@ class Inicio extends BaseController {
     public function exportarReporteVentasProveedorPdfFormato()
     {
         $session = \Config\Services::session();
+        $resolver = new UsuarioPerfilResolver();
+        $contextoUsuario = $resolver->resolve($session->get());
+        $primerCorte = $this->resolvePrimerCorteProveedorContext();
         $idUsuario = (int) $session->get('id_usuario');
         if ($idUsuario <= 0) {
             return $this->response->setStatusCode(401)->setBody('SesiÃ³n invÃ¡lida.');
+        }
+
+        if ($this->isPrimerCorteProveedorApplicable($contextoUsuario) && !$primerCorte['activo']) {
+            return $this->response->setStatusCode(403)->setBody(!empty($primerCorte['cerrado']) ? $primerCorte['mensaje_cerrado'] : 'La descarga del reporte del primer corte aun no esta disponible.');
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
@@ -1359,7 +1925,7 @@ class Inicio extends BaseController {
             session_write_close();
         }
 
-        $dashboard = $this->buildProviderDashboardData($idUsuario);
+        $dashboard = $this->buildProviderDashboardData($idUsuario, 0, $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento));
         if ($idEstablecimiento > 0) {
             $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
@@ -1386,7 +1952,7 @@ class Inicio extends BaseController {
             $dashboardFiltrado = $dashboard;
             $dashboardFiltrado['proveedorPagos'] = array_values($rowsFiltrados);
             
-            $periodoLabel = $this->buildReporteVentasPeriodoLabel($rowsFiltrados);
+            $periodoLabel = $this->buildPrimerCorteProveedorPeriodoLabel($primerCorte);
             $layout = $this->resolveReporteVentasLayout($dashboardFiltrado, (int) $idEstablecimiento);
             $layout['partida'] = $partida;
             
@@ -2762,6 +3328,118 @@ class Inicio extends BaseController {
         $data['previewInterfaceDescripcion'] = 'Estás consultando el historial global de facturas sin cambiar la sesión autenticada.';
         $data['contentView'] = 'secciones/vFacturasFic';
         $this->_renderView($data);
+    }
+
+    public function CortesProveedor()
+    {
+        $admin = $this->resolveCorteProveedorAdminContext();
+        if (empty($admin['autorizado'])) {
+            return redirect()->to(base_url('index.php/Inicio'));
+        }
+
+        $db = \Config\Database::connect();
+        $schemaReady = $this->cortesProveedorSchemaReady($db);
+        $data = [];
+        $data['scripts'] = ['principal', 'agregar'];
+        $data['schemaReady'] = $schemaReady;
+        $data['cortesProveedor'] = $schemaReady ? $this->buildCortesProveedorAdminRows($db) : [];
+        $data['seguimientoCortesProveedor'] = $schemaReady ? $this->buildCortesProveedorSeguimientoRows($db) : [];
+        $data['contentView'] = 'secciones/vCortesProveedor';
+        $this->_renderView($data);
+    }
+
+    public function guardarCorteProveedor()
+    {
+        $admin = $this->resolveCorteProveedorAdminContext();
+        if (empty($admin['autorizado'])) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => true, 'respuesta' => 'No tienes permisos para administrar cortes.']);
+        }
+
+        $db = \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db)) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => true, 'respuesta' => 'La estructura de cortes de proveedores aun no esta instalada.']);
+        }
+
+        $idCorte = (int) ($this->request->getPost('id_corte') ?? 0);
+        $numeroCorte = (int) ($this->request->getPost('numero_corte') ?? 0);
+        $nombre = trim((string) ($this->request->getPost('nombre') ?? ''));
+        $inicio = str_replace('T', ' ', trim((string) ($this->request->getPost('fecha_inicio_recepcion') ?? '')));
+        $fin = str_replace('T', ' ', trim((string) ($this->request->getPost('fecha_fin_recepcion') ?? '')));
+        $inicioPeriodo = str_replace('T', ' ', trim((string) ($this->request->getPost('fecha_inicio_periodo_global') ?? '')));
+        $visible = (int) ($this->request->getPost('visible') ?? 1) === 1 ? 1 : 0;
+
+        if ($numeroCorte <= 0 || $nombre === '' || $inicio === '' || $fin === '') {
+            return $this->response->setStatusCode(422)->setJSON(['error' => true, 'respuesta' => 'Numero de corte, nombre e intervalo de recepcion son obligatorios.']);
+        }
+
+        $inicioDt = strtotime($inicio);
+        $finDt = strtotime($fin);
+        if ($inicioDt === false || $finDt === false || $finDt < $inicioDt) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => true, 'respuesta' => 'La ventana de recepcion no es valida.']);
+        }
+
+        if ($idCorte > 0 && $this->corteProveedorTieneCierres($idCorte, $db)) {
+            return $this->response->setStatusCode(409)->setJSON(['error' => true, 'respuesta' => 'No se puede editar un corte que ya tiene cierres enviados.']);
+        }
+
+        $data = [
+            'numero_corte' => $numeroCorte,
+            'nombre' => $nombre,
+            'fecha_inicio_recepcion' => date('Y-m-d H:i:s', $inicioDt),
+            'fecha_fin_recepcion' => date('Y-m-d H:i:s', $finDt),
+            'fecha_inicio_periodo_global' => $inicioPeriodo !== '' ? date('Y-m-d H:i:s', strtotime($inicioPeriodo)) : null,
+            'visible' => $visible,
+            'usu_act' => (int) (\Config\Services::session()->get('id_usuario') ?? 0),
+        ];
+
+        if ($idCorte > 0) {
+            $ok = $db->table('cortes_proveedor')->where('id_corte', $idCorte)->update(array_merge($data, ['fec_act' => date('Y-m-d H:i:s')]));
+        } else {
+            $data['fec_reg'] = date('Y-m-d H:i:s');
+            $data['usu_reg'] = (int) (\Config\Services::session()->get('id_usuario') ?? 0);
+            $ok = $db->table('cortes_proveedor')->insert($data);
+        }
+
+        return $this->response->setJSON([
+            'error' => !$ok,
+            'respuesta' => $ok ? 'Corte guardado correctamente.' : 'No fue posible guardar el corte.',
+        ]);
+    }
+
+    public function cambiarVisibilidadCorteProveedor()
+    {
+        $admin = $this->resolveCorteProveedorAdminContext();
+        if (empty($admin['autorizado'])) {
+            return $this->response->setStatusCode(403)->setJSON(['error' => true, 'respuesta' => 'No tienes permisos para administrar cortes.']);
+        }
+
+        $db = \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db)) {
+            return $this->response->setStatusCode(500)->setJSON(['error' => true, 'respuesta' => 'La estructura de cortes de proveedores aun no esta instalada.']);
+        }
+
+        $idCorte = (int) ($this->request->getPost('id_corte') ?? 0);
+        $visible = (int) ($this->request->getPost('visible') ?? 0) === 1 ? 1 : 0;
+        if ($idCorte <= 0) {
+            return $this->response->setStatusCode(422)->setJSON(['error' => true, 'respuesta' => 'Corte invalido.']);
+        }
+
+        if (!$visible && $this->corteProveedorTieneCierres($idCorte, $db)) {
+            return $this->response->setStatusCode(409)->setJSON(['error' => true, 'respuesta' => 'No se puede desactivar un corte que ya tiene cierres enviados.']);
+        }
+
+        $ok = $db->table('cortes_proveedor')
+            ->where('id_corte', $idCorte)
+            ->update([
+                'visible' => $visible,
+                'fec_act' => date('Y-m-d H:i:s'),
+                'usu_act' => (int) (\Config\Services::session()->get('id_usuario') ?? 0),
+            ]);
+
+        return $this->response->setJSON([
+            'error' => !$ok,
+            'respuesta' => $ok ? 'Visibilidad actualizada.' : 'No fue posible actualizar la visibilidad.',
+        ]);
     }
 
     public function ReportesInstitucionales()
@@ -5172,7 +5850,7 @@ class Inicio extends BaseController {
         return round((float) $normalized, 2);
     }
 
-    private function buildProviderDashboardData(int $idUsuario, int $idEstablecimientoFiltro = 0): array
+    private function buildProviderDashboardData(int $idUsuario, int $idEstablecimientoFiltro = 0, ?array $ventasPeriodo = null): array
 {
     $db = \Config\Database::connect();
 
@@ -5259,8 +5937,24 @@ class Inicio extends BaseController {
                 ->where('sp.id_usuario', $idUsuario)
                 ->orWhereIn('sp.id_establecimiento', $establecimientoIds)
             ->groupEnd()
-            ->orderBy('sp.fec_reg', 'DESC')
-            ->limit(25);
+            ->orderBy('sp.fec_reg', 'DESC');
+
+        if (is_array($ventasPeriodo)) {
+            $inicioPeriodo = trim((string) ($ventasPeriodo['inicio'] ?? ''));
+            $finPeriodo = trim((string) ($ventasPeriodo['fin'] ?? ''));
+            $inicioOperador = trim((string) ($ventasPeriodo['inicio_operador'] ?? '>='));
+            if (!in_array($inicioOperador, ['>=', '>'], true)) {
+                $inicioOperador = '>=';
+            }
+            if ($inicioPeriodo !== '') {
+                $builder->where('sp.fec_reg ' . $inicioOperador, $inicioPeriodo);
+            }
+            if ($finPeriodo !== '') {
+                $builder->where('sp.fec_reg <=', $finPeriodo);
+            }
+        } else {
+            $builder->limit(25);
+        }
 
         $pagosRows = $builder->get()->getResultArray();
     }
@@ -5706,6 +6400,133 @@ public function getPagosPorEstablecimiento()
                 'visible' => (int) ($row['visible'] ?? 0),
             ];
         }, $rows);
+    }
+
+    private function buildCortesProveedorAdminRows(?\CodeIgniter\Database\BaseConnection $db = null): array
+    {
+        $db = $db ?? \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db)) {
+            return [];
+        }
+
+        $timezone = new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE);
+        $now = new \DateTimeImmutable('now', $timezone);
+        $rows = $db->table('cortes_proveedor')
+            ->orderBy('numero_corte', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return array_map(function (array $row) use ($now, $timezone, $db): array {
+            $inicio = new \DateTimeImmutable((string) ($row['fecha_inicio_recepcion'] ?? 'now'), $timezone);
+            $fin = new \DateTimeImmutable((string) ($row['fecha_fin_recepcion'] ?? 'now'), $timezone);
+            $estado = 'Proximo';
+            if ((int) ($row['visible'] ?? 0) !== 1) {
+                $estado = 'Inactivo';
+            } elseif ($now >= $inicio && $now <= $fin) {
+                $estado = 'Activo';
+            } elseif ($now > $fin) {
+                $estado = 'Finalizado';
+            }
+
+            $row['estado_calculado'] = $estado;
+            $row['cierres_enviados'] = $db->table('proveedor_corte_periodo')
+                ->where('id_corte', (int) ($row['id_corte'] ?? 0))
+                ->where('visible', 1)
+                ->where('estado', 'cerrado')
+                ->countAllResults();
+
+            return $row;
+        }, $rows);
+    }
+
+    private function buildCortesProveedorSeguimientoRows(?\CodeIgniter\Database\BaseConnection $db = null): array
+    {
+        $db = $db ?? \Config\Database::connect();
+        if (!$this->cortesProveedorSchemaReady($db)) {
+            return [];
+        }
+
+        $cortes = $db->table('cortes_proveedor')
+            ->where('visible', 1)
+            ->orderBy('numero_corte', 'ASC')
+            ->get()
+            ->getResultArray();
+        if (empty($cortes)) {
+            return [];
+        }
+
+        $establecimientos = $db->table('establecimiento e')
+            ->select('e.id_establecimiento, e.dsc_establecimiento, e.no_proveedor, p.id_proveedor, p.razon_social')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('e.visible', 1)
+            ->where('p.visible', 1)
+            ->orderBy('p.razon_social', 'ASC')
+            ->orderBy('e.dsc_establecimiento', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $periodosRows = $db->table('proveedor_corte_periodo')
+            ->where('visible', 1)
+            ->get()
+            ->getResultArray();
+        $periodos = [];
+        foreach ($periodosRows as $periodo) {
+            $periodos[(int) ($periodo['id_corte'] ?? 0)][(int) ($periodo['id_establecimiento'] ?? 0)][] = $periodo;
+        }
+
+        $rows = [];
+        foreach ($cortes as $corte) {
+            foreach ($establecimientos as $establecimiento) {
+                $idCorte = (int) ($corte['id_corte'] ?? 0);
+                $idEstablecimiento = (int) ($establecimiento['id_establecimiento'] ?? 0);
+                $periodosEst = array_values($periodos[$idCorte][$idEstablecimiento] ?? []);
+                usort($periodosEst, static function (array $a, array $b): int {
+                    return ((int) ($a['numero_periodo'] ?? 0)) <=> ((int) ($b['numero_periodo'] ?? 0));
+                });
+                $cerrados = array_values(array_filter($periodosEst, static function (array $row): bool {
+                    return (string) ($row['estado'] ?? '') === 'cerrado';
+                }));
+                $actual = $this->resolvePeriodoProveedorActual($idEstablecimiento, (int) ($establecimiento['id_proveedor'] ?? 0), $corte, $db);
+                $periodo = !empty($actual['id_periodo']) ? $actual : [];
+                $inicio = $actual['fecha_inicio_periodo_resuelta'] ?? $periodo['fecha_inicio_periodo'] ?? $this->resolveProveedorPeriodoInicio($idEstablecimiento, $corte, $db);
+
+                $rows[] = [
+                    'id_corte' => $idCorte,
+                    'numero_corte' => (int) ($corte['numero_corte'] ?? 0),
+                    'nombre_corte' => (string) ($corte['nombre'] ?? ''),
+                    'id_proveedor' => (int) ($establecimiento['id_proveedor'] ?? 0),
+                    'proveedor' => (string) ($establecimiento['razon_social'] ?? 'Sin proveedor'),
+                    'id_establecimiento' => $idEstablecimiento,
+                    'establecimiento' => (string) ($establecimiento['dsc_establecimiento'] ?? ''),
+                    'estado' => (string) ($periodo['estado'] ?? 'pendiente'),
+                    'numero_periodo' => (int) ($actual['numero_periodo_resuelto'] ?? $periodo['numero_periodo'] ?? 1),
+                    'facturas_emitidas' => count($cerrados),
+                    'ciclo_finalizado' => !empty($actual['ciclo_finalizado']),
+                    'fecha_inicio_periodo' => (string) $inicio,
+                    'fecha_fin_periodo' => (string) ($actual['ultimo_cierre'] ?? $periodo['fecha_fin_periodo'] ?? ''),
+                    'fecha_envio' => (string) ($actual['ultimo_cierre'] ?? $periodo['fecha_envio'] ?? ''),
+                    'tiene_reporte' => trim((string) ($periodo['reporte_url'] ?? '')) !== '',
+                    'tiene_pdf' => trim((string) ($periodo['factura_pdf'] ?? '')) !== '',
+                    'tiene_xml' => trim((string) ($periodo['factura_xml'] ?? '')) !== '',
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    private function corteProveedorTieneCierres(int $idCorte, ?\CodeIgniter\Database\BaseConnection $db = null): bool
+    {
+        $db = $db ?? \Config\Database::connect();
+        if ($idCorte <= 0 || !$this->cortesProveedorSchemaReady($db)) {
+            return false;
+        }
+
+        return $db->table('proveedor_corte_periodo')
+            ->where('id_corte', $idCorte)
+            ->where('visible', 1)
+            ->where('estado', 'cerrado')
+            ->countAllResults() > 0;
     }
 
     private function resolveEstadoDocumentalAllowedEstablecimientoIds(array $contextoUsuario): array
@@ -7153,7 +7974,7 @@ public function getPagosPorEstablecimiento()
             'no_convenio' => 'NO APLICA',
             'no_reserva' => '',
             'importe_total_num' => number_format($total, 2, '.', ','),
-            'importe_letra' => $total > 0 ? ('IMPORTE POR $' . number_format($total, 2, '.', ',') . ' M.N.') : '',
+            'importe_letra' => $this->convertirImporteALetras($total),
             'nombre_autoriza' => 'MARÍA GUADALUPE ROBLES LEÓN',
             'cargo_autoriza' => 'SECRETARIO/A DE TURISMO E IDENTIDAD',
             'nombre_responsable' => 'DAVID AYALA SAUCEDO',
@@ -7191,6 +8012,109 @@ public function getPagosPorEstablecimiento()
             'edit' => 1,
             'logo' => FCPATH . 'assets/logo-guanajuato.png',
         ];
+    }
+
+    private function convertirImporteALetras($valor): string
+    {
+        $monto = round($this->parseImportePdf($valor), 2);
+        $esNegativo = $monto < 0;
+        $centavosTotales = (int) round(abs($monto) * 100);
+        $enteros = intdiv($centavosTotales, 100);
+        $centavos = $centavosTotales % 100;
+
+        $apocoparUno = static function (string $texto): string {
+            if (preg_match('/veintiuno$/u', $texto)) {
+                return preg_replace('/veintiuno$/u', 'veintiún', $texto) ?? $texto;
+            }
+            if (preg_match('/ y uno$/u', $texto)) {
+                return preg_replace('/ y uno$/u', ' y un', $texto) ?? $texto;
+            }
+            if ($texto === 'uno') {
+                return 'un';
+            }
+
+            return preg_replace('/ uno$/u', ' un', $texto) ?? $texto;
+        };
+
+        $convertirEnteroALetras = null;
+        $convertirEnteroALetras = static function (int $numero) use (&$convertirEnteroALetras, $apocoparUno): string {
+            $unidades = [
+                0 => 'cero', 1 => 'uno', 2 => 'dos', 3 => 'tres', 4 => 'cuatro',
+                5 => 'cinco', 6 => 'seis', 7 => 'siete', 8 => 'ocho', 9 => 'nueve',
+                10 => 'diez', 11 => 'once', 12 => 'doce', 13 => 'trece', 14 => 'catorce',
+                15 => 'quince', 16 => 'dieciséis', 17 => 'diecisiete', 18 => 'dieciocho',
+                19 => 'diecinueve', 20 => 'veinte', 21 => 'veintiuno', 22 => 'veintidós',
+                23 => 'veintitrés', 24 => 'veinticuatro', 25 => 'veinticinco',
+                26 => 'veintiséis', 27 => 'veintisiete', 28 => 'veintiocho', 29 => 'veintinueve',
+            ];
+            $decenas = [30 => 'treinta', 40 => 'cuarenta', 50 => 'cincuenta', 60 => 'sesenta', 70 => 'setenta', 80 => 'ochenta', 90 => 'noventa'];
+            $centenas = [200 => 'doscientos', 300 => 'trescientos', 400 => 'cuatrocientos', 500 => 'quinientos', 600 => 'seiscientos', 700 => 'setecientos', 800 => 'ochocientos', 900 => 'novecientos'];
+
+            if ($numero < 30) {
+                return $unidades[$numero];
+            }
+            if ($numero < 100) {
+                $base = intdiv($numero, 10) * 10;
+                $resto = $numero % 10;
+                return $decenas[$base] . ($resto > 0 ? ' y ' . $convertirEnteroALetras($resto) : '');
+            }
+            if ($numero === 100) {
+                return 'cien';
+            }
+            if ($numero < 1000) {
+                $base = intdiv($numero, 100) * 100;
+                $resto = $numero % 100;
+                $prefijo = $base === 100 ? 'ciento' : $centenas[$base];
+                return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+            }
+            if ($numero < 1000000) {
+                $miles = intdiv($numero, 1000);
+                $resto = $numero % 1000;
+                $prefijo = $miles === 1 ? 'mil' : $apocoparUno($convertirEnteroALetras($miles)) . ' mil';
+                return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+            }
+            if ($numero < 1000000000) {
+                $millones = intdiv($numero, 1000000);
+                $resto = $numero % 1000000;
+                $prefijo = $millones === 1
+                    ? 'un millón'
+                    : $apocoparUno($convertirEnteroALetras($millones)) . ' millones';
+                return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+            }
+
+            $milesDeMillones = intdiv($numero, 1000000000);
+            $resto = $numero % 1000000000;
+            $prefijo = $milesDeMillones === 1
+                ? 'mil millones'
+                : $apocoparUno($convertirEnteroALetras($milesDeMillones)) . ' mil millones';
+            return $prefijo . ($resto > 0 ? ' ' . $convertirEnteroALetras($resto) : '');
+        };
+
+        $letras = $apocoparUno($convertirEnteroALetras($enteros));
+        $moneda = $enteros === 1 ? 'peso' : 'pesos';
+        $separadorMoneda = $enteros >= 1000000 && $enteros % 1000000 === 0 ? ' de ' : ' ';
+        $resultado = sprintf('%s%s%s %02d/100 M.N.', $letras, $separadorMoneda, $moneda, $centavos);
+
+        if ($esNegativo) {
+            $resultado = 'menos ' . $resultado;
+        }
+
+        if (function_exists('mb_strtoupper')) {
+            return mb_strtoupper($resultado, 'UTF-8');
+        }
+
+        return strtr(strtoupper($resultado), [
+            'á' => 'Á', 'é' => 'É', 'í' => 'Í', 'ó' => 'Ó', 'ú' => 'Ú', 'ñ' => 'Ñ',
+        ]);
+    }
+
+    private function parseImportePdf($valor): float
+    {
+        if (is_numeric($valor)) {
+            return (float) $valor;
+        }
+
+        return (float) str_replace(['$', ',', ' '], '', (string) $valor);
     }
 
     private function buildFacturaXmlContextFromRow(array $factura, ?array $xmlInfo = null): array
@@ -7374,6 +8298,16 @@ public function getPagosPorEstablecimiento()
 
     private function persistFacturaLocalFile(string $sourcePath, string $fileName): string
     {
+        return $this->persistLocalUploadFile($sourcePath, $fileName, 'facturas', 'Inicio.persistFacturaLocalFile');
+    }
+
+    private function persistReporteProveedorLocalFile(string $sourcePath, string $fileName): string
+    {
+        return $this->persistLocalUploadFile($sourcePath, $fileName, 'reportes_proveedor', 'Inicio.persistReporteProveedorLocalFile');
+    }
+
+    private function persistLocalUploadFile(string $sourcePath, string $fileName, string $folder, string $logContext): string
+    {
         if (!is_file($sourcePath) || !is_readable($sourcePath)) {
             return '';
         }
@@ -7383,23 +8317,28 @@ public function getPagosPorEstablecimiento()
             return '';
         }
 
-        $localDir = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'facturas';
+        $safeFolder = trim(preg_replace('/[^A-Za-z0-9_-]/', '_', $folder), '_');
+        if (!is_string($safeFolder) || $safeFolder === '') {
+            return '';
+        }
+
+        $localDir = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . $safeFolder;
         if (!is_dir($localDir)) {
             @mkdir($localDir, 0775, true);
         }
 
         if (!is_dir($localDir) || !is_writable($localDir)) {
-            log_message('error', 'Inicio.persistFacturaLocalFile: local dir is not writable: ' . $localDir);
+            log_message('error', $logContext . ': local dir is not writable: ' . $localDir);
             return '';
         }
 
         $targetPath = $localDir . DIRECTORY_SEPARATOR . $safeName;
         if (!@copy($sourcePath, $targetPath)) {
-            log_message('error', 'Inicio.persistFacturaLocalFile: could not copy local factura file: ' . $targetPath);
+            log_message('error', $logContext . ': could not copy local file: ' . $targetPath);
             return '';
         }
 
-        return base_url('uploads/facturas/' . rawurlencode($safeName));
+        return base_url('uploads/' . $safeFolder . '/' . rawurlencode($safeName));
     }
 
 

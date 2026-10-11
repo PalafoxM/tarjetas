@@ -12,6 +12,9 @@ $solicitudPago = array_values(array_map(static function ($item) {
     return is_object($item) ? get_object_vars($item) : (array) $item;
 }, is_array($solicitudPago ?? null) ? $solicitudPago : []));
 $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars($ventasCorteContexto) : (is_array($ventasCorteContexto ?? null) ? $ventasCorteContexto : []);
+$primerCorteProveedor = is_object($primerCorteProveedor ?? null) ? get_object_vars($primerCorteProveedor) : (is_array($primerCorteProveedor ?? null) ? $primerCorteProveedor : []);
+$primerCorteActivo = !empty($primerCorteProveedor['activo']);
+$primerCorteCerrado = !empty($primerCorteProveedor['cerrado']);
 $idEstablecimientoActual = (int) ($idEstablecimientoActual ?? 0);
 $reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdf');
 if ($idEstablecimientoActual > 0) {
@@ -383,6 +386,31 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
         font-weight: 800;
     }
 
+    .provider-cut-notice {
+        margin-bottom: 1.25rem;
+        padding: 1rem 1.15rem;
+        border-radius: 12px;
+        border: 1px solid rgba(250, 204, 21, .35);
+        background: rgba(113, 63, 18, .32);
+        color: #fef3c7;
+    }
+
+    .provider-cut-notice h4 {
+        margin: 0 0 .55rem;
+        color: #ffffff;
+        font-size: 1.05rem;
+        font-weight: 800;
+    }
+
+    .provider-cut-notice p {
+        margin: .25rem 0;
+    }
+
+    .provider-cut-notice ul {
+        margin: .35rem 0 .55rem 1.25rem;
+        padding: 0;
+    }
+
     .provider-table td,
     .provider-history-table td {
         vertical-align: middle;
@@ -484,13 +512,39 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 <button class="btn btn-success provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalPagoSinQr">
                     <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR
                 </button>
-                
+
+                <?php if ($primerCorteActivo): ?>
                     <a class="btn btn-outline-light provider-action" href="<?= esc($reporteVentasUrl, 'attr') ?>">
-                        <i class="mdi mdi-file-pdf-box me-1"></i> Reporte de consumo
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de ventas
                     </a>
-                
+                <?php else: ?>
+                    <button class="btn btn-outline-light provider-action" type="button" disabled>
+                        <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de ventas
+                    </button>
+                <?php endif; ?>
+
             </div>
         </section>
+
+        <?php if ($primerCorteActivo): ?>
+            <section class="provider-cut-notice">
+                <h4>ATENCIÓN</h4>
+                <p>Ya puedes realizar el primer corte de consumo, válido del <strong>9 al 19 de octubre de 2026.</strong> </p>
+                <br><p><strong>Procedimiento:</strong></p>
+                <br><p><strong>1.</strong> Descarga tu reporte de ventas en la esquina superior derecha, en el botón de "Descargar reporte de ventas".</p>
+                <p><strong>2.</strong> Una vez descargado, dirígete al botón "Subir factura", arriba del botón que entrega tu reporte.</p>
+                <p><strong>3.</strong> Ahí podrás cargar tu reporte de ventas, tu factura PDF y XML e iniciar el proceso de pago.</p>
+                <br><p><strong>Importante:</strong> puedes emitir una o dos facturas como máximo. No es obligatorio utilizar las dos.</p>
+                <p>Si realizas un primer corte entre el 9 y el 18 de octubre, tu segundo y último periodo comenzará en ese momento. La segunda factura únicamente podrá enviarse el 19 de octubre.</p>
+                <p>Si prefieres realizar un solo corte, puedes esperar hasta el 19 de octubre y emitir una sola factura por todo el periodo iniciado el 13 de septiembre.</p>
+                <p>Si tienes alguna duda, ponte en contacto con tu enlace SECTURI.</p>
+            </section>
+        <?php elseif ($primerCorteCerrado): ?>
+            <section class="provider-cut-notice">
+                <h4>Ciclo de cortes finalizado</h4>
+                <p>El periodo de recepción de documentación ha finalizado.</p>
+            </section>
+        <?php endif; ?>
 
         <section class="row g-3">
             <div class="col-12 col-md-6 col-xl-3">

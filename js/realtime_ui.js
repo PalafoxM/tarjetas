@@ -23,6 +23,19 @@
         return meta ? String(meta.getAttribute('content') || '').trim() : '';
     }
 
+    function normalizeToken(token) {
+        if (!token) {
+            return '';
+        }
+
+        return String(token)
+            .split(',')
+            .map(function (value) {
+                return value.trim();
+            })
+            .filter(Boolean)[0] || '';
+    }
+
     function getCookie(name) {
         var target = encodeURIComponent(name) + '=';
         var parts = String(document.cookie || '').split(';');
@@ -45,7 +58,7 @@
     function resolveCsrf() {
         var tokenName = getMetaContent('csrf-token-name') || 'csrf_test_name';
         var headerName = getMetaContent('csrf-header') || 'X-CSRF-TOKEN';
-        var token = getMetaContent('csrf-token') || getCookie('csrf_cookie_name');
+        var token = normalizeToken(getMetaContent('csrf-token') || getCookie('csrf_cookie_name'));
 
         return {
             tokenName: tokenName,
@@ -79,10 +92,11 @@
 
         var csrf = resolveCsrf();
         var nextToken = jqXHR.getResponseHeader(csrf.headerName);
+        var normalizedToken = normalizeToken(nextToken);
         var metaToken = document.querySelector('meta[name="csrf-token"]');
 
-        if (nextToken && metaToken) {
-            metaToken.setAttribute('content', nextToken);
+        if (normalizedToken && metaToken) {
+            metaToken.setAttribute('content', normalizedToken);
         }
     }
 

@@ -10,6 +10,10 @@ $proveedorNombre = (string) ($proveedorPerfil['razon_social'] ?? $proveedorPerfi
 $proveedorNumero = (string) ($proveedorPerfil['no_proveedor'] ?? '');
 $establecimientoActivo = $proveedorEstablecimientos[0] ?? [];
 $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
+$primerCorteProveedor = is_object($primerCorteProveedor ?? null) ? get_object_vars($primerCorteProveedor) : (is_array($primerCorteProveedor ?? null) ? $primerCorteProveedor : []);
+$primerCorteActivo = !empty($primerCorteProveedor['activo']);
+$primerCorteCerrado = !empty($primerCorteProveedor['cerrado']);
+$primerCortePeriodos = is_array($primerCorteProveedorPeriodos ?? null) ? $primerCorteProveedorPeriodos : [];
 ?>
 <style>
     .provider-formats-page {
@@ -218,6 +222,26 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         border-color: rgba(96, 165, 250, .35);
     }
 
+    .provider-cut-notice {
+        margin: 1.25rem 0;
+        padding: 1rem 1.15rem;
+        border-radius: 12px;
+        border: 1px solid rgba(250, 204, 21, .35);
+        background: rgba(113, 63, 18, .32);
+        color: #fef3c7;
+    }
+
+    .provider-cut-notice h4 {
+        margin: 0 0 .55rem;
+        color: #ffffff;
+        font-size: 1.05rem;
+        font-weight: 800;
+    }
+
+    .provider-cut-notice p {
+        margin: .25rem 0;
+    }
+
     .provider-formats-summary {
         display: grid;
         gap: .8rem;
@@ -260,7 +284,12 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
     }
 </style>
 
-<div class="container-fluid provider-formats-page" id="providerFormatsPage">
+<div
+    class="container-fluid provider-formats-page"
+    id="providerFormatsPage"
+    data-primer-corte-activo="<?= $primerCorteActivo ? '1' : '0' ?>"
+    data-primer-corte-cerrado="<?= $primerCorteCerrado ? '1' : '0' ?>"
+    data-segundo-periodo-disponible="<?= (new DateTimeImmutable('now', new DateTimeZone('America/Mexico_City')) >= new DateTimeImmutable('2026-10-19 00:00:00', new DateTimeZone('America/Mexico_City'))) ? '1' : '0' ?>">
     <div class="provider-formats-shell">
         <section class="provider-formats-hero">
             <div>
@@ -279,6 +308,28 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                 <i class="mdi mdi-arrow-left me-1"></i> Volver al proveedor
             </a>
         </section>
+
+        <?php if ($primerCorteActivo): ?>
+            <section class="provider-cut-notice">
+                <h4>DOCUMENTACIÓN PARA PROCESO DE FACTURACIÓN</h4>
+                <br><p><strong>Periodo de recepción:</strong> del 9 al 19 de octubre de 2026.</p>
+                <br><p><strong>PASO 1</strong><br>Carga el reporte de ventas correspondiente al periodo que deseas facturar, el formato lo descargas en la pantalla principal.</p>
+                <p><strong>PASO 2</strong><br>Carga el PDF de la factura.</p>
+                <p><strong>PASO 3</strong><br>Carga el XML de la factura.</p>
+                <p><strong>PASO 4</strong><br>Cuando los tres documentos estén cargados, pulsa “Enviar factura” para cerrar el periodo actual.</p>
+                <br><p><strong>IMPORTANTE:</strong> Puedes emitir una o dos facturas como máximo. No es obligatorio utilizar las dos.</p>
+            </section>
+        <?php elseif ($primerCorteCerrado): ?>
+            <section class="provider-cut-notice">
+                <h4>Ciclo de cortes finalizado</h4>
+                <p>El periodo de recepción de documentación ha finalizado.</p>
+            </section>
+        <?php else: ?>
+            <section class="provider-cut-notice">
+                <h4>Ciclo de cortes pendiente</h4>
+                <p>La recepción de documentación aún no está disponible.</p>
+            </section>
+        <?php endif; ?>
 
         <section class="provider-formats-section">
             <div class="card provider-formats-card">
@@ -308,7 +359,19 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
 
                         <div class="tab-content provider-formats-panel mt-0">
                             <?php foreach ($proveedorEstablecimientos as $index => $establecimiento): ?>
-                                <?php $idEst = (string) ($establecimiento['id_establecimiento'] ?? $index); ?>
+                                <?php
+                                $idEst = (string) ($establecimiento['id_establecimiento'] ?? $index);
+                                $idEstInt = (int) $idEst;
+                                $periodoCorteActual = is_array($primerCortePeriodos[$idEstInt] ?? null) ? $primerCortePeriodos[$idEstInt] : [];
+                                $reporteCargadoPrimerCorte = trim((string) ($periodoCorteActual['reporte_url'] ?? '')) !== '';
+                                $numeroPeriodoActual = (int) ($periodoCorteActual['numero_periodo_resuelto'] ?? 1);
+                                $facturasEmitidas = (int) ($periodoCorteActual['facturas_emitidas'] ?? 0);
+                                $cicloFinalizadoEstablecimiento = !empty($periodoCorteActual['ciclo_finalizado']);
+                                $esSegundoPeriodo = $numeroPeriodoActual === 2 && !$cicloFinalizadoEstablecimiento;
+                                $estadoTextoPeriodo = $cicloFinalizadoEstablecimiento
+                                    ? ('Ciclo finalizado. Facturas emitidas: ' . $facturasEmitidas)
+                                    : ('Cortes utilizados: ' . $facturasEmitidas . ' de 2. Periodo actual: ' . ($esSegundoPeriodo ? 'segundo y último' : 'primero'));
+                                ?>
                                 <div
                                     class="tab-pane fade<?= $index === 0 ? ' show active' : '' ?>"
                                     id="panel-formato-<?= esc($idEst, 'attr') ?>"
@@ -322,6 +385,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                 <div class="provider-stat-note mt-2"><?= esc((string) ($establecimiento['dsc_tipo'] ?? 'Sin tipo')) ?></div>
                                                 <div class="provider-stat-note mt-1">No. proveedor: <?= esc((string) ($establecimiento['no_proveedor'] ?? '')) ?></div>
                                                 <div class="provider-stat-note mt-1">ID: <?= esc((string) ($establecimiento['id_establecimiento'] ?? '')) ?></div>
+                                                <div class="provider-stat-note mt-2"><?= esc($estadoTextoPeriodo) ?></div>
                                             </div>
                                         </div>
                                         <div class="col-12 col-xl-8">
@@ -332,6 +396,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                         id="encabezado_factura_xml_<?= esc($idEst, 'attr') ?>"
                                                         name="encabezado_factura_xml[<?= esc($idEst, 'attr') ?>]"
                                                         type="file"
+                                                        <?= ($primerCorteActivo && !$cicloFinalizadoEstablecimiento) ? '' : 'disabled' ?>
                                                         accept="application/xml,text/xml,.xml">
                                                 </label>
                                                 <label class="btn provider-formats-action provider-formats-upload" for="formato_pt_pdf_<?= esc($idEst, 'attr') ?>">
@@ -340,6 +405,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                         id="formato_pt_pdf_<?= esc($idEst, 'attr') ?>"
                                                         name="formato_pt_pdf[<?= esc($idEst, 'attr') ?>]"
                                                         type="file"
+                                                        <?= ($primerCorteActivo && !$cicloFinalizadoEstablecimiento) ? '' : 'disabled' ?>
                                                         accept="application/pdf,.pdf">
                                                 </label>
                                                 <?php
@@ -357,12 +423,15 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                                         id="reporte_proveedor_pdf_<?= esc($idEst, 'attr') ?>"
                                                         name="reporte_proveedor_pdf[<?= esc($idEst, 'attr') ?>]"
                                                         type="file"
+                                                        <?= ($primerCorteActivo && !$cicloFinalizadoEstablecimiento) ? '' : 'disabled' ?>
                                                         accept="application/pdf,.pdf">
                                                 </label>
                                                 <button
                                                     type="button"
                                                     class="btn provider-formats-action js-enviar-factura"
                                                     data-id-establecimiento="<?= esc($idEst, 'attr') ?>"
+                                                    data-reporte-primer-corte="<?= $reporteCargadoPrimerCorte ? '1' : '0' ?>"
+                                                    data-periodo-actual="<?= esc((string) $numeroPeriodoActual, 'attr') ?>"
                                                     disabled>
                                                     <i class="mdi mdi-send-check-outline me-1"></i> Enviar factura
                                                 </button>
@@ -370,7 +439,13 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                                             <div
                                                 class="provider-formats-empty mt-3 js-provider-document-status"
                                                 data-id-establecimiento="<?= esc($idEst, 'attr') ?>">
-                                                Selecciona el XML y el PDF de la factura para habilitar el envio.
+                                                <?php if ($cicloFinalizadoEstablecimiento): ?>
+                                                    Ciclo finalizado para este establecimiento.
+                                                <?php elseif ($esSegundoPeriodo): ?>
+                                                    Tu segundo y último periodo está activo. Podrás enviar esta factura el 19 de octubre.
+                                                <?php else: ?>
+                                                    <?= $primerCorteActivo ? 'Selecciona el reporte de ventas, el XML y el PDF de la factura para habilitar el envío.' : 'La recepción de documentación no está activa.' ?>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>
@@ -390,6 +465,10 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
 (function () {
     var realtime = window.ficRealtime || null;
     var estadoDocumentalUrl = '<?= esc(base_url('index.php/Inicio/getEstadoDocumentalEstablecimiento'), 'js') ?>';
+    var page = document.getElementById('providerFormatsPage');
+    var primerCorteActivo = !!(page && page.getAttribute('data-primer-corte-activo') === '1');
+    var primerCorteCerrado = !!(page && page.getAttribute('data-primer-corte-cerrado') === '1');
+    var segundoPeriodoDisponible = !!(page && page.getAttribute('data-segundo-periodo-disponible') === '1');
 
     function getFacturaInputs(idEstablecimiento) {
         return {
@@ -444,7 +523,9 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
         var validXml = fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']);
         var validPdf = fileMatches(pdfFile, '.pdf', ['application/pdf']);
-        controls.button.disabled = !(validXml && validPdf);
+        var reporteCargado = controls.button.getAttribute('data-reporte-primer-corte') === '1';
+        var periodoActual = controls.button.getAttribute('data-periodo-actual') || '1';
+        controls.button.disabled = !(primerCorteActivo && validXml && validPdf && reporteCargado && (periodoActual !== '2' || segundoPeriodoDisponible));
     }
 
     function aplicarEstadoDocumental(idEstablecimiento, data, fallbackMessage) {
@@ -469,7 +550,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         if (pdfDisponible || xmlDisponible) {
             setStatusMessage(
                 idEstablecimiento,
-                'Documentacion parcial recibida. Falta completar XML y PDF para habilitar los formatos administrativos.',
+                'Documentación parcial recibida. Falta completar XML y PDF para habilitar los formatos administrativos.',
                 'warning'
             );
             return;
@@ -478,7 +559,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
         if (reporteDisponible) {
             setStatusMessage(
                 idEstablecimiento,
-                'Reporte disponible para revision. Selecciona XML y PDF para habilitar el envio de factura.',
+                'Reporte disponible para revisión. Selecciona XML y PDF para habilitar el envío de factura.',
                 'info'
             );
             return;
@@ -486,7 +567,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
 
         setStatusMessage(
             idEstablecimiento,
-            fallbackMessage || 'Selecciona el XML y el PDF de la factura para habilitar el envio.',
+            fallbackMessage || (primerCorteActivo ? 'Selecciona el reporte de ventas, el XML y el PDF de la factura para habilitar el envío.' : 'La recepción de documentación no está activa.'),
             fallbackMessage ? 'info' : ''
         );
     }
@@ -521,11 +602,16 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
     }
 
     function subirReporteProveedor(idEstablecimiento) {
+        if (!primerCorteActivo) {
+            Swal.fire('Atención', primerCorteCerrado ? 'El periodo de recepción de documentación ha finalizado.' : 'La recepción de documentación aún no está disponible.', 'warning');
+            return;
+        }
+
         var controls = getReporteInputs(idEstablecimiento);
         var file = controls.input && controls.input.files ? controls.input.files[0] : null;
 
         if (!fileMatches(file, '.pdf', ['application/pdf'])) {
-            Swal.fire('Atencion', 'Selecciona un PDF valido para el reporte.', 'warning');
+            Swal.fire('Atención', 'Selecciona un PDF válido para el reporte.', 'warning');
             return;
         }
 
@@ -552,11 +638,16 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
             contentType: false
         }).done(function (response) {
             if (!response || response.error) {
-                Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible subir el reporte.', 'warning');
+                Swal.fire('Atención', response && response.respuesta ? response.respuesta : 'No fue posible subir el reporte.', 'warning');
                 return;
             }
 
             if (controls.input) controls.input.value = '';
+            var facturaControls = getFacturaInputs(idEstablecimiento);
+            if (facturaControls.button) {
+                facturaControls.button.setAttribute('data-reporte-primer-corte', '1');
+            }
+            updateEnviarFactura(idEstablecimiento);
             setStatusMessage(idEstablecimiento, 'Reporte subido. Actualizando estado documental...', 'info');
             emitRealtimeEvent('fic:reporte-subido', {
                 id_establecimiento: idEstablecimiento,
@@ -595,8 +686,23 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
             var xmlFile = controls.xml && controls.xml.files ? controls.xml.files[0] : null;
             var pdfFile = controls.pdf && controls.pdf.files ? controls.pdf.files[0] : null;
 
+            if (!primerCorteActivo) {
+                Swal.fire('Atención', primerCorteCerrado ? 'El periodo de recepción de documentación ha finalizado.' : 'La recepción de documentación aún no está disponible.', 'warning');
+                return;
+            }
+
+            if (this.getAttribute('data-reporte-primer-corte') !== '1') {
+                Swal.fire('Atención', 'Sube primero el reporte de ventas PDF del periodo actual.', 'warning');
+                return;
+            }
+
+            if ((this.getAttribute('data-periodo-actual') || '1') === '2' && !segundoPeriodoDisponible) {
+                Swal.fire('Atención', 'Tu segundo periodo ya está activo. La segunda y última factura podrá enviarse el 19 de octubre.', 'warning');
+                return;
+            }
+
             if (!fileMatches(xmlFile, '.xml', ['application/xml', 'text/xml']) || !fileMatches(pdfFile, '.pdf', ['application/pdf'])) {
-                Swal.fire('Atencion', 'Selecciona un XML y un PDF validos.', 'warning');
+                Swal.fire('Atención', 'Selecciona un XML y un PDF válidos.', 'warning');
                 return;
             }
 
@@ -624,7 +730,7 @@ $ultimaSolicitudPago = $proveedorPagos[0] ?? [];
                 contentType: false
             }).done(function (response) {
                 if (!response || response.error) {
-                    Swal.fire('Atencion', response && response.respuesta ? response.respuesta : 'No fue posible enviar la factura.', 'warning');
+                    Swal.fire('Atención', response && response.respuesta ? response.respuesta : 'No fue posible enviar la factura.', 'warning');
                     return;
                 }
 
