@@ -75,7 +75,7 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
             </tr>
             <tr>
                 <td class="label-cell">PARTIDA:</td>
-                <td class="value-cell"><?= esc($partida) ?> - <?= esc($dscPartida) ?></td>
+                <td class="value-cell">2210 - Productos alimenticios para personas</td>
             </tr>
             <tr>
                 <td class="label-cell">FACTURA / RECIBO No:</td>
