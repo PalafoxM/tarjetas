@@ -669,6 +669,7 @@ class Inicio extends BaseController {
         }
 
         if ($vista === null) {
+            $data['puedeAdministrarCortesProveedor'] = !empty($this->resolveCorteProveedorAdminContext()['autorizado']);
             $vista = 'secciones/vInicio';
         }
 

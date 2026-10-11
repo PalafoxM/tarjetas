@@ -1,4 +1,7 @@
-<?php $inicioModoConsulta = !empty($inicioModoConsulta); ?>
+<?php
+$inicioModoConsulta = !empty($inicioModoConsulta);
+$puedeAdministrarCortesProveedor = !empty($puedeAdministrarCortesProveedor);
+?>
 
 <div class="fic-access-page">
     <header class="fic-access-header">
@@ -92,6 +95,19 @@
                 Ver facturas
             </a>
         </article>
+
+        <?php if ($puedeAdministrarCortesProveedor): ?>
+        <article class="fic-access-card fic-access-card--blue">
+            <div>
+                <span class="fic-access-card__category">Proveedores</span>
+                <h2>Cortes de proveedores</h2>
+                <p>Configura ventanas de recepción y consulta el avance de cierre documental por establecimiento.</p>
+            </div>
+            <a class="fic-access-card__button" href="<?= base_url('index.php/Inicio/CortesProveedor') ?>">
+                Administrar cortes
+            </a>
+        </article>
+        <?php endif; ?>
 
         <article class="fic-access-card fic-access-card--teal">
             <div>
