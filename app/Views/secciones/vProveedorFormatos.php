@@ -312,7 +312,7 @@ $primerCortePeriodos = is_array($primerCorteProveedorPeriodos ?? null) ? $primer
         <?php if ($primerCorteActivo): ?>
             <section class="provider-cut-notice">
                 <h4>DOCUMENTACIÓN PARA PROCESO DE FACTURACIÓN</h4>
-                <br><p><strong>Periodo de recepción:</strong> del 9 al 19 de octubre de 2026.</p>
+             
                 <br><p><strong>PASO 1</strong><br>Carga el reporte de ventas correspondiente al periodo que deseas facturar, el formato lo descargas en la pantalla principal.</p>
                 <p><strong>PASO 2</strong><br>Carga el PDF de la factura.</p>
                 <p><strong>PASO 3</strong><br>Carga el XML de la factura.</p>

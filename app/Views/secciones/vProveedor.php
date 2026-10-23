@@ -529,14 +529,12 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
         <?php if ($primerCorteActivo): ?>
             <section class="provider-cut-notice">
                 <h4>ATENCIÓN</h4>
-                <p>Ya puedes realizar el primer corte de consumo, válido del <strong>9 al 19 de octubre de 2026.</strong> </p>
+               
                 <br><p><strong>Procedimiento:</strong></p>
                 <br><p><strong>1.</strong> Descarga tu reporte de ventas en la esquina superior derecha, en el botón de "Descargar reporte de ventas".</p>
                 <p><strong>2.</strong> Una vez descargado, dirígete al botón "Subir factura", arriba del botón que entrega tu reporte.</p>
                 <p><strong>3.</strong> Ahí podrás cargar tu reporte de ventas, tu factura PDF y XML e iniciar el proceso de pago.</p>
                 <br><p><strong>Importante:</strong> puedes emitir una o dos facturas como máximo. No es obligatorio utilizar las dos.</p>
-                <p>Si realizas un primer corte entre el 9 y el 18 de octubre, tu segundo y último periodo comenzará en ese momento. La segunda factura únicamente podrá enviarse el 19 de octubre.</p>
-                <p>Si prefieres realizar un solo corte, puedes esperar hasta el 19 de octubre y emitir una sola factura por todo el periodo iniciado el 13 de septiembre.</p>
                 <p>Si tienes alguna duda, ponte en contacto con tu enlace SECTURI.</p>
             </section>
         <?php elseif ($primerCorteCerrado): ?>
