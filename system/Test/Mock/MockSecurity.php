@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -17,7 +19,7 @@ class MockSecurity extends Security
 {
     protected function doSendCookie(): void
     {
-        $_COOKIE['csrf_cookie_name'] = $this->hash;
+        service('superglobals')->setCookie('csrf_cookie_name', $this->hash);
     }
 
     protected function randomize(string $hash): string

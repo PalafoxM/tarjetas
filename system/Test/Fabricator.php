@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -11,14 +13,16 @@
 
 namespace CodeIgniter\Test;
 
+use Closure;
 use CodeIgniter\Exceptions\FrameworkException;
+use CodeIgniter\Exceptions\InvalidArgumentException;
+use CodeIgniter\Exceptions\RuntimeException;
 use CodeIgniter\I18n\Time;
 use CodeIgniter\Model;
 use Config\App;
 use Faker\Factory;
 use Faker\Generator;
-use InvalidArgumentException;
-use RuntimeException;
+use InvalidArgumentException as BaseInvalidArgumentException;
 
 /**
  * Fabricator
@@ -33,7 +37,7 @@ class Fabricator
     /**
      * Array of counts for fabricated items
      *
-     * @var array
+     * @var array<string, int>
      */
     protected static $tableCounts = [];
 
@@ -61,30 +65,41 @@ class Fabricator
     /**
      * Map of properties and their formatter to use
      *
-     * @var array|null
+     * @var array<string, string>|null
      */
     protected $formatters;
 
     /**
      * Date fields present in the model
      *
-     * @var array
+     * @var list<string>
      */
     protected $dateFields = [];
 
     /**
      * Array of data to add or override faked versions
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected $overrides = [];
 
     /**
      * Array of single-use data to override faked versions
      *
-     * @var array|null
+     * @var array<string, mixed>|null
      */
     protected $tempOverrides;
+
+    /**
+     * Fields to be modified before applying any formatter.
+     *
+     * @var array{
+     *   unique: array<non-empty-string, array{reset: bool, maxRetries: int}>,
+     *   optional: array<non-empty-string, array{weight: float, default: mixed}>,
+     *   valid: array<non-empty-string, array{validator: Closure(mixed): bool|null, maxRetries: int}>
+     * }
+     */
+    private array $modifiedFields = ['unique' => [], 'optional' => [], 'valid' => []];
 
     /**
      * Default formatter to use when nothing is detected
@@ -96,16 +111,15 @@ class Fabricator
     /**
      * Store the model instance and initialize Faker to the locale.
      *
-     * @param object|string $model      Instance or classname of the model to use
-     * @param array|null    $formatters Array of property => formatter
-     * @param string|null   $locale     Locale for Faker provider
+     * @param object|string              $model      Instance or classname of the model to use
+     * @param array<string, string>|null $formatters Array of property => formatter
+     * @param string|null                $locale     Locale for Faker provider
      *
      * @throws InvalidArgumentException
      */
     public function __construct($model, ?array $formatters = null, ?string $locale = null)
     {
-        if (is_string($model)) {
-            // Create a new model instance
+        if (is_string($model) && class_exists($model)) {
             $model = model($model, false);
         }
 
@@ -115,10 +129,7 @@ class Fabricator
 
         $this->model = $model;
 
-        // If no locale was specified then use the App default
-        if ($locale === null) {
-            $locale = config(App::class)->defaultLocale;
-        }
+        $locale ??= config(App::class)->defaultLocale;
 
         // There is no easy way to retrieve the locale from Faker so we will store it
         $this->locale = $locale;
@@ -128,7 +139,7 @@ class Fabricator
 
         // Determine eligible date fields
         foreach (['createdField', 'updatedField', 'deletedField'] as $field) {
-            if (! empty($this->model->{$field})) {
+            if (isset($this->model->{$field})) {
                 $this->dateFields[] = $this->model->{$field};
             }
         }
@@ -139,6 +150,8 @@ class Fabricator
 
     /**
      * Reset internal counts
+     *
+     * @return void
      */
     public static function resetCounts()
     {
@@ -152,7 +165,7 @@ class Fabricator
      */
     public static function getCount(string $table): int
     {
-        return empty(self::$tableCounts[$table]) ? 0 : self::$tableCounts[$table];
+        return self::$tableCounts[$table] ?? 0;
     }
 
     /**
@@ -222,6 +235,8 @@ class Fabricator
 
     /**
      * Return and reset tempOverrides
+     *
+     * @return array<string, mixed>
      */
     public function getOverrides(): array
     {
@@ -235,8 +250,8 @@ class Fabricator
     /**
      * Set the overrides, once or persistent
      *
-     * @param array $overrides Array of [field => value]
-     * @param bool  $persist   Whether these overrides should persist through the next operation
+     * @param array<string, mixed> $overrides Array of [field => value]
+     * @param bool                 $persist   Whether these overrides should persist through the next operation
      */
     public function setOverrides(array $overrides = [], $persist = true): self
     {
@@ -250,7 +265,49 @@ class Fabricator
     }
 
     /**
+     * Set a field to be unique.
+     *
+     * @param bool $reset      If set to true, resets the list of existing values
+     * @param int  $maxRetries Maximum number of retries to find a unique value,
+     *                         After which an OverflowException is thrown.
+     */
+    public function setUnique(string $field, bool $reset = false, int $maxRetries = 10000): static
+    {
+        $this->modifiedFields['unique'][$field] = compact('reset', 'maxRetries');
+
+        return $this;
+    }
+
+    /**
+     * Set a field to be optional.
+     *
+     * @param float $weight A probability between 0 and 1, 0 means that we always get the default value.
+     */
+    public function setOptional(string $field, float $weight = 0.5, mixed $default = null): static
+    {
+        $this->modifiedFields['optional'][$field] = compact('weight', 'default');
+
+        return $this;
+    }
+
+    /**
+     * Set a field to be valid using a callback.
+     *
+     * @param Closure(mixed): bool|null $validator  A function returning true for valid values
+     * @param int                       $maxRetries Maximum number of retries to find a valid value,
+     *                                              After which an OverflowException is thrown.
+     */
+    public function setValid(string $field, ?Closure $validator = null, int $maxRetries = 10000): static
+    {
+        $this->modifiedFields['valid'][$field] = compact('validator', 'maxRetries');
+
+        return $this;
+    }
+
+    /**
      * Returns the current formatters
+     *
+     * @return array<string, string>|null
      */
     public function getFormatters(): ?array
     {
@@ -260,7 +317,7 @@ class Fabricator
     /**
      * Set the formatters to use. Will attempt to autodetect if none are available.
      *
-     * @param array|null $formatters Array of [field => formatter], or null to detect
+     * @param array<string, string>|null $formatters Array of [field => formatter], or null to detect
      */
     public function setFormatters(?array $formatters = null): self
     {
@@ -282,7 +339,7 @@ class Fabricator
     {
         $this->formatters = [];
 
-        if (! empty($this->model->allowedFields)) {
+        if (isset($this->model->allowedFields)) {
             foreach ($this->model->allowedFields as $field) {
                 $this->formatters[$field] = $this->guessFormatter($field);
             }
@@ -305,7 +362,7 @@ class Fabricator
             $this->faker->getFormatter($field);
 
             return $field;
-        } catch (InvalidArgumentException $e) {
+        } catch (BaseInvalidArgumentException) {
             // No match, keep going
         }
 
@@ -325,12 +382,12 @@ class Fabricator
 
         // Check some common partials
         foreach (['email', 'name', 'title', 'text', 'date', 'url'] as $term) {
-            if (stripos($field, $term) !== false) {
+            if (str_contains(strtolower($field), strtolower($term))) {
                 return $term;
             }
         }
 
-        if (stripos($field, 'phone') !== false) {
+        if (str_contains(strtolower($field), 'phone')) {
             return 'phoneNumber';
         }
 
@@ -343,7 +400,7 @@ class Fabricator
      *
      * @param int|null $count Optional number to create a collection
      *
-     * @return array|object An array or object (based on returnType), or an array of returnTypes
+     * @return array<string, mixed>|list<array<string, mixed>|object>|object An array or object (based on returnType), or an array of returnTypes
      */
     public function make(?int $count = null)
     {
@@ -368,7 +425,7 @@ class Fabricator
     /**
      * Generate an array of faked data
      *
-     * @return array An array of faked data
+     * @return array<string, mixed> An array of faked data
      *
      * @throws RuntimeException
      */
@@ -378,7 +435,30 @@ class Fabricator
             $result = [];
 
             foreach ($this->formatters as $field => $formatter) {
-                $result[$field] = $this->faker->{$formatter}();
+                $faker = $this->faker;
+
+                if (isset($this->modifiedFields['unique'][$field])) {
+                    $faker = $faker->unique(
+                        $this->modifiedFields['unique'][$field]['reset'],
+                        $this->modifiedFields['unique'][$field]['maxRetries'],
+                    );
+                }
+
+                if (isset($this->modifiedFields['optional'][$field])) {
+                    $faker = $faker->optional(
+                        $this->modifiedFields['optional'][$field]['weight'],
+                        $this->modifiedFields['optional'][$field]['default'],
+                    );
+                }
+
+                if (isset($this->modifiedFields['valid'][$field])) {
+                    $faker = $faker->valid(
+                        $this->modifiedFields['valid'][$field]['validator'],
+                        $this->modifiedFields['valid'][$field]['maxRetries'],
+                    );
+                }
+
+                $result[$field] = $faker->format($formatter);
             }
         }
         // If no formatters were defined then look for a model fake() method
@@ -455,7 +535,7 @@ class Fabricator
      * @param int|null $count Optional number to create a collection
      * @param bool     $mock  Whether to execute or mock the insertion
      *
-     * @return array|object An array or object (based on returnType), or an array of returnTypes
+     * @return array<string, mixed>|list<array<string, mixed>|object>|object|null An array or object (based on returnType), or an array of returnTypes
      *
      * @throws FrameworkException
      */
@@ -493,32 +573,25 @@ class Fabricator
      *
      * @param int|null $count Optional number to create a collection
      *
-     * @return array|object An array or object (based on returnType), or an array of returnTypes
+     * @return array<string, mixed>|list<array<string, mixed>|object>|object An array or object (based on returnType), or an array of returnTypes
      */
     protected function createMock(?int $count = null)
     {
-        switch ($this->model->dateFormat) {
-            case 'datetime':
-                $datetime = date('Y-m-d H:i:s');
-                break;
-
-            case 'date':
-                $datetime = date('Y-m-d');
-                break;
-
-            default:
-                $datetime = Time::now()->getTimestamp();
-        }
+        $datetime = match ($this->model->dateFormat) {
+            'datetime' => date('Y-m-d H:i:s'),
+            'date'     => date('Y-m-d'),
+            default    => Time::now()->getTimestamp(),
+        };
 
         // Determine which fields we will need
         $fields = [];
 
-        if (! empty($this->model->useTimestamps)) {
+        if ($this->model->useTimestamps) {
             $fields[$this->model->createdField] = $datetime;
             $fields[$this->model->updatedField] = $datetime;
         }
 
-        if (! empty($this->model->useSoftDeletes)) {
+        if ($this->model->useSoftDeletes) {
             $fields[$this->model->deletedField] = null;
         }
 

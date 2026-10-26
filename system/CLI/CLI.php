@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -12,8 +14,7 @@
 namespace CodeIgniter\CLI;
 
 use CodeIgniter\CLI\Exceptions\CLIException;
-use Config\Services;
-use InvalidArgumentException;
+use CodeIgniter\Exceptions\InvalidArgumentException;
 use Throwable;
 
 /**
@@ -27,13 +28,6 @@ use Throwable;
  * possible to test using travis-ci. It has been phpunit-annotated
  * to prevent messing up code coverage.
  *
- * Some of the methods require keyboard input, and are not unit-testable
- * as a result: input() and prompt().
- * validate() is internal, and not testable if prompt() isn't.
- * The wait() method is mostly testable, as long as you don't give it
- * an argument of "0".
- * These have been flagged to ignore for code coverage purposes.
- *
  * @see \CodeIgniter\CLI\CLITest
  */
 class CLI
@@ -43,7 +37,7 @@ class CLI
      *
      * @var bool
      *
-     * @deprecated 4.4.2 Should be protected.
+     * @deprecated 4.4.2 Should be protected, and no longer used.
      * @TODO Fix to camelCase in the next major version.
      */
     public static $readline_support = false;
@@ -113,12 +107,12 @@ class CLI
     /**
      * List of array segments.
      *
-     * @var array
+     * @var list<string>
      */
     protected static $segments = [];
 
     /**
-     * @var array
+     * @var array<string, string|null>
      */
     protected static $options = [];
 
@@ -153,6 +147,11 @@ class CLI
     protected static $isColored = false;
 
     /**
+     * Input and Output for CLI.
+     */
+    protected static ?InputOutput $io = null;
+
+    /**
      * Static "constructor".
      *
      * @return void
@@ -181,6 +180,8 @@ class CLI
             // For "! defined('STDOUT')" see: https://github.com/codeigniter4/CodeIgniter4/issues/7047
             define('STDOUT', 'php://output'); // @codeCoverageIgnore
         }
+
+        static::resetInputOutput();
     }
 
     /**
@@ -193,14 +194,7 @@ class CLI
      */
     public static function input(?string $prefix = null): string
     {
-        // readline() can't be tested.
-        if (static::$readline_support && ENVIRONMENT !== 'testing') {
-            return readline($prefix); // @codeCoverageIgnore
-        }
-
-        echo $prefix;
-
-        return fgets(fopen('php://stdin', 'rb'));
+        return static::$io->input($prefix);
     }
 
     /**
@@ -220,25 +214,23 @@ class CLI
      * // Do not provide options but requires a valid email
      * $email = CLI::prompt('What is your email?', null, 'required|valid_email');
      *
-     * @param string            $field      Output "field" question
-     * @param array|string      $options    String to a default value, array to a list of options (the first option will be the default value)
-     * @param array|string|null $validation Validation rules
+     * @param string                   $field      Output "field" question
+     * @param list<int|string>|string  $options    String to a default value, array to a list of options (the first option will be the default value)
+     * @param list<string>|string|null $validation Validation rules
      *
      * @return string The user input
-     *
-     * @codeCoverageIgnore
      */
     public static function prompt(string $field, $options = null, $validation = null): string
     {
         $extraOutput = '';
         $default     = '';
 
-        if ($validation && ! is_array($validation) && ! is_string($validation)) {
+        if (isset($validation) && ! is_array($validation) && ! is_string($validation)) {
             throw new InvalidArgumentException('$rules can only be of type string|array');
         }
 
         if (! is_array($validation)) {
-            $validation = $validation ? explode('|', $validation) : [];
+            $validation = ($validation !== null) ? explode('|', $validation) : [];
         }
 
         if (is_string($options)) {
@@ -246,13 +238,13 @@ class CLI
             $default     = $options;
         }
 
-        if (is_array($options) && $options) {
+        if (is_array($options) && $options !== []) {
             $opts               = $options;
-            $extraOutputDefault = static::color($opts[0], 'green');
+            $extraOutputDefault = static::color((string) $opts[0], 'green');
 
             unset($opts[0]);
 
-            if (empty($opts)) {
+            if ($opts === []) {
                 $extraOutput = $extraOutputDefault;
             } else {
                 $extraOutput  = '[' . $extraOutputDefault . ', ' . implode(', ', $opts) . ']';
@@ -262,10 +254,12 @@ class CLI
             $default = $options[0];
         }
 
-        static::fwrite(STDOUT, $field . (trim($field) ? ' ' : '') . $extraOutput . ': ');
+        static::$lastWrite = 'write';
 
-        // Read the input from keyboard.
-        $input = trim(static::input()) ?: $default;
+        // The reader renders the prompt itself, so readline redraws repaint it instead of erasing it.
+        $prompt = sprintf('%s%s%s: ', $field, trim($field) !== '' ? ' ' : '', $extraOutput);
+        $input  = trim(static::$io->input($prompt));
+        $input  = $input === '' ? (string) $default : $input;
 
         if ($validation !== []) {
             while (! static::validate('"' . trim($field) . '"', $input, $validation)) {
@@ -279,14 +273,12 @@ class CLI
     /**
      * prompt(), but based on the option's key
      *
-     * @param array|string      $text       Output "field" text or an one or two value array where the first value is the text before listing the options
-     *                                      and the second value the text before asking to select one option. Provide empty string to omit
-     * @param array             $options    A list of options (array(key => description)), the first option will be the default value
-     * @param array|string|null $validation Validation rules
+     * @param list<string>|string      $text       Output "field" text or an one or two value array where the first value is the text before listing the options
+     *                                             and the second value the text before asking to select one option. Provide empty string to omit
+     * @param array<array-key, string> $options    A list of options (array(key => description)), the first option will be the default value
+     * @param list<string>|string|null $validation Validation rules
      *
      * @return string The selected key of $options
-     *
-     * @codeCoverageIgnore
      */
     public static function promptByKey($text, array $options, $validation = null): string
     {
@@ -298,7 +290,7 @@ class CLI
 
         CLI::isZeroOptions($options);
 
-        if ($line = array_shift($text)) {
+        if (($line = array_shift($text)) !== null) {
             CLI::write($line);
         }
 
@@ -310,11 +302,11 @@ class CLI
     /**
      * This method is the same as promptByKey(), but this method supports multiple keys, separated by commas.
      *
-     * @param string $text    Output "field" text or an one or two value array where the first value is the text before listing the options
-     *                        and the second value the text before asking to select one option. Provide empty string to omit
-     * @param array  $options A list of options (array(key => description)), the first option will be the default value
+     * @param string                   $text    Output "field" text or an one or two value array where the first value is the text before listing the options
+     *                                          and the second value the text before asking to select one option. Provide empty string to omit
+     * @param array<array-key, string> $options A list of options (array(key => description)), the first option will be the default value
      *
-     * @return array The selected key(s) and value(s) of $options
+     * @return array<array-key, string> The selected key(s) and value(s) of $options
      */
     public static function promptByMultipleKeys(string $text, array $options): array
     {
@@ -324,14 +316,10 @@ class CLI
         $opts               = $options;
         unset($opts[0]);
 
-        if (empty($opts)) {
+        if ($opts === []) {
             $extraOutput = $extraOutputDefault;
         } else {
-            $optsKey = [];
-
-            foreach (array_keys($opts) as $key) {
-                $optsKey[] = $key;
-            }
+            $optsKey     = array_keys($opts);
             $extraOutput = '[' . $extraOutputDefault . ', ' . implode(', ', $optsKey) . ']';
             $extraOutput = 'You can specify multiple values separated by commas.' . PHP_EOL . $extraOutput;
         }
@@ -339,26 +327,30 @@ class CLI
         CLI::write($text);
         CLI::printKeysAndValues($options);
         CLI::newLine();
-        $input = static::prompt($extraOutput) ?: 0; // 0 is default
+
+        $input = static::prompt($extraOutput);
+        $input = ($input === '') ? '0' : $input; // 0 is default
 
         // validation
         while (true) {
             $pattern = preg_match_all('/^\d+(,\d+)*$/', trim($input));
 
             // separate input by comma and convert all to an int[]
-            $inputToArray = array_map(static fn ($value) => (int) $value, explode(',', $input));
+            $inputToArray = array_map(static fn ($value): int => (int) $value, explode(',', $input));
             // find max from key of $options
             $maxOptions = array_key_last($options);
             // find max from input
             $maxInput = max($inputToArray);
 
-            // return the prompt again if $input contain(s) non-numeric charachter, except a comma.
-            // And if max from $options less than max from input
-            // it is mean user tried to access null value in $options
-            if (! $pattern || $maxOptions < $maxInput) {
+            // return the prompt again if $input contain(s) non-numeric character, except a comma.
+            // And if max from $options less than max from input,
+            // it means user tried to access null value in $options
+            if ($pattern < 1 || $maxOptions < $maxInput) {
                 static::error('Please select correctly.');
                 CLI::newLine();
-                $input = static::prompt($extraOutput) ?: 0;
+
+                $input = static::prompt($extraOutput);
+                $input = ($input === '') ? '0' : $input;
             } else {
                 break;
             }
@@ -383,21 +375,25 @@ class CLI
 
     /**
      * Validation for $options in promptByKey() and promptByMultipleKeys(). Return an error if $options is an empty array.
+     *
+     * @param array<array-key, string> $options
      */
     private static function isZeroOptions(array $options): void
     {
-        if (! $options) {
+        if ($options === []) {
             throw new InvalidArgumentException('No options to select from were provided');
         }
     }
 
     /**
      * Print each key and value one by one
+     *
+     * @param array<array-key, string> $options
      */
     private static function printKeysAndValues(array $options): void
     {
         // +2 for the square brackets around the key
-        $keyMaxLength = max(array_map('mb_strwidth', array_keys($options))) + 2;
+        $keyMaxLength = max(array_map(mb_strwidth(...), array_keys($options))) + 2;
 
         foreach ($options as $key => $description) {
             $name = str_pad('  [' . $key . ']  ', $keyMaxLength + 4, ' ');
@@ -412,17 +408,15 @@ class CLI
     /**
      * Validate one prompt "field" at a time
      *
-     * @param string       $field Prompt "field" output
-     * @param string       $value Input value
-     * @param array|string $rules Validation rules
-     *
-     * @codeCoverageIgnore
+     * @param string              $field Prompt "field" output
+     * @param string              $value Input value
+     * @param list<string>|string $rules Validation rules
      */
     protected static function validate(string $field, string $value, $rules): bool
     {
         $label      = $field;
         $field      = 'temp';
-        $validation = Services::validation(null, false);
+        $validation = service('validation', null, false);
         $validation->setRules([
             $field => [
                 'label' => $label,
@@ -448,7 +442,7 @@ class CLI
      */
     public static function print(string $text = '', ?string $foreground = null, ?string $background = null)
     {
-        if ($foreground || $background) {
+        if ((string) $foreground !== '' || (string) $background !== '') {
             $text = static::color($text, $foreground, $background);
         }
 
@@ -464,12 +458,13 @@ class CLI
      */
     public static function write(string $text = '', ?string $foreground = null, ?string $background = null)
     {
-        if ($foreground || $background) {
+        if ((string) $foreground !== '' || (string) $background !== '') {
             $text = static::color($text, $foreground, $background);
         }
 
         if (static::$lastWrite !== 'write') {
-            $text              = PHP_EOL . $text;
+            $text = PHP_EOL . $text;
+
             static::$lastWrite = 'write';
         }
 
@@ -484,14 +479,21 @@ class CLI
     public static function error(string $text, string $foreground = 'light_red', ?string $background = null)
     {
         // Check color support for STDERR
-        $stdout            = static::$isColored;
-        static::$isColored = static::hasColorSupport(STDERR);
+        $stdout = static::$isColored;
 
-        if ($foreground || $background) {
+        static::$isColored = is_cli() && static::hasColorSupport(STDERR);
+
+        if ($foreground !== '' || (string) $background !== '') {
             $text = static::color($text, $foreground, $background);
         }
 
-        static::fwrite(STDERR, $text . PHP_EOL);
+        if (static::$lastWrite !== 'write') {
+            $text = PHP_EOL . $text;
+
+            static::$lastWrite = 'write';
+        }
+
+        static::fwrite(is_cli() ? STDERR : STDOUT, $text . PHP_EOL);
 
         // return STDOUT color support
         static::$isColored = $stdout;
@@ -520,7 +522,7 @@ class CLI
      */
     public static function wait(int $seconds, bool $countdown = false)
     {
-        if ($countdown === true) {
+        if ($countdown) {
             $time = $seconds;
 
             while ($time > 0) {
@@ -533,11 +535,8 @@ class CLI
         } elseif ($seconds > 0) {
             sleep($seconds);
         } else {
-            // this chunk cannot be tested because of keyboard input
-            // @codeCoverageIgnoreStart
             static::write(static::$wait_msg);
-            static::input();
-            // @codeCoverageIgnoreEnd
+            static::$io->input();
         }
     }
 
@@ -567,15 +566,13 @@ class CLI
     /**
      * Clears the screen of output
      *
-     * @codeCoverageIgnore
-     *
      * @return void
      */
     public static function clearScreen()
     {
         // Unix systems, and Windows with VT100 Terminal support (i.e. Win10)
         // can handle CSI sequences. For lower than Win10 we just shove in 40 new lines.
-        is_windows() && ! static::streamSupports('sapi_windows_vt100_support', STDOUT)
+        is_windows() && is_cli() && ! static::streamSupports('sapi_windows_vt100_support', STDOUT)
             ? static::newLine(40)
             : static::fwrite(STDOUT, "\033[H\033[2J");
     }
@@ -601,14 +598,14 @@ class CLI
             throw CLIException::forInvalidColor('foreground', $foreground);
         }
 
-        if ($background !== null && ! array_key_exists($background, static::$background_colors)) {
+        if ((string) $background !== '' && ! array_key_exists($background, static::$background_colors)) {
             throw CLIException::forInvalidColor('background', $background);
         }
 
         $newText = '';
 
         // Detect if color method was already in use with this text
-        if (strpos($text, "\033[0m") !== false) {
+        if (str_contains($text, "\033[0m")) {
             $pattern = '/\\033\\[0;.+?\\033\\[0m/u';
 
             preg_match_all($pattern, $text, $matches);
@@ -622,11 +619,11 @@ class CLI
             $nonColoredText = preg_replace(
                 $pattern,
                 '<<__colored_string__>>',
-                $text
+                $text,
             );
             $nonColoredChunks = preg_split(
                 '/<<__colored_string__>>/u',
-                $nonColoredText
+                $nonColoredText,
             );
 
             foreach ($nonColoredChunks as $i => $chunk) {
@@ -649,7 +646,7 @@ class CLI
     {
         $string = "\033[" . static::$foreground_colors[$foreground] . 'm';
 
-        if ($background !== null) {
+        if ((string) $background !== '') {
             $string .= "\033[" . static::$background_colors[$background] . 'm';
         }
 
@@ -666,7 +663,7 @@ class CLI
      */
     public static function strlen(?string $string): int
     {
-        if ($string === null) {
+        if ((string) $string === '') {
             return 0;
         }
 
@@ -714,7 +711,7 @@ class CLI
     public static function hasColorSupport($resource): bool
     {
         // Follow https://no-color.org/
-        if (isset($_SERVER['NO_COLOR']) || getenv('NO_COLOR') !== false) {
+        if (isset($_SERVER['NO_COLOR']) || getenv('NO_COLOR') !== false) { // @phpstan-ignore codeigniter.superglobalsOffsetAccess (reads live $_SERVER, not the snapshot service)
             return false;
         }
 
@@ -725,7 +722,7 @@ class CLI
         if (is_windows()) {
             // @codeCoverageIgnoreStart
             return static::streamSupports('sapi_windows_vt100_support', $resource)
-                || isset($_SERVER['ANSICON'])
+                || isset($_SERVER['ANSICON']) // @phpstan-ignore codeigniter.superglobalsOffsetAccess (reads live $_SERVER, not the snapshot service)
                 || getenv('ANSICON') !== false
                 || getenv('ConEmuANSI') === 'ON'
                 || getenv('TERM') === 'xterm';
@@ -744,7 +741,7 @@ class CLI
             static::generateDimensions();
         }
 
-        return static::$width ?: $default;
+        return (static::$width === null || static::$width === 0) ? $default : static::$width;
     }
 
     /**
@@ -756,13 +753,11 @@ class CLI
             static::generateDimensions();
         }
 
-        return static::$height ?: $default;
+        return (static::$height === null || static::$height === 0) ? $default : static::$height;
     }
 
     /**
      * Populates the CLI's dimensions.
-     *
-     * @codeCoverageIgnore
      *
      * @return void
      */
@@ -782,17 +777,17 @@ class CLI
 
                     // Look for the next lines ending in ": <number>"
                     // Searching for "Columns:" or "Lines:" will fail on non-English locales
-                    if ($return === 0 && $output && preg_match('/:\s*(\d+)\n[^:]+:\s*(\d+)\n/', implode("\n", $output), $matches)) {
+                    if ($return === 0 && $output !== [] && preg_match('/:\s*(\d+)\n[^:]+:\s*(\d+)\n/', implode("\n", $output), $matches)) {
                         static::$height = (int) $matches[1];
                         static::$width  = (int) $matches[2];
                     }
                 }
-            } elseif (($size = exec('stty size')) && preg_match('/(\d+)\s+(\d+)/', $size, $matches)) {
+            } elseif (($size = exec('stty size 2>/dev/null')) && preg_match('/(\d+)\s+(\d+)/', $size, $matches)) {
                 static::$height = (int) $matches[1];
                 static::$width  = (int) $matches[2];
             } else {
-                static::$height = (int) exec('tput lines');
-                static::$width  = (int) exec('tput cols');
+                static::$height = (int) exec('tput lines 2>/dev/null');
+                static::$width  = (int) exec('tput cols 2>/dev/null');
             }
         } catch (Throwable $e) {
             // Reset the dimensions so that the default values will be returned later.
@@ -824,7 +819,7 @@ class CLI
         if ($thisStep !== false) {
             // Don't allow div by zero or negative numbers....
             $thisStep   = abs($thisStep);
-            $totalSteps = $totalSteps < 1 ? 1 : $totalSteps;
+            $totalSteps = max(1, $totalSteps);
 
             $percent = (int) (($thisStep / $totalSteps) * 100);
             $step    = (int) round($percent / 10);
@@ -849,7 +844,7 @@ class CLI
      */
     public static function wrap(?string $string = null, int $max = 0, int $padLeft = 0): string
     {
-        if (empty($string)) {
+        if ((string) $string === '') {
             return '';
         }
 
@@ -870,7 +865,7 @@ class CLI
 
             $first = true;
 
-            array_walk($lines, static function (&$line) use ($padLeft, &$first) {
+            array_walk($lines, static function (&$line) use ($padLeft, &$first): void {
                 if (! $first) {
                     $line = str_repeat(' ', $padLeft) . $line;
                 } else {
@@ -896,7 +891,7 @@ class CLI
      */
     protected static function parseCommandLine()
     {
-        $args = $_SERVER['argv'] ?? [];
+        $args = $_SERVER['argv'] ?? []; // @phpstan-ignore codeigniter.superglobalsOffsetAccess (reads live $_SERVER, not the snapshot service)
         array_shift($args); // scrap invoking program
         $optionValue = false;
 
@@ -958,6 +953,8 @@ class CLI
 
     /**
      * Returns the raw array of segments found.
+     *
+     * @return list<string>
      */
     public static function getSegments(): array
     {
@@ -985,6 +982,8 @@ class CLI
 
     /**
      * Returns the raw array of options found.
+     *
+     * @return array<string, string|null>
      */
     public static function getOptions(): array
     {
@@ -1000,7 +999,7 @@ class CLI
      */
     public static function getOptionString(bool $useLongOpts = false, bool $trim = false): string
     {
-        if (empty(static::$options)) {
+        if (static::$options === []) {
             return '';
         }
 
@@ -1017,7 +1016,7 @@ class CLI
                 continue;
             }
 
-            if (mb_strpos($value, ' ') !== false) {
+            if (str_contains($value, ' ')) {
                 $out .= "\"{$value}\" ";
             } elseif ($value !== null) {
                 $out .= "{$value} ";
@@ -1030,8 +1029,8 @@ class CLI
     /**
      * Returns a well formatted table
      *
-     * @param array $tbody List of rows
-     * @param array $thead List of columns
+     * @param list<array<array-key, mixed>> $tbody List of rows
+     * @param list<string>                  $thead List of columns
      *
      * @return void
      */
@@ -1041,7 +1040,7 @@ class CLI
         $tableRows = [];
 
         // We need only indexes and not keys
-        if (! empty($thead)) {
+        if ($thead !== []) {
             $tableRows[] = array_values($thead);
         }
 
@@ -1066,7 +1065,7 @@ class CLI
 
             foreach ($tableRows[$row] as $col) {
                 // Sets the size of this column in the current row
-                $allColsLengths[$row][$column] = static::strlen($col);
+                $allColsLengths[$row][$column] = static::strlen((string) $col);
 
                 // If the current column does not have a value among the larger ones
                 // or the value of this is greater than the existing one
@@ -1086,7 +1085,7 @@ class CLI
             $column = 0;
 
             foreach ($tableRows[$row] as $col) {
-                $diff = $maxColsLengths[$column] - static::strlen($col);
+                $diff = $maxColsLengths[$column] - static::strlen((string) $col);
 
                 if ($diff !== 0) {
                     $tableRows[$row][$column] .= str_repeat(' ', $diff);
@@ -1106,7 +1105,7 @@ class CLI
                 $cols = '+';
 
                 foreach ($tableRows[$row] as $col) {
-                    $cols .= str_repeat('-', static::strlen($col) + 2) . '+';
+                    $cols .= str_repeat('-', static::strlen((string) $col) + 2) . '+';
                 }
                 $table .= $cols . PHP_EOL;
             }
@@ -1115,7 +1114,7 @@ class CLI
             $table .= '| ' . implode(' | ', $tableRows[$row]) . ' |' . PHP_EOL;
 
             // Set the thead and table borders-bottom
-            if (($row === 0 && ! empty($thead)) || ($row + 1 === $totalRows)) {
+            if (($row === 0 && $thead !== []) || ($row + 1 === $totalRows)) {
                 $table .= $cols . PHP_EOL;
             }
         }
@@ -1137,15 +1136,55 @@ class CLI
      */
     protected static function fwrite($handle, string $string)
     {
-        if (! is_cli()) {
-            // @codeCoverageIgnoreStart
-            echo $string;
+        static::$io->fwrite($handle, $string);
+    }
 
-            return;
-            // @codeCoverageIgnoreEnd
-        }
+    /**
+     * Testing purpose only
+     *
+     * @internal
+     */
+    public static function reset(): void
+    {
+        static::$initialized = false;
+        static::$segments    = [];
+        static::$options     = [];
+        static::$lastWrite   = null;
+        static::$height      = null;
+        static::$width       = null;
+        static::$isColored   = static::hasColorSupport(STDOUT);
 
-        fwrite($handle, $string);
+        static::resetInputOutput();
+    }
+
+    /**
+     * Testing purpose only
+     *
+     * @internal
+     */
+    public static function resetLastWrite(): void
+    {
+        static::$lastWrite = null;
+    }
+
+    /**
+     * Testing purpose only
+     *
+     * @internal
+     */
+    public static function setInputOutput(InputOutput $io): void
+    {
+        static::$io = $io;
+    }
+
+    /**
+     * Testing purpose only
+     *
+     * @internal
+     */
+    public static function resetInputOutput(): void
+    {
+        static::$io = new InputOutput();
     }
 }
 

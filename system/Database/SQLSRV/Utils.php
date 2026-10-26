@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -17,20 +19,18 @@ use CodeIgniter\Database\Exceptions\DatabaseException;
 
 /**
  * Utils for SQLSRV
+ *
+ * @extends BaseUtils<Connection>
  */
 class Utils extends BaseUtils
 {
     /**
-     * List databases statement
-     *
-     * @var string
+     * @var bool|string
      */
     protected $listDatabases = 'EXEC sp_helpdb'; // Can also be: EXEC sp_databases
 
     /**
-     * OPTIMIZE TABLE statement
-     *
-     * @var string
+     * @var bool|string
      */
     protected $optimizeTable = 'ALTER INDEX all ON %s REORGANIZE';
 
@@ -42,8 +42,6 @@ class Utils extends BaseUtils
     }
 
     /**
-     * Platform dependent version of the backup function.
-     *
      * @return never
      */
     public function _backup(?array $prefs = null)

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -11,6 +13,7 @@
 
 namespace CodeIgniter\Validation;
 
+use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\HTTP\RequestInterface;
 
 /**
@@ -22,20 +25,20 @@ interface ValidationInterface
      * Runs the validation process, returning true/false determining whether
      * validation was successful or not.
      *
-     * @param array|null  $data    The array of data to validate.
-     * @param string|null $group   The predefined group of rules to apply.
-     * @param string|null $dbGroup The database group to use.
+     * @param array<array-key, mixed>|null                                 $data    The array of data to validate.
+     * @param string|null                                                  $group   The predefined group of rules to apply.
+     * @param array<array-key, mixed>|BaseConnection|non-empty-string|null $dbGroup The database group to use.
      */
-    public function run(?array $data = null, ?string $group = null, ?string $dbGroup = null): bool;
+    public function run(?array $data = null, ?string $group = null, $dbGroup = null): bool;
 
     /**
      * Check; runs the validation process, returning true or false
      * determining whether or not validation was successful.
      *
-     * @param array|bool|float|int|object|string|null $value   Value to validate.
-     * @param array|string                            $rules
-     * @param string[]                                $errors
-     * @param string|null                             $dbGroup The database group to use.
+     * @param mixed                          $value   Value to validate.
+     * @param array<array-key, mixed>|string $rules
+     * @param array<array-key, string>       $errors
+     * @param string|null                    $dbGroup The database group to use.
      *
      * @return bool True if valid, else false.
      */
@@ -52,13 +55,12 @@ interface ValidationInterface
      *
      * The custom error message should be just the messages that apply to
      * this field, like so:
+     * ```
+     * ['rule1' => 'message', 'rule2' => 'message']
+     * ```
      *
-     *    [
-     *        'rule' => 'message',
-     *        'rule' => 'message',
-     *    ]
-     *
-     * @param array|string $rules
+     * @param array<array-key, mixed>|string $rules
+     * @param array<array-key, string>       $errors
      *
      * @return $this
      */
@@ -66,11 +68,16 @@ interface ValidationInterface
 
     /**
      * Stores the rules that should be used to validate the items.
+     *
+     * @param array<array-key, array<array-key, mixed>|string> $rules
+     * @param array<array-key, array<array-key, string>>       $messages
      */
     public function setRules(array $rules, array $messages = []): ValidationInterface;
 
     /**
      * Returns all of the rules currently defined.
+     *
+     * @return array<array-key, array{label?: string, rules: list<string>}>
      */
     public function getRules(): array;
 
@@ -84,7 +91,7 @@ interface ValidationInterface
      *
      * @param string $group Group.
      *
-     * @return string[] Rule group.
+     * @return list<string> Rule group.
      */
     public function getRuleGroup(string $group): array;
 
@@ -134,7 +141,9 @@ interface ValidationInterface
      * same format used with setRules(). Additionally, check
      * for {group}_errors for an array of custom error messages.
      *
-     * @return array
+     * @param non-empty-string|null $group
+     *
+     * @return list<array<array-key, mixed>>
      */
     public function loadRuleGroup(?string $group = null);
 
@@ -155,6 +164,8 @@ interface ValidationInterface
 
     /**
      * Returns the actual validated data.
+     *
+     * @return array<array-key, mixed>
      */
     public function getValidated(): array;
 }

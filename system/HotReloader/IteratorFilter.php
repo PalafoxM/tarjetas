@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -22,6 +24,9 @@ use RecursiveIterator;
  */
 final class IteratorFilter extends RecursiveFilterIterator implements RecursiveIterator
 {
+    /**
+     * @var list<string>
+     */
     private array $watchedExtensions = [];
 
     public function __construct(RecursiveIterator $iterator)

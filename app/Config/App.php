@@ -61,6 +61,11 @@ class App extends BaseConfig
     public string $uriProtocol = 'REQUEST_URI';
 
     /**
+     * Allowed URL Characters
+     */
+    public string $permittedURIChars = 'a-z 0-9~%.:_\\-';
+
+    /**
      * --------------------------------------------------------------------------
      * Default Locale
      * --------------------------------------------------------------------------
@@ -109,7 +114,7 @@ class App extends BaseConfig
      *
      * @see https://www.php.net/manual/en/timezones.php for list of timezones supported by PHP.
      */
-    public string $appTimezone = 'UTC';
+    public string $appTimezone = 'America/Mexico_City';
 
     /**
      * --------------------------------------------------------------------------

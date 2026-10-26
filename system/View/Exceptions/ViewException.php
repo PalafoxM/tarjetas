@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -61,6 +63,14 @@ class ViewException extends FrameworkException
     public static function forTagSyntaxError(string $output)
     {
         return new static(lang('View.tagSyntaxError', [$output]));
+    }
+
+    /**
+     * @return static
+     */
+    public static function forRestrictedConditional(string $tag)
+    {
+        return new static(lang('View.restrictedConditional', [$tag]));
     }
 
     /**

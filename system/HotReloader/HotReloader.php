@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -18,6 +20,10 @@ final class HotReloader
 {
     public function run(): void
     {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         ini_set('zlib.output_compression', 'Off');
 
         header('Cache-Control: no-store');
@@ -31,7 +37,7 @@ final class HotReloader
         $appHash = $hasher->hash();
 
         while (true) {
-            if (connection_status() !== CONNECTION_NORMAL || connection_aborted()) {
+            if (connection_status() !== CONNECTION_NORMAL || connection_aborted() === 1) {
                 break;
             }
 
@@ -44,6 +50,7 @@ final class HotReloader
                 $this->sendEvent('reload', ['time' => date('Y-m-d H:i:s')]);
                 break;
             }
+
             if (mt_rand(1, 10) > 8) {
                 $this->sendEvent('ping', ['time' => date('Y-m-d H:i:s')]);
             }
@@ -54,6 +61,8 @@ final class HotReloader
 
     /**
      * Send an event to the browser.
+     *
+     * @param array<string, string> $data
      */
     private function sendEvent(string $event, array $data): void
     {

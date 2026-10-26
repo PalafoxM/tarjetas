@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -11,10 +13,7 @@
 
 namespace CodeIgniter\Exceptions;
 
-use Config\Services;
-use OutOfBoundsException;
-
-class PageNotFoundException extends OutOfBoundsException implements ExceptionInterface, HTTPExceptionInterface
+class PageNotFoundException extends RuntimeException implements HTTPExceptionInterface
 {
     use DebugTraceableTrait;
 
@@ -73,10 +72,12 @@ class PageNotFoundException extends OutOfBoundsException implements ExceptionInt
      * have the current locale, so even if users call
      * `$this->request->setLocale()` in the controller afterwards,
      * the Language locale will not be changed.
+     *
+     * @param array<array-key, float|int|string> $args
      */
     private static function lang(string $line, array $args = []): string
     {
-        $lang = Services::language(null, false);
+        $lang = service('language', null, false);
 
         return $lang->getLine($line, $args);
     }

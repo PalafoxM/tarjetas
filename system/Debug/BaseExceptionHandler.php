@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -11,6 +13,8 @@
 
 namespace CodeIgniter\Debug;
 
+use CodeIgniter\HTTP\CLIRequest;
+use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Config\Exceptions as ExceptionsConfig;
@@ -44,13 +48,13 @@ abstract class BaseExceptionHandler
 
         $this->obLevel = ob_get_level();
 
-        if ($this->viewPath === null) {
-            $this->viewPath = rtrim($this->config->errorViewPath, '\\/ ') . DIRECTORY_SEPARATOR;
-        }
+        $this->viewPath ??= rtrim($this->config->errorViewPath, '\\/ ') . DIRECTORY_SEPARATOR;
     }
 
     /**
      * The main entry point into the handler.
+     *
+     * @param CLIRequest|IncomingRequest $request
      *
      * @return void
      */
@@ -59,23 +63,40 @@ abstract class BaseExceptionHandler
         RequestInterface $request,
         ResponseInterface $response,
         int $statusCode,
-        int $exitCode
+        int $exitCode,
     );
 
     /**
      * Gathers the variables that will be made available to the view.
+     *
+     * @return array{
+     *   title: string,
+     *   type: string,
+     *   code: int,
+     *   message: string,
+     *   file: string,
+     *   line: int,
+     *   trace: list<array<string, mixed>>,
+     * }
      */
     protected function collectVars(Throwable $exception, int $statusCode): array
     {
-        $trace = $exception->getTrace();
+        // Get the first exception.
+        $firstException = $exception;
+
+        while ($prevException = $firstException->getPrevious()) {
+            $firstException = $prevException;
+        }
+
+        $trace = $firstException->getTrace();
 
         if ($this->config->sensitiveDataInTrace !== []) {
             $trace = $this->maskSensitiveData($trace, $this->config->sensitiveDataInTrace);
         }
 
         return [
-            'title'   => get_class($exception),
-            'type'    => get_class($exception),
+            'title'   => $exception::class,
+            'type'    => $exception::class,
             'code'    => $statusCode,
             'message' => $exception->getMessage(),
             'file'    => $exception->getFile(),
@@ -86,6 +107,11 @@ abstract class BaseExceptionHandler
 
     /**
      * Mask sensitive data in the trace.
+     *
+     * @param list<array<string, mixed>> $trace
+     * @param list<string>               $keysToMask
+     *
+     * @return list<array<string, mixed>>
      */
     protected function maskSensitiveData(array $trace, array $keysToMask, string $path = ''): array
     {
@@ -97,9 +123,10 @@ abstract class BaseExceptionHandler
     }
 
     /**
-     * @param array|object $args
+     * @param array<array-key, mixed>|object $args
+     * @param list<string>                   $keysToMask
      *
-     * @return array|object
+     * @return array<array-key, mixed>|object
      */
     private function maskData($args, array $keysToMask, string $path = '')
     {
@@ -107,7 +134,7 @@ abstract class BaseExceptionHandler
             $explode = explode('/', $keyToMask);
             $index   = end($explode);
 
-            if (strpos(strrev($path . '/' . $index), strrev($keyToMask)) === 0) {
+            if (str_starts_with(strrev($path . '/' . $index), strrev($keyToMask))) {
                 if (is_array($args) && array_key_exists($index, $args)) {
                     $args[$index] = '******************';
                 } elseif (
@@ -154,7 +181,7 @@ abstract class BaseExceptionHandler
      */
     protected static function highlightFile(string $file, int $lineNumber, int $lines = 15)
     {
-        if (empty($file) || ! is_readable($file)) {
+        if ($file === '' || ! is_readable($file)) {
             return false;
         }
 
@@ -169,14 +196,21 @@ abstract class BaseExceptionHandler
 
         try {
             $source = file_get_contents($file);
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             return false;
         }
 
         $source = str_replace(["\r\n", "\r"], "\n", $source);
         $source = explode("\n", highlight_string($source, true));
-        $source = str_replace('<br />', "\n", $source[1]);
-        $source = explode("\n", str_replace("\r\n", "\n", $source));
+
+        if (PHP_VERSION_ID < 80300) {
+            $source = str_replace('<br />', "\n", $source[1]);
+            $source = explode("\n", str_replace("\r\n", "\n", $source));
+        } else {
+            // We have to remove these tags since we're preparing the result
+            // ourselves and these tags are added manually at the end.
+            $source = str_replace(['<pre><code>', '</code></pre>'], '', $source);
+        }
 
         // Get just the part to show
         $start = max($lineNumber - (int) round($lines / 2), 0);
@@ -192,7 +226,7 @@ abstract class BaseExceptionHandler
         // of open and close span tags on one line, we need
         // to ensure we can close them all to get the lines
         // showing correctly.
-        $spans = 1;
+        $spans = 0;
 
         foreach ($source as $n => $row) {
             $spans += substr_count($row, '<span') - substr_count($row, '</span');
@@ -205,10 +239,13 @@ abstract class BaseExceptionHandler
                     "<span class='line highlight'><span class='number'>{$format}</span> %s\n</span>%s",
                     $n + $start + 1,
                     strip_tags($row),
-                    implode('', $tags[0])
+                    implode('', $tags[0]),
                 );
             } else {
                 $out .= sprintf('<span class="line"><span class="number">' . $format . '</span> %s', $n + $start + 1, $row) . "\n";
+                // We're closing only one span tag we added manually line before,
+                // so we have to increment $spans count to close this tag later.
+                $spans++;
             }
         }
 
@@ -226,13 +263,19 @@ abstract class BaseExceptionHandler
      */
     protected function render(Throwable $exception, int $statusCode, $viewFile = null): void
     {
-        if (empty($viewFile) || ! is_file($viewFile)) {
-            echo 'The error view files were not found. Cannot render exception trace.';
+        if ($viewFile === null) {
+            echo 'The error view file was not specified. Cannot display error view.';
 
             exit(1);
         }
 
-        echo(function () use ($exception, $statusCode, $viewFile): string {
+        if (! is_file($viewFile)) {
+            echo 'The error view file "' . $viewFile . '" was not found. Cannot display error view.';
+
+            exit(1);
+        }
+
+        echo (function () use ($exception, $statusCode, $viewFile): string {
             $vars = $this->collectVars($exception, $statusCode);
             extract($vars, EXTR_SKIP);
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -17,7 +19,7 @@ namespace CodeIgniter\Autoloader;
  *
  * @see \CodeIgniter\Autoloader\FileLocatorTest
  */
-class FileLocator
+class FileLocator implements FileLocatorInterface
 {
     /**
      * The Autoloader to use.
@@ -25,6 +27,13 @@ class FileLocator
      * @var Autoloader
      */
     protected $autoloader;
+
+    /**
+     * List of classnames that did not exist.
+     *
+     * @var list<class-string>
+     */
+    private array $invalidClassnames = [];
 
     public function __construct(Autoloader $autoloader)
     {
@@ -35,28 +44,28 @@ class FileLocator
      * Attempts to locate a file by examining the name for a namespace
      * and looking through the PSR-4 namespaced files that we know about.
      *
-     * @param string      $file   The relative file path or namespaced file to
-     *                            locate. If not namespaced, search in the app
-     *                            folder.
-     * @param string|null $folder The folder within the namespace that we should
-     *                            look for the file. If $file does not contain
-     *                            this value, it will be appended to the namespace
-     *                            folder.
-     * @param string      $ext    The file extension the file should have.
+     * @param non-empty-string      $file   The relative file path or namespaced file to
+     *                                      locate. If not namespaced, search in the app
+     *                                      folder.
+     * @param non-empty-string|null $folder The folder within the namespace that we should
+     *                                      look for the file. If $file does not contain
+     *                                      this value, it will be appended to the namespace
+     *                                      folder.
+     * @param string                $ext    The file extension the file should have.
      *
-     * @return false|string The path to the file, or false if not found.
+     * @return false|non-empty-string The path to the file, or false if not found.
      */
     public function locateFile(string $file, ?string $folder = null, string $ext = 'php')
     {
         $file = $this->ensureExt($file, $ext);
 
         // Clears the folder name if it is at the beginning of the filename
-        if (! empty($folder) && strpos($file, $folder) === 0) {
+        if ($folder !== null && str_starts_with($file, $folder)) {
             $file = substr($file, strlen($folder . '/'));
         }
 
         // Is not namespaced? Try the application folder.
-        if (strpos($file, '\\') === false) {
+        if (! str_contains($file, '\\')) {
             return $this->legacyLocate($file, $folder);
         }
 
@@ -67,7 +76,7 @@ class FileLocator
         $segments = explode('\\', $file);
 
         // The first segment will be empty if a slash started the filename.
-        if (empty($segments[0])) {
+        if ($segments[0] === '') {
             unset($segments[0]);
         }
 
@@ -89,7 +98,7 @@ class FileLocator
         }
 
         // if no namespaces matched then quit
-        if (empty($paths)) {
+        if ($paths === []) {
             return false;
         }
 
@@ -101,7 +110,7 @@ class FileLocator
             // If we have a folder name, then the calling function
             // expects this file to be within that folder, like 'Views',
             // or 'libraries'.
-            if (! empty($folder) && strpos($path . $filename, '/' . $folder . '/') === false) {
+            if ($folder !== null && ! str_contains($path . $filename, '/' . $folder . '/')) {
                 $path .= trim($folder, '/') . '/';
             }
 
@@ -119,6 +128,10 @@ class FileLocator
      */
     public function getClassname(string $file): string
     {
+        if (is_dir($file)) {
+            return '';
+        }
+
         $php       = file_get_contents($file);
         $tokens    = token_get_all($php);
         $dlm       = false;
@@ -132,25 +145,28 @@ class FileLocator
 
             if ((isset($tokens[$i - 2][1]) && ($tokens[$i - 2][1] === 'phpnamespace' || $tokens[$i - 2][1] === 'namespace')) || ($dlm && $tokens[$i - 1][0] === T_NS_SEPARATOR && $token[0] === T_STRING)) {
                 if (! $dlm) {
-                    $namespace = 0;
+                    $namespace = '';
                 }
+
                 if (isset($token[1])) {
-                    $namespace = $namespace ? $namespace . '\\' . $token[1] : $token[1];
+                    $namespace = $namespace !== '' ? $namespace . '\\' . $token[1] : $token[1];
                     $dlm       = true;
                 }
             } elseif ($dlm && ($token[0] !== T_NS_SEPARATOR) && ($token[0] !== T_STRING)) {
                 $dlm = false;
             }
 
-            if (($tokens[$i - 2][0] === T_CLASS || (isset($tokens[$i - 2][1]) && $tokens[$i - 2][1] === 'phpclass'))
+            if (
+                ($tokens[$i - 2][0] === T_CLASS || (isset($tokens[$i - 2][1]) && $tokens[$i - 2][1] === 'phpclass'))
                 && $tokens[$i - 1][0] === T_WHITESPACE
-                && $token[0] === T_STRING) {
+                && $token[0] === T_STRING
+            ) {
                 $className = $token[1];
                 break;
             }
         }
 
-        if (empty($className)) {
+        if ($className === '') {
             return '';
         }
 
@@ -169,6 +185,8 @@ class FileLocator
      *      'app/Modules/foo/Config/Routes.php',
      *      'app/Modules/bar/Config/Routes.php',
      *  ]
+     *
+     * @return list<non-empty-string>
      */
     public function search(string $path, string $ext = 'php', bool $prioritizeApp = true): array
     {
@@ -179,12 +197,13 @@ class FileLocator
 
         foreach ($this->getNamespaces() as $namespace) {
             if (isset($namespace['path']) && is_file($namespace['path'] . $path)) {
-                $fullPath = $namespace['path'] . $path;
-                $fullPath = realpath($fullPath) ?: $fullPath;
+                $fullPath     = $namespace['path'] . $path;
+                $resolvedPath = realpath($fullPath);
+                $fullPath     = $resolvedPath !== false ? $resolvedPath : $fullPath;
 
                 if ($prioritizeApp) {
                     $foundPaths[] = $fullPath;
-                } elseif (strpos($fullPath, APPPATH) === 0) {
+                } elseif (str_starts_with($fullPath, APPPATH)) {
                     $appPaths[] = $fullPath;
                 } else {
                     $foundPaths[] = $fullPath;
@@ -192,12 +211,11 @@ class FileLocator
             }
         }
 
-        if (! $prioritizeApp && ! empty($appPaths)) {
+        if (! $prioritizeApp && $appPaths !== []) {
             $foundPaths = [...$foundPaths, ...$appPaths];
         }
 
-        // Remove any duplicates
-        return array_unique($foundPaths);
+        return array_values(array_unique($foundPaths));
     }
 
     /**
@@ -208,7 +226,7 @@ class FileLocator
         if ($ext !== '') {
             $ext = '.' . $ext;
 
-            if (substr($path, -strlen($ext)) !== $ext) {
+            if (! str_ends_with($path, $ext)) {
                 $path .= $ext;
             }
         }
@@ -219,19 +237,18 @@ class FileLocator
     /**
      * Return the namespace mappings we know about.
      *
-     * @return array<int, array<string, string>>
+     * @return list<array{prefix: non-empty-string, path: non-empty-string}>
      */
     protected function getNamespaces()
     {
         $namespaces = [];
 
-        // Save system for last
         $system = [];
 
         foreach ($this->autoloader->getNamespace() as $prefix => $paths) {
             foreach ($paths as $path) {
                 if ($prefix === 'CodeIgniter') {
-                    $system = [
+                    $system[] = [
                         'prefix' => $prefix,
                         'path'   => rtrim($path, '\\/') . DIRECTORY_SEPARATOR,
                     ];
@@ -246,47 +263,51 @@ class FileLocator
             }
         }
 
-        $namespaces[] = $system;
-
-        return $namespaces;
+        // Save system for last
+        return array_merge($namespaces, $system);
     }
 
-    /**
-     * Find the qualified name of a file according to
-     * the namespace of the first matched namespace path.
-     *
-     * @return false|string The qualified name or false if the path is not found
-     */
     public function findQualifiedNameFromPath(string $path)
     {
-        $path = realpath($path) ?: $path;
+        $resolvedPath = realpath($path);
+        $path         = $resolvedPath !== false ? $resolvedPath : $path;
 
         if (! is_file($path)) {
             return false;
         }
 
         foreach ($this->getNamespaces() as $namespace) {
-            $namespace['path'] = realpath($namespace['path']) ?: $namespace['path'];
+            $resolvedNamespacePath = realpath($namespace['path']);
+            $namespace['path']     = $resolvedNamespacePath !== false ? $resolvedNamespacePath : $namespace['path'];
 
-            if (empty($namespace['path'])) {
+            if ($namespace['path'] === '') {
                 continue;
             }
 
             if (mb_strpos($path, $namespace['path']) === 0) {
-                $className = '\\' . $namespace['prefix'] . '\\' .
-                        ltrim(str_replace(
+                $className = $namespace['prefix'] . '\\' .
+                    ltrim(
+                        str_replace(
                             '/',
                             '\\',
-                            mb_substr($path, mb_strlen($namespace['path']))
-                        ), '\\');
+                            mb_substr($path, mb_strlen($namespace['path'])),
+                        ),
+                        '\\',
+                    );
 
                 // Remove the file extension (.php)
+                /** @var class-string $className */
                 $className = mb_substr($className, 0, -4);
 
-                // Check if this exists
+                if (in_array($className, $this->invalidClassnames, true)) {
+                    continue;
+                }
+
                 if (class_exists($className)) {
                     return $className;
                 }
+
+                $this->invalidClassnames[] = $className;
             }
         }
 
@@ -297,11 +318,11 @@ class FileLocator
      * Scans the defined namespaces, returning a list of all files
      * that are contained within the subpath specified by $path.
      *
-     * @return string[] List of file paths
+     * @return list<string> List of file paths
      */
     public function listFiles(string $path): array
     {
-        if (empty($path)) {
+        if ($path === '') {
             return [];
         }
 
@@ -309,18 +330,7 @@ class FileLocator
         helper('filesystem');
 
         foreach ($this->getNamespaces() as $namespace) {
-            $fullPath = $namespace['path'] . $path;
-            $fullPath = realpath($fullPath) ?: $fullPath;
-
-            if (! is_dir($fullPath)) {
-                continue;
-            }
-
-            $tempFiles = get_filenames($fullPath, true, false, false);
-
-            if (! empty($tempFiles)) {
-                $files = array_merge($files, $tempFiles);
-            }
+            $files = array_merge($files, get_filenames($namespace['path'] . $path, true, false, false));
         }
 
         return $files;
@@ -330,11 +340,11 @@ class FileLocator
      * Scans the provided namespace, returning a list of all files
      * that are contained within the sub path specified by $path.
      *
-     * @return string[] List of file paths
+     * @return list<non-empty-string> List of file paths
      */
     public function listNamespaceFiles(string $prefix, string $path): array
     {
-        if (empty($path) || empty($prefix)) {
+        if ($path === '' || $prefix === '') {
             return [];
         }
 
@@ -343,8 +353,9 @@ class FileLocator
 
         // autoloader->getNamespace($prefix) returns an array of paths for that namespace
         foreach ($this->autoloader->getNamespace($prefix) as $namespacePath) {
-            $fullPath = rtrim($namespacePath, '/') . '/' . $path;
-            $fullPath = realpath($fullPath) ?: $fullPath;
+            $fullPath     = rtrim($namespacePath, '/') . '/' . $path;
+            $resolvedPath = realpath($fullPath);
+            $fullPath     = $resolvedPath !== false ? $resolvedPath : $fullPath;
 
             if (! is_dir($fullPath)) {
                 continue;
@@ -352,7 +363,7 @@ class FileLocator
 
             $tempFiles = get_filenames($fullPath, true, false, false);
 
-            if (! empty($tempFiles)) {
+            if ($tempFiles !== []) {
                 $files = array_merge($files, $tempFiles);
             }
         }
@@ -364,12 +375,15 @@ class FileLocator
      * Checks the app folder to see if the file can be found.
      * Only for use with filenames that DO NOT include namespacing.
      *
+     * @param non-empty-string|null $folder
+     *
      * @return false|string The path to the file, or false if not found.
      */
     protected function legacyLocate(string $file, ?string $folder = null)
     {
-        $path = APPPATH . (empty($folder) ? $file : $folder . '/' . $file);
-        $path = realpath($path) ?: $path;
+        $path         = APPPATH . ($folder === null ? $file : $folder . '/' . $file);
+        $resolvedPath = realpath($path);
+        $path         = $resolvedPath !== false ? $resolvedPath : $path;
 
         if (is_file($path)) {
             return $path;

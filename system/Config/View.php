@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -14,16 +16,12 @@ namespace CodeIgniter\Config;
 use CodeIgniter\View\ViewDecoratorInterface;
 
 /**
- * View configuration
- *
- * @phpstan-type ParserCallable (callable(mixed): mixed)
- * @phpstan-type ParserCallableString (callable(mixed): mixed)&string
+ * View configuration.
  */
 class View extends BaseConfig
 {
     /**
-     * When false, the view method will clear the data between each
-     * call.
+     * When false, the view method will clear the data between each call.
      *
      * @var bool
      */
@@ -39,8 +37,7 @@ class View extends BaseConfig
      *
      * @psalm-suppress UndefinedDocblockClass
      *
-     * @var array<string, string>
-     * @phpstan-var array<string, ParserCallableString>
+     * @var array<string, callable(mixed): mixed>
      */
     public $filters = [];
 
@@ -51,16 +48,22 @@ class View extends BaseConfig
      *
      * @psalm-suppress UndefinedDocblockClass
      *
-     * @var array<string, array<string>|callable|string>
-     * @phpstan-var array<string, array<ParserCallableString>|ParserCallableString|ParserCallable>
+     * @var array<string, (callable(mixed...): mixed)|((callable(mixed...): mixed)&string)|list<(callable(mixed...): mixed)&string>>
      */
     public $plugins = [];
 
     /**
+     * When true, Parser conditionals may only contain variables, literals,
+     * arithmetic, comparison and logical operators, and parentheses. Enable
+     * this when less-trusted users can edit Parser templates. Can be overridden per
+     * call with the `restrictConditionals` render option.
+     */
+    public bool $restrictParserConditionals = false;
+
+    /**
      * Built-in View filters.
      *
-     * @var array<string, string>
-     * @phpstan-var array<string, ParserCallableString>
+     * @var array<string, (callable(mixed): mixed)&string>
      */
     protected $coreFilters = [
         'abs'            => '\abs',
@@ -89,8 +92,7 @@ class View extends BaseConfig
     /**
      * Built-in View plugins.
      *
-     * @var array<string, array<string>|callable|string>
-     * @phpstan-var array<string, array<ParserCallableString>|ParserCallableString|ParserCallable>
+     * @var array<string, (callable(mixed...): mixed)|((callable(mixed...): mixed)&string)|list<(callable(mixed...): mixed)&string>>
      */
     protected $corePlugins = [
         'csp_script_nonce'  => '\CodeIgniter\View\Plugins::cspScriptNonce',
@@ -112,7 +114,7 @@ class View extends BaseConfig
      *
      * All classes must implement CodeIgniter\View\ViewDecoratorInterface
      *
-     * @var class-string<ViewDecoratorInterface>[]
+     * @var list<class-string<ViewDecoratorInterface>>
      */
     public array $decorators = [];
 

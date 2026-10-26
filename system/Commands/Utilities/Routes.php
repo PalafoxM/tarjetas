@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -18,9 +20,9 @@ use CodeIgniter\Commands\Utilities\Routes\AutoRouterImproved\AutoRouteCollector 
 use CodeIgniter\Commands\Utilities\Routes\FilterCollector;
 use CodeIgniter\Commands\Utilities\Routes\SampleURIGenerator;
 use CodeIgniter\Router\DefinedRouteCollector;
+use CodeIgniter\Router\Router;
 use Config\Feature;
 use Config\Routing;
-use Config\Services;
 
 /**
  * Lists all the routes. This will include any Routes files
@@ -61,7 +63,7 @@ class Routes extends BaseCommand
     /**
      * the Command's Arguments
      *
-     * @var array
+     * @var array<string, string>
      */
     protected $arguments = [];
 
@@ -71,8 +73,8 @@ class Routes extends BaseCommand
      * @var array<string, string>
      */
     protected $options = [
-        '-h'     => 'Sort by Handler.',
-        '--host' => 'Specify hostname in request URI.',
+        '--sort-by-handler' => 'Sort by handler.',
+        '--host'            => 'Specify hostname in request URI.',
     ];
 
     /**
@@ -80,36 +82,32 @@ class Routes extends BaseCommand
      */
     public function run(array $params)
     {
-        $sortByHandler = array_key_exists('h', $params);
-        $host          = $params['host'] ?? null;
+        $sortByHandler = array_key_exists('sort-by-handler', $params);
+
+        if (! $sortByHandler && array_key_exists('h', $params)) {
+            // @todo to remove support in v4.8.0
+            // Support -h as a shortcut but print a warning that it is not the intended use of -h.
+            CLI::write('Warning: -h will be used as shortcut for --help in v4.8.0. Please use --sort-by-handler to sort by handler.', 'yellow');
+            CLI::newLine();
+
+            $sortByHandler = true;
+        }
+
+        $host = $params['host'] ?? null;
 
         // Set HTTP_HOST
-        if ($host) {
-            $request              = Services::request();
-            $_SERVER              = $request->getServer();
-            $_SERVER['HTTP_HOST'] = $host;
-            $request->setGlobal('server', $_SERVER);
+        if ($host !== null) {
+            service('superglobals')->setServer('HTTP_HOST', $host);
         }
 
-        $collection = Services::routes()->loadRoutes();
+        $collection = service('routes')->loadRoutes();
 
         // Reset HTTP_HOST
-        if ($host) {
-            unset($_SERVER['HTTP_HOST']);
+        if ($host !== null) {
+            service('superglobals')->unsetServer('HTTP_HOST');
         }
 
-        $methods = [
-            'get',
-            'head',
-            'post',
-            'patch',
-            'put',
-            'delete',
-            'options',
-            'trace',
-            'connect',
-            'cli',
-        ];
+        $methods = Router::HTTP_METHODS;
 
         $tbody           = [];
         $uriGenerator    = new SampleURIGenerator();
@@ -128,13 +126,13 @@ class Routes extends BaseCommand
                 $route['route'],
                 $routeName,
                 $route['handler'],
-                implode(' ', array_map('class_basename', $filters['before'])),
-                implode(' ', array_map('class_basename', $filters['after'])),
+                implode(' ', array_map(class_basename(...), $filters['before'])),
+                implode(' ', array_map(class_basename(...), $filters['after'])),
             ];
         }
 
         if ($collection->shouldAutoRoute()) {
-            $autoRoutesImproved = config(Feature::class)->autoRoutesImproved ?? false;
+            $autoRoutesImproved = config(Feature::class)->autoRoutesImproved;
 
             if ($autoRoutesImproved) {
                 $autoRouteCollector = new AutoRouteCollectorImproved(
@@ -142,13 +140,15 @@ class Routes extends BaseCommand
                     $collection->getDefaultController(),
                     $collection->getDefaultMethod(),
                     $methods,
-                    $collection->getRegisteredControllers('*')
+                    $collection->getRegisteredControllers('*'),
                 );
 
                 $autoRoutes = $autoRouteCollector->get();
 
                 // Check for Module Routes.
-                if ($routingConfig = config(Routing::class)) {
+                $routingConfig = config(Routing::class);
+
+                if ($routingConfig instanceof Routing) {
                     foreach ($routingConfig->moduleRoutes as $uri => $namespace) {
                         $autoRouteCollector = new AutoRouteCollectorImproved(
                             $namespace,
@@ -156,7 +156,7 @@ class Routes extends BaseCommand
                             $collection->getDefaultMethod(),
                             $methods,
                             $collection->getRegisteredControllers('*'),
-                            $uri
+                            $uri,
                         );
 
                         $autoRoutes = [...$autoRoutes, ...$autoRouteCollector->get()];
@@ -166,17 +166,17 @@ class Routes extends BaseCommand
                 $autoRouteCollector = new AutoRouteCollector(
                     $collection->getDefaultNamespace(),
                     $collection->getDefaultController(),
-                    $collection->getDefaultMethod()
+                    $collection->getDefaultMethod(),
                 );
 
                 $autoRoutes = $autoRouteCollector->get();
 
                 foreach ($autoRoutes as &$routes) {
-                    // There is no `auto` method, but it is intentional not to get route filters.
-                    $filters = $filterCollector->get('auto', $uriGenerator->get($routes[1]));
+                    // There is no `AUTO` method, but it is intentional not to get route filters.
+                    $filters = $filterCollector->get('AUTO', $uriGenerator->get($routes[1]));
 
-                    $routes[] = implode(' ', array_map('class_basename', $filters['before']));
-                    $routes[] = implode(' ', array_map('class_basename', $filters['after']));
+                    $routes[] = implode(' ', array_map(class_basename(...), $filters['before']));
+                    $routes[] = implode(' ', array_map(class_basename(...), $filters['after']));
                 }
             }
 
@@ -194,13 +194,38 @@ class Routes extends BaseCommand
 
         // Sort by Handler.
         if ($sortByHandler) {
-            usort($tbody, static fn ($handler1, $handler2) => strcmp($handler1[3], $handler2[3]));
+            usort($tbody, static fn ($handler1, $handler2): int => strcmp($handler1[3], $handler2[3]));
         }
 
-        if ($host) {
+        if ($host !== null) {
             CLI::write('Host: ' . $host);
         }
 
         CLI::table($tbody, $thead);
+
+        $this->showRequiredFilters();
+    }
+
+    private function showRequiredFilters(): void
+    {
+        $filterCollector = new FilterCollector();
+
+        $required = $filterCollector->getRequiredFilters();
+
+        $filters = [];
+
+        foreach ($required['before'] as $filter) {
+            $filters[] = CLI::color($filter, 'yellow');
+        }
+
+        CLI::write('Required Before Filters: ' . implode(', ', $filters));
+
+        $filters = [];
+
+        foreach ($required['after'] as $filter) {
+            $filters[] = CLI::color($filter, 'yellow');
+        }
+
+        CLI::write(' Required After Filters: ' . implode(', ', $filters));
     }
 }

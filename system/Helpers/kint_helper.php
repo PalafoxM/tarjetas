@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -16,13 +18,13 @@ if (! function_exists('dd')) {
         /**
          * Prints a Kint debug report and exits.
          *
-         * @param array $vars
+         * @param mixed ...$vars
          *
-         * @phpstan-return never
+         * @return never
          *
          * @codeCoverageIgnore Can't be tested ... exits
          */
-        function dd(...$vars)
+        function dd(...$vars): void
         {
             // @codeCoverageIgnoreStart
             Kint::$aliases[] = 'dd';
@@ -36,11 +38,9 @@ if (! function_exists('dd')) {
         /**
          * dd function
          *
-         * @param array $vars
-         *
-         * @return int
+         * @param mixed ...$vars
          */
-        function dd(...$vars)
+        function dd(...$vars): int
         {
             return 0;
         }
@@ -52,11 +52,9 @@ if (! function_exists('d') && ! class_exists(Kint::class)) {
     /**
      * d function
      *
-     * @param array $vars
-     *
-     * @return int
+     * @param mixed ...$vars
      */
-    function d(...$vars)
+    function d(...$vars): int
     {
         return 0;
     }
@@ -67,24 +65,16 @@ if (! function_exists('trace')) {
         /**
          * Provides a backtrace to the current execution point, from Kint.
          */
-        /**
-         * trace function
-         *
-         * @return void
-         */
-        function trace()
+        function trace(): void
         {
             Kint::$aliases[] = 'trace';
             Kint::trace();
         }
     } else {
-        // In case that Kint is not loaded.
         /**
-         * trace function
-         *
-         * @return int
+         * Generic trace function in case that Kint is not loaded.
          */
-        function trace()
+        function trace(): int
         {
             return 0;
         }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -11,9 +13,10 @@
 
 namespace CodeIgniter\View\Cells;
 
+use CodeIgniter\Exceptions\LogicException;
 use CodeIgniter\Traits\PropertiesTrait;
-use LogicException;
 use ReflectionClass;
+use Stringable;
 
 /**
  * Class Cell
@@ -24,7 +27,7 @@ use ReflectionClass;
  *
  * @function mount()
  */
-class Cell
+class Cell implements Stringable
 {
     use PropertiesTrait;
 
@@ -68,6 +71,8 @@ class Cell
      * current scope and captures the output buffer instead of
      * relying on the view service.
      *
+     * @param array<string, mixed> $data
+     *
      * @throws LogicException
      */
     final protected function view(?string $view, array $data = []): string
@@ -82,7 +87,7 @@ class Cell
             $viewName  = decamelize(class_basename(static::class));
             $directory = dirname((new ReflectionClass($this))->getFileName()) . DIRECTORY_SEPARATOR;
 
-            $possibleView1 = $directory . substr($viewName, 0, strrpos($viewName, '_cell')) . '.php';
+            $possibleView1 = $directory . substr($viewName, 0, (int) strrpos($viewName, '_cell')) . '.php';
             $possibleView2 = $directory . $viewName . '.php';
         }
 
@@ -94,31 +99,34 @@ class Cell
 
         $candidateViews = array_filter(
             [$view, $possibleView1 ?? '', $possibleView2 ?? ''],
-            static fn (string $path): bool => $path !== '' && is_file($path)
+            static fn (string $path): bool => $path !== '' && is_file($path),
         );
 
         if ($candidateViews === []) {
             throw new LogicException(sprintf(
                 'Cannot locate the view file for the "%s" cell.',
-                static::class
+                static::class,
             ));
         }
 
         $foundView = current($candidateViews);
 
-        return (function () use ($properties, $foundView): string {
+        // The parameter is variadic on purpose: func_get_arg() returns the current
+        // value of a named parameter, which extract() could overwrite with cell data.
+        return (function (string ...$foundView) use ($properties): string {
+            $foundView = $foundView[0]; // Keep $foundView available to the view as before.
             extract($properties);
             ob_start();
-            include $foundView;
+            include func_get_arg(0);
 
             return ob_get_clean();
-        })();
+        })($foundView);
     }
 
     /**
      * Provides capability to render on string casting.
      */
-    public function __toString()
+    public function __toString(): string
     {
         return $this->render();
     }
@@ -126,6 +134,10 @@ class Cell
     /**
      * Allows the developer to define computed properties
      * as methods with `get` prefixed to the protected/private property name.
+     *
+     * @param array<string, mixed> $properties
+     *
+     * @return array<string, mixed>
      */
     private function includeComputedProperties(array $properties): array
     {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -19,26 +21,19 @@ use ReflectionMethod;
  *
  * @see \CodeIgniter\Commands\Utilities\Routes\ControllerMethodReaderTest
  */
-final class ControllerMethodReader
+final readonly class ControllerMethodReader
 {
-    /**
-     * @var string the default namespace
-     */
-    private string $namespace;
-
     /**
      * @param string $namespace the default namespace
      */
-    public function __construct(string $namespace)
+    public function __construct(private string $namespace)
     {
-        $this->namespace = $namespace;
     }
 
     /**
-     * @phpstan-param class-string $class
+     * @param class-string $class
      *
-     * @return array<int, array{route: string, handler: string}>
-     * @phpstan-return list<array{route: string, handler: string}>
+     * @return list<array{route: string, handler: string}>
      */
     public function read(string $class, string $defaultController = 'Home', string $defaultMethod = 'index'): array
     {
@@ -62,7 +57,7 @@ final class ControllerMethodReader
                 $defaultController,
                 $uriByClass,
                 $classname,
-                $methodName
+                $methodName,
             );
             $output = [...$output, ...$routeWithoutController];
 
@@ -94,7 +89,7 @@ final class ControllerMethodReader
                     $defaultController,
                     $uriByClass,
                     $classname,
-                    $methodName
+                    $methodName,
                 );
                 $output = [...$output, ...$routeWithoutController];
 
@@ -128,7 +123,7 @@ final class ControllerMethodReader
     }
 
     /**
-     * @phpstan-param class-string $classname
+     * @param class-string $classname
      *
      * @return string URI path part from the folder(s) and controller
      */
@@ -152,27 +147,27 @@ final class ControllerMethodReader
 
     /**
      * Gets a route without default controller.
+     *
+     * @return list<array{route: string, handler: string}>
      */
     private function getRouteWithoutController(
         string $classShortname,
         string $defaultController,
         string $uriByClass,
         string $classname,
-        string $methodName
+        string $methodName,
     ): array {
-        $output = [];
-
-        if ($classShortname === $defaultController) {
-            $pattern                = '#' . preg_quote(lcfirst($defaultController), '#') . '\z#';
-            $routeWithoutController = rtrim(preg_replace($pattern, '', $uriByClass), '/');
-            $routeWithoutController = $routeWithoutController ?: '/';
-
-            $output[] = [
-                'route'   => $routeWithoutController,
-                'handler' => '\\' . $classname . '::' . $methodName,
-            ];
+        if ($classShortname !== $defaultController) {
+            return [];
         }
 
-        return $output;
+        $pattern                = '#' . preg_quote(lcfirst($defaultController), '#') . '\z#';
+        $routeWithoutController = rtrim(preg_replace($pattern, '', $uriByClass), '/');
+        $routeWithoutController = $routeWithoutController !== '' && $routeWithoutController !== '0' ? $routeWithoutController : '/';
+
+        return [[
+            'route'   => $routeWithoutController,
+            'handler' => '\\' . $classname . '::' . $methodName,
+        ]];
     }
 }

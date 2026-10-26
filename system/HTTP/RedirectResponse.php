@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -13,7 +15,6 @@ namespace CodeIgniter\HTTP;
 
 use CodeIgniter\Cookie\CookieStore;
 use CodeIgniter\HTTP\Exceptions\HTTPException;
-use Config\Services;
 
 /**
  * Handle a redirect response
@@ -35,7 +36,7 @@ class RedirectResponse extends Response
     {
         // If it appears to be a relative URL, then convert to full URL
         // for better security.
-        if (strpos($uri, 'http') !== 0) {
+        if (! str_starts_with($uri, 'http')) {
             $uri = site_url($uri);
         }
 
@@ -46,7 +47,8 @@ class RedirectResponse extends Response
      * Sets the URI to redirect to but as a reverse-routed or named route
      * instead of a raw URI.
      *
-     * @param string $route Route name or Controller::method
+     * @param string           $route  Route name or Controller::method
+     * @param list<int|string> $params
      *
      * @return $this
      *
@@ -56,7 +58,7 @@ class RedirectResponse extends Response
     {
         $namedRoute = $route;
 
-        $route = Services::routes()->reverseRoute($route, ...$params);
+        $route = service('routes')->reverseRoute($route, ...$params);
 
         if (! $route) {
             throw HTTPException::forInvalidRedirectRoute($namedRoute);
@@ -75,7 +77,7 @@ class RedirectResponse extends Response
      */
     public function back(?int $code = null, string $method = 'auto')
     {
-        Services::session();
+        service('session');
 
         return $this->redirect(previous_url(), $method, $code);
     }
@@ -90,10 +92,10 @@ class RedirectResponse extends Response
      */
     public function withInput()
     {
-        $session = Services::session();
+        $session = service('session');
         $session->setFlashdata('_ci_old_input', [
-            'get'  => $_GET ?? [],
-            'post' => $_POST ?? [],
+            'get'  => service('superglobals')->getGetArray(),
+            'post' => service('superglobals')->getPostArray(),
         ]);
 
         $this->withErrors();
@@ -107,16 +109,13 @@ class RedirectResponse extends Response
      * If the validation has any errors, transmit those back
      * so they can be displayed when the validation is handled
      * within a method different than displaying the form.
-     *
-     * @return $this
      */
     private function withErrors(): self
     {
-        $validation = Services::validation();
+        $validation = service('validation');
 
-        if ($validation->getErrors()) {
-            $session = Services::session();
-            $session->setFlashdata('_ci_validation_errors', $validation->getErrors());
+        if ($validation->getErrors() !== []) {
+            service('session')->setFlashdata('_ci_validation_errors', $validation->getErrors());
         }
 
         return $this;
@@ -125,13 +124,14 @@ class RedirectResponse extends Response
     /**
      * Adds a key and message to the session as Flashdata.
      *
-     * @param array|string $message
+     * @param array|string                   $message
+     * @param array<array-key, mixed>|string $message
      *
      * @return $this
      */
     public function with(string $key, $message)
     {
-        Services::session()->setFlashdata($key, $message);
+        service('session')->setFlashdata($key, $message);
 
         return $this;
     }
@@ -146,7 +146,7 @@ class RedirectResponse extends Response
      */
     public function withCookies()
     {
-        $this->cookieStore = new CookieStore(Services::response()->getCookies());
+        $this->cookieStore = new CookieStore(service('response')->getCookies());
 
         return $this;
     }
@@ -161,8 +161,14 @@ class RedirectResponse extends Response
      */
     public function withHeaders()
     {
-        foreach (Services::response()->headers() as $name => $header) {
-            $this->setHeader($name, $header->getValue());
+        foreach (service('response')->headers() as $name => $value) {
+            if ($value instanceof Header) {
+                $this->setHeader($name, $value->getValue());
+            } else {
+                foreach ($value as $header) {
+                    $this->addHeader($name, $header->getValue());
+                }
+            }
         }
 
         return $this;

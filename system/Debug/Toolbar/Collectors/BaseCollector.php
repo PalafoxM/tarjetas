@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -103,6 +105,8 @@ class BaseCollector
     /**
      * Grabs the data for the timeline, properly formatted,
      * or returns an empty array.
+     *
+     * @return list<array<string, mixed>>
      */
     public function timelineData(): array
     {
@@ -138,7 +142,7 @@ class BaseCollector
      *      ],
      *  ];
      *
-     * @return array|null
+     * @return array<string, mixed>|null
      */
     public function getVarData()
     {
@@ -157,6 +161,8 @@ class BaseCollector
      *      'start'     => 10       // milliseconds
      *      'duration'  => 15       // milliseconds
      *  ]
+     *
+     * @return list<array<string, mixed>>
      */
     protected function formatTimelineData(): array
     {
@@ -166,7 +172,7 @@ class BaseCollector
     /**
      * Returns the data of this collector to be formatted in the toolbar
      *
-     * @return array|string
+     * @return array<string, mixed>|string
      */
     public function display()
     {
@@ -216,6 +222,20 @@ class BaseCollector
 
     /**
      * Return settings as an array.
+     *
+     * @return array{
+     *   title: string,
+     *   titleSafe: string,
+     *   titleDetails: string,
+     *   display: array<string, mixed>|string,
+     *   badgeValue: int|null,
+     *   isEmpty: bool,
+     *   hasTabContent: bool,
+     *   hasLabel: bool,
+     *   icon: string,
+     *   hasTimelineData: bool,
+     *   timelineData: list<array<string, mixed>>,
+     * }
      */
     public function getAsArray(): array
     {

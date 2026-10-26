@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -40,6 +42,8 @@ abstract class BaseResource extends Controller
     /**
      * Constructor.
      *
+     * @param CLIRequest|IncomingRequest $request
+     *
      * @return void
      */
     public function initController(RequestInterface $request, ResponseInterface $response, LoggerInterface $logger)
@@ -59,17 +63,17 @@ abstract class BaseResource extends Controller
      */
     public function setModel($which = null)
     {
-        if ($which) {
+        if ($which !== null) {
             $this->model     = is_object($which) ? $which : null;
             $this->modelName = is_object($which) ? null : $which;
         }
 
-        if (empty($this->model) && ! empty($this->modelName) && class_exists($this->modelName)) {
+        if ($this->model === null && $this->modelName !== null && class_exists($this->modelName)) {
             $this->model = model($this->modelName);
         }
 
-        if (! empty($this->model) && empty($this->modelName)) {
-            $this->modelName = get_class($this->model);
+        if ($this->model !== null && ($this->modelName === null || $this->modelName === '')) {
+            $this->modelName = $this->model::class;
         }
     }
 }

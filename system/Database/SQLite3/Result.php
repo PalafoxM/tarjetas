@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -26,17 +28,11 @@ use stdClass;
  */
 class Result extends BaseResult
 {
-    /**
-     * Gets the number of fields in the result set.
-     */
     public function getFieldCount(): int
     {
         return $this->resultID->numColumns();
     }
 
-    /**
-     * Generates an array of column names in the result set.
-     */
     public function getFieldNames(): array
     {
         $fieldNames = [];
@@ -48,9 +44,6 @@ class Result extends BaseResult
         return $fieldNames;
     }
 
-    /**
-     * Generates an array of objects representing field meta-data.
-     */
     public function getFieldData(): array
     {
         static $dataTypes = [
@@ -78,11 +71,6 @@ class Result extends BaseResult
         return $retVal;
     }
 
-    /**
-     * Frees the current result.
-     *
-     * @return void
-     */
     public function freeResult()
     {
         if (is_object($this->resultID)) {
@@ -92,12 +80,6 @@ class Result extends BaseResult
     }
 
     /**
-     * Moves the internal pointer to the desired offset. This is called
-     * internally before fetching results to make sure the result set
-     * starts at zero.
-     *
-     * @return bool
-     *
      * @throws DatabaseException
      */
     public function dataSeek(int $n = 0)
@@ -110,25 +92,14 @@ class Result extends BaseResult
     }
 
     /**
-     * Returns the result set as an array.
-     *
-     * Overridden by driver classes.
-     *
-     * @return array|false
+     * @return array<string, mixed>|false
      */
     protected function fetchAssoc()
     {
         return $this->resultID->fetchArray(SQLITE3_ASSOC);
     }
 
-    /**
-     * Returns the result set as an object.
-     *
-     * Overridden by child classes.
-     *
-     * @return Entity|false|object|stdClass
-     */
-    protected function fetchObject(string $className = 'stdClass')
+    protected function fetchObject(string $className = stdClass::class)
     {
         // No native support for fetching rows as objects
         if (($row = $this->fetchAssoc()) === false) {
@@ -145,7 +116,7 @@ class Result extends BaseResult
             return $classObj->injectRawData($row);
         }
 
-        $classSet = Closure::bind(function ($key, $value) {
+        $classSet = Closure::bind(function ($key, $value): void {
             $this->{$key} = $value;
         }, $classObj, $className);
 

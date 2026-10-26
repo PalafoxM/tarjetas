@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -44,7 +46,7 @@ class Typography
     /**
      * array of block level elements that require inner content to be within another block level element
      *
-     * @var array
+     * @var list<string>
      */
     public $innerBlockRequired = ['blockquote'];
 
@@ -82,7 +84,7 @@ class Typography
         }
 
         // Standardize Newlines to make matching easier
-        if (strpos($str, "\r") !== false) {
+        if (str_contains($str, "\r")) {
             $str = str_replace(["\r\n", "\r"], "\n", $str);
         }
 
@@ -94,7 +96,7 @@ class Typography
 
         // HTML comment tags don't conform to patterns of normal tags, so pull them out separately, only if needed
         $htmlComments = [];
-        if (strpos($str, '<!--') !== false && preg_match_all('#(<!\-\-.*?\-\->)#s', $str, $matches)) {
+        if (str_contains($str, '<!--') && preg_match_all('#(<!\-\-.*?\-\->)#s', $str, $matches) >= 1) {
             for ($i = 0, $total = count($matches[0]); $i < $total; $i++) {
                 $htmlComments[] = $matches[0][$i];
                 $str            = str_replace($matches[0][$i], '{@HC' . $i . '}', $str);
@@ -103,16 +105,16 @@ class Typography
 
         // match and yank <pre> tags if they exist.  It's cheaper to do this separately since most content will
         // not contain <pre> tags, and it keeps the PCRE patterns below simpler and faster
-        if (strpos($str, '<pre') !== false) {
-            $str = preg_replace_callback('#<pre.*?>.*?</pre>#si', [$this, 'protectCharacters'], $str);
+        if (str_contains($str, '<pre')) {
+            $str = preg_replace_callback('#<pre.*?>.*?</pre>#si', $this->protectCharacters(...), $str);
         }
 
         // Convert quotes within tags to temporary markers.
-        $str = preg_replace_callback('#<.+?>#si', [$this, 'protectCharacters'], $str);
+        $str = preg_replace_callback('#<.+?>#si', $this->protectCharacters(...), $str);
 
         // Do the same with braces if necessary
         if ($this->protectBracedQuotes === false) {
-            $str = preg_replace_callback('#\{.+?\}#si', [$this, 'protectCharacters'], $str);
+            $str = preg_replace_callback('#\{.+?\}#si', $this->protectCharacters(...), $str);
         }
 
         // Convert "ignore" tags to temporary marker.  The parser splits out the string at every tag
@@ -169,7 +171,7 @@ class Typography
         }
 
         // No opening block level tag? Add it if needed.
-        if (! preg_match('/^\s*<(?:' . $this->blockElements . ')/i', $str)) {
+        if (preg_match('/^\s*<(?:' . $this->blockElements . ')/i', $str) !== 1) {
             $str = preg_replace('/^(.*?)<(' . $this->blockElements . ')/i', '<p>$1</p><$2', $str);
         }
 
@@ -212,7 +214,7 @@ class Typography
         ];
 
         // Do we need to reduce empty lines?
-        if ($reduceLinebreaks === true) {
+        if ($reduceLinebreaks) {
             $table['#<p>\n*</p>#'] = '';
         } else {
             // If we have empty paragraph tags we add a non-breaking space
@@ -234,44 +236,42 @@ class Typography
     {
         static $table;
 
-        if (! isset($table)) {
-            $table = [
-                // nested smart quotes, opening and closing
-                // note that rules for grammar (English) allow only for two levels deep
-                // and that single quotes are _supposed_ to always be on the outside
-                // but we'll accommodate both
-                // Note that in all cases, whitespace is the primary determining factor
-                // on which direction to curl, with non-word characters like punctuation
-                // being a secondary factor only after whitespace is addressed.
-                '/\'"(\s|$)/'     => '&#8217;&#8221;$1',
-                '/(^|\s|<p>)\'"/' => '$1&#8216;&#8220;',
-                '/\'"(\W)/'       => '&#8217;&#8221;$1',
-                '/(\W)\'"/'       => '$1&#8216;&#8220;',
-                '/"\'(\s|$)/'     => '&#8221;&#8217;$1',
-                '/(^|\s|<p>)"\'/' => '$1&#8220;&#8216;',
-                '/"\'(\W)/'       => '&#8221;&#8217;$1',
-                '/(\W)"\'/'       => '$1&#8220;&#8216;',
-                // single quote smart quotes
-                '/\'(\s|$)/'     => '&#8217;$1',
-                '/(^|\s|<p>)\'/' => '$1&#8216;',
-                '/\'(\W)/'       => '&#8217;$1',
-                '/(\W)\'/'       => '$1&#8216;',
-                // double quote smart quotes
-                '/"(\s|$)/'     => '&#8221;$1',
-                '/(^|\s|<p>)"/' => '$1&#8220;',
-                '/"(\W)/'       => '&#8221;$1',
-                '/(\W)"/'       => '$1&#8220;',
-                // apostrophes
-                '/(\w)\'(\w)/' => '$1&#8217;$2',
-                // Em dash and ellipses dots
-                '/\s?\-\-\s?/' => '&#8212;',
-                '/(\w)\.{3}/'  => '$1&#8230;',
-                // double space after sentences
-                '/(\W)  /' => '$1&nbsp; ',
-                // ampersands, if not a character entity
-                '/&(?!#?[a-zA-Z0-9]{2,};)/' => '&amp;',
-            ];
-        }
+        $table ??= [
+            // nested smart quotes, opening and closing
+            // note that rules for grammar (English) allow only for two levels deep
+            // and that single quotes are _supposed_ to always be on the outside
+            // but we'll accommodate both
+            // Note that in all cases, whitespace is the primary determining factor
+            // on which direction to curl, with non-word characters like punctuation
+            // being a secondary factor only after whitespace is addressed.
+            '/\'"(\s|$)/'     => '&#8217;&#8221;$1',
+            '/(^|\s|<p>)\'"/' => '$1&#8216;&#8220;',
+            '/\'"(\W)/'       => '&#8217;&#8221;$1',
+            '/(\W)\'"/'       => '$1&#8216;&#8220;',
+            '/"\'(\s|$)/'     => '&#8221;&#8217;$1',
+            '/(^|\s|<p>)"\'/' => '$1&#8220;&#8216;',
+            '/"\'(\W)/'       => '&#8221;&#8217;$1',
+            '/(\W)"\'/'       => '$1&#8220;&#8216;',
+            // single quote smart quotes
+            '/\'(\s|$)/'     => '&#8217;$1',
+            '/(^|\s|<p>)\'/' => '$1&#8216;',
+            '/\'(\W)/'       => '&#8217;$1',
+            '/(\W)\'/'       => '$1&#8216;',
+            // double quote smart quotes
+            '/"(\s|$)/'     => '&#8221;$1',
+            '/(^|\s|<p>)"/' => '$1&#8220;',
+            '/"(\W)/'       => '&#8221;$1',
+            '/(\W)"/'       => '$1&#8220;',
+            // apostrophes
+            '/(\w)\'(\w)/' => '$1&#8217;$2',
+            // Em dash and ellipses dots
+            '/\s?\-\-\s?/' => '&#8212;',
+            '/(\w)\.{3}/'  => '$1&#8230;',
+            // double space after sentences
+            '/(\W)  /' => '$1&nbsp; ',
+            // ampersands, if not a character entity
+            '/&(?!#?[a-zA-Z0-9]{2,};)/' => '&amp;',
+        ];
 
         return preg_replace(array_keys($table), $table, $str);
     }
@@ -283,7 +283,7 @@ class Typography
      */
     protected function formatNewLines(string $str): string
     {
-        if ($str === '' || (strpos($str, "\n") === false && ! in_array($this->lastBlockElement, $this->innerBlockRequired, true))) {
+        if ($str === '' || (! str_contains($str, "\n") && ! in_array($this->lastBlockElement, $this->innerBlockRequired, true))) {
             return $str;
         }
 
@@ -314,6 +314,8 @@ class Typography
      * We don't want quotes converted within tags so we'll temporarily convert them to {@DQ} and {@SQ}
      * and we don't want double dashes converted to emdash entities, so they are marked with {@DD}
      * likewise double spaces are converted to {@NBS} to prevent entity conversion
+     *
+     * @param array<int|string, string> $match
      */
     protected function protectCharacters(array $match): string
     {
@@ -329,7 +331,7 @@ class Typography
         $docTypes = new DocTypes();
 
         for ($ex = explode('pre>', $str), $ct = count($ex), $i = 0; $i < $ct; $i++) {
-            $xhtml = ! ($docTypes->html5 ?? false);
+            $xhtml = ! $docTypes->html5;
             $newstr .= (($i % 2) === 0) ? nl2br($ex[$i], $xhtml) : $ex[$i];
 
             if ($ct - 1 !== $i) {

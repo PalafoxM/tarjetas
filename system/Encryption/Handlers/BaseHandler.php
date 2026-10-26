@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -53,7 +55,7 @@ abstract class BaseHandler implements EncrypterInterface
      *
      * @param string $key Property name
      *
-     * @return array|bool|int|string|null
+     * @return array<array-key, mixed>|bool|int|string|null
      */
     public function __get($key)
     {

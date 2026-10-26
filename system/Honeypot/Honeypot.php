@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -40,15 +42,9 @@ class Honeypot
     {
         $this->config = $config;
 
-        if (! $this->config->hidden) {
-            throw HoneypotException::forNoHiddenValue();
-        }
-
-        if (empty($this->config->container) || strpos($this->config->container, '{template}') === false) {
+        if ($this->config->container === '' || ! str_contains($this->config->container, '{template}')) {
             $this->config->container = '<div style="display:none">{template}</div>';
         }
-
-        $this->config->containerId ??= 'hpc';
 
         if ($this->config->template === '') {
             throw HoneypotException::forNoTemplate();
@@ -68,7 +64,7 @@ class Honeypot
     {
         assert($request instanceof IncomingRequest);
 
-        return ! empty($request->getPost($this->config->name));
+        return ! in_array($request->getPost($this->config->name), [null, false, 0, 0.0, '', '0', []], true);
     }
 
     /**
@@ -78,12 +74,16 @@ class Honeypot
      */
     public function attachHoneypot(ResponseInterface $response)
     {
+        if ($response->getBody() === null) {
+            return;
+        }
+
         if ($response->getCSP()->enabled()) {
             // Add id attribute to the container tag.
             $this->config->container = str_ireplace(
                 '>{template}',
                 ' id="' . $this->config->containerId . '">{template}',
-                $this->config->container
+                $this->config->container,
             );
         }
 
@@ -111,7 +111,7 @@ class Honeypot
         $template = str_ireplace('{name}', $this->config->name, $template);
 
         if ($this->config->hidden) {
-            $template = str_ireplace('{template}', $template, $this->config->container);
+            return str_ireplace('{template}', $template, $this->config->container);
         }
 
         return $template;

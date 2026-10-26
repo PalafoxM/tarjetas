@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -15,6 +17,8 @@ use CodeIgniter\Database\Forge as BaseForge;
 
 /**
  * Forge for Postgre
+ *
+ * @extends BaseForge<Connection>
  */
 class Forge extends BaseForge
 {
@@ -27,8 +31,6 @@ class Forge extends BaseForge
 
     /**
      * DROP CONSTRAINT statement
-     *
-     * @var string
      */
     protected $dropConstraintStr = 'ALTER TABLE %s DROP CONSTRAINT %s';
 
@@ -42,7 +44,7 @@ class Forge extends BaseForge
     /**
      * UNSIGNED support
      *
-     * @var array
+     * @var array<string, string>
      */
     protected $_unsigned = [
         'INT2'     => 'INTEGER',
@@ -66,65 +68,55 @@ class Forge extends BaseForge
     protected $null = 'NULL';
 
     /**
-     * @var Connection
-     */
-    protected $db;
-
-    /**
      * CREATE TABLE attributes
      *
-     * @param array $attributes Associative array of table attributes
+     * @param array<string, mixed> $attributes Associative array of table attributes
      */
     protected function _createTableAttributes(array $attributes): string
     {
         return '';
     }
 
-    /**
-     * @param array|string $field
-     *
-     * @return array|bool|string
-     */
-    protected function _alterTable(string $alterType, string $table, $field)
+    protected function _alterTable(string $alterType, string $table, $processedFields)
     {
         if (in_array($alterType, ['DROP', 'ADD'], true)) {
-            return parent::_alterTable($alterType, $table, $field);
+            return parent::_alterTable($alterType, $table, $processedFields);
         }
 
         $sql  = 'ALTER TABLE ' . $this->db->escapeIdentifiers($table);
         $sqls = [];
 
-        foreach ($field as $data) {
-            if ($data['_literal'] !== false) {
+        foreach ($processedFields as $field) {
+            if ($field['_literal'] !== false) {
                 return false;
             }
 
-            if (version_compare($this->db->getVersion(), '8', '>=') && isset($data['type'])) {
-                $sqls[] = $sql . ' ALTER COLUMN ' . $this->db->escapeIdentifiers($data['name'])
-                    . " TYPE {$data['type']}{$data['length']}";
+            if (version_compare($this->db->getVersion(), '8', '>=') && isset($field['type'])) {
+                $sqls[] = $sql . ' ALTER COLUMN ' . $this->db->escapeIdentifiers($field['name'])
+                    . " TYPE {$field['type']}{$field['length']}";
             }
 
-            if (! empty($data['default'])) {
-                $sqls[] = $sql . ' ALTER COLUMN ' . $this->db->escapeIdentifiers($data['name'])
-                    . " SET DEFAULT {$data['default']}";
+            if (($field['default'] ?? '') !== '') {
+                $sqls[] = $sql . ' ALTER COLUMN ' . $this->db->escapeIdentifiers($field['name'])
+                    . " SET {$field['default']}";
             }
 
             $nullable = true; // Nullable by default.
-            if (isset($data['null']) && ($data['null'] === false || $data['null'] === ' NOT ' . $this->null)) {
+            if (isset($field['null']) && ($field['null'] === false || $field['null'] === ' NOT ' . $this->null)) {
                 $nullable = false;
             }
-            $sqls[] = $sql . ' ALTER COLUMN ' . $this->db->escapeIdentifiers($data['name'])
-                . ($nullable === true ? ' DROP' : ' SET') . ' NOT NULL';
+            $sqls[] = $sql . ' ALTER COLUMN ' . $this->db->escapeIdentifiers($field['name'])
+                . ($nullable ? ' DROP' : ' SET') . ' NOT NULL';
 
-            if (! empty($data['new_name'])) {
-                $sqls[] = $sql . ' RENAME COLUMN ' . $this->db->escapeIdentifiers($data['name'])
-                    . ' TO ' . $this->db->escapeIdentifiers($data['new_name']);
+            if (($field['new_name'] ?? '') !== '') {
+                $sqls[] = $sql . ' RENAME COLUMN ' . $this->db->escapeIdentifiers($field['name'])
+                    . ' TO ' . $this->db->escapeIdentifiers($field['new_name']);
             }
 
-            if (! empty($data['comment'])) {
+            if (($field['comment'] ?? '') !== '') {
                 $sqls[] = 'COMMENT ON COLUMN' . $this->db->escapeIdentifiers($table)
-                    . '.' . $this->db->escapeIdentifiers($data['name'])
-                    . " IS {$data['comment']}";
+                    . '.' . $this->db->escapeIdentifiers($field['name'])
+                    . " IS {$field['comment']}";
             }
         }
 
@@ -134,14 +126,14 @@ class Forge extends BaseForge
     /**
      * Process column
      */
-    protected function _processColumn(array $field): string
+    protected function _processColumn(array $processedField): string
     {
-        return $this->db->escapeIdentifiers($field['name'])
-            . ' ' . $field['type'] . ($field['type'] === 'text' ? '' : $field['length'])
-            . $field['default']
-            . $field['null']
-            . $field['auto_increment']
-            . $field['unique'];
+        return $this->db->escapeIdentifiers($processedField['name'])
+            . ' ' . $processedField['type'] . ($processedField['type'] === 'text' ? '' : $processedField['length'])
+            . $processedField['default']
+            . $processedField['null']
+            . $processedField['auto_increment']
+            . $processedField['unique'];
     }
 
     /**
@@ -150,7 +142,7 @@ class Forge extends BaseForge
     protected function _attributeType(array &$attributes)
     {
         // Reset field lengths for data types that don't support it
-        if (isset($attributes['CONSTRAINT']) && stripos($attributes['TYPE'], 'int') !== false) {
+        if (isset($attributes['CONSTRAINT']) && str_contains(strtolower($attributes['TYPE']), 'int')) {
             $attributes['CONSTRAINT'] = null;
         }
 
@@ -169,6 +161,10 @@ class Forge extends BaseForge
                 $attributes['TYPE'] = 'TIMESTAMP';
                 break;
 
+            case 'BLOB':
+                $attributes['TYPE'] = 'BYTEA';
+                break;
+
             default:
                 break;
         }
@@ -179,7 +175,7 @@ class Forge extends BaseForge
      */
     protected function _attributeAutoIncrement(array &$attributes, array &$field)
     {
-        if (! empty($attributes['AUTO_INCREMENT']) && $attributes['AUTO_INCREMENT'] === true) {
+        if (($attributes['AUTO_INCREMENT'] ?? false) === true) {
             $field['type'] = $field['type'] === 'NUMERIC' || $field['type'] === 'BIGINT' ? 'BIGSERIAL' : 'SERIAL';
         }
     }
@@ -191,7 +187,7 @@ class Forge extends BaseForge
     {
         $sql = parent::_dropTable($table, $ifExists, $cascade);
 
-        if ($cascade === true) {
+        if ($cascade) {
             $sql .= ' CASCADE';
         }
 

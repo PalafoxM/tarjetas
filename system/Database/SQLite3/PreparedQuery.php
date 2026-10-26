@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -11,9 +13,10 @@
 
 namespace CodeIgniter\Database\SQLite3;
 
-use BadMethodCallException;
 use CodeIgniter\Database\BasePreparedQuery;
 use CodeIgniter\Database\Exceptions\DatabaseException;
+use CodeIgniter\Exceptions\BadMethodCallException;
+use Exception;
 use SQLite3;
 use SQLite3Result;
 use SQLite3Stmt;
@@ -21,7 +24,7 @@ use SQLite3Stmt;
 /**
  * Prepared query for SQLite3
  *
- * @extends BasePreparedQuery<SQLite3, SQLite3Stmt, SQLite3Result>
+ * @extends BasePreparedQuery<SQLite3, SQLite3Stmt, SQLite3Result, Connection>
  */
 class PreparedQuery extends BasePreparedQuery
 {
@@ -32,16 +35,6 @@ class PreparedQuery extends BasePreparedQuery
      */
     protected $result;
 
-    /**
-     * Prepares the query against the database, and saves the connection
-     * info necessary to execute the query later.
-     *
-     * NOTE: This version is based on SQL code. Child classes should
-     * override this method.
-     *
-     * @param array $options Passed to the connection's prepare statement.
-     *                       Unused in the MySQLi driver.
-     */
     public function _prepare(string $sql, array $options = []): PreparedQuery
     {
         if (! ($this->statement = $this->db->connID->prepare($sql))) {
@@ -56,10 +49,6 @@ class PreparedQuery extends BasePreparedQuery
         return $this;
     }
 
-    /**
-     * Takes a new set of data and runs it against the currently
-     * prepared query. Upon success, will return a Results object.
-     */
     public function _execute(array $data): bool
     {
         if (! isset($this->statement)) {
@@ -72,6 +61,8 @@ class PreparedQuery extends BasePreparedQuery
                 $bindType = SQLITE3_INTEGER;
             } elseif (is_float($item)) {
                 $bindType = SQLITE3_FLOAT;
+            } elseif (is_string($item) && $this->isBinary($item)) {
+                $bindType = SQLITE3_BLOB;
             } else {
                 $bindType = SQLITE3_TEXT;
             }
@@ -80,14 +71,20 @@ class PreparedQuery extends BasePreparedQuery
             $this->statement->bindValue($key + 1, $item, $bindType);
         }
 
-        $this->result = $this->statement->execute();
+        try {
+            $this->result = $this->statement->execute();
+        } catch (Exception $e) {
+            if ($this->db->DBDebug) {
+                throw new DatabaseException($e->getMessage(), $e->getCode(), $e);
+            }
+
+            return false;
+        }
 
         return $this->result !== false;
     }
 
     /**
-     * Returns the result object for the prepared query or false on failure.
-     *
      * @return false|SQLite3Result
      */
     public function _getResult()
@@ -95,9 +92,6 @@ class PreparedQuery extends BasePreparedQuery
         return $this->result;
     }
 
-    /**
-     * Deallocate prepared statements.
-     */
     protected function _close(): bool
     {
         return $this->statement->close();

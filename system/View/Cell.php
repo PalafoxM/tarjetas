@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -15,7 +17,6 @@ use CodeIgniter\Cache\CacheInterface;
 use CodeIgniter\Config\Factories;
 use CodeIgniter\View\Cells\Cell as BaseCell;
 use CodeIgniter\View\Exceptions\ViewException;
-use Config\Services;
 use ReflectionException;
 use ReflectionMethod;
 
@@ -66,10 +67,10 @@ class Cell
     /**
      * Render a cell, returning its body as a string.
      *
-     * @param string            $library   Cell class and method name.
-     * @param array|string|null $params    Parameters to pass to the method.
-     * @param int               $ttl       Number of seconds to cache the cell.
-     * @param string|null       $cacheName Cache item name.
+     * @param string                              $library   Cell class and method name.
+     * @param array<array-key, mixed>|string|null $params    Parameters to pass to the method.
+     * @param int                                 $ttl       Number of seconds to cache the cell.
+     * @param string|null                         $cacheName Cache item name.
      *
      * @throws ReflectionException
      */
@@ -77,23 +78,21 @@ class Cell
     {
         [$instance, $method] = $this->determineClass($library);
 
-        $class = is_object($instance)
-            ? get_class($instance)
-            : null;
+        $class = $instance::class;
 
         $params = $this->prepareParams($params);
 
         // Is the output cached?
-        $cacheName = ! empty($cacheName)
-            ? $cacheName
-            : str_replace(['\\', '/'], '', $class) . $method . md5(serialize($params));
+        $cacheName ??= str_replace(['\\', '/'], '', $class) . $method . md5(serialize($params));
 
-        if (! empty($this->cache) && $output = $this->cache->get($cacheName)) {
+        $output = $this->cache->get($cacheName);
+
+        if (is_string($output) && $output !== '') {
             return $output;
         }
 
         if (method_exists($instance, 'initController')) {
-            $instance->initController(Services::request(), Services::response(), Services::logger());
+            $instance->initController(service('request'), service('response'), service('logger'));
         }
 
         if (! method_exists($instance, $method)) {
@@ -105,7 +104,7 @@ class Cell
             : $this->renderSimpleClass($instance, $method, $params, $class);
 
         // Can we cache it?
-        if (! empty($this->cache) && $ttl !== 0) {
+        if ($ttl !== 0) {
             $this->cache->save($cacheName, $output, $ttl);
         }
 
@@ -117,13 +116,16 @@ class Cell
      * If a string, it should be in the format "key1=value key2=value".
      * It will be split and returned as an array.
      *
-     * @param array|string|null $params
+     * @param array<array-key, mixed>|float|string|null $params
      *
-     * @return array|null
+     * @return array<array-key, mixed>
      */
     public function prepareParams($params)
     {
-        if (empty($params) || (! is_string($params) && ! is_array($params))) {
+        if (
+            in_array($params, [null, '', []], true)
+            || (! is_string($params) && ! is_array($params))
+        ) {
             return [];
         }
 
@@ -131,7 +133,7 @@ class Cell
             $newParams = [];
             $separator = ' ';
 
-            if (strpos($params, ',') !== false) {
+            if (str_contains($params, ',')) {
                 $separator = ',';
             }
 
@@ -139,7 +141,7 @@ class Cell
             unset($separator);
 
             foreach ($params as $p) {
-                if (! empty($p)) {
+                if ($p !== '') {
                     [$key, $val] = explode('=', $p);
 
                     $newParams[trim($key)] = trim($val, ', ');
@@ -150,16 +152,14 @@ class Cell
             unset($newParams);
         }
 
-        if ($params === []) {
-            return [];
-        }
-
         return $params;
     }
 
     /**
      * Given the library string, attempts to determine the class and method
      * to call.
+     *
+     * @return array{object, string}
      */
     protected function determineClass(string $library): array
     {
@@ -169,25 +169,24 @@ class Cell
 
         // controlled cells might be called with just
         // the class name, so add a default method
-        if (strpos($library, ':') === false) {
+        if (! str_contains($library, ':')) {
             $library .= ':render';
         }
 
         [$class, $method] = explode(':', $library);
 
-        if (empty($class)) {
+        if ($class === '') {
             throw ViewException::forNoCellClass();
         }
 
         // locate and return an instance of the cell
-        // @TODO extend Factories to be able to load classes with the same short name.
-        $object = class_exists($class) ? new $class() : Factories::cells($class);
+        $object = Factories::cells($class, ['getShared' => false]);
 
         if (! is_object($object)) {
             throw ViewException::forInvalidCellClass($class);
         }
 
-        if (empty($method)) {
+        if ($method === '') {
             $method = 'index';
         }
 
@@ -199,6 +198,8 @@ class Cell
 
     /**
      * Renders a cell that extends the BaseCell class.
+     *
+     * @param array<array-key, mixed> $params
      */
     final protected function renderCell(BaseCell $instance, string $method, array $params): string
     {
@@ -209,7 +210,7 @@ class Cell
         $publicParams      = array_intersect_key($params, $publicProperties);
 
         foreach ($params as $key => $value) {
-            $getter = 'get' . ucfirst($key) . 'Property';
+            $getter = 'get' . ucfirst((string) $key) . 'Property';
             if (in_array($key, $privateProperties, true) && method_exists($instance, $getter)) {
                 $publicParams[$key] = $value;
             }
@@ -235,6 +236,10 @@ class Cell
      * Returns the values from $params that match the parameters
      * for a method, in the order they are defined. This allows
      * them to be passed directly into the method.
+     *
+     * @param array<array-key, mixed> $params
+     *
+     * @return list<mixed>
      */
     private function getMethodParams(BaseCell $instance, string $method, array $params): array
     {
@@ -251,7 +256,7 @@ class Cell
                     $mountParams[] = $params[$paramName];
                 }
             }
-        } catch (ReflectionException $e) {
+        } catch (ReflectionException) {
             // do nothing
         }
 
@@ -263,9 +268,9 @@ class Cell
      *
      * @todo Determine if this can be refactored to use $this-getMethodParams().
      *
-     * @param object $instance
+     * @param array<array-key, mixed> $params
      */
-    final protected function renderSimpleClass($instance, string $method, array $params, string $class): string
+    final protected function renderSimpleClass(object $instance, string $method, array $params, string $class): string
     {
         // Try to match up the parameter list we were provided
         // with the parameter name in the callback method.
@@ -274,7 +279,7 @@ class Cell
         $refParams  = $refMethod->getParameters();
 
         if ($paramCount === 0) {
-            if (! empty($params)) {
+            if ($params !== []) {
                 throw ViewException::forMissingCellParameters($class, $method);
             }
 

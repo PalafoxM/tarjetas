@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -12,12 +14,10 @@
 namespace CodeIgniter\Database;
 
 use CodeIgniter\Config\BaseConfig;
+use CodeIgniter\Exceptions\InvalidArgumentException;
 use Config\Database as DbConfig;
-use InvalidArgumentException;
 
 /**
- * Class Config
- *
  * @see \CodeIgniter\Database\ConfigTest
  */
 class Config extends BaseConfig
@@ -26,7 +26,7 @@ class Config extends BaseConfig
      * Cache for instance of any connections that
      * have been requested as a "shared" instance.
      *
-     * @var array
+     * @var array<string, BaseConnection>
      */
     protected static $instances = [];
 
@@ -41,10 +41,9 @@ class Config extends BaseConfig
     /**
      * Returns the database connection
      *
-     * @param array|BaseConnection|string|null $group The name of the connection group to use,
-     *                                                or an array of configuration settings.
-     * @phpstan-param array|BaseConnection|non-empty-string|null $group
-     * @param bool $getShared Whether to return a shared instance of the connection.
+     * @param array<string, mixed>|BaseConnection|non-empty-string|null $group     The name of the connection group to use,
+     *                                                                             or an array of configuration settings.
+     * @param bool                                                      $getShared Whether to return a shared instance of the connection.
      *
      * @return BaseConnection
      */
@@ -61,14 +60,12 @@ class Config extends BaseConfig
         } else {
             $dbConfig = config(DbConfig::class);
 
-            if ($group === null) {
-                $group = (ENVIRONMENT === 'testing') ? 'tests' : $dbConfig->defaultGroup;
-            }
+            $group ??= (ENVIRONMENT === 'testing') ? 'tests' : $dbConfig->defaultGroup;
 
             assert(is_string($group));
 
             if (! isset($dbConfig->{$group})) {
-                throw new InvalidArgumentException($group . ' is not a valid database connection group.');
+                throw new InvalidArgumentException('"' . $group . '" is not a valid database connection group.');
             }
 
             $config = $dbConfig->{$group};
@@ -82,13 +79,17 @@ class Config extends BaseConfig
 
         $connection = static::$factory->load($config, $group);
 
-        static::$instances[$group] = $connection;
+        if ($getShared) {
+            static::$instances[$group] = $connection;
+        }
 
         return $connection;
     }
 
     /**
      * Returns an array of all db connections currently made.
+     *
+     * @return array<string, BaseConnection>
      */
     public static function getConnections(): array
     {
@@ -99,7 +100,7 @@ class Config extends BaseConfig
      * Loads and returns an instance of the Forge for the specified
      * database group, and loads the group if it hasn't been loaded yet.
      *
-     * @param array|ConnectionInterface|string|null $group
+     * @param array<string, mixed>|ConnectionInterface|string|null $group
      *
      * @return Forge
      */
@@ -113,7 +114,7 @@ class Config extends BaseConfig
     /**
      * Returns a new instance of the Database Utilities class.
      *
-     * @param array|string|null $group
+     * @param array<string, mixed>|string|null $group
      *
      * @return BaseUtils
      */
@@ -127,7 +128,7 @@ class Config extends BaseConfig
     /**
      * Returns a new instance of the Database Seeder.
      *
-     * @phpstan-param null|non-empty-string $group
+     * @param non-empty-string|null $group
      *
      * @return Seeder
      */
@@ -140,6 +141,8 @@ class Config extends BaseConfig
 
     /**
      * Ensures the database Connection Manager/Factory is loaded and ready to use.
+     *
+     * @return void
      */
     protected static function ensureFactory()
     {
@@ -148,5 +151,44 @@ class Config extends BaseConfig
         }
 
         static::$factory = new Database();
+    }
+
+    /**
+     * Reconnect database connections for worker mode at the start of a request.
+     *
+     * This should be called at the beginning of each request in worker mode,
+     * before the application runs.
+     */
+    public static function reconnectForWorkerMode(): void
+    {
+        foreach (static::$instances as $connection) {
+            $connection->reconnect();
+        }
+    }
+
+    /**
+     * Cleanup database connections for worker mode.
+     *
+     * Rolls back any uncommitted transactions and resets transaction status
+     * to ensure a clean state for the next request.
+     *
+     * Uncommitted transactions at this point indicate a bug in the
+     * application code (transactions should be completed before request ends).
+     *
+     * Called at the END of each request to clean up state.
+     */
+    public static function cleanupForWorkerMode(): void
+    {
+        foreach (static::$instances as $group => $connection) {
+            if ($connection->transDepth > 0) {
+                log_message('error', "Uncommitted transaction detected in database group '{$group}'. Transactions must be completed before request ends.");
+
+                while ($connection->transDepth > 0) {
+                    $connection->transRollback();
+                }
+            }
+
+            $connection->resetTransStatus();
+        }
     }
 }

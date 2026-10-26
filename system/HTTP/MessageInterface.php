@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -62,7 +64,7 @@ interface MessageInterface
     /**
      * Returns an array containing all Headers.
      *
-     * @return array<string, Header> An array of the Header objects
+     * @return array<string, Header|list<Header>> An array of the Header objects
      */
     public function headers(): array;
 
@@ -83,7 +85,7 @@ interface MessageInterface
      *
      * @param string $name
      *
-     * @return array|Header|null
+     * @return Header|list<Header>|null
      */
     public function header($name);
 
@@ -101,9 +103,9 @@ interface MessageInterface
     public function getHeaderLine(string $name): string;
 
     /**
-     * Sets a header and it's value.
+     * Sets a header and its value.
      *
-     * @param array|string|null $value
+     * @param array<array-key, string>|string|null $value
      *
      * @return $this
      */

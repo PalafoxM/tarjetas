@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -16,7 +18,6 @@ use CodeIgniter\Cookie\CookieStore;
 use CodeIgniter\HTTP\Exceptions\HTTPException;
 use Config\App;
 use Config\Cookie as CookieConfig;
-use Config\Services;
 
 /**
  * Representation of an outgoing, server-side response.
@@ -38,7 +39,7 @@ class Response extends Message implements ResponseInterface
     /**
      * HTTP status codes
      *
-     * @var array
+     * @var array<int, string>
      */
     protected static $statusCodes = [
         // 1xx: Informational
@@ -146,17 +147,17 @@ class Response extends Message implements ResponseInterface
      * @param App $config
      *
      * @todo Recommend removing reliance on config injection
+     *
+     * @deprecated 4.5.0 The param $config is no longer used.
      */
-    public function __construct($config)
+    public function __construct($config) // @phpstan-ignore-line
     {
         // Default to a non-caching page.
         // Also ensures that a Cache-control header exists.
         $this->noCache();
 
         // We need CSP object even if not enabled to avoid calls to non existing methods
-        $this->CSP = Services::csp();
-
-        $this->CSPEnabled = $config->CSPEnabled;
+        $this->CSP = service('csp');
 
         $this->cookieStore = new CookieStore([]);
 
@@ -176,6 +177,7 @@ class Response extends Message implements ResponseInterface
      *
      * @return $this
      *
+     * @internal For testing purposes only.
      * @testTag only available to test code
      */
     public function pretend(bool $pretend = true)
@@ -195,26 +197,11 @@ class Response extends Message implements ResponseInterface
      */
     public function getStatusCode(): int
     {
-        if (empty($this->statusCode)) {
+        if ($this->statusCode === 0) {
             throw HTTPException::forMissingResponseStatus();
         }
 
         return $this->statusCode;
-    }
-
-    /**
-     * Gets the response response phrase associated with the status code.
-     *
-     * @see http://tools.ietf.org/html/rfc7231#section-6
-     * @see http://www.iana.org/assignments/http-status-codes/http-status-codes.xhtml
-     *
-     * @deprecated Use getReasonPhrase()
-     *
-     * @codeCoverageIgnore
-     */
-    public function getReason(): string
-    {
-        return $this->getReasonPhrase();
     }
 
     /**
@@ -234,7 +221,7 @@ class Response extends Message implements ResponseInterface
     public function getReasonPhrase()
     {
         if ($this->reason === '') {
-            return ! empty($this->statusCode) ? static::$statusCodes[$this->statusCode] : '';
+            return $this->statusCode === 0 ? '' : static::$statusCodes[$this->statusCode];
         }
 
         return $this->reason;

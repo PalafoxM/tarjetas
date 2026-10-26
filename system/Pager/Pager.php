@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of CodeIgniter 4 framework.
  *
@@ -32,14 +34,23 @@ class Pager implements PagerInterface
     /**
      * The group data.
      *
-     * @var array
+     * @var array<string, array{
+     *   currentUri: URI,
+     *   uri: URI,
+     *   hasMore: bool,
+     *   total: int|null,
+     *   perPage: int,
+     *   pageCount: int,
+     *   pageSelector: string,
+     *   currentPage: int
+     * }>
      */
     protected $groups = [];
 
     /**
      * URI segment for groups if provided.
      *
-     * @var array
+     * @var array<string, int>
      */
     protected $segment = [];
 
@@ -60,9 +71,9 @@ class Pager implements PagerInterface
     /**
      * List of only permitted queries
      *
-     * @var array
+     * @var list<string>|null
      */
-    protected $only = [];
+    protected $only;
 
     /**
      * Constructor.
@@ -214,7 +225,9 @@ class Pager implements PagerInterface
     {
         $this->ensureGroup($group);
 
-        return $this->groups[$group]['currentPage'] ?: 1;
+        $currentPage = $this->groups[$group]['currentPage'];
+
+        return ($currentPage === 0) ? 1 : $currentPage;
     }
 
     /**
@@ -263,37 +276,35 @@ class Pager implements PagerInterface
     {
         $this->ensureGroup($group);
 
-        /**
-         * @var URI $uri
-         */
+        /** @var URI $uri */
         $uri = $this->groups[$group]['uri'];
 
         $segment = $this->segment[$group] ?? 0;
 
-        if ($segment) {
+        if ($segment !== 0) {
             $uri->setSegment($segment, $page);
         } else {
             $uri->addQuery($this->groups[$group]['pageSelector'], $page);
         }
 
-        if ($this->only) {
-            $query = array_intersect_key($_GET, array_flip($this->only));
+        if ($this->only !== null) {
+            $query = array_intersect_key(service('superglobals')->getGetArray(), array_flip($this->only));
 
-            if (! $segment) {
+            if ($segment === 0) {
                 $query[$this->groups[$group]['pageSelector']] = $page;
             }
 
             $uri->setQueryArray($query);
         }
 
-        return ($returnObject === true)
+        return $returnObject
             ? $uri
             : URI::createURIString(
                 $uri->getScheme(),
                 $uri->getAuthority(),
                 $uri->getPath(),
                 $uri->getQuery(),
-                $uri->getFragment()
+                $uri->getFragment(),
             );
     }
 
@@ -310,7 +321,7 @@ class Pager implements PagerInterface
         $curr = $this->getCurrentPage($group);
         $page = null;
 
-        if (! empty($last) && ! empty($curr) && $last === $curr) {
+        if (! in_array($last, [null, 0], true) && $curr !== 0 && $last === $curr) {
             return null;
         }
 
@@ -334,7 +345,7 @@ class Pager implements PagerInterface
         $curr  = $this->getCurrentPage($group);
         $page  = null;
 
-        if (! empty($first) && ! empty($curr) && $first === $curr) {
+        if ($first !== 0 && $curr !== 0 && $first === $curr) {
             return null;
         }
 
@@ -355,12 +366,6 @@ class Pager implements PagerInterface
         return (int) $this->groups[$group]['perPage'];
     }
 
-    /**
-     * Returns an array with details about the results, including
-     * total, per_page, current_page, last_page, next_url, prev_url, from, to.
-     * Does not include the actual data. This data is suitable for adding
-     * a 'data' object to with the result set and converting to JSON.
-     */
     public function getDetails(string $group = 'default'): array
     {
         if (! array_key_exists($group, $this->groups)) {
@@ -378,6 +383,8 @@ class Pager implements PagerInterface
 
     /**
      * Sets only allowed queries on pagination links.
+     *
+     * @param list<string> $queries
      */
     public function only(array $queries): self
     {
@@ -409,8 +416,9 @@ class Pager implements PagerInterface
 
         $this->calculateCurrentPage($group);
 
-        if ($_GET !== []) {
-            $this->groups[$group]['uri'] = $this->groups[$group]['uri']->setQueryArray($_GET);
+        $get = service('superglobals')->getGetArray();
+        if ($get !== []) {
+            $this->groups[$group]['uri'] = $this->groups[$group]['uri']->setQueryArray($get);
         }
     }
 
@@ -425,15 +433,15 @@ class Pager implements PagerInterface
             try {
                 $this->groups[$group]['currentPage'] = (int) $this->groups[$group]['currentUri']
                     ->setSilent(false)->getSegment($this->segment[$group]);
-            } catch (HTTPException $e) {
+            } catch (HTTPException) {
                 $this->groups[$group]['currentPage'] = 1;
             }
         } else {
             $pageSelector = $this->groups[$group]['pageSelector'];
 
-            $page = (int) ($_GET[$pageSelector] ?? 1);
+            $page = (int) (service('superglobals')->get($pageSelector, '1'));
 
-            $this->groups[$group]['currentPage'] = $page < 1 ? 1 : $page;
+            $this->groups[$group]['currentPage'] = max(1, $page);
         }
     }
 }
