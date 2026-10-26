@@ -6593,8 +6593,8 @@ public function getPagosPorEstablecimiento()
             ],
             'liberacion_pago_proveedor' => [
                 'disponible' => $puedeVerFormatos,
-                'label' => 'Liberacion pago proveedor',
-                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/pdfProveedorLiberacionPago/' . $idEstablecimiento) : '',
+                'label' => 'Archivos Juntos',
+                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/ArchivosJuntos/' . $idEstablecimiento) : '',
             ],
         ];
 
@@ -7126,10 +7126,16 @@ public function getPagosPorEstablecimiento()
         for ($pageNumber = $startPage; $pageNumber <= $pageCount; $pageNumber++) {
             $templateId = $mpdf->importPage($pageNumber);
             $size = $mpdf->getTemplateSize($templateId);
+            $width = (float) ($size['width'] ?? 0);
+            $height = (float) ($size['height'] ?? 0);
+            $orientation = $width > $height ? 'L' : 'P';
+            $sheetSize = $orientation === 'L'
+                ? [$height, $width]
+                : [$width, $height];
 
             $mpdf->AddPageByArray([
-                'orientation' => $size['orientation'] ?? 'P',
-                'sheet-size' => [$size['width'], $size['height']],
+                'orientation' => $orientation,
+                'sheet-size' => $sheetSize,
                 'margin-left' => 0,
                 'margin-right' => 0,
                 'margin-top' => 0,
@@ -8076,6 +8082,239 @@ public function getPagosPorEstablecimiento()
         $mpdf->Output('LiberacionPago_' . $id . '.pdf', 'I');
         exit;
       
+    }
+
+    public function ArchivosJuntos(int $idEstablecimiento = 0)
+    {
+        if ($idEstablecimiento <= 0) {
+            return $this->response->setStatusCode(400)->setBody('Establecimiento inválido.');
+        }
+
+        if (empty($this->resolveSecturiDashboardUsuario())) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para generar este documento.');
+        }
+
+        $idFactura = (int) ($this->request->getGet('id_factura') ?? 0);
+        $db = \Config\Database::connect();
+        $facturaBuilder = $db->table('facturas f')
+            ->select('f.id_factura, f.xml, f.pdf, f.id_estableciemiento, f.fec_reg')
+            ->where('f.id_estableciemiento', $idEstablecimiento)
+            ->where('f.visible', 1);
+
+        if ($idFactura > 0) {
+            $facturaBuilder->where('f.id_factura', $idFactura);
+        } else {
+            $facturaBuilder->orderBy('f.fec_reg', 'DESC')->orderBy('f.id_factura', 'DESC');
+        }
+
+        $factura = $facturaBuilder->limit(1)->get()->getRowArray();
+        if (empty($factura)) {
+            return $this->response->setStatusCode(404)->setBody('No se encontró una factura para el establecimiento.');
+        }
+
+        $idFactura = (int) $factura['id_factura'];
+        $establecimiento = $db->table('establecimiento')
+            ->where('id_establecimiento', $idEstablecimiento)
+            ->where('visible', 1)
+            ->get()
+            ->getRowArray();
+        if (empty($establecimiento)) {
+            return $this->response->setStatusCode(404)->setBody('Establecimiento no encontrado.');
+        }
+
+        $xmlInfo = $this->extractFacturaXmlInfo((string) ($factura['xml'] ?? ''));
+        if (($xmlInfo['folio'] ?? '') === '' && (float) ($xmlInfo['total'] ?? 0) <= 0) {
+            return $this->response->setStatusCode(422)->setBody('No fue posible obtener los datos del XML de la factura.');
+        }
+
+        $folioXml = trim((string) ($xmlInfo['folio'] ?? ''));
+        $folioXml = $folioXml !== '' ? $folioXml : 'FAC-' . $idFactura;
+        $montoXml = round((float) ($xmlInfo['total'] ?? 0), 2);
+        $fechaXml = trim((string) ($xmlInfo['fecha'] ?? ''));
+        $fechaXml = $fechaXml !== '' ? $fechaXml : (string) ($factura['fec_reg'] ?? date('Y-m-d H:i:s'));
+        $nombreProveedor = trim((string) ($xmlInfo['emisor_nombre'] ?? ''));
+        $nombreProveedor = $nombreProveedor !== ''
+            ? $nombreProveedor
+            : (string) ($establecimiento['razon_social'] ?? $establecimiento['dsc_establecimiento'] ?? 'Proveedor');
+        $rfcProveedor = trim((string) ($xmlInfo['emisor_rfc'] ?? ''));
+        $rfcProveedor = $rfcProveedor !== '' ? $rfcProveedor : (string) ($establecimiento['rfc'] ?? '');
+        $concepto = trim((string) ($xmlInfo['concepto'] ?? ''));
+        $concepto = $concepto !== '' ? $concepto : 'Servicios registrados en factura';
+        $esRestaurante = (int) ($establecimiento['id_tipo'] ?? 0) === 1;
+        $partida = $esRestaurante ? '2210' : '3390';
+        $prefijoFolio = $esRestaurante
+            ? 'PT SECTURI/SSIDT/DGCT/FIC/TA/'
+            : 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
+        $folioPt = $prefijoFolio . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT) . '/2026';
+
+        $registroPt = (object) [
+            'fecha_tramite' => $fechaXml,
+            'no_consecutivo' => $folioPt,
+            'no_proveedor' => (string) ($establecimiento['no_proveedor'] ?? ''),
+            'rfc_proveedor' => $rfcProveedor,
+            'nombre_proveedor_1' => $nombreProveedor,
+            'no_cuenta' => (string) ($establecimiento['no_cuenta'] ?? ''),
+            'banco' => (string) ($establecimiento['banco'] ?? ''),
+            'clabe' => (string) ($establecimiento['clabe'] ?? ''),
+            'no_convenio' => (string) ($establecimiento['no_contrato'] ?? 'NO APLICA'),
+            'no_reserva' => '',
+            'importe_total_num' => number_format($montoXml, 2, '.', ','),
+            'importe_letra' => $this->convertirImporteALetras($montoXml),
+            'concepto' => $concepto,
+        ];
+        $filaFactura = (object) [
+            'no_comprobante' => $folioXml,
+            'proyecto' => 'E027QC04182601',
+            'dsc_proyecto' => 'Festival Internacional Cervantino',
+            'partida' => $partida,
+            'dsc_partida' => $esRestaurante ? 'Productos alimenticios para personas' : 'Servicios integrales',
+            'importe' => number_format($montoXml, 2, '.', ','),
+            'nombre_proveedor_1' => $nombreProveedor,
+        ];
+
+        $dataPdf = [
+            'registroFactura' => (object) $factura,
+            'registro_pt' => $registroPt,
+            'periodo_factura_rows' => [$filaFactura],
+            'id_formateado' => str_pad((string) $idEstablecimiento, 3, '0', STR_PAD_LEFT),
+            'folio_xml' => $folioXml,
+            'folioXml' => $folioXml,
+            'monto_total' => $montoXml,
+            'montoXml' => $montoXml,
+            'importe_letra' => $registroPt->importe_letra,
+            'banco' => (string) ($establecimiento['banco'] ?? ''),
+            'razon_social' => $nombreProveedor,
+            'clabe' => (string) ($establecimiento['clabe'] ?? ''),
+            'rfc' => $rfcProveedor,
+            'no_contrato' => (string) ($establecimiento['no_contrato'] ?? 'NO APLICA'),
+            'no_proveedor' => (string) ($establecimiento['no_proveedor'] ?? ''),
+            'folio' => $folioPt,
+            'partida' => $partida,
+            'dsc_partida' => $filaFactura->dsc_partida,
+            'logo' => FCPATH . 'assets/logo-guanajuato.png',
+            'norma' => FCPATH . 'assets/Norma.png',
+            'facturaXmlContext' => [
+                'id_factura' => $idFactura,
+                'id_establecimiento' => $idEstablecimiento,
+                'folio_formato' => $folioXml,
+                'fecha_emision' => $fechaXml,
+                'monto_total' => $montoXml,
+                'xml' => (string) ($factura['xml'] ?? ''),
+                'pdf' => (string) ($factura['pdf'] ?? ''),
+                'proveedor' => [
+                    'nombre' => $nombreProveedor,
+                    'rfc' => $rfcProveedor,
+                    'no_proveedor' => (string) ($establecimiento['no_proveedor'] ?? ''),
+                ],
+                'establecimiento' => $establecimiento,
+                'xml_info' => $xmlInfo,
+            ],
+        ];
+
+        $pagos = $db->table('pagos p')
+            ->select("\n                p.id_pago,\n                p.id_solicitud_pago,\n                p.id_usuario,\n                p.monto,\n                p.propina,\n                p.total,\n                p.fec_reg,\n                sp.folio_solicitud,\n                sp.metodo_autorizacion,\n                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS cliente\n            ", false)
+            ->join('usuario u', 'u.id_usuario = p.id_usuario', 'left')
+            ->join('solicitud_pago sp', 'sp.id_solicitud_pago = p.id_solicitud_pago', 'left')
+            ->where('p.id_establecimiento', $idEstablecimiento)
+            ->where('p.visible', 1)
+            ->orderBy('p.fec_reg', 'DESC')
+            ->orderBy('p.id_pago', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        $dataConsumos = [
+            'establecimientoConsumos' => $establecimiento,
+            'pagosConsumos' => $pagos,
+            'facturaConsumos' => $factura,
+        ];
+        $tempDir = WRITEPATH . 'mpdf-temp' . DIRECTORY_SEPARATOR . 'archivos-juntos';
+        $filesDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'archivos-juntos-temp';
+        foreach ([$tempDir, $filesDir] as $directory) {
+            if (!is_dir($directory) && !@mkdir($directory, 0775, true) && !is_dir($directory)) {
+                return $this->response->setStatusCode(500)->setBody('No fue posible preparar la generación del PDF.');
+            }
+        }
+
+        $token = bin2hex(random_bytes(8));
+        $pdfPaths = [
+            'formato_pt' => $filesDir . DIRECTORY_SEPARATOR . $token . '_formato_pt.pdf',
+            'encabezado' => $filesDir . DIRECTORY_SEPARATOR . $token . '_encabezado.pdf',
+            'liberacion' => $filesDir . DIRECTORY_SEPARATOR . $token . '_liberacion.pdf',
+            'consumos' => $filesDir . DIRECTORY_SEPARATOR . $token . '_consumos.pdf',
+        ];
+
+        try {
+            $documentos = [
+                ['key' => 'formato_pt', 'view' => 'pdfs/vPdfFormatoPT', 'orientation' => 'P', 'data' => $dataPdf],
+                ['key' => 'liberacion', 'view' => 'pdfs/vPdfLiberacionPago', 'orientation' => 'P', 'data' => $dataPdf],
+                ['key' => 'consumos', 'view' => 'pdfs/vPdfListadoConsumos', 'orientation' => 'L', 'data' => $dataConsumos],
+            ];
+            foreach ($documentos as $documento) {
+                $mpdf = new \Mpdf\Mpdf([
+                    'mode' => 'c',
+                    'format' => 'Letter-' . $documento['orientation'],
+                    'margin_top' => 10,
+                    'margin_bottom' => 10,
+                    'margin_left' => 10,
+                    'margin_right' => 10,
+                    'default_font' => 'Arial',
+                    'tempDir' => $tempDir,
+                ]);
+                $mpdf->WriteHTML(view($documento['view'], $documento['data']));
+                $mpdf->Output($pdfPaths[$documento['key']], 'F');
+                unset($mpdf);
+            }
+
+            $encabezado = new \Mpdf\Mpdf([
+                'mode' => 'c',
+                'format' => 'Letter',
+                'margin_top' => 0,
+                'margin_bottom' => 0,
+                'margin_left' => 0,
+                'margin_right' => 0,
+                'default_font' => 'Arial',
+                'tempDir' => $tempDir,
+            ]);
+            $this->writeProviderEncabezadoFacturaPdf($encabezado, 'pdfs/vPdfEncabezadoFactura', $dataPdf);
+            $encabezado->Output($pdfPaths['encabezado'], 'F');
+            unset($encabezado);
+
+            $unido = new \Mpdf\Mpdf([
+                'mode' => 'c',
+                'format' => 'Letter',
+                'margin_top' => 0,
+                'margin_bottom' => 0,
+                'margin_left' => 0,
+                'margin_right' => 0,
+                'default_font' => 'Arial',
+                'tempDir' => $tempDir,
+            ]);
+            foreach (['formato_pt', 'encabezado', 'liberacion', 'consumos'] as $key) {
+                $this->appendProviderPdfPages($unido, $pdfPaths[$key]);
+            }
+            $unido->SetTitle('Expediente de factura ' . $folioXml);
+            $contenido = $unido->Output('', 'S');
+            unset($unido);
+        } catch (\Throwable $e) {
+            log_message('error', 'Inicio.ArchivosJuntos: ' . $e->getMessage());
+            if (ENVIRONMENT !== 'production') {
+                throw $e;
+            }
+            return $this->response->setStatusCode(500)->setBody('No fue posible unir los archivos de la factura.');
+        } finally {
+            foreach ($pdfPaths as $pdfPath) {
+                if (is_file($pdfPath)) {
+                    @unlink($pdfPath);
+                }
+            }
+        }
+
+        $filename = 'ArchivosJuntos_' . $idEstablecimiento . '_' . $idFactura . '.pdf';
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
+            ->setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
+            ->setBody($contenido);
     }
 
     private function buildFacturaFormatoData(int $idFactura): ?array

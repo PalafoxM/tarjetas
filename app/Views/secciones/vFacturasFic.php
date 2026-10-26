@@ -292,7 +292,10 @@ $formatDate = static function (?string $value): string {
                                 $encabezadoUrl = $puedeVerFormatos ? base_url('index.php/Inicio/pdfProveedorEncabezadoFactura/' . (int) $establecimiento['id_establecimiento']) : '';
                                 $formatoPtUrl = $puedeVerFormatos ? base_url('index.php/Inicio/pdfPagoTerceros?id_factura=' . $facturaId) : '';
                                 $liberacionUrl = $puedeVerFormatos ? base_url('index.php/Inicio/pdfLiberacionPago?id_factura=' . $facturaId) : '';
-                                $liberacionProveedorUrl = $puedeVerFormatos ? base_url('index.php/Inicio/pdfProveedorLiberacionPago/' . (int) $establecimiento['id_establecimiento']) : '';
+                                $archivosJuntosUrl = $puedeVerFormatos
+                                    ? base_url('index.php/Inicio/ArchivosJuntos/' . (int) $establecimiento['id_establecimiento'])
+                                        . '?' . http_build_query(['id_factura' => $facturaId])
+                                    : '';
                                 ?>
                                 <tr data-id-establecimiento="<?= esc((string) ($establecimiento['id_establecimiento'] ?? ''), 'attr') ?>">
                                     <td class="fw-semibold"><?= esc((string) ($establecimiento['establecimiento'] ?? 'Sin establecimiento')) ?></td>
@@ -341,9 +344,9 @@ $formatDate = static function (?string $value): string {
                                                 <a class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc($liberacionUrl, 'attr') ?>">
                                                     <i class="mdi mdi-receipt-text-outline me-1"></i> Liberación pago
                                                 </a>
-                                               <!--  <a class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc($liberacionProveedorUrl, 'attr') ?>">
-                                                    <i class="mdi mdi-receipt-outline me-1"></i> Liberación pago proveedor
-                                                </a> -->
+                                                <a class="btn btn-sm pagos-fic-action-btn btn-outline-success pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc($archivosJuntosUrl, 'attr') ?>">
+                                                    <i class="mdi mdi-receipt-outline me-1"></i> Archivos Juntos
+                                                </a>
                                             <?php else: ?>
                                                 <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-file-document-outline me-1"></i> Formato PT
@@ -354,9 +357,9 @@ $formatDate = static function (?string $value): string {
                                                 <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-receipt-text-outline me-1"></i> Liberación pago
                                                 </button>
-                                               <!--  <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
-                                                    <i class="mdi mdi-receipt-outline me-1"></i> Liberación pago proveedor
-                                                </button> -->
+                                                 <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
+                                                    <i class="mdi mdi-receipt-outline me-1"></i> Archivos Juntos
+                                                </button>
                                             <?php endif; ?>
                                         </div>
                                     </td>

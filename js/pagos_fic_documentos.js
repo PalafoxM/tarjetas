@@ -85,7 +85,7 @@
                 className: 'pagos-fic-action-btn--format'
             },
             {
-                data: normalizeDocumento(formatos.liberacion_pago_proveedor, 'Liberacion pago proveedor'),
+                data: normalizeDocumento(formatos.liberacion_pago_proveedor, 'Archivos Juntos'),
                 icon: 'mdi mdi-receipt-outline',
                 className: 'pagos-fic-action-btn--format'
             }

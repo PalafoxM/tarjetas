@@ -84,6 +84,7 @@ $routes->post('Inicio/cambiarVisibilidadCorteProveedor', 'Inicio::cambiarVisibil
 $routes->get('Inicio/pdfProveedorEncabezadoFactura/(:num)', 'Inicio::pdfProveedorEncabezadoFactura/$1');
 $routes->get('Inicio/pdfProveedorFormatoPT/(:num)', 'Inicio::pdfProveedorFormatoPT/$1');
 $routes->get('Inicio/pdfProveedorLiberacionPago/(:num)', 'Inicio::pdfProveedorLiberacionPago/$1');
+$routes->get('Inicio/ArchivosJuntos/(:num)', 'Inicio::ArchivosJuntos/$1');
 $routes->post('Inicio/getSolicitudesActivacionQrFic', 'Inicio::getSolicitudesActivacionQrFic');
 $routes->post('Inicio/activarQrUsuarioFic', 'Inicio::activarQrUsuarioFic');
 $routes->post('Inicio/rechazarActivacionQrUsuarioFic', 'Inicio::rechazarActivacionQrUsuarioFic');
