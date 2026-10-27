@@ -127,7 +127,7 @@
     <div class="content">
         Por medio del presente, me permito solicitar su apoyo para que se realice el trámite de Pago a Tercero del
         folio <strong><?= esc($folio) ?></strong> por la cantidad de <strong>$<?= number_format(abs((float) $montoXml), 2) ?> (<?= esc($importe_letra) ?>)</strong>,
-        de comprobante(s) fiscal(es) No. <strong><?= esc($folioXml) ?></strong> por concepto de <strong>Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 19 Oct. 2026</strong> al proveedor <strong><?= esc($razon_social) ?></strong>.
+        de comprobante(s) fiscal(es) No. <strong><?= esc($folioXml) ?></strong> por concepto de <strong>Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 25 Oct. 2026</strong> al proveedor <strong><?= esc($razon_social) ?></strong>.
     </div>
 
     <!-- Content Body 2 -->
@@ -137,7 +137,7 @@
 
     <!-- Content Body 3 - Legal -->
     <div class="content">
-        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>PRIMERA</strong> de instrumento jurídico <strong><?= esc($no_contrato) ?></strong> recibí
+        Hago de su conocimiento que de acuerdo a lo que establece la cláusula <strong>TERCERA</strong> de instrumento jurídico <strong><?= esc($no_contrato) ?></strong> recibí
         el producto, atendiendo lo que establece el marco normativo aplicable. El producto recibido se nos ha
         entregado a entera satisfacción en tiempo y forma, quedando bajo mi responsabilidad el uso y/o
         distribución, así como el resguardo y custodia de los expedientes originales y entregables correspondientes.
