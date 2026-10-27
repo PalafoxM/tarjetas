@@ -8227,6 +8227,12 @@ public function getPagosPorEstablecimiento()
             'pagosConsumos' => $pagos,
             'facturaConsumos' => $factura,
         ];
+        $acuerdoSecretarialPath = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'ACUERDO SECRETARIAL 002-2026.pdf';
+        if (!is_file($acuerdoSecretarialPath) || !is_readable($acuerdoSecretarialPath)) {
+            log_message('error', 'Inicio.ArchivosJuntos: no se encontró el Acuerdo Secretarial 002-2026.');
+            return $this->response->setStatusCode(500)->setBody('No fue posible localizar el Acuerdo Secretarial 002-2026.');
+        }
+
         $tempDir = WRITEPATH . 'mpdf-temp' . DIRECTORY_SEPARATOR . 'archivos-juntos';
         $filesDir = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'archivos-juntos-temp';
         foreach ([$tempDir, $filesDir] as $directory) {
@@ -8289,8 +8295,15 @@ public function getPagosPorEstablecimiento()
                 'default_font' => 'Arial',
                 'tempDir' => $tempDir,
             ]);
-            foreach (['formato_pt', 'encabezado', 'liberacion', 'consumos'] as $key) {
-                $this->appendProviderPdfPages($unido, $pdfPaths[$key]);
+            $archivosUnir = [
+                $pdfPaths['formato_pt'],
+                $pdfPaths['encabezado'],
+                $pdfPaths['liberacion'],
+                $pdfPaths['consumos'],
+                $acuerdoSecretarialPath,
+            ];
+            foreach ($archivosUnir as $pdfPath) {
+                $this->appendProviderPdfPages($unido, $pdfPath);
             }
             $unido->SetTitle('Expediente de factura ' . $folioXml);
             $contenido = $unido->Output('', 'S');
