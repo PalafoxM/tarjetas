@@ -5883,8 +5883,9 @@ class Inicio extends BaseController {
     $usuario = $db->table('usuario u')
         ->select('
             u.id_usuario,
-            u.id_proveedor,
+            COALESCE(pe.id_proveedor, p.id_proveedor, u.id_proveedor) AS id_proveedor,
             u.id_tipo_proveedor,
+            u.id_establecimiento,
             u.usuario,
             u.nombre,
             u.primer_apellido,
@@ -5893,15 +5894,20 @@ class Inicio extends BaseController {
             u.qr,
             u.nip,
             u.visible,
-            p.no_proveedor,
-            p.razon_social,
-            p.rfc,
-            p.fic
-        ')
-        ->join('proveedor p', 'p.id_proveedor = u.id_proveedor', 'left')
+            COALESCE(pe.no_proveedor, p.no_proveedor, e.no_proveedor) AS no_proveedor,
+            COALESCE(pe.razon_social, p.razon_social, e.dsc_establecimiento) AS razon_social,
+            COALESCE(pe.rfc, p.rfc, e.rfc) AS rfc,
+            COALESCE(pe.fic, p.fic, 0) AS fic
+        ', false)
+        ->join('proveedor p', 'p.id_proveedor = u.id_proveedor AND p.visible = 1', 'left')
+        ->join('establecimiento e', 'e.id_establecimiento = u.id_establecimiento AND e.visible = 1', 'left')
+        ->join('proveedor pe', 'pe.no_proveedor = e.no_proveedor AND pe.visible = 1', 'left')
         ->where('u.id_usuario', $idUsuario)
         ->where('u.visible', 1)
-        ->where('p.visible', 1)
+        ->groupStart()
+            ->where('p.id_proveedor IS NOT NULL', null, false)
+            ->orWhere('pe.id_proveedor IS NOT NULL', null, false)
+        ->groupEnd()
         ->get()
         ->getRowArray();
 
