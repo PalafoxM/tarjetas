@@ -27,6 +27,12 @@ class Inicio extends BaseController {
     private const PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN = '2026-10-19 23:59:59';
     private const PROVEEDOR_CORTE_SEGUNDO_ENVIO_INICIO = '2026-10-19 00:00:00';
     private const PROVEEDOR_CORTE_MAX_PERIODOS = 2;
+    // Activacion temporal/manual: permite descargar el reporte del proveedor sin abrir recepcion documental.
+    private const MODO_REVISION_PREVIA_PROVEEDOR = true;
+    private const REPORTE_VENTAS_PROVEEDOR_PERIODO_OFICIAL = [
+        'inicio' => '2026-09-17 00:00:00',
+        'fin' => '2026-10-26 23:59:59',
+    ];
 
     private $defaultData = array(
         'title' => 'Turnos 2.0',
@@ -171,31 +177,43 @@ class Inicio extends BaseController {
 
     private function getCorteProveedorReportePeriodo(array $contexto, int $idEstablecimiento = 0, int $idProveedor = 0): array
     {
-        $inicio = (string) ($contexto['inicio_ventas'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO);
-        $periodo = ['numero_periodo_resuelto' => 1];
-        $db = \Config\Database::connect();
-        if ($idEstablecimiento > 0 && !empty($contexto['id_corte']) && $this->cortesProveedorSchemaReady($db)) {
-            $corte = $this->resolveCorteProveedorById((int) $contexto['id_corte'], $db);
-            if (is_array($corte)) {
-                $periodo = $this->resolvePeriodoProveedorActual($idEstablecimiento, $idProveedor, $corte, $db);
-                $inicio = (string) ($periodo['fecha_inicio_periodo_resuelta'] ?? $inicio);
-            }
-        }
+        $periodo = $this->getPeriodoOficialReporteVentasProveedor();
 
         return [
-            'inicio' => $inicio,
-            'inicio_operador' => ((int) ($periodo['numero_periodo_resuelto'] ?? 1) === 2) ? '>' : '>=',
-            'fin' => (string) ($contexto['fin_reporte_efectivo'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN),
+            'inicio' => $periodo['inicio'],
+            'inicio_operador' => '>=',
+            'fin' => $periodo['fin'],
         ];
+    }
+
+    private function getPeriodoOficialReporteVentasProveedor(): array
+    {
+        return self::REPORTE_VENTAS_PROVEEDOR_PERIODO_OFICIAL;
     }
 
     private function buildPrimerCorteProveedorPeriodoLabel(array $contexto): string
     {
-        $timezone = new \DateTimeZone((string) ($contexto['timezone'] ?? self::PRIMER_CORTE_PROVEEDOR_TIMEZONE));
-        $inicio = new \DateTimeImmutable((string) ($contexto['inicio_ventas'] ?? self::PRIMER_CORTE_PROVEEDOR_VENTAS_INICIO), $timezone);
-        $fin = new \DateTimeImmutable((string) ($contexto['fin_reporte_efectivo'] ?? self::PRIMER_CORTE_PROVEEDOR_DOCUMENTOS_FIN), $timezone);
+        $periodo = $this->getPeriodoOficialReporteVentasProveedor();
+        $timezone = new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE);
+        $inicio = new \DateTimeImmutable($periodo['inicio'], $timezone);
+        $fin = new \DateTimeImmutable($periodo['fin'], $timezone);
+        $meses = [
+            1 => 'enero',
+            2 => 'febrero',
+            3 => 'marzo',
+            4 => 'abril',
+            5 => 'mayo',
+            6 => 'junio',
+            7 => 'julio',
+            8 => 'agosto',
+            9 => 'septiembre',
+            10 => 'octubre',
+            11 => 'noviembre',
+            12 => 'diciembre',
+        ];
 
-        return 'Primer corte: periodo del ' . $inicio->format('d/m/Y H:i') . ' al ' . $fin->format('d/m/Y H:i');
+        return 'Periodo del ' . (int) $inicio->format('d') . ' de ' . $meses[(int) $inicio->format('n')]
+            . ' al ' . (int) $fin->format('d') . ' de ' . $meses[(int) $fin->format('n')] . '.';
     }
 
     private function cortesProveedorSchemaReady(?\CodeIgniter\Database\BaseConnection $db = null): bool
@@ -626,6 +644,7 @@ class Inicio extends BaseController {
                 ));
                 $data['contextoUsuario'] = $contextoUsuario;
                 $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
+                $data['modoRevisionPreviaProveedor'] = self::MODO_REVISION_PREVIA_PROVEEDOR;
 
                 if ($perfilId == 5 && $idEstablecimientoFiltro > 0) {
                     $data['proveedorEstablecimientos'] = array_values(array_filter(
@@ -1329,6 +1348,7 @@ class Inicio extends BaseController {
     $data['idEstablecimientoActual'] = $idEstablecimiento;
     $data['esVistaEstablecimientoEspecifico'] = true;
     $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
+    $data['modoRevisionPreviaProveedor'] = self::MODO_REVISION_PREVIA_PROVEEDOR;
     $data['contentView'] = 'secciones/vProveedor';
     $this->_renderView($data);
 }
@@ -1474,7 +1494,12 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar el reporte de ventas.');
         }
 
-        if ($this->isPrimerCorteProveedorApplicable($contextoUsuario) && !$primerCorte['activo']) {
+        $puedeDescargarReporteRevisionPrevia = self::MODO_REVISION_PREVIA_PROVEEDOR
+            && (!empty($contextoUsuario['is_provider_flow']) || !empty($session->get('id_proveedor')));
+        if ($this->isPrimerCorteProveedorApplicable($contextoUsuario)
+            && !$primerCorte['activo']
+            && !$puedeDescargarReporteRevisionPrevia
+        ) {
             return $this->response->setStatusCode(403)->setBody(!empty($primerCorte['cerrado']) ? $primerCorte['mensaje_cerrado'] : 'La descarga del reporte del primer corte aun no esta disponible.');
         }
 
