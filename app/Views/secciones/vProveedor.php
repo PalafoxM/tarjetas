@@ -515,11 +515,11 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 </button>
 
                 <?php if ($modoRevisionPreviaProveedor || $primerCorteActivo): ?>
-                    <a class="btn btn-outline-light provider-action" href="<?= esc($reporteVentasUrl, 'attr') ?>">
+                    <a class="btn btn-warning provider-action" target="_blank" href="<?= esc($reporteVentasUrl, 'attr') ?>">
                         <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de ventas
                     </a>
                 <?php else: ?>
-                    <button class="btn btn-outline-light provider-action" type="button" disabled>
+                    <button class="btn btn-warning provider-action" type="button" disabled>
                         <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de ventas
                     </button>
                 <?php endif; ?>
