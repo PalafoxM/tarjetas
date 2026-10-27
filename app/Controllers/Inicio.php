@@ -1658,7 +1658,29 @@ class Inicio extends BaseController {
 
     private function buildReporteVentasProveedorRows(array $dashboard): array
     {
-        return array_values(is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : []);
+        $rows = is_array($dashboard['proveedorPagos'] ?? null) ? $dashboard['proveedorPagos'] : [];
+
+        return array_values(array_filter($rows, function ($row): bool {
+            $item = is_object($row) ? get_object_vars($row) : (array) $row;
+            return $this->isProveedorPagoAutorizado((string) ($item['estatus'] ?? ''));
+        }));
+    }
+
+    private function isProveedorPagoAutorizado(string $estatus): bool
+    {
+        return in_array(strtolower(trim($estatus)), [
+            'aprobada',
+            'aprobado',
+            'aceptada',
+            'aceptado',
+            'aceptados',
+            'autorizada',
+            'autorizado',
+            'pagada',
+            'pagado',
+            'finalizada',
+            'finalizado',
+        ], true);
     }
 
     private function buildReporteVentasProveedorExportPayload(): ?array
@@ -6017,12 +6039,15 @@ class Inicio extends BaseController {
 
     $montoTotal = 0.0;
     $montoPendiente = 0.0;
+    $registrosAutorizados = 0;
     $fechas = [];
     foreach ($pagosRows as $row) {
         $monto = (float) ($row['monto_total'] ?? $row['monto_solicitado'] ?? 0);
-        $montoTotal += $monto;
         $estatus = strtolower(trim((string) ($row['estatus'] ?? '')));
-        if ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
+        if ($this->isProveedorPagoAutorizado($estatus)) {
+            $montoTotal += $monto;
+            $registrosAutorizados++;
+        } elseif ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
             $montoPendiente += $monto;
         }
         foreach (['fec_reg', 'fecha_respuesta'] as $campoFecha) {
@@ -6044,7 +6069,7 @@ class Inicio extends BaseController {
         'ventasCorteContexto' => [
             'monto_total' => $montoTotal,
             'monto_pendiente' => $montoPendiente,
-            'total_registros' => count($pagosRows),
+            'total_registros' => $registrosAutorizados,
             'fecha_corte_desde' => $fechaDesde,
             'fecha_corte_hasta' => $fechaHasta,
             'estado_corte' => !empty($pagosRows) ? 'Con movimientos' : 'Sin movimientos',
@@ -6177,13 +6202,16 @@ public function getPagosPorEstablecimiento()
 
         $montoTotal = 0.0;
         $montoPendiente = 0.0;
+        $registrosAutorizados = 0;
         $fechas = [];
         foreach ($pagos as $row) {
             $item = is_object($row) ? get_object_vars($row) : (array) $row;
             $monto = (float) ($item['monto_total'] ?? $item['monto_solicitado'] ?? 0);
-            $montoTotal += $monto;
             $estatus = strtolower(trim((string) ($item['estatus'] ?? '')));
-            if ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
+            if ($this->isProveedorPagoAutorizado($estatus)) {
+                $montoTotal += $monto;
+                $registrosAutorizados++;
+            } elseif ($estatus === '' || in_array($estatus, ['pendiente', 'solicitado', 'en_revision'], true)) {
                 $montoPendiente += $monto;
             }
             foreach (['fec_reg', 'fecha_respuesta'] as $campoFecha) {
@@ -6219,7 +6247,7 @@ public function getPagosPorEstablecimiento()
         $dashboard['ventasCorteContexto'] = [
             'monto_total' => $montoTotal,
             'monto_pendiente' => $montoPendiente,
-            'total_registros' => count($pagos),
+            'total_registros' => $registrosAutorizados,
             'fecha_corte_desde' => $fechas[0] ?? '',
             'fecha_corte_hasta' => !empty($fechas) ? end($fechas) : '',
             'estado_corte' => !empty($pagos) ? 'Con movimientos' : 'Sin movimientos',
