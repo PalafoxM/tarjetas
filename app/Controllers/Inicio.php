@@ -638,9 +638,14 @@ class Inicio extends BaseController {
             return $this->renderPerfilSecturiHub(((int) ($contextoUsuario['group_role'] ?? 0) === 1) ? 'admin' : 'consulta');
         } elseif (!empty($session->get('id_proveedor')) || !empty($contextoUsuario['is_provider_flow'])) {
             if (!$esRecepcionSimulada) {
+                $alcanceProveedor = $this->resolveProviderEstablishmentScope(
+                    (int) $session->get('id_usuario')
+                );
                 $data = array_merge($data, $this->buildProviderDashboardData(
                     (int) $session->get('id_usuario'),
-                    $idEstablecimientoFiltro
+                    0,
+                    null,
+                    $alcanceProveedor
                 ));
                 $data['contextoUsuario'] = $contextoUsuario;
                 $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
@@ -1310,7 +1315,19 @@ class Inicio extends BaseController {
         return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
     }
 
-    $dashboard = $this->buildProviderDashboardData($idUsuario);
+    $alcance = $this->resolveProviderEstablishmentScope($idUsuario, $idEstablecimiento);
+    if (empty($alcance['autorizado'])) {
+        return $this->response->setStatusCode(403)->setBody('No tienes permisos para consultar este establecimiento.');
+    }
+
+    $idEstablecimiento = (int) ($alcance['id_establecimiento'] ?? 0);
+
+    $dashboard = $this->buildProviderDashboardData(
+        $idUsuario,
+        $idEstablecimiento,
+        null,
+        $alcance
+    );
     $data = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
     if (empty($data['proveedorEstablecimientos'])) {
         return redirect()->to(base_url('index.php/Inicio/ProveedorFormatos'));
@@ -1388,11 +1405,21 @@ class Inicio extends BaseController {
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        $alcance = $this->resolveProviderEstablishmentScope($idUsuario, $idEstablecimiento);
+        if (empty($alcance['autorizado'])) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este establecimiento.');
+        }
+        $idEstablecimiento = (int) ($alcance['id_establecimiento'] ?? 0);
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
 
-        $dashboard = $this->buildProviderDashboardData($idUsuario, 0, $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento));
+        $dashboard = $this->buildProviderDashboardData(
+            $idUsuario,
+            $idEstablecimiento,
+            $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento),
+            $alcance
+        );
         if ($idEstablecimiento > 0) {
             $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
@@ -1509,11 +1536,21 @@ class Inicio extends BaseController {
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        $alcance = $this->resolveProviderEstablishmentScope($idUsuario, $idEstablecimiento);
+        if (empty($alcance['autorizado'])) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este establecimiento.');
+        }
+        $idEstablecimiento = (int) ($alcance['id_establecimiento'] ?? 0);
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
 
-        $dashboard = $this->buildProviderDashboardData($idUsuario, 0, $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento));
+        $dashboard = $this->buildProviderDashboardData(
+            $idUsuario,
+            $idEstablecimiento,
+            $this->getCorteProveedorReportePeriodo($primerCorte, $idEstablecimiento),
+            $alcance
+        );
         if ($idEstablecimiento > 0) {
             $dashboard = $this->filterProviderDashboardByEstablecimiento($dashboard, $idEstablecimiento);
         }
@@ -5898,7 +5935,116 @@ class Inicio extends BaseController {
         return round((float) $normalized, 2);
     }
 
-    private function buildProviderDashboardData(int $idUsuario, int $idEstablecimientoFiltro = 0, ?array $ventasPeriodo = null): array
+private function resolveProviderEstablishmentScope(int $idUsuario, int $requestedEstablecimiento = 0): array
+{
+    $emptyScope = [
+        'autorizado' => false,
+        'es_multiple' => false,
+        'establecimientos' => [],
+        'id_establecimiento' => null,
+    ];
+
+    if ($idUsuario <= 0) {
+        return $emptyScope;
+    }
+
+    $db = \Config\Database::connect();
+    $usuario = $db->table('usuario u')
+        ->select('u.id_usuario, u.id_establecimiento')
+        ->where('u.id_usuario', $idUsuario)
+        ->where('u.visible', 1)
+        ->get()
+        ->getRowArray();
+
+    if (empty($usuario)) {
+        return $emptyScope;
+    }
+
+    $relaciones = $db->table('usuario_establecimiento ue')
+        ->select('ue.id_establecimiento')
+        ->join(
+            'establecimiento e',
+            'e.id_establecimiento = ue.id_establecimiento AND e.visible = 1',
+            'inner'
+        )
+        ->where('ue.id_usuario', $idUsuario)
+        ->where('ue.visible', 1)
+        ->orderBy('ue.id_establecimiento', 'ASC')
+        ->get()
+        ->getResultArray();
+
+    $establecimientos = array_values(array_unique(array_filter(array_map(
+        static fn (array $row): int => (int) ($row['id_establecimiento'] ?? 0),
+        $relaciones
+    ))));
+
+    if (!empty($establecimientos)) {
+        if (
+            $requestedEstablecimiento > 0
+            && !in_array($requestedEstablecimiento, $establecimientos, true)
+        ) {
+            return $emptyScope;
+        }
+
+        return [
+            'autorizado' => true,
+            'es_multiple' => true,
+            'establecimientos' => $establecimientos,
+            'id_establecimiento' => $requestedEstablecimiento > 0
+                ? $requestedEstablecimiento
+                : null,
+        ];
+    }
+
+    $idEstablecimientoUsuario = (int) ($usuario['id_establecimiento'] ?? 0);
+    if ($idEstablecimientoUsuario <= 0) {
+        return $emptyScope;
+    }
+
+    $establecimiento = $db->table('establecimiento')
+        ->select('id_establecimiento')
+        ->where('id_establecimiento', $idEstablecimientoUsuario)
+        ->where('visible', 1)
+        ->get()
+        ->getRowArray();
+
+    if (empty($establecimiento)) {
+        return $emptyScope;
+    }
+
+    if (
+        $requestedEstablecimiento > 0
+        && $requestedEstablecimiento !== $idEstablecimientoUsuario
+    ) {
+        return $emptyScope;
+    }
+
+    return [
+        'autorizado' => true,
+        'es_multiple' => false,
+        'establecimientos' => [$idEstablecimientoUsuario],
+        'id_establecimiento' => $idEstablecimientoUsuario,
+    ];
+}
+
+private function resolveProviderEstablishmentsByIds($db, array $ids): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+    if (empty($ids)) {
+        return [];
+    }
+
+    return $db->table('establecimiento e')
+        ->select('e.id_establecimiento, e.dsc_establecimiento, e.id_tipo, cte.dsc_tipo, e.no_proveedor')
+        ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+        ->where('e.visible', 1)
+        ->whereIn('e.id_establecimiento', $ids)
+        ->orderBy('e.dsc_establecimiento', 'ASC')
+        ->get()
+        ->getResult();
+}
+
+private function buildProviderDashboardData(int $idUsuario, int $idEstablecimientoFiltro = 0, ?array $ventasPeriodo = null, ?array $alcance = null): array
 {
     $db = \Config\Database::connect();
 
@@ -5937,6 +6083,7 @@ class Inicio extends BaseController {
         return [
             'proveedorPerfil' => [],
             'proveedorEstablecimientos' => [],
+            'establecimiento' => 0,
             'proveedorPagos' => [],
             'ventasCorteContexto' => [
                 'monto_total' => 0,
@@ -5950,9 +6097,23 @@ class Inicio extends BaseController {
     }
 
     $proveedor = (object) $usuario;
-    $establecimientos = $this->resolveProviderEstablishments($db, $proveedor);
-    
-    if ($idEstablecimientoFiltro > 0) {
+    $usaAlcanceExplicito = is_array($alcance);
+    $establecimientosAlcance = [];
+    if ($usaAlcanceExplicito) {
+        $idEspecifico = (int) ($alcance['id_establecimiento'] ?? 0);
+        $establecimientosAlcance = $idEspecifico > 0
+            ? [$idEspecifico]
+            : (array) ($alcance['establecimientos'] ?? []);
+    }
+
+    $establecimientos = $usaAlcanceExplicito
+        ? $this->resolveProviderEstablishmentsByIds(
+            $db,
+            $establecimientosAlcance
+        )
+        : $this->resolveProviderEstablishments($db, $proveedor);
+
+    if (!$usaAlcanceExplicito && $idEstablecimientoFiltro !== 0) {
         $establecimientos = array_values(array_filter($establecimientos, function($item) use ($idEstablecimientoFiltro) {
            
             return (int) ($item->id_establecimiento ?? 0) === $idEstablecimientoFiltro;
@@ -5987,11 +6148,16 @@ class Inicio extends BaseController {
             ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
             ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
             ->where('sp.visible', 1)
-            ->groupStart()
+            ->orderBy('sp.fec_reg', 'DESC');
+
+        if ($usaAlcanceExplicito) {
+            $builder->whereIn('sp.id_establecimiento', $establecimientoIds);
+        } else {
+            $builder->groupStart()
                 ->where('sp.id_usuario', $idUsuario)
                 ->orWhereIn('sp.id_establecimiento', $establecimientoIds)
-            ->groupEnd()
-            ->orderBy('sp.fec_reg', 'DESC');
+            ->groupEnd();
+        }
 
         if (is_array($ventasPeriodo)) {
             $inicioPeriodo = trim((string) ($ventasPeriodo['inicio'] ?? ''));
@@ -6065,6 +6231,7 @@ class Inicio extends BaseController {
     return [
         'proveedorPerfil' => $usuario,
         'proveedorEstablecimientos' => $establecimientos,
+        'establecimiento' => count($establecimientos),
         'proveedorPagos' => $pagosRows,
         'ventasCorteContexto' => [
             'monto_total' => $montoTotal,
