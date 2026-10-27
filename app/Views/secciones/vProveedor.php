@@ -15,6 +15,7 @@ $ventasCorteContexto = is_object($ventasCorteContexto ?? null) ? get_object_vars
 $primerCorteProveedor = is_object($primerCorteProveedor ?? null) ? get_object_vars($primerCorteProveedor) : (is_array($primerCorteProveedor ?? null) ? $primerCorteProveedor : []);
 $primerCorteActivo = !empty($primerCorteProveedor['activo']);
 $primerCorteCerrado = !empty($primerCorteProveedor['cerrado']);
+$modoRevisionPreviaProveedor = !empty($modoRevisionPreviaProveedor);
 $idEstablecimientoActual = (int) ($idEstablecimientoActual ?? 0);
 $reporteVentasUrl = base_url('index.php/Inicio/exportarReporteVentasProveedorPdf');
 if ($idEstablecimientoActual > 0) {
@@ -503,17 +504,17 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 </div>
             </div>
             <div class="d-grid gap-2">
-                <button class="btn btn-outline-light provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
+                <!--<button class="btn btn-outline-light provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
                     <i class="mdi mdi-account-plus me-1"></i> Solicitar personal
                 </button>
                 <a class="btn btn-primary provider-action" href="<?= esc(base_url('index.php/Inicio/ProveedorFormatos'), 'attr') ?>">
                     <i class="mdi mdi-file-document-outline me-1"></i> Subir Factura
-                </a>
+                </a>-->
                 <button class="btn btn-success provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalPagoSinQr">
                     <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR
                 </button>
 
-                <?php if ($primerCorteActivo): ?>
+                <?php if ($modoRevisionPreviaProveedor || $primerCorteActivo): ?>
                     <a class="btn btn-outline-light provider-action" href="<?= esc($reporteVentasUrl, 'attr') ?>">
                         <i class="mdi mdi-file-pdf-box me-1"></i> Descargar reporte de ventas
                     </a>
@@ -526,16 +527,20 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
             </div>
         </section>
 
-        <?php if ($primerCorteActivo): ?>
+        <?php if ($modoRevisionPreviaProveedor || $primerCorteActivo): ?>
             <section class="provider-cut-notice">
                 <h4>ATENCIÓN</h4>
                
-                <br><p><strong>Procedimiento:</strong></p>
+                <!--<br><p><strong>Procedimiento:</strong></p>
                 <br><p><strong>1.</strong> Descarga tu reporte de ventas en la esquina superior derecha, en el botón de "Descargar reporte de ventas".</p>
                 <p><strong>2.</strong> Una vez descargado, dirígete al botón "Subir factura", arriba del botón que entrega tu reporte.</p>
                 <p><strong>3.</strong> Ahí podrás cargar tu reporte de ventas, tu factura PDF y XML e iniciar el proceso de pago.</p>
                 <br><p><strong>Importante:</strong> puedes emitir una o dos facturas como máximo. No es obligatorio utilizar las dos.</p>
-                <p>Si tienes alguna duda, ponte en contacto con tu enlace SECTURI.</p>
+                <p>Si tienes alguna duda, ponte en contacto con tu enlace SECTURI.</p>-->
+                <br><p><strong>1.</strong> Para comenzar con el proceso de pago, envía tu REPORTE DE VENTAS a tu enlace SECTURI.</p>
+                <p><strong>2.</strong> Descárgalo desde el botón "Descargar reporte de ventas" en la esquina superior derecha de esta página .</p>
+                <br><p><strong>Importante:</strong> Por el momento estará inactivo el envío de facturas para hacer las revisiones previas, la cual tendrá como límite hasta el 28 de octubre a las 12 horas.</p>
+                <p>Si tienes alguna duda, ponte en contacto con tu enlace SECTURI o en el botón de ayuda de la página de login.</p>
             </section>
         <?php elseif ($primerCorteCerrado): ?>
             <section class="provider-cut-notice">
