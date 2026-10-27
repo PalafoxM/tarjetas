@@ -8,6 +8,7 @@ use Kint\Renderer\AbstractRenderer;
 use Kint\Renderer\Rich\TabPluginInterface;
 use Kint\Renderer\Rich\ValuePluginInterface;
 
+
 /**
  * --------------------------------------------------------------------------
  * Kint
@@ -43,7 +44,7 @@ class Kint extends BaseConfig
     */
     public string $richTheme = 'aante-light.css';
     public bool $richFolder  = false;
-    public int $richSort     = AbstractRenderer::SORT_FULL;
+    //public int $richSort     = AbstractRenderer::SORT_FULL;
 
     /**
      * @var array<string, string>
