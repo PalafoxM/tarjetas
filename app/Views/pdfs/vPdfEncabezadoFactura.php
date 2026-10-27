@@ -67,11 +67,11 @@ $dscPartida = trim((string) ($dsc_partida ?? 'Servicios integrales'));
             </tr>
             <tr>
                 <td class="label-cell">COMISION / REUNION / EVENTO:</td>
-                <td class="value-cell">Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 25 Oct. 2026</td>
+                <td class="value-cell">Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 26 Oct. 2026</td>
             </tr>
             <tr>
                 <td class="label-cell">CONCEPTO DEL PAGO:</td>
-                <td class="value-cell">Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 25 Oct. 2026</td>
+                <td class="value-cell">Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 26 Oct. 2026</td>
             </tr>
             <tr>
                 <td class="label-cell">PARTIDA:</td>

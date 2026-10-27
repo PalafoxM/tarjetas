@@ -127,7 +127,7 @@
     <div class="content">
         Por medio del presente, me permito solicitar su apoyo para que se realice el trámite de Pago a Tercero del
         folio <strong><?= esc($folio) ?></strong> por la cantidad de <strong>$<?= number_format(abs((float) $montoXml), 2) ?> (<?= esc($importe_letra) ?>)</strong>,
-        de comprobante(s) fiscal(es) No. <strong><?= esc($folioXml) ?></strong> por concepto de <strong>Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 25 Oct. 2026</strong> al proveedor <strong><?= esc($razon_social) ?></strong>.
+        de comprobante(s) fiscal(es) No. <strong><?= esc($folioXml) ?></strong> por concepto de <strong>Consumo de alimentos durante la edición 54 del FIC del 17 de Sep al 26 Oct. 2026</strong> al proveedor <strong><?= esc($razon_social) ?></strong>.
     </div>
 
     <!-- Content Body 2 -->
