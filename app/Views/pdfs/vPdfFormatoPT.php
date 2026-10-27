@@ -184,7 +184,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             </tr>
             <tr>
                 <td>21</td>
-                <td><?= esc($fecha_tramite) ?></td>
+                <td><?= date('d/m/Y'); ?></td>
             <td><h6><?= esc($folio_formato) ?></h6></td>
             </tr>
         </tbody>
