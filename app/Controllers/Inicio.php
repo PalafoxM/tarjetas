@@ -1703,6 +1703,72 @@ class Inicio extends BaseController {
         }));
     }
 
+    private function buildReporteVentasEstablecimientoRows(int $idEstablecimiento): array
+    {
+        if ($idEstablecimiento <= 0) {
+            return [];
+        }
+
+        $periodo = $this->getPeriodoOficialReporteVentasProveedor();
+        $rows = \Config\Database::connect()->table('solicitud_pago sp')
+            ->select('
+                sp.id_solicitud_pago,
+                sp.folio_solicitud,
+                sp.id_usuario,
+                sp.id_establecimiento,
+                u.id_partida AS id_partida_usuario,
+                cp.partida AS partida_usuario,
+                sp.monto_solicitado,
+                sp.estatus,
+                sp.fecha_respuesta,
+                sp.fec_reg,
+                sp.observaciones,
+                e.dsc_establecimiento,
+                cte.dsc_tipo
+            ')
+            ->join('usuario u', 'u.id_usuario = sp.id_usuario', 'left')
+            ->join('cat_partida cp', 'cp.id_partida = u.id_partida', 'left')
+            ->join('establecimiento e', 'e.id_establecimiento = sp.id_establecimiento', 'left')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->where('sp.visible', 1)
+            ->where('sp.id_establecimiento', $idEstablecimiento)
+            ->where('sp.fec_reg >=', (string) $periodo['inicio'])
+            ->where('sp.fec_reg <=', (string) $periodo['fin'])
+            ->orderBy('sp.fec_reg', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        foreach ($rows as &$row) {
+            $row = $this->normalizarMontoReporteVentas($row);
+        }
+        unset($row);
+
+        return $this->buildReporteVentasProveedorRows(['proveedorPagos' => $rows]);
+    }
+
+    private function normalizarMontoReporteVentas(array $row): array
+    {
+        $montoSolicitado = (float) ($row['monto_solicitado'] ?? 0);
+        $observaciones = json_decode((string) ($row['observaciones'] ?? ''), true);
+        $montoConsumo = $montoSolicitado;
+        $propina = 0.0;
+
+        if (is_array($observaciones)) {
+            if (is_numeric($observaciones['monto'] ?? null)) {
+                $montoConsumo = (float) $observaciones['monto'];
+            }
+            if (is_numeric($observaciones['propina'] ?? null)) {
+                $propina = (float) $observaciones['propina'];
+            }
+        }
+
+        $row['monto_consumo'] = $montoConsumo;
+        $row['propina'] = $propina;
+        $row['monto_total'] = round($montoConsumo + $propina, 2);
+
+        return $row;
+    }
+
     private function isProveedorPagoAutorizado(string $estatus): bool
     {
         return in_array(strtolower(trim($estatus)), [
@@ -6180,26 +6246,7 @@ private function buildProviderDashboardData(int $idUsuario, int $idEstablecimien
     }
 
     foreach ($pagosRows as &$row) {
-        $montoSolicitado = (float) ($row['monto_solicitado'] ?? 0);
-        $observaciones = json_decode((string) ($row['observaciones'] ?? ''), true);
-        $montoConsumo = $montoSolicitado;
-        $propina = 0.0;
-
-        if (is_array($observaciones)) {
-            $montoJson = $observaciones['monto'] ?? null;
-            $propinaJson = $observaciones['propina'] ?? null;
-
-            if (is_numeric($montoJson)) {
-                $montoConsumo = (float) $montoJson;
-            }
-            if (is_numeric($propinaJson)) {
-                $propina = (float) $propinaJson;
-            }
-        }
-
-        $row['monto_consumo'] = $montoConsumo;
-        $row['propina'] = $propina;
-        $row['monto_total'] = $montoConsumo + $propina;
+        $row = $this->normalizarMontoReporteVentas($row);
     }
     unset($row);
 
@@ -8449,22 +8496,22 @@ public function getPagosPorEstablecimiento()
             ],
         ];
 
-        $pagos = $db->table('pagos p')
-            ->select("\n                p.id_pago,\n                p.id_solicitud_pago,\n                p.id_usuario,\n                p.monto,\n                p.propina,\n                p.total,\n                p.fec_reg,\n                sp.folio_solicitud,\n                sp.metodo_autorizacion,\n                CONCAT_WS(' ', u.nombre, u.primer_apellido, u.segundo_apellido) AS cliente\n            ", false)
-            ->join('usuario u', 'u.id_usuario = p.id_usuario', 'left')
-            ->join('solicitud_pago sp', 'sp.id_solicitud_pago = p.id_solicitud_pago', 'left')
-            ->where('p.id_establecimiento', $idEstablecimiento)
-            ->where('p.visible', 1)
-            ->orderBy('p.fec_reg', 'DESC')
-            ->orderBy('p.id_pago', 'DESC')
-            ->get()
-            ->getResultArray();
-
-        $dataConsumos = [
-            'establecimientoConsumos' => $establecimiento,
-            'pagosConsumos' => $pagos,
-            'facturaConsumos' => $factura,
+        $rowsReporte = $this->buildReporteVentasEstablecimientoRows($idEstablecimiento);
+        $dashboardReporte = [
+            'proveedorEstablecimientos' => [
+                (object) [
+                    'id_establecimiento' => $idEstablecimiento,
+                    'dsc_establecimiento' => (string) ($establecimiento['dsc_establecimiento'] ?? ''),
+                    'dsc_tipo' => $esRestaurante ? 'Restaurante' : 'Hotel',
+                ],
+            ],
         ];
+        $layoutReporte = $this->resolveReporteVentasLayout($dashboardReporte, $idEstablecimiento);
+        $htmlReporte = $this->buildReporteVentasProveedorPdfHtml(
+            $rowsReporte,
+            $this->buildPrimerCorteProveedorPeriodoLabel([]),
+            $layoutReporte
+        );
         $acuerdoSecretarialPath = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'ACUERDO SECRETARIAL 002-2026.pdf';
         if (!is_file($acuerdoSecretarialPath) || !is_readable($acuerdoSecretarialPath)) {
             log_message('error', 'Inicio.ArchivosJuntos: no se encontró el Acuerdo Secretarial 002-2026.');
@@ -8491,7 +8538,7 @@ public function getPagosPorEstablecimiento()
             $documentos = [
                 ['key' => 'formato_pt', 'view' => 'pdfs/vPdfFormatoPT', 'orientation' => 'P', 'data' => $dataPdf],
                 ['key' => 'liberacion', 'view' => 'pdfs/vPdfLiberacionPago', 'orientation' => 'P', 'data' => $dataPdf],
-                ['key' => 'consumos', 'view' => 'pdfs/vPdfListadoConsumos', 'orientation' => 'L', 'data' => $dataConsumos],
+                ['key' => 'consumos', 'html' => $htmlReporte, 'orientation' => 'L'],
             ];
             foreach ($documentos as $documento) {
                 $mpdf = new \Mpdf\Mpdf([
@@ -8504,7 +8551,10 @@ public function getPagosPorEstablecimiento()
                     'default_font' => 'Arial',
                     'tempDir' => $tempDir,
                 ]);
-                $mpdf->WriteHTML(view($documento['view'], $documento['data']));
+                $htmlDocumento = isset($documento['html'])
+                    ? (string) $documento['html']
+                    : view($documento['view'], $documento['data']);
+                $mpdf->WriteHTML($htmlDocumento);
                 $mpdf->Output($pdfPaths[$documento['key']], 'F');
                 unset($mpdf);
             }
