@@ -23,13 +23,17 @@
     function createButton(config) {
         var disponible = !!config.disponible;
         var classes = 'btn btn-sm pagos-fic-action-btn ' + (config.className || '');
-        var element = document.createElement(disponible ? 'a' : 'button');
+        var abreModalArchivos = disponible && !!config.abreModalArchivos;
+        var element = document.createElement(disponible && !abreModalArchivos ? 'a' : 'button');
 
         element.className = classes.trim();
         element.appendChild(createIcon(config.icon || 'mdi mdi-file-outline'));
         element.appendChild(document.createTextNode(' ' + escapeText(config.label)));
 
-        if (disponible) {
+        if (abreModalArchivos) {
+            element.setAttribute('type', 'button');
+            element.setAttribute('data-url', config.url || '');
+        } else if (disponible) {
             element.setAttribute('href', config.url || '#');
             element.setAttribute('target', '_blank');
             element.setAttribute('rel', 'noopener');
@@ -85,9 +89,11 @@
                 className: 'pagos-fic-action-btn--format'
             },
             {
-                data: normalizeDocumento(formatos.liberacion_pago_proveedor, 'Archivos Juntos'),
+                data: $.extend(normalizeDocumento(formatos.liberacion_pago_proveedor, 'Archivos Adjuntos'), {
+                    abreModalArchivos: true
+                }),
                 icon: 'mdi mdi-receipt-outline',
-                className: 'pagos-fic-action-btn--format'
+                className: 'btn-outline-success pagos-fic-action-btn--format js-archivos-juntos'
             }
         ];
 
@@ -192,6 +198,14 @@
     function init() {
         if (!document.querySelector('[data-fic-document-actions]')) return;
 
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest('.js-archivos-juntos');
+            if (!button || button.disabled) return;
+
+            event.preventDefault();
+            abrirModalArchivosJuntos(button.getAttribute('data-url') || '');
+        });
+
         requestEstadosIniciales();
 
         if (realtime && typeof realtime.on === 'function') {
@@ -204,6 +218,50 @@
         document.addEventListener('fic:estado-documental-actualizado', refreshFromEvent);
         document.addEventListener('fic:factura-subida', refreshFromEvent);
         document.addEventListener('fic:reporte-subido', refreshFromEvent);
+    }
+
+    function abrirModalArchivosJuntos(baseUrl) {
+        if (!baseUrl || typeof window.Swal === 'undefined') return;
+
+        window.Swal.fire({
+            title: 'Generar archivos adjuntos',
+            html: '' +
+                '<div class="text-start">' +
+                    '<label for="fic-consecutivo" class="form-label">No. consecutivo</label>' +
+                    '<input id="fic-consecutivo" type="text" inputmode="numeric" maxlength="10" class="swal2-input m-0 w-100" placeholder="Ej. 001" autocomplete="off">' +
+                    '<div class="form-check mt-3">' +
+                        '<input id="fic-irs" class="form-check-input" type="checkbox">' +
+                        '<label class="form-check-label" for="fic-irs">IRS</label>' +
+                    '</div>' +
+                '</div>',
+            showCancelButton: true,
+            confirmButtonText: 'Generar PDF',
+            cancelButtonText: 'Cancelar',
+            focusConfirm: false,
+            preConfirm: function () {
+                var input = document.getElementById('fic-consecutivo');
+                var consecutivo = input ? input.value.trim() : '';
+
+                if (!/^\d{1,10}$/.test(consecutivo)) {
+                    window.Swal.showValidationMessage('Ingresa un número consecutivo válido.');
+                    return false;
+                }
+
+                return {
+                    consecutivo: consecutivo,
+                    irs: document.getElementById('fic-irs').checked
+                };
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed || !result.value) return;
+
+            var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+            var url = baseUrl + separator + 'consecutivo=' + encodeURIComponent(result.value.consecutivo);
+            if (result.value.irs) {
+                url += '&irs=1';
+            }
+            window.open(url, '_blank', 'noopener');
+        });
     }
 
     if (document.readyState === 'loading') {

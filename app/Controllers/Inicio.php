@@ -6819,8 +6819,11 @@ public function getPagosPorEstablecimiento()
             ],
             'liberacion_pago_proveedor' => [
                 'disponible' => $puedeVerFormatos,
-                'label' => 'Archivos Juntos',
-                'url' => $puedeVerFormatos ? base_url('index.php/Inicio/ArchivosJuntos/' . $idEstablecimiento) : '',
+                'label' => 'Archivos Adjuntos',
+                'url' => $puedeVerFormatos
+                    ? base_url('index.php/Inicio/ArchivosJuntos/' . $idEstablecimiento)
+                        . '?' . http_build_query(['id_factura' => $facturaId])
+                    : '',
             ],
         ];
 
@@ -8321,6 +8324,12 @@ public function getPagosPorEstablecimiento()
         }
 
         $idFactura = (int) ($this->request->getGet('id_factura') ?? 0);
+        $consecutivo = trim((string) ($this->request->getGet('consecutivo') ?? ''));
+        $aplicarIrs = (string) ($this->request->getGet('irs') ?? '') === '1';
+        if (!preg_match('/^\d{1,10}$/', $consecutivo)) {
+            return $this->response->setStatusCode(422)->setBody('El número consecutivo es obligatorio y debe contener únicamente dígitos.');
+        }
+
         $db = \Config\Database::connect();
         $facturaBuilder = $db->table('facturas f')
             ->select('f.id_factura, f.xml, f.pdf, f.id_estableciemiento, f.fec_reg')
@@ -8355,7 +8364,10 @@ public function getPagosPorEstablecimiento()
 
         $folioXml = trim((string) ($xmlInfo['folio'] ?? ''));
         $folioXml = $folioXml !== '' ? $folioXml : 'FAC-' . $idFactura;
-        $montoXml = round((float) ($xmlInfo['total'] ?? 0), 2);
+        $montoXmlOriginal = round((float) ($xmlInfo['total'] ?? 0), 2);
+        $montoXml = $aplicarIrs ? max(0, round($montoXmlOriginal - 0.01, 2)) : $montoXmlOriginal;
+        $xmlInfoPdf = $xmlInfo;
+        $xmlInfoPdf['total'] = $montoXml;
         $fechaXml = trim((string) ($xmlInfo['fecha'] ?? ''));
         $fechaXml = $fechaXml !== '' ? $fechaXml : (string) ($factura['fec_reg'] ?? date('Y-m-d H:i:s'));
         $nombreProveedor = trim((string) ($xmlInfo['emisor_nombre'] ?? ''));
@@ -8371,7 +8383,7 @@ public function getPagosPorEstablecimiento()
         $prefijoFolio = $esRestaurante
             ? 'PT SECTURI/SSIDT/DGCT/FIC/TA/'
             : 'PT SECTURI/SSIDT/DGCT/FIC/TH/';
-        $folioPt = $prefijoFolio . str_pad((string) $idFactura, 3, '0', STR_PAD_LEFT) . '/2026';
+        $folioPt = $prefijoFolio . $consecutivo . '/2026';
 
         $registroPt = (object) [
             'fecha_tramite' => $fechaXml,
@@ -8433,7 +8445,7 @@ public function getPagosPorEstablecimiento()
                     'no_proveedor' => (string) ($establecimiento['no_proveedor'] ?? ''),
                 ],
                 'establecimiento' => $establecimiento,
-                'xml_info' => $xmlInfo,
+                'xml_info' => $xmlInfoPdf,
             ],
         ];
 
