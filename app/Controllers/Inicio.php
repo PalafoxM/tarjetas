@@ -29,6 +29,8 @@ class Inicio extends BaseController {
     private const PROVEEDOR_CORTE_MAX_PERIODOS = 2;
     // Activacion temporal/manual: permite descargar el reporte del proveedor sin abrir recepcion documental.
     private const MODO_REVISION_PREVIA_PROVEEDOR = true;
+    // Reapertura manual de recepcion documental; no modifica fechas ni activa el corte global.
+    private const RECEPCION_DOCUMENTAL_PROVEEDOR_HABILITADA = true;
     private const REPORTE_VENTAS_PROVEEDOR_PERIODO_OFICIAL = [
         'inicio' => '2026-09-17 00:00:00',
         'fin' => '2026-10-26 23:59:59',
@@ -788,10 +790,23 @@ class Inicio extends BaseController {
             return redirect()->to(base_url('index.php/Inicio'));
         }
 
-        $data = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
+        $idUsuario = (int) $session->get('id_usuario');
+        $alcance = $this->resolveDocumentaryEstablishmentScope($idUsuario, $contextoUsuario);
+        if (empty($alcance['autorizado'])) {
+            return $this->response->setStatusCode(403)->setBody('No tienes un establecimiento autorizado para este flujo.');
+        }
+
+        $primerCorte = $this->resolvePrimerCorteProveedorContext();
+        $recepcionDocumentalDisponible = (
+            !empty($primerCorte['activo'])
+            || self::RECEPCION_DOCUMENTAL_PROVEEDOR_HABILITADA
+        ) && !empty($primerCorte['schema_ready']);
+
+        $data = $this->buildProviderDashboardData($idUsuario, 0, null, $alcance);
         $data['scripts'] = ['principal', 'agregar'];
         $data['contextoUsuario'] = $contextoUsuario;
-        $data['primerCorteProveedor'] = $this->resolvePrimerCorteProveedorContext();
+        $data['primerCorteProveedor'] = $primerCorte;
+        $data['recepcionDocumentalProveedorHabilitada'] = $recepcionDocumentalDisponible;
         $data['primerCorteProveedorPeriodos'] = $this->buildProviderCortePeriodoMap($data);
         $data['contentView'] = 'secciones/vProveedorFormatos';
         $this->_renderView($data);
@@ -833,6 +848,7 @@ class Inicio extends BaseController {
             ]);
         }
 
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
         $idEstablecimiento = (int) ($this->request->getPost('id_establecimiento') ?? 0);
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -841,7 +857,20 @@ class Inicio extends BaseController {
             ]);
         }
 
-        if ($aplicaPrimerCorte && !$primerCorte['activo']) {
+        $alcance = $this->resolveDocumentaryEstablishmentScope($idUsuario, $contextoUsuario, $idEstablecimiento);
+        if (empty($alcance['autorizado'])) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'El establecimiento no está autorizado para esta sesión.',
+            ]);
+        }
+        $idEstablecimiento = (int) ($alcance['id_establecimiento'] ?? 0);
+
+        $recepcionDocumentalDisponible = !$aplicaPrimerCorte
+            || !empty($primerCorte['activo'])
+            || self::RECEPCION_DOCUMENTAL_PROVEEDOR_HABILITADA;
+
+        if (!$recepcionDocumentalDisponible) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
                 'respuesta' => !empty($primerCorte['cerrado'])
@@ -857,31 +886,7 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $establecimientosPermitidos = [];
-        if ($idEstablecimientoSesion > 0) {
-            $establecimientosPermitidos[] = $idEstablecimientoSesion;
-        }
-
-        $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
-        $establecimientosPermitidos = array_merge($establecimientosPermitidos, array_map(static function ($item): int {
-            $row = is_object($item) ? get_object_vars($item) : (array) $item;
-            return (int) ($row['id_establecimiento'] ?? 0);
-        }, is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : []));
-
-        if (!empty($contextoUsuario['is_recepcion_flow'])) {
-            $establecimientosPermitidos = array_merge($establecimientosPermitidos, array_map(static function (array $row): int {
-                return (int) ($row['id_establecimiento'] ?? 0);
-            }, $this->resolveSessionEstablecimientos()));
-        }
-
-        $establecimientosPermitidos = array_values(array_unique(array_filter($establecimientosPermitidos)));
-
-        if (!in_array($idEstablecimiento, $establecimientosPermitidos, true)) {
-            return $this->response->setStatusCode(403)->setJSON([
-                'error' => true,
-                'respuesta' => 'El establecimiento no pertenece a la sesion.',
-            ]);
-        }
+        $dashboard = $this->buildProviderDashboardData($idUsuario, $idEstablecimiento, null, $alcance);
 
         $db = \Config\Database::connect();
         $corteActivo = $aplicaPrimerCorte ? $this->resolveCorteProveedorById((int) ($primerCorte['id_corte'] ?? 0), $db) : null;
@@ -1011,7 +1016,7 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $idUsuarioSesion = (int) ($session->get('id_usuario') ?? 0);
+        $idUsuarioSesion = $idUsuario;
         $db->transBegin();
 
         if ($aplicaPrimerCorte) {
@@ -1073,7 +1078,10 @@ class Inicio extends BaseController {
 
             $fechaEnvioDt = new \DateTimeImmutable('now', new \DateTimeZone(self::PRIMER_CORTE_PROVEEDOR_TIMEZONE));
             $primerCorteBloqueado = $this->resolvePrimerCorteProveedorContext($fechaEnvioDt);
-            if (empty($primerCorteBloqueado['activo'])) {
+            if (
+                empty($primerCorteBloqueado['activo'])
+                && !self::RECEPCION_DOCUMENTAL_PROVEEDOR_HABILITADA
+            ) {
                 $db->transRollback();
                 return $this->response->setStatusCode(403)->setJSON([
                     'error' => true,
@@ -1177,6 +1185,7 @@ class Inicio extends BaseController {
             ]);
         }
 
+        $idUsuario = (int) ($session->get('id_usuario') ?? 0);
         $idEstablecimiento = (int) ($this->request->getPost('id_establecimiento') ?? 0);
         if ($idEstablecimiento <= 0) {
             return $this->response->setStatusCode(422)->setJSON([
@@ -1185,7 +1194,20 @@ class Inicio extends BaseController {
             ]);
         }
 
-        if ($aplicaPrimerCorte && !$primerCorte['activo']) {
+        $alcance = $this->resolveDocumentaryEstablishmentScope($idUsuario, $contextoUsuario, $idEstablecimiento);
+        if (empty($alcance['autorizado'])) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'error' => true,
+                'respuesta' => 'El establecimiento no está autorizado para esta sesión.',
+            ]);
+        }
+        $idEstablecimiento = (int) ($alcance['id_establecimiento'] ?? 0);
+
+        $recepcionDocumentalDisponible = !$aplicaPrimerCorte
+            || !empty($primerCorte['activo'])
+            || self::RECEPCION_DOCUMENTAL_PROVEEDOR_HABILITADA;
+
+        if (!$recepcionDocumentalDisponible) {
             return $this->response->setStatusCode(403)->setJSON([
                 'error' => true,
                 'respuesta' => !empty($primerCorte['cerrado'])
@@ -1201,7 +1223,7 @@ class Inicio extends BaseController {
             ]);
         }
 
-        $dashboard = $this->buildProviderDashboardData((int) $session->get('id_usuario'));
+        $dashboard = $this->buildProviderDashboardData($idUsuario, $idEstablecimiento, null, $alcance);
         $establecimiento = [];
         foreach (is_array($dashboard['proveedorEstablecimientos'] ?? null) ? $dashboard['proveedorEstablecimientos'] : [] as $item) {
             $row = is_object($item) ? get_object_vars($item) : (array) $item;
@@ -1405,6 +1427,7 @@ class Inicio extends BaseController {
         }
 
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+
         $alcance = $this->resolveProviderEstablishmentScope($idUsuario, $idEstablecimiento);
         if (empty($alcance['autorizado'])) {
             return $this->response->setStatusCode(403)->setBody('No tienes permisos para exportar este establecimiento.');
@@ -3710,6 +3733,19 @@ class Inicio extends BaseController {
             || !empty($contextoUsuario['is_ti_master'])
             || (!empty($contextoUsuario['can_access_user_catalog']) && empty($contextoUsuario['is_provider_flow']) && empty($contextoUsuario['is_recepcion_flow']));
         $idEstablecimiento = (int) ($this->request->getGet('id_establecimiento') ?? 0);
+        $alcance = null;
+
+        if (!$puedeConsultarGlobal) {
+            $idUsuario = (int) ($session->get('id_usuario') ?? 0);
+            $alcance = $this->resolveDocumentaryEstablishmentScope($idUsuario, $contextoUsuario, $idEstablecimiento);
+
+            if (empty($alcance['autorizado'])) {
+                return $this->response->setStatusCode(403)->setJSON([
+                    'ok' => false,
+                    'message' => 'El establecimiento no esta autorizado para esta sesion.',
+                ]);
+            }
+        }
 
         if (
             !$puedeConsultarGlobal
@@ -3726,7 +3762,12 @@ class Inicio extends BaseController {
 
         $allowedIds = $puedeConsultarGlobal
             ? []
-            : $this->resolveEstadoDocumentalAllowedEstablecimientoIds($contextoUsuario);
+            : array_values(array_unique(array_filter(array_map(
+                'intval',
+                is_array($alcance['establecimientos'] ?? null)
+                    ? $alcance['establecimientos']
+                    : []
+            ))));
 
         if (!$puedeConsultarGlobal && empty($allowedIds)) {
             return $this->response->setStatusCode(403)->setJSON([
@@ -6000,6 +6041,125 @@ class Inicio extends BaseController {
 
         return round((float) $normalized, 2);
     }
+
+private function resolveDocumentaryEstablishmentScope(
+    int $idUsuario,
+    array $contextoUsuario,
+    int $requestedEstablecimiento = 0
+): array {
+    $session = \Config\Services::session();
+    $esRecepcion = !empty($contextoUsuario['is_recepcion_flow'])
+        || (int) ($session->get('perfil_recepcion_override') ?? 0) === 7;
+
+    if ($esRecepcion) {
+        $db = \Config\Database::connect();
+        $idEstablecimientoSesion = (int) ($session->get('id_establecimiento') ?? 0);
+        if ($idEstablecimientoSesion > 0) {
+            $establecimiento = $db->table('establecimiento')
+                ->select('id_establecimiento')
+                ->where('id_establecimiento', $idEstablecimientoSesion)
+                ->where('visible', 1)
+                ->get()
+                ->getRowArray();
+
+            if (empty($establecimiento)) {
+                return [
+                    'autorizado' => false,
+                    'es_multiple' => false,
+                    'establecimientos' => [],
+                    'id_establecimiento' => null,
+                ];
+            }
+
+            if (
+                $requestedEstablecimiento > 0
+                && $requestedEstablecimiento !== $idEstablecimientoSesion
+            ) {
+                return [
+                    'autorizado' => false,
+                    'es_multiple' => false,
+                    'establecimientos' => [],
+                    'id_establecimiento' => null,
+                ];
+            }
+
+            return [
+                'autorizado' => true,
+                'es_multiple' => false,
+                'establecimientos' => [$idEstablecimientoSesion],
+                'id_establecimiento' => $idEstablecimientoSesion,
+            ];
+        }
+
+        $usuario = $db->table('usuario u')
+            ->select('u.id_establecimiento')
+            ->where('u.id_usuario', $idUsuario)
+            ->where('u.visible', 1)
+            ->get()
+            ->getRowArray();
+        $idEstablecimientoUsuario = (int) ($usuario['id_establecimiento'] ?? 0);
+
+        if ($idEstablecimientoUsuario > 0) {
+            $establecimiento = $db->table('establecimiento')
+                ->select('id_establecimiento')
+                ->where('id_establecimiento', $idEstablecimientoUsuario)
+                ->where('visible', 1)
+                ->get()
+                ->getRowArray();
+
+            if (!empty($establecimiento)) {
+                if ($requestedEstablecimiento <= 0 || $requestedEstablecimiento === $idEstablecimientoUsuario) {
+                    return [
+                        'autorizado' => true,
+                        'es_multiple' => false,
+                        'establecimientos' => [$idEstablecimientoUsuario],
+                        'id_establecimiento' => $idEstablecimientoUsuario,
+                    ];
+                }
+
+                return [
+                    'autorizado' => false,
+                    'es_multiple' => false,
+                    'establecimientos' => [],
+                    'id_establecimiento' => null,
+                ];
+            }
+        }
+
+        $relaciones = $db->table('usuario_establecimiento ue')
+            ->select('ue.id_establecimiento')
+            ->join(
+                'establecimiento e',
+                'e.id_establecimiento = ue.id_establecimiento AND e.visible = 1',
+                'inner'
+            )
+            ->where('ue.id_usuario', $idUsuario)
+            ->where('ue.visible', 1)
+            ->get()
+            ->getResultArray();
+
+        if (count($relaciones) === 1) {
+            $idEstablecimientoRelacion = (int) ($relaciones[0]['id_establecimiento'] ?? 0);
+            if ($requestedEstablecimiento <= 0 || $requestedEstablecimiento === $idEstablecimientoRelacion) {
+                return [
+                    'autorizado' => $idEstablecimientoRelacion > 0,
+                    'es_multiple' => false,
+                    'establecimientos' => $idEstablecimientoRelacion > 0 ? [$idEstablecimientoRelacion] : [],
+                    'id_establecimiento' => $idEstablecimientoRelacion > 0 ? $idEstablecimientoRelacion : null,
+                ];
+            }
+        }
+
+        return [
+            'autorizado' => false,
+            'es_multiple' => false,
+            'establecimientos' => [],
+            'id_establecimiento' => null,
+        ];
+    }
+
+    return $this->resolveProviderEstablishmentScope($idUsuario, $requestedEstablecimiento);
+}
 
 private function resolveProviderEstablishmentScope(int $idUsuario, int $requestedEstablecimiento = 0): array
 {
