@@ -540,7 +540,7 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 <br><p><strong>1.</strong> Para comenzar con el proceso de pago, envía tu REPORTE DE VENTAS a tu enlace SECTURI.</p>
                 <p><strong>2.</strong> Descárgalo desde el botón "Descargar reporte de ventas" en la esquina superior derecha de esta página .</p>
                 <br><p><strong>Importante:</strong> Por el momento estará inactivo el envío de facturas para hacer las revisiones previas, la cual tendrá como límite hasta el 28 de octubre a las 12 horas.</p>-->
-                <p>Si tienes alguna duda, ponte en contacto con tu enlace SECTURI o en el botón de ayuda de la página de login.</p>
+                <p>Si tienes alguna duda, ponte en contacto con tu encargado SECTURI o en el botón de ayuda de la página de login.</p>
             </section>
         <?php elseif ($primerCorteCerrado): ?>
             <section class="provider-cut-notice">
