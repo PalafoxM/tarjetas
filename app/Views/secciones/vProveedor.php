@@ -543,10 +543,10 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
                 <p>Si tienes alguna duda, ponte en contacto con tu encargado SECTURI o en el botón de ayuda de la página de login.</p>
             </section>
         <?php elseif ($primerCorteCerrado): ?>
-            <section class="provider-cut-notice">
+            <!--<section class="provider-cut-notice">
                 <h4>Envía tu documentación en esta página</h4>
                 <p>Sube tu XML, PDF de factura y reporte de ventas. Cuando cargues los tres documentos, el botón de <strong>Enviar factura</strong> se activará.</p>
-            </section>
+            </section>-->
         <?php endif; ?>
 
         <section class="row g-3">
