@@ -506,12 +506,12 @@ $proveedorNumero = (string) ($datosProveedor->no_proveedor ?? $proveedorPerfil['
             <div class="d-grid gap-2">
                 <!--<button class="btn btn-outline-light provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalSolicitudPersonal">
                     <i class="mdi mdi-account-plus me-1"></i> Solicitar personal
-                </button>-->
+                </button>
                 <a class="btn btn-primary provider-action" href="<?= esc(base_url('index.php/Inicio/ProveedorFormatos'), 'attr') ?>">
                     <i class="mdi mdi-file-document-outline me-1"></i> Subir Factura
                 </a>
                 <button class="btn btn-success provider-action" type="button" data-bs-toggle="modal" data-bs-target="#modalPagoSinQr">
-                    <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR
+                    <i class="mdi mdi-cash-register me-1"></i> Pagos sin QR-->
                 </button>
 
                 <?php if ($modoRevisionPreviaProveedor || $primerCorteActivo): ?>
