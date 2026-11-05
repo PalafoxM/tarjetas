@@ -278,7 +278,7 @@ $convertirNumeroALetras = static function ($valor) use ($convertirEnteroALetras,
             <td colspan="3" class="text-left no-border">
                 <span class="font-bold">No. CONTRATO y/o CONVENIO:</span> <?= esc((string) ($registro_pt->no_convenio ?? '')) ?>
                 <br>
-                <span class="font-bold">No. RESERVA:</span> 5413298
+                <span class="font-bold">No. RESERVA:</span> 5413293
             </td>
             <td width="30%" class="font-bold">
                 <?= $monto_total < 0 ? '' : '$' ?><?= number_format(abs((float) $monto_total), 2) ?>
