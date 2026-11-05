@@ -19,6 +19,7 @@ require_once ROOTPATH . 'spout/src/Spout/Autoloader/autoload.php';
 class Inicio extends BaseController {
 
     use ResponseTrait;
+    private const ANEXO_01_FIC_ANIO = '2026';
     private const PARTIDA_2210_SALDO_INICIAL_DASHBOARD = 216920.00;
     private const PRIMER_CORTE_PROVEEDOR_ID = 'primer_corte_2026';
     private const PRIMER_CORTE_PROVEEDOR_TIMEZONE = 'America/Mexico_City';
@@ -3515,6 +3516,16 @@ class Inicio extends BaseController {
             return $this->response->setStatusCode(422)->setBody('La factura indicada no es válida.');
         }
 
+        $consecutivo = trim((string) ($this->request->getGet('consecutivo') ?? ''));
+        if (!preg_match('/^(?=.*[1-9])[0-9]{1,3}$/', $consecutivo)) {
+            return $this->response->setStatusCode(422)->setBody('El número consecutivo debe ser un valor numérico entre 1 y 999.');
+        }
+        $consecutivo = str_pad($consecutivo, 3, '0', STR_PAD_LEFT);
+        $folioControl = 'PT SECTURI/SSIDT/DGCT/FIC/TA/'
+            . $consecutivo
+            . '/'
+            . self::ANEXO_01_FIC_ANIO;
+
         $db = \Config\Database::connect();
         if (!$db->tableExists('facturas')) {
             return $this->response->setStatusCode(500)->setBody('No existe la tabla de facturas.');
@@ -3584,8 +3595,6 @@ class Inicio extends BaseController {
         $fecha = (string) ($xmlInfo['fecha'] ?? $factura['fec_reg'] ?? '');
         $fechaTimestamp = strtotime($fecha);
         $fechaDocumento = $fechaTimestamp !== false ? date('d/m/Y', $fechaTimestamp) : date('d/m/Y');
-        $folioControl = '';
-
         $values = [
             'H7' => ['value' => $fechaDocumento, 'numeric' => false],
             'H9' => ['value' => $folioControl, 'numeric' => false],
@@ -3597,7 +3606,9 @@ class Inicio extends BaseController {
             'B27' => ['value' => $importeTexto, 'numeric' => false],
         ];
 
-        $templatePath = ROOTPATH . 'app/Resources/templates/Anexo1_FIC_PT_SECTURI_SSIDT_DGCT_FIC_TH_035_2026.xlsx';
+        $templatePath = ROOTPATH . 'app/Resources/templates/Anexo1_FIC_PT_SECTURI_SSIDT_DGCT_FIC_TH_035_'
+            . self::ANEXO_01_FIC_ANIO
+            . '.xlsx';
         $outputPath = $this->buildAnexo01Workbook($templatePath, $values, $idFactura);
         if ($outputPath === '') {
             return $this->response->setStatusCode(500)->setBody('No fue posible preparar el archivo Anexo 1.');
@@ -7157,6 +7168,7 @@ public function getPagosPorEstablecimiento()
                 'url' => $puedeVerFormatos
                     ? base_url('index.php/Inicio/descargarAnexo01ProveedorFIC?id_factura=' . $facturaId)
                     : '',
+                'abreModalAnexo' => $puedeVerFormatos,
             ],
         ];
 

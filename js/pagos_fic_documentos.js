@@ -24,7 +24,8 @@
         var disponible = !!config.disponible;
         var classes = 'btn btn-sm pagos-fic-action-btn ' + (config.className || '');
         var abreModalArchivos = disponible && !!config.abreModalArchivos;
-        var element = document.createElement(disponible && !abreModalArchivos ? 'a' : 'button');
+        var abreModalAnexo = disponible && !!config.abreModalAnexo;
+        var element = document.createElement(disponible && !abreModalArchivos && !abreModalAnexo ? 'a' : 'button');
 
         element.className = classes.trim();
         element.appendChild(createIcon(config.icon || 'mdi mdi-file-outline'));
@@ -33,6 +34,10 @@
         if (abreModalArchivos) {
             element.setAttribute('type', 'button');
             element.setAttribute('data-url', config.url || '');
+        } else if (abreModalAnexo) {
+            element.setAttribute('type', 'button');
+            element.setAttribute('data-url', config.url || '');
+            element.classList.add('js-anexo-01');
         } else if (disponible) {
             element.setAttribute('href', config.url || '#');
             element.setAttribute('target', '_blank');
@@ -96,7 +101,9 @@
                 className: 'btn-outline-success pagos-fic-action-btn--format js-archivos-juntos'
             },
             {
-                data: normalizeDocumento(formatos.anexo_01, 'Anexo 1'),
+                data: $.extend(normalizeDocumento(formatos.anexo_01, 'Anexo 1'), {
+                    abreModalAnexo: true
+                }),
                 icon: 'mdi mdi-file-excel-outline',
                 className: 'btn-outline-success pagos-fic-action-btn--format'
             }
@@ -205,10 +212,16 @@
 
         document.addEventListener('click', function (event) {
             var button = event.target.closest('.js-archivos-juntos');
-            if (!button || button.disabled) return;
+            var anexoButton = event.target.closest('.js-anexo-01');
+            if (button && !button.disabled) {
+                event.preventDefault();
+                abrirModalArchivosJuntos(button.getAttribute('data-url') || '');
+                return;
+            }
+            if (!anexoButton || anexoButton.disabled) return;
 
             event.preventDefault();
-            abrirModalArchivosJuntos(button.getAttribute('data-url') || '');
+            abrirModalAnexo01(anexoButton.getAttribute('data-url') || '');
         });
 
         requestEstadosIniciales();
@@ -265,6 +278,40 @@
             if (result.value.irs) {
                 url += '&irs=1';
             }
+            window.open(url, '_blank', 'noopener');
+        });
+    }
+
+    function abrirModalAnexo01(baseUrl) {
+        if (!baseUrl || typeof window.Swal === 'undefined') return;
+
+        window.Swal.fire({
+            title: 'Generar Anexo 1',
+            html: '' +
+                '<div class="text-start">' +
+                    '<label for="fic-anexo-consecutivo" class="form-label">No. consecutivo</label>' +
+                    '<input id="fic-anexo-consecutivo" type="text" inputmode="numeric" maxlength="3" class="swal2-input m-0 w-100" placeholder="Ej. 045" autocomplete="off">' +
+                '</div>',
+            showCancelButton: true,
+            confirmButtonText: 'Generar XLSX',
+            cancelButtonText: 'Cancelar',
+            focusConfirm: false,
+            preConfirm: function () {
+                var input = document.getElementById('fic-anexo-consecutivo');
+                var consecutivo = input ? input.value.trim() : '';
+
+                if (!/^(?=.*[1-9])[0-9]{1,3}$/.test(consecutivo)) {
+                    window.Swal.showValidationMessage('Ingresa un consecutivo numérico entre 1 y 999.');
+                    return false;
+                }
+
+                return { consecutivo: consecutivo.padStart(3, '0') };
+            }
+        }).then(function (result) {
+            if (!result.isConfirmed || !result.value) return;
+
+            var separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+            var url = baseUrl + separator + 'consecutivo=' + encodeURIComponent(result.value.consecutivo);
             window.open(url, '_blank', 'noopener');
         });
     }
