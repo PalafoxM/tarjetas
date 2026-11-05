@@ -94,6 +94,11 @@
                 }),
                 icon: 'mdi mdi-receipt-outline',
                 className: 'btn-outline-success pagos-fic-action-btn--format js-archivos-juntos'
+            },
+            {
+                data: normalizeDocumento(formatos.anexo_01, 'Anexo 1'),
+                icon: 'mdi mdi-file-excel-outline',
+                className: 'btn-outline-success pagos-fic-action-btn--format'
             }
         ];
 

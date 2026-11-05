@@ -3504,6 +3504,125 @@ class Inicio extends BaseController {
         $this->_renderView($data);
     }
 
+    public function descargarAnexo01ProveedorFIC()
+    {
+        if (empty($this->resolveSecturiDashboardUsuario())) {
+            return $this->response->setStatusCode(403)->setBody('No tienes permisos para generar este documento.');
+        }
+
+        $idFactura = (int) ($this->request->getGet('id_factura') ?? 0);
+        if ($idFactura <= 0) {
+            return $this->response->setStatusCode(422)->setBody('La factura indicada no es válida.');
+        }
+
+        $db = \Config\Database::connect();
+        if (!$db->tableExists('facturas')) {
+            return $this->response->setStatusCode(500)->setBody('No existe la tabla de facturas.');
+        }
+
+        $factura = $db->table('facturas f')
+            ->select('
+                f.id_factura,
+                f.xml,
+                f.pdf,
+                f.id_estableciemiento AS id_establecimiento,
+                f.fec_reg,
+                e.dsc_establecimiento,
+                e.no_proveedor,
+                e.id_tipo,
+                e.no_contrato,
+                e.visible AS establecimiento_visible,
+                cte.dsc_tipo,
+                p.id_proveedor,
+                p.razon_social,
+                p.rfc
+            ')
+            ->join('establecimiento e', 'e.id_establecimiento = f.id_estableciemiento', 'inner')
+            ->join('cat_tipo_establecimiento cte', 'cte.id_tipo = e.id_tipo', 'left')
+            ->join('proveedor p', 'p.no_proveedor = e.no_proveedor', 'left')
+            ->where('f.id_factura', $idFactura)
+            ->where('f.visible', 1)
+            ->where('e.visible', 1)
+            ->get()
+            ->getRowArray();
+
+        if (empty($factura)) {
+            return $this->response->setStatusCode(404)->setBody('Factura no encontrada.');
+        }
+
+        $xmlPath = trim((string) ($factura['xml'] ?? ''));
+        if ($xmlPath === '') {
+            return $this->response->setStatusCode(422)->setBody('La factura no tiene XML vinculado.');
+        }
+
+        $xmlInfo = $this->extractAnexo01XmlInfo($xmlPath, $idFactura);
+        if (!empty($xmlInfo['error'])) {
+            return $this->response->setStatusCode((int) ($xmlInfo['status'] ?? 422))->setBody((string) $xmlInfo['error']);
+        }
+
+        $idTipo = (int) ($factura['id_tipo'] ?? 0);
+        $tipoEstablecimiento = strtolower(trim((string) ($factura['dsc_tipo'] ?? '')));
+        $esHospedaje = $idTipo === 2
+            || str_contains($tipoEstablecimiento, 'hotel')
+            || str_contains($tipoEstablecimiento, 'recep');
+        $partida = $this->resolveReporteVentasPartida([
+            'id_partida_usuario' => $esHospedaje ? 2 : 3,
+        ]);
+        $concepto = $esHospedaje ? 'Servicio de hospedaje' : 'Consumo de alimentos';
+
+        $proveedor = trim((string) ($xmlInfo['emisor_nombre'] ?? ''));
+        if ($proveedor === '') {
+            $proveedor = trim((string) ($factura['razon_social'] ?? $factura['dsc_establecimiento'] ?? ''));
+        }
+        $folioFiscal = trim((string) ($xmlInfo['folio_comprobante'] ?? ''));
+        if ($folioFiscal === '') {
+            $folioFiscal = trim((string) ($xmlInfo['uuid'] ?? ''));
+        }
+        $importe = round((float) ($xmlInfo['total'] ?? 0), 2);
+        $importeTexto = '$' . number_format($importe, 2, '.', ',')
+            . ' (' . $this->convertirImporteALetras($importe) . ')';
+        $fecha = (string) ($xmlInfo['fecha'] ?? $factura['fec_reg'] ?? '');
+        $fechaTimestamp = strtotime($fecha);
+        $fechaDocumento = $fechaTimestamp !== false ? date('d/m/Y', $fechaTimestamp) : date('d/m/Y');
+        $folioControl = '';
+
+        $values = [
+            'H7' => ['value' => $fechaDocumento, 'numeric' => false],
+            'H9' => ['value' => $folioControl, 'numeric' => false],
+            'B24' => ['value' => $proveedor, 'numeric' => false],
+            'H24' => ['value' => $partida, 'numeric' => true],
+            'B25' => ['value' => $concepto, 'numeric' => false],
+            'B26' => ['value' => $folioFiscal, 'numeric' => false],
+            'H26' => ['value' => trim((string) ($factura['no_contrato'] ?? '')) ?: 'NO APLICA', 'numeric' => false],
+            'B27' => ['value' => $importeTexto, 'numeric' => false],
+        ];
+
+        $templatePath = ROOTPATH . 'app/Resources/templates/Anexo1_FIC_PT_SECTURI_SSIDT_DGCT_FIC_TH_035_2026.xlsx';
+        $outputPath = $this->buildAnexo01Workbook($templatePath, $values, $idFactura);
+        if ($outputPath === '') {
+            return $this->response->setStatusCode(500)->setBody('No fue posible preparar el archivo Anexo 1.');
+        }
+
+        $downloadName = 'Anexo_01_FIC_' . $idFactura . '.xlsx';
+        try {
+            $contents = file_get_contents($outputPath);
+            if ($contents === false) {
+                return $this->response->setStatusCode(500)->setBody('No fue posible leer el archivo Anexo 1 generado.');
+            }
+
+            $download = $this->response->download($downloadName, $contents);
+            if ($download === null) {
+                return $this->response->setStatusCode(500)->setBody('No fue posible preparar la descarga del Anexo 1.');
+            }
+
+            return $download
+                ->setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $downloadName . '"');
+        } finally {
+            @unlink($outputPath);
+        }
+    }
+
     public function CortesProveedor()
     {
         $admin = $this->resolveCorteProveedorAdminContext();
@@ -7032,6 +7151,13 @@ public function getPagosPorEstablecimiento()
                         . '?' . http_build_query(['id_factura' => $facturaId])
                     : '',
             ],
+            'anexo_01' => [
+                'disponible' => $puedeVerFormatos,
+                'label' => 'Anexo 1',
+                'url' => $puedeVerFormatos
+                    ? base_url('index.php/Inicio/descargarAnexo01ProveedorFIC?id_factura=' . $facturaId)
+                    : '',
+            ],
         ];
 
         return [
@@ -9138,6 +9264,172 @@ public function getPagosPorEstablecimiento()
         }
 
         return $info;
+    }
+
+    private function extractAnexo01XmlInfo(string $storedPath, int $idFactura): array
+    {
+        $xmlBody = $this->readStoredFileContents($storedPath);
+        if ($xmlBody === '') {
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: no se pudo leer el XML de la factura ' . $idFactura . '.');
+            return ['error' => 'No fue posible obtener el XML de la factura desde el almacenamiento.', 'status' => 502];
+        }
+
+        $libxmlAnterior = libxml_use_internal_errors(true);
+        $xml = simplexml_load_string($xmlBody, \SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
+        $erroresXml = libxml_get_errors();
+        libxml_clear_errors();
+        libxml_use_internal_errors($libxmlAnterior);
+
+        if ($xml === false) {
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: XML inválido para factura ' . $idFactura . '. Errores: ' . count($erroresXml));
+            return ['error' => 'El XML de la factura no es válido.', 'status' => 422];
+        }
+
+        $atributos = $xml->attributes();
+        $serie = trim((string) ($atributos['Serie'] ?? ''));
+        $folio = trim((string) ($atributos['Folio'] ?? ''));
+        $folioComprobante = trim($serie . ($serie !== '' && $folio !== '' ? '-' : '') . $folio);
+        $fecha = trim((string) ($atributos['Fecha'] ?? ''));
+        $subtotal = round((float) ($atributos['SubTotal'] ?? 0), 2);
+        $total = round((float) ($atributos['Total'] ?? 0), 2);
+        $moneda = trim((string) ($atributos['Moneda'] ?? ''));
+        $timbres = $xml->xpath('//*[local-name()="TimbreFiscalDigital"]');
+        $uuid = '';
+        if (is_array($timbres) && isset($timbres[0])) {
+            $atributosTimbre = $timbres[0]->attributes();
+            $uuid = trim((string) ($atributosTimbre['UUID'] ?? ''));
+        }
+
+        $namespaces = $xml->getNamespaces(true);
+        $cfdi = isset($namespaces['cfdi']) ? $xml->children($namespaces['cfdi']) : $xml;
+        $emisor = $cfdi->Emisor ?? null;
+        $receptor = $cfdi->Receptor ?? null;
+        $emisorNombre = '';
+        $emisorRfc = '';
+        $receptorNombre = '';
+        $receptorRfc = '';
+        if ($emisor) {
+            $emisorAtributos = $emisor->attributes();
+            $emisorNombre = trim((string) ($emisorAtributos['Nombre'] ?? ''));
+            $emisorRfc = trim((string) ($emisorAtributos['Rfc'] ?? ''));
+        }
+        if ($receptor) {
+            $receptorAtributos = $receptor->attributes();
+            $receptorNombre = trim((string) ($receptorAtributos['Nombre'] ?? ''));
+            $receptorRfc = trim((string) ($receptorAtributos['Rfc'] ?? ''));
+        }
+
+        $conceptos = [];
+        if (isset($cfdi->Conceptos)) {
+            foreach ($cfdi->Conceptos->Concepto as $concepto) {
+                $descripcion = trim((string) ($concepto->attributes()['Descripcion'] ?? ''));
+                if ($descripcion !== '') {
+                    $conceptos[] = $descripcion;
+                }
+            }
+        }
+
+        if ($folioComprobante === '' && $uuid !== '') {
+            $folioComprobante = $uuid;
+        }
+        if ($folioComprobante === '' || $total <= 0 || $emisorNombre === '') {
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: XML incompleto para factura ' . $idFactura . '.');
+            return ['error' => 'El XML no contiene los datos fiscales obligatorios para generar el Anexo 1.', 'status' => 422];
+        }
+
+        return [
+            'uuid' => $uuid,
+            'serie' => $serie,
+            'folio' => $folio,
+            'folio_comprobante' => $folioComprobante,
+            'fecha' => $fecha,
+            'subtotal' => $subtotal,
+            'total' => $total,
+            'moneda' => $moneda,
+            'emisor_nombre' => $emisorNombre,
+            'emisor_rfc' => $emisorRfc,
+            'receptor_nombre' => $receptorNombre,
+            'receptor_rfc' => $receptorRfc,
+            'conceptos' => array_values(array_unique($conceptos)),
+        ];
+    }
+
+    private function buildAnexo01Workbook(string $templatePath, array $values, int $idFactura): string
+    {
+        if (!is_file($templatePath) || !is_readable($templatePath)) {
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: no se encontró la plantilla para factura ' . $idFactura . '.');
+            return '';
+        }
+
+        $outputPath = tempnam(sys_get_temp_dir(), 'anexo01_');
+        if ($outputPath === false || !copy($templatePath, $outputPath)) {
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: no se pudo copiar la plantilla para factura ' . $idFactura . '.');
+            return '';
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($outputPath) !== true) {
+            @unlink($outputPath);
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: no se pudo abrir el XLSX para factura ' . $idFactura . '.');
+            return '';
+        }
+
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        if (!is_string($sheetXml) || $sheetXml === '') {
+            $zip->close();
+            @unlink($outputPath);
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: no se encontró la hoja de plantilla para factura ' . $idFactura . '.');
+            return '';
+        }
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom->preserveWhiteSpace = true;
+        if (!@$dom->loadXML($sheetXml)) {
+            $zip->close();
+            @unlink($outputPath);
+            log_message('error', 'Inicio.descargarAnexo01ProveedorFIC: XML interno de plantilla inválido para factura ' . $idFactura . '.');
+            return '';
+        }
+
+        $xpath = new \DOMXPath($dom);
+        $namespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+        $xpath->registerNamespace('main', $namespace);
+        foreach ($values as $coordinate => $definition) {
+            $cell = $xpath->query('//main:c[@r="' . $coordinate . '"]')->item(0);
+            if (!$cell instanceof \DOMElement) {
+                continue;
+            }
+
+            while ($cell->firstChild !== null) {
+                $cell->removeChild($cell->firstChild);
+            }
+
+            $value = (string) ($definition['value'] ?? '');
+            if (!empty($definition['numeric']) && is_numeric($value)) {
+                $cell->removeAttribute('t');
+                $valueNode = $dom->createElementNS($namespace, 'v');
+                $valueNode->appendChild($dom->createTextNode($value));
+                $cell->appendChild($valueNode);
+                continue;
+            }
+
+            $cell->setAttribute('t', 'inlineStr');
+            $inline = $dom->createElementNS($namespace, 'is');
+            $text = $dom->createElementNS($namespace, 't');
+            if ($value !== trim($value)) {
+                $text->setAttributeNS('http://www.w3.org/XML/1998/namespace', 'xml:space', 'preserve');
+            }
+            $text->appendChild($dom->createTextNode($value));
+            $inline->appendChild($text);
+            $cell->appendChild($inline);
+        }
+
+        if (!$zip->addFromString('xl/worksheets/sheet1.xml', $dom->saveXML())) {
+            $zip->close();
+            throw new \RuntimeException('No fue posible actualizar la hoja del Anexo 1.');
+        }
+        $zip->close();
+        return $outputPath;
     }
 
     private function readStoredFileContents(string $storedPath): string

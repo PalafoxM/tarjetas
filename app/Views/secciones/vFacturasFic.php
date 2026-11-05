@@ -350,6 +350,9 @@ $formatDate = static function (?string $value): string {
                                                     data-url="<?= esc($archivosJuntosUrl, 'attr') ?>">
                                                     <i class="mdi mdi-receipt-outline me-1"></i> Archivos Adjuntos
                                                 </button>
+                                                <a class="btn btn-sm pagos-fic-action-btn btn-outline-success pagos-fic-action-btn--format" target="_blank" rel="noopener" href="<?= esc(base_url('index.php/Inicio/descargarAnexo01ProveedorFIC?id_factura=' . $facturaId), 'attr') ?>">
+                                                    <i class="mdi mdi-file-excel-outline me-1"></i> Anexo 1
+                                                </a>
                                             <?php else: ?>
                                                 <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-file-document-outline me-1"></i> Formato PT
@@ -362,6 +365,9 @@ $formatDate = static function (?string $value): string {
                                                 </button>
                                                  <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
                                                     <i class="mdi mdi-receipt-outline me-1"></i> Archivos Adjuntos
+                                                </button>
+                                                <button type="button" class="btn btn-sm pagos-fic-action-btn pagos-fic-action-btn--format" disabled>
+                                                    <i class="mdi mdi-file-excel-outline me-1"></i> Anexo 1
                                                 </button>
                                             <?php endif; ?>
                                         </div>

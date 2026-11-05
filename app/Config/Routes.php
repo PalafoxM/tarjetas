@@ -44,6 +44,7 @@ $routes->get('Inicio/Consumos/(:num)', 'Inicio::DetalleConsumos/$1');
 $routes->get('Inicio/exportarReporteInstitucionalSaldosPdf/(:segment)', 'Inicio::exportarReporteInstitucionalSaldosPdf/$1');
 $routes->get('Inicio/exportarReporteInstitucionalConsumosPdf/(:segment)', 'Inicio::exportarReporteInstitucionalConsumosPdf/$1');
 $routes->get('Inicio/getFacturasFic', 'Inicio::getFacturasFic');
+$routes->get('Inicio/descargarAnexo01ProveedorFIC', 'Inicio::descargarAnexo01ProveedorFIC');
 $routes->get('Inicio/getEstadoDocumentalEstablecimiento', 'Inicio::getEstadoDocumentalEstablecimiento');
 $routes->get('Inicio/verFacturaProveedorArchivo', 'Inicio::verFacturaProveedorArchivo');
 $routes->get('Inicio/pdfPagoTerceros', 'Inicio::pdfPagoTerceros');
